@@ -176,6 +176,7 @@ def test_build_store_entry_fields(tmp_path):
         "namespace",
         "name",
         "summary",
+        "homepage",
         "provides",
         "source",
         "state",
@@ -560,3 +561,68 @@ def test_redact_anonymous_preserves_pack_fields(tmp_path):
     rss = ns_map["rss"]
     assert rss["pack"] == ""
     assert rss["pack_members"] == []
+
+
+# ---------------------------------------------------------------------------
+# homepage field
+# ---------------------------------------------------------------------------
+
+
+def test_build_store_includes_homepage(tmp_path):
+    """build_store includes a non-empty homepage for real catalog plugins that
+    have one, sourced from CatalogEntry.homepage."""
+    cat = load_catalog()
+    # Find a catalog entry that has a homepage set.
+    entry_with_homepage = next(
+        (e for e in cat.entries if getattr(e, "homepage", "")), None
+    )
+    assert entry_with_homepage is not None, (
+        "At least one catalog entry must have a homepage for this test to be meaningful"
+    )
+
+    man = tmp_path / "requirements-plugins.txt"
+    man.write_text("")
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    res = build_store(
+        manifest_path=man, config_path=cfg, status={}, token_configured=False
+    )
+    plugin = next(
+        p for p in res["plugins"] if p["namespace"] == entry_with_homepage.namespace
+    )
+    assert "homepage" in plugin, (
+        "build_store must include 'homepage' key in each plugin dict"
+    )
+    assert plugin["homepage"] == entry_with_homepage.homepage
+    assert plugin["homepage"]  # non-empty for this entry
+
+
+def test_redact_anonymous_preserves_homepage(tmp_path):
+    """redact_anonymous must NOT strip homepage — it is public catalog data,
+    same class as name/summary/provides."""
+    payload = {
+        "display_online": True,
+        "pending_count": 0,
+        "auth_required": True,
+        "plugins": [
+            {
+                "namespace": "rss",
+                "name": "RSS Feed",
+                "summary": "RSS headlines.",
+                "homepage": "https://github.com/JamesAwesome/led-ticker-plugins",
+                "provides": {"widgets": ["rss.feed"]},
+                "source": "pypi",
+                "state": "active",
+                "removable": True,
+                "in_use_by": [{"section": "Morning", "type": "rss.feed"}],
+                "pack": "",
+                "pack_members": [],
+            },
+        ],
+    }
+    result = redact_anonymous(payload)
+    rss = next(p for p in result["plugins"] if p["namespace"] == "rss")
+    assert "homepage" in rss, "redact_anonymous must preserve the homepage key"
+    assert rss["homepage"] == "https://github.com/JamesAwesome/led-ticker-plugins", (
+        f"homepage must not be redacted, got {rss['homepage']!r}"
+    )

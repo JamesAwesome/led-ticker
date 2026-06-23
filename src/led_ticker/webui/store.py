@@ -160,7 +160,8 @@ def build_store(
         # if NONE of those siblings is referenced by the running config.  in_use
         # surfaces this namespace's own refs (for the UI note); sibling_in_use
         # gates the removable flag.
-        siblings = key_to_namespaces.get(entry_key[ns], {ns})
+        key = entry_key[ns]
+        siblings = key_to_namespaces.get(key, {ns})
         sibling_in_use = any(refs.get(sib) for sib in siblings)
         removable: bool = bool(is_declared and not sibling_in_use)
 
@@ -176,8 +177,6 @@ def build_store(
         # they form a "pack".  Derive a short human label from the dedup key by
         # stripping a leading "led-ticker-" prefix (e.g. "led-ticker-flair" →
         # "flair"); fall back to the full key when the prefix is absent.
-        key = entry_key[ns]
-        siblings = key_to_namespaces.get(key, {ns})
         is_pack = len(siblings) > 1
         pack_label: str = ""
         pack_members: list[str] = []
@@ -190,6 +189,7 @@ def build_store(
                 "namespace": ns,
                 "name": entry.name,
                 "summary": entry.summary,
+                "homepage": getattr(entry, "homepage", ""),
                 "provides": provides,
                 "source": source,
                 "state": state,

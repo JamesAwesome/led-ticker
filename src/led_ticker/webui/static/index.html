@@ -46,6 +46,8 @@
   .store-plugin:last-child { border-bottom: none; }
   .store-plugin-body { flex: 1; min-width: 0; }
   .store-plugin-name { font-weight: 600; }
+  .store-plugin-repo { font-size: .78rem; color: #6db3f2; margin-left: .4rem; text-decoration: none; opacity: .8; }
+  .store-plugin-repo:hover { opacity: 1; text-decoration: underline; }
   .store-plugin-summary { color: #aaa; font-size: .88rem; margin: .15rem 0; }
   .store-plugin-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .3rem; }
   .chip { font-size: .75rem; font-family: ui-monospace, monospace; background: #252525; border: 1px solid #3a3a3a; border-radius: 4px; padding: .1rem .4rem; color: #aaa; }
@@ -761,7 +763,7 @@ function renderStore(data) {
 
     return `<div class="store-plugin">
       <div class="store-plugin-body">
-        <div class="store-plugin-name">${esc(p.name || p.namespace)}</div>
+        <div class="store-plugin-name">${esc(p.name || p.namespace)}${p.homepage ? `<a class="store-plugin-repo" href="${esc(p.homepage)}" target="_blank" rel="noopener noreferrer">↗ repo</a>` : ""}</div>
         ${p.summary ? `<div class="store-plugin-summary">${esc(p.summary)}</div>` : ""}
         ${chips}
       </div>

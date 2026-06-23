@@ -828,7 +828,7 @@ def test_index_html_has_pack_chip_rendering():
     assert "p.pack_members" in html
 
     # Install and Remove labels are pack-aware.
-    assert "Install ${esc(pack)} pack" in html or "Install" in html
+    assert "Install ${esc(pack)} pack" in html
     assert "Remove ${esc(pack)} pack" in html or "Remove" in html
 
     # Pack members are forwarded as data attributes for the confirm() handler.
@@ -838,6 +838,30 @@ def test_index_html_has_pack_chip_rendering():
     assert "confirm(" in html
     # The confirm message names the pack (template: "Installs the {pack} pack: ...")
     assert "${pack} pack" in html
+
+
+def test_index_html_has_homepage_repo_link():
+    """The Store row render includes a homepage repo link when homepage is non-empty.
+
+    The visual link (↗ repo) is a manual check — no JS runner is wired in
+    this project. This test asserts the static hook: the render template reads
+    p.homepage and emits an <a> tag with the escaped URL.
+    """
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+
+    # The row render reads p.homepage from the payload.
+    assert "p.homepage" in html
+    # It emits an anchor tag with the escaped URL.
+    assert 'href="${esc(p.homepage)}"' in html
+    # Opens in a new tab with safe rel attribute.
+    assert 'target="_blank"' in html
+    assert 'rel="noopener noreferrer"' in html
+    # Repo link label is present (manual: visible as "↗ repo" in the UI).
+    assert "↗ repo" in html
 
 
 # ---------------------------------------------------------------------------

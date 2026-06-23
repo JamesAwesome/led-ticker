@@ -552,6 +552,10 @@ async def run(config_path: Path) -> None:
     # load and the while-True loop is captured in the seed hash (not absorbed
     # into a stale baseline that would make the first-edit invisible).
     watcher = _reload.ConfigWatcher(config_path, enabled=config.display.hot_reload)
+    # MUST stay on tmpfs (the ticker-status volume, alongside status.json): the
+    # Ticker polls this marker with a `stat` at engine-tick rate (~20/s). On
+    # tmpfs that's ~µs and negligible; if status_path ever moved to the SD card,
+    # 20 flash stats/sec would add render-tick cost + wear — time-gate it then.
     _restart_marker: Path | None = (
         Path(config.web.status_path).expanduser().parent / "restart-requested"
         if config.web is not None

@@ -473,6 +473,8 @@ def test_reconcile_runs_before_load_plugins_and_frame_build():
     reconcile_at = src.index("plugin_reconcile.reconcile(")
     apply_at = src.index("apply_to_syspath(")
     load_plugins_at = src.index("_load_plugins_for_config(")
+    setup_board_at = src.index("_setup_status_board(")
+    record_at = src.index("record_plugin_reconcile(")
     frame_at = src.index("build_frame_from_config(")
 
     assert reconcile_at < load_plugins_at, (
@@ -488,4 +490,9 @@ def test_reconcile_runs_before_load_plugins_and_frame_build():
     assert load_plugins_at < frame_at, (
         "_load_plugins_for_config must precede build_frame_from_config — the "
         "matrix library drops root during frame construction (constraint #13)."
+    )
+    assert setup_board_at < record_at < frame_at, (
+        "record_plugin_reconcile(...) must appear after _setup_status_board(...) "
+        "and before build_frame_from_config(...) so the board is ready to "
+        "receive reconcile event records."
     )

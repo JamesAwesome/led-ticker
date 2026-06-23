@@ -793,6 +793,8 @@ def test_index_html_has_store_tab():
     assert "store-offline-banner" in html
     # Store list container
     assert 'id="store-list"' in html
+    # Restart-command element (users copy the restart command from here)
+    assert 'id="store-restart-cmd"' in html
     # JS function references
     assert "loadStore" in html
     assert "storeAction" in html
@@ -1335,5 +1337,33 @@ async def test_remove_unknown_namespace_returns_400(tmp_path, monkeypatch):
         assert resp.status == 400
         body = await resp.json()
         assert body.get("error") == "unknown plugin"
+    finally:
+        await client.close()
+
+
+async def test_install_oversize_body_is_413(tmp_path):
+    """POST /api/store/install with an oversized body → 413 before JSON parse."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            data="x" * (1024 * 1024 + 1),
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 413
+    finally:
+        await client.close()
+
+
+async def test_remove_oversize_body_is_413(tmp_path):
+    """DELETE /api/store/remove with an oversized body → 413 before JSON parse."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            data="x" * (1024 * 1024 + 1),
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 413
     finally:
         await client.close()

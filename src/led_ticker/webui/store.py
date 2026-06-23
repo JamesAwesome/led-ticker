@@ -105,6 +105,19 @@ def build_store(
         elif is_declared:
             state = "restart_to_activate"
         else:
+            # Edge case: catalog plugin is active (in status["plugins"]) but NOT
+            # declared in the manifest.  This can happen when a plugin was installed
+            # outside the manifest (e.g. manually pip-installed), or if the manifest
+            # was edited to remove it while the display process is still running.
+            # Under Spec 1's true-sync guarantee this should be rare; on the next
+            # restart the plugin will be uninstalled (no manifest line → reconciler
+            # drops it).  We represent it as "available" here because:
+            #   - it does NOT appear in the externally_installed bucket (that is only
+            #     for namespaces absent from the catalog entirely), and
+            #   - clicking Install correctly adds the manifest line, which is the
+            #     right remediation action for the user.
+            # "available" is the v1-acceptable representation; a future v2 could
+            # introduce "catalog_active_undeclared" if the distinction matters.
             state = "available"
 
         in_use = refs.get(ns, [])

@@ -215,6 +215,9 @@ def build_webui_app(
         if not token:
             return web.json_response({"error": "editing disabled"}, status=403)
 
+        if (request.content_length or 0) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+
         try:
             payload = await request.json()
         except ValueError:
@@ -255,7 +258,6 @@ def build_webui_app(
                 else []
             )
             kept: list[str] = []
-            replaced = False
             for line in lines:
                 stripped = line.strip()
                 if (
@@ -263,12 +265,10 @@ def build_webui_app(
                     and not stripped.startswith("#")
                     and _requirement_key(stripped) == req_key
                 ):
-                    replaced = True
                     continue  # drop stale line; append fresh req below
                 kept.append(line)
             kept.append(req)
             new_text = "\n".join(kept).rstrip("\n") + "\n"
-            _ = replaced  # unused, for clarity only
 
             try:
                 await _write_manifest_atomic(manifest_path, new_text, manifest_lock)
@@ -306,6 +306,9 @@ def build_webui_app(
         """
         if not token:
             return web.json_response({"error": "editing disabled"}, status=403)
+
+        if (request.content_length or 0) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
 
         try:
             payload = await request.json()

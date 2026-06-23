@@ -120,11 +120,11 @@ def test_build_store_removable_respects_in_use(tmp_path):
     assert len(entry["in_use_by"]) >= 1
 
 
-def test_build_store_display_offline_active_state_stable(tmp_path):
-    """When display is online, active entries show state='active'.
+def test_build_store_online_active_state(tmp_path):
+    """When display is online and a declared plugin is active, state='active'.
 
-    The brief says: when display_online is False, the FRONTEND relabels —
-    the payload keeps the state name stable. Here we verify the active path.
+    The brief says: when display_online is False, the FRONTEND relabels the
+    badge — the JSON payload keeps state names stable regardless of online status.
     """
     cat = load_catalog()
     ns = cat.entries[0].namespace
@@ -132,6 +132,7 @@ def test_build_store_display_offline_active_state_stable(tmp_path):
     man.write_text(cat.entries[0].requirement() + "\n")
     cfg = tmp_path / "config.toml"
     cfg.write_text("")
+    # Online case: status carries the namespace → active
     res = build_store(
         manifest_path=man,
         config_path=cfg,
@@ -141,6 +142,19 @@ def test_build_store_display_offline_active_state_stable(tmp_path):
     assert res["display_online"] is True
     entry = next(p for p in res["plugins"] if p["namespace"] == ns)
     assert entry["state"] == "active"
+
+    # Offline case: status={} → declared plugin becomes restart_to_activate,
+    # display_online is False, pending_count >= 1.
+    res_offline = build_store(
+        manifest_path=man,
+        config_path=cfg,
+        status={},
+        token_configured=False,
+    )
+    assert res_offline["display_online"] is False
+    entry_off = next(p for p in res_offline["plugins"] if p["namespace"] == ns)
+    assert entry_off["state"] == "restart_to_activate"
+    assert res_offline["pending_count"] >= 1
 
 
 def test_build_store_entry_fields(tmp_path):

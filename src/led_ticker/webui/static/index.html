@@ -666,6 +666,9 @@ function renderStore(data) {
     const badge = storeBadge(p.state, displayOnline);
     const chips = storeChips(p.provides);
 
+    // externally_installed plugins get no action button: they were not installed
+    // via the manifest so the Store cannot safely remove them — the user must
+    // manage them through the host environment directly.
     let actionHtml = "";
     if (p.state === "available") {
       // Install button — disabled if auth required but no token
@@ -716,6 +719,8 @@ function renderStore(data) {
 
 async function loadStore() {
   try {
+    // GET /api/store is intentionally open (no auth header): the route is in
+    // _OPEN_PATHS so unauthenticated visitors can browse the plugin list.
     const r = await fetch("/api/store");
     if (!r.ok) {
       $("store-list").innerHTML = `<p class="muted">Could not load store (${r.status}).</p>`;

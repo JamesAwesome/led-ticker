@@ -44,7 +44,7 @@ pip install led-ticker-core
 
 ### Plugins
 
-Extra widgets (and other extension points) are installed as plugins, declared in a pip-requirements file:
+Extra widgets (and other extension points) are installed as plugins, declared in a pip-requirements file. The first-party plugins live in the **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — one package each, each with its own README. Install them like this:
 
 ```bash
 cp config/requirements-plugins.example.txt config/requirements-plugins.txt
@@ -66,6 +66,8 @@ First-party data plugins are on PyPI — add them by name:
 | Weather | `led-ticker-weather` | `weather.current` |
 
 The homage sprite-trail transitions (`nyancat`, `pokeball`, `pacman`, `sailor_moon`) ship together on PyPI as **`led-ticker-flair`** — one install adds all four (`transition = "nyancat.forward"` etc.) plus the `:pokeball.ball:` emoji.
+
+Browse the first-party plugins in the [led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins) monorepo — they double as worked examples. Building your own? The [plugin authoring guide](https://docs.ledticker.dev/plugins/) walks you through shipping it as a standalone package in your own repo — no fork, no monorepo PR needed.
 
 Pre-flight a config before deploying:
 
@@ -128,6 +130,7 @@ See the [hardware reference](https://docs.ledticker.dev/hardware/building-your-o
 - **Questions, ideas, show-and-tell:** [GitHub Discussions](https://github.com/JamesAwesome/led-ticker/discussions)
 - **Bugs & feature requests:** [Issues](https://github.com/JamesAwesome/led-ticker/issues)
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Build a plugin:** the [authoring guide](https://docs.ledticker.dev/plugins/) — ship a standalone plugin in your own repo, no fork needed
 - **Be excellent to each other:** [Code of Conduct](CODE_OF_CONDUCT.md)
 - **Security:** report privately — see [SECURITY.md](SECURITY.md)
 - **General contact:** hello@ledticker.dev

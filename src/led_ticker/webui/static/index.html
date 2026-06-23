@@ -151,6 +151,7 @@
         <strong>Restart required</strong> — some changes only take effect after restarting the display.<br>
         <span id="config-restart-fields" class="muted"></span>
         <div class="restart-btn-wrap" id="config-restart-btn-wrap"></div>
+        <div id="config-restart-status" class="restart-status"></div>
       </div>
     </div>
   </section>
@@ -657,7 +658,7 @@ function showConfigRestartNotice(fields) {
   if (!notice) return;
   if (fieldEl) fieldEl.textContent = fields && fields.length ? "Fields requiring restart: " + fields.map(esc).join(", ") : "";
   notice.style.display = "";
-  renderRestartBtn("config-restart-btn-wrap", null, lastAllowRestart, () => {
+  renderRestartBtn("config-restart-btn-wrap", "config-restart-status", lastAllowRestart, () => {
     hideConfigRestartNotice();
     $("config-status").textContent = "display restarted ✔";
   });
@@ -858,8 +859,8 @@ function renderStore(data) {
     $("store-pending-count").textContent =
       pendingCount === 1 ? "1 plugin added" : pendingCount + " plugins added";
     renderRestartBtn("store-restart-btn-wrap", "store-restart-status", allowRestart, () => {
+      setTimeout(() => { $("store-restart-status").textContent = ""; }, 3000);
       loadStore();
-      $("store-restart-status").textContent = "";
     });
   } else {
     $("store-pending-banner").style.display = "none";

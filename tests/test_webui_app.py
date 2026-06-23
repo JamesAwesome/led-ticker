@@ -2221,6 +2221,9 @@ def test_index_html_has_restart_button_hooks():
     assert 'id="config-restart-btn-wrap"' in html, (
         "Config-editor restart notice must have a restart button wrapper"
     )
+    assert 'id="config-restart-status"' in html, (
+        "Config-editor restart notice must have a restart status element"
+    )
 
     # Config restart notice container
     assert 'id="config-restart-notice"' in html, (
@@ -2334,4 +2337,30 @@ def test_index_html_restart_button_in_config_editor_notice():
     assert 'renderRestartBtn("config-restart-btn-wrap"' in html, (
         "showConfigRestartNotice must call renderRestartBtn "
         "with 'config-restart-btn-wrap'"
+    )
+    # showConfigRestartNotice must pass "config-restart-status" as statusId so
+    # the restarting/elapsed/failed/recovered feedback is surfaced in the config tab.
+    assert (
+        'renderRestartBtn("config-restart-btn-wrap", "config-restart-status"' in html
+    ), (
+        "showConfigRestartNotice must pass 'config-restart-status' as the statusId "
+        "so restart progress feedback is visible in the config tab"
+    )
+
+
+def test_index_html_store_restart_ondone_clears_status_after_delay():
+    """The Store onDone callback clears the restart status via setTimeout (not sync).
+
+    A synchronous .textContent = '' runs before loadStore() resolves and erases
+    the 'Display back online ✔' message before it's visible.  The fix wraps the
+    clear in a setTimeout so it fires after a short delay.
+    """
+    html = _read_index_html()
+    # The async clear must be deferred — synchronous clear is the bug.
+    assert "setTimeout(" in html and "store-restart-status" in html, (
+        "store-restart-status clear must use setTimeout, not a synchronous assignment"
+    )
+    # Verify the exact pattern: setTimeout wrapping the clear, not a bare sync clear.
+    assert 'setTimeout(() => { $("store-restart-status").textContent = ""; }' in html, (
+        "onDone must clear store-restart-status via setTimeout, not synchronously"
     )

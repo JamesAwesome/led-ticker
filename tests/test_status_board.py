@@ -20,6 +20,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "plugins",
     "failed_plugins",
     "disabled_widgets",
+    "plugin_reconcile",
     "last_reload",
     "config_validation",
     "section",
@@ -42,7 +43,7 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 6
+    assert snap["schema"] == SCHEMA_VERSION == 7
     assert "disabled_widgets" in snap
 
 
@@ -504,3 +505,31 @@ def test_record_config_validation_no_active_board_is_noop(tmp_path):
     clear_active_board()
     # Must not raise with no active board.
     record_config_validation(errors=[], warnings=[], ts="2026-06-22T13:00:00")
+
+
+def test_reconcile_recorded_in_snapshot(tmp_path):
+    from led_ticker import status_board
+    from led_ticker.plugin_reconcile import PluginAction
+
+    board = _board(tmp_path)
+    status_board._ACTIVE = board
+    try:
+        status_board.record_plugin_reconcile(
+            [PluginAction("rss", "installed", "0.2.0")]
+        )
+        snap = board.snapshot()
+        assert snap["schema"] == 7
+        assert snap["plugin_reconcile"][0]["namespace"] == "rss"
+        assert snap["plugin_reconcile"][0]["action"] == "installed"
+        assert snap["plugin_reconcile"][0]["detail"] == "0.2.0"
+    finally:
+        status_board.clear_active_board()
+
+
+def test_record_plugin_reconcile_no_board_is_noop():
+    from led_ticker import status_board
+    from led_ticker.plugin_reconcile import PluginAction
+
+    status_board.clear_active_board()
+    # Must not raise with no active board.
+    status_board.record_plugin_reconcile([PluginAction("rss", "installed", "0.2.0")])

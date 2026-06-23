@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -44,6 +44,7 @@ class StatusBoard:
     plugins: list[dict[str, Any]] = attrs.field(factory=list)
     failed_plugins: list[dict[str, str]] = attrs.field(factory=list)
     disabled_widgets: list[dict[str, str]] = attrs.field(factory=list)
+    plugin_reconcile: list[dict[str, str]] = attrs.field(factory=list)
     last_reload: dict[str, Any] = attrs.field(factory=dict)
     config_validation: dict[str, Any] = attrs.field(factory=dict)
     section: dict[str, Any] = attrs.field(factory=dict)
@@ -78,6 +79,7 @@ class StatusBoard:
             "plugins": self.plugins,
             "failed_plugins": self.failed_plugins,
             "disabled_widgets": self.disabled_widgets,
+            "plugin_reconcile": self.plugin_reconcile,
             "last_reload": self.last_reload,
             "config_validation": self.config_validation,
             "section": self.section,
@@ -207,6 +209,25 @@ def record_disabled_widget(widget: Any, error: str) -> None:
         if entry not in _ACTIVE.disabled_widgets:
             _ACTIVE.disabled_widgets.append(entry)
             _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        return
+
+
+def record_plugin_reconcile(actions: list[Any]) -> None:
+    """Record the outcome of a plugin reconcile pass. Instrumentation only —
+    must never raise into the engine."""
+    if _ACTIVE is None:
+        return
+    try:
+        for action in actions:
+            _ACTIVE.plugin_reconcile.append(
+                {
+                    "namespace": action.namespace,
+                    "action": action.action,
+                    "detail": action.detail,
+                }
+            )
+        _ACTIVE.publish()
     except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
         return
 

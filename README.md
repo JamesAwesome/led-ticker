@@ -52,7 +52,7 @@ cp config/requirements-plugins.example.txt config/requirements-plugins.txt
 docker compose restart
 ```
 
-The live `config/requirements-plugins.txt` is gitignored (it's yours to customize); the tracked `.example` ships the pool water-temperature widget (`type = "pool.monitor"`) as a starting point. Installed plugins auto-register via their `led_ticker.plugins` entry point — no `[plugins]` config change needed.
+The live `config/requirements-plugins.txt` is gitignored (it's yours to customize); the tracked `.example` lists all the first-party plugins (pool, baseball, crypto, calendar, RSS, weather, and the flair transitions) as a starting point — trim it to what your sign uses. Installed plugins auto-register via their `led_ticker.plugins` entry point — no `[plugins]` config change needed.
 
 First-party data plugins are on PyPI — add them by name:
 
@@ -65,7 +65,7 @@ First-party data plugins are on PyPI — add them by name:
 | RSS/Atom feeds | `led-ticker-rss` | `rss.feed` |
 | Weather | `led-ticker-weather` | `weather.current` |
 
-Homage sprite-trail transitions (`nyancat`, `pokeball`, `pacman`, `sailor_moon`) are NOT on PyPI — install them via the `git+https` subdirectory form shown in `config/requirements-plugins.example.txt`.
+The homage sprite-trail transitions (`nyancat`, `pokeball`, `pacman`, `sailor_moon`) ship together on PyPI as **`led-ticker-flair`** — one install adds all four (`transition = "nyancat.forward"` etc.) plus the `:pokeball.ball:` emoji.
 
 Pre-flight a config before deploying:
 
@@ -97,7 +97,7 @@ New contributors: start with [CONTRIBUTING.md](CONTRIBUTING.md) (setup, the chan
 docker compose up -d
 ```
 
-The compose file mounts `./config` read-only into the container so you edit TOML on the host and the container picks it up on restart.
+The compose file mounts `./config` read-only into the container; edit TOML on the host and the running display hot-reloads most changes live (widgets, sections, schedule, brightness) — a restart is needed only for hardware-level fields like the panel chain or scaling.
 
 ### Systemd
 

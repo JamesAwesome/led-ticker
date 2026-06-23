@@ -556,3 +556,20 @@ def test_reconcile_prologue_never_raises():
             "panel. It must sit inside a try that has at least one `except` "
             "(constraint #1)."
         )
+
+
+class TestConsumeRestartMarker:
+    """Unit tests for _consume_restart_marker — delete-before-exit helper."""
+
+    def test_consume_restart_marker_detects_and_deletes(self, tmp_path):
+        from led_ticker.app.run import _consume_restart_marker
+
+        m = tmp_path / "restart-requested"
+        m.write_text("")
+        assert _consume_restart_marker(m) is True
+        assert not m.exists()  # deleted BEFORE the caller exits — loop-safety
+
+    def test_consume_restart_marker_absent_is_false(self, tmp_path):
+        from led_ticker.app.run import _consume_restart_marker
+
+        assert _consume_restart_marker(tmp_path / "restart-requested") is False

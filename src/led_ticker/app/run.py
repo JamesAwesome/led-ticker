@@ -8,6 +8,7 @@ the run loop here only orchestrates.
 import asyncio
 import contextlib
 import logging
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -40,6 +41,15 @@ from led_ticker.plugin import StartupContext
 from led_ticker.ticker import Ticker, _displayable, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
 from led_ticker.widget import _build_sink, run_monitor_loop, spawn_tracked
+
+
+def _consume_restart_marker(marker_path: Path) -> bool:
+    """True if a web-UI restart was requested. Deletes the marker FIRST so the
+    restarted process doesn't re-read it and exit again (loop-safety)."""
+    if not marker_path.exists():
+        return False
+    marker_path.unlink(missing_ok=True)
+    return True
 
 
 async def _ttl_ticker(busy: Any, interval: float = 1.0) -> None:
@@ -536,6 +546,11 @@ async def run(config_path: Path) -> None:
     # load and the while-True loop is captured in the seed hash (not absorbed
     # into a stale baseline that would make the first-edit invisible).
     watcher = _reload.ConfigWatcher(config_path, enabled=config.display.hot_reload)
+    _restart_marker: Path | None = (
+        Path(config.web.status_path).expanduser().parent / "restart-requested"
+        if config.web is not None
+        else None
+    )
     # Surface any coerce warnings recorded by load_config (string-of-digits
     # int/float fields, mixed-case enum strings). Same messages that
     # `led-ticker validate` shows as rule-37 warnings; logging at startup
@@ -635,6 +650,14 @@ async def run(config_path: Path) -> None:
 
             try:
                 while True:
+                    if _restart_marker is not None and _consume_restart_marker(
+                        _restart_marker
+                    ):
+                        logging.info(
+                            "restart requested via web UI"
+                            " — exiting for supervisor restart"
+                        )
+                        sys.exit(0)
                     if watcher.changed():
                         new_config, errors, transient = await _reload.load_and_validate(
                             config_path

@@ -354,12 +354,12 @@ def _installed_namespaces() -> set[str]:
     return {ep.name for ep in eps}
 
 
-def _pip_install(requirement: str) -> int:
+def _pip_install(requirement: str, *, python_exe: str = sys.executable) -> int:
     """Freeze the current env to a constraints file, then pip-install the
     requirement under it so a plugin can't move core's pinned deps. Returns the
     pip exit code (0 = success)."""
     freeze = subprocess.run(
-        [sys.executable, "-m", "pip", "list", "--format=freeze"],
+        [python_exe, "-m", "pip", "list", "--format=freeze"],
         capture_output=True,
         text=True,
     )
@@ -373,17 +373,17 @@ def _pip_install(requirement: str) -> int:
         constraints = fh.name
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-c", constraints, requirement],
+            [python_exe, "-m", "pip", "install", "-c", constraints, requirement],
         )
     finally:
         Path(constraints).unlink(missing_ok=True)
     return proc.returncode
 
 
-def _pip_uninstall(dist: str) -> int:
+def _pip_uninstall(dist: str, *, python_exe: str = sys.executable) -> int:
     """pip-uninstall a distribution by name. Returns the pip exit code (pip exits
     0 with a warning when the package isn't installed)."""
-    proc = subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", dist])
+    proc = subprocess.run([python_exe, "-m", "pip", "uninstall", "-y", dist])
     return proc.returncode
 
 

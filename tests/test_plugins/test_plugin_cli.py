@@ -783,3 +783,21 @@ def test_cmd_list_empty_provides_no_surface_lines(capsys):
         "easing:",
     )
     assert not any(lbl in out for lbl in labels)  # no surface lines
+
+
+# --- Task 4: parameterize pip by target python ---
+
+
+def test_pip_install_uses_given_python(monkeypatch):
+    seen = []
+    import subprocess as sp
+
+    from led_ticker.app import plugin_cmd
+
+    def fake_run(cmd, **kw):
+        seen.append(cmd)
+        return sp.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(plugin_cmd.subprocess, "run", fake_run)
+    plugin_cmd._pip_install("led-ticker-pool", python_exe="/venv/bin/python")
+    assert all(c[0] == "/venv/bin/python" for c in seen)

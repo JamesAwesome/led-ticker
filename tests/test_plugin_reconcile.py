@@ -88,6 +88,50 @@ def test_referenced_namespaces_missing_file_is_empty(tmp_path):
     assert referenced_namespaces(tmp_path / "absent.toml") == set()
 
 
+def test_referenced_namespaces_reads_transition_keys(tmp_path):
+    """A plugin used ONLY via a transition (never a widget type) must still be
+    reported as referenced — otherwise the uninstall guard would let it be
+    removed while config still uses it, breaking the next boot (finding #6)."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        "[[playlist.section]]\n"
+        'mode="swap"\n'
+        'transition="nyancat.forward"\n'
+        'entry_transition="pokeball.reverse"\n'
+        'widget_transition="pacman.alternating"\n'
+        "[[playlist.section.widget]]\n"
+        'type="message"\n'  # core widget, no namespace
+    )
+    refs = referenced_namespaces(cfg)
+    assert {"nyancat", "pokeball", "pacman"} <= refs
+
+
+def test_transition_reference_blocks_uninstall(tmp_path, monkeypatch):
+    """End-to-end: a plugin referenced ONLY via `transition=` is blocked from
+    uninstall by the config-reference guard (finding #6)."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        '[[playlist.section]]\nmode="swap"\ntransition="nyancat.forward"\n'
+        '[[playlist.section.widget]]\ntype="message"\n'
+    )
+    (tmp_path / "requirements-plugins.txt").write_text("")  # declares nothing
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
+    monkeypatch.setattr(
+        r, "installed_plugin_dists", lambda: {"nyancat": "led-ticker-nyancat"}
+    )
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+    monkeypatch.setattr(
+        r,
+        "_uninstall_dist",
+        lambda *a: (_ for _ in ()).throw(AssertionError("should not uninstall")),
+    )
+    actions = r.reconcile(cfg)
+    assert any(a.action == "blocked" and a.namespace == "nyancat" for a in actions)
+
+
 def test_referenced_namespaces_malformed_toml_is_empty(tmp_path):
     cfg = tmp_path / "config.toml"
     cfg.write_text("[[bad toml\n")
@@ -921,6 +965,130 @@ def test_reconcile_honors_git_source_manifest_line(tmp_path, monkeypatch):
 
     r.reconcile(cfg)
     assert seen == [git_line]
+
+
+# ── finding #1: changed version pin on an already-installed plugin ─────────────
+
+
+def test_reconcile_pin_change_on_installed_plugin(tmp_path, monkeypatch):
+    """Editing an exact pin (0.1.0 -> 0.2.0) on an ALREADY-INSTALLED plugin and
+    restarting must reinstall it in place. compute_diff is version-blind, so this
+    would otherwise be a silent no-op (finding #1)."""
+    import importlib.metadata
+
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")  # no widget refs
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool==0.2.0\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    # pool is BOTH declared and installed -> not in the set-difference to_install.
+    monkeypatch.setattr(
+        r, "installed_plugin_dists", lambda: {"pool": "led-ticker-pool"}
+    )
+    # Installed version differs from the manifest pin.
+    monkeypatch.setattr(
+        importlib.metadata,
+        "version",
+        lambda dist: "0.1.0" if dist == "led-ticker-pool" else "9.9.9",
+    )
+
+    seen: list[str] = []
+    monkeypatch.setattr(
+        pc,
+        "_pip_install",
+        lambda req, *, python_exe=sys.executable, constraints=None: (
+            seen.append(req) or 0
+        ),
+    )
+    monkeypatch.setattr(
+        pc, "_freeze_to_constraints", lambda py=sys.executable: (None, 0)
+    )
+
+    actions = r.reconcile(cfg)
+    # Reinstalled in place with the NEW pinned line, recorded as an install.
+    assert seen == ["led-ticker-pool==0.2.0"]
+    assert any(a.action == "installed" and a.namespace == "pool" for a in actions)
+
+
+def test_reconcile_matching_pin_on_installed_plugin_not_reinstalled(
+    tmp_path, monkeypatch
+):
+    """When the manifest pin equals the installed version, no reinstall (finding #1)."""
+    import importlib.metadata
+
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool==0.1.0\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(
+        r, "installed_plugin_dists", lambda: {"pool": "led-ticker-pool"}
+    )
+    monkeypatch.setattr(importlib.metadata, "version", lambda dist: "0.1.0")
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not reinstall")),
+    )
+    actions = r.reconcile(cfg)
+    assert actions == []
+
+
+def test_reconcile_unpinned_installed_plugin_not_reinstalled(tmp_path, monkeypatch):
+    """An UNPINNED already-installed plugin must NOT be churned on a restart — a
+    restart can't tell whether the source moved (finding #1). Only a real INFO
+    log is emitted; the install path is never touched."""
+    import importlib.metadata
+
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool\n")  # unpinned
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(
+        r, "installed_plugin_dists", lambda: {"pool": "led-ticker-pool"}
+    )
+    # Even if the "installed" version differs from some hypothetical latest, an
+    # unpinned line yields no pin to compare against -> no reinstall.
+    monkeypatch.setattr(importlib.metadata, "version", lambda dist: "0.1.0")
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not reinstall")),
+    )
+    actions = r.reconcile(cfg)
+    assert actions == []
+
+
+def test_reconcile_git_source_installed_plugin_not_reinstalled(tmp_path, monkeypatch):
+    """A git/URL already-installed plugin is not pin-comparable -> not churned."""
+    import importlib.metadata
+
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    git_line = (
+        "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        "@main#subdirectory=plugins/pool"
+    )
+    (tmp_path / "requirements-plugins.txt").write_text(git_line + "\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(
+        r, "installed_plugin_dists", lambda: {"pool": "led-ticker-pool"}
+    )
+    monkeypatch.setattr(importlib.metadata, "version", lambda dist: "0.1.0")
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not reinstall")),
+    )
+    actions = r.reconcile(cfg)
+    assert actions == []
 
 
 def test_install_namespace_falls_back_to_catalog_without_line():

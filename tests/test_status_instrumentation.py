@@ -506,11 +506,16 @@ def test_reconcile_runs_before_load_plugins_and_frame_build():
 
 def test_reconcile_prologue_never_raises():
     """Tripwire (constraint #1): the reconcile prologue in run() — resolve_target,
-    reconcile, apply_to_syspath — must all sit inside a try/except so a raise on
-    the dark-panel prologue (before build_frame_from_config) cannot freeze the
-    panel. reconcile() guards its own body, but resolve_target/apply_to_syspath
-    run outside that guard. AST-verify all three calls are descendants of a Try
-    node within run()."""
+    reconcile, apply_to_syspath — must all sit inside a try that ACTUALLY HANDLES
+    the raise (>=1 ``except`` handler) so a raise on the dark-panel prologue
+    (before build_frame_from_config) cannot freeze the panel. reconcile() guards
+    its own body, but resolve_target/apply_to_syspath run outside that guard.
+
+    A bare ``try: ... finally:`` with no ``except`` would let the exception
+    propagate and freeze the panel while still placing the calls inside a Try
+    node, so it is NOT sufficient to assert "inside a Try" — the enclosing Try
+    must have a non-empty ``.handlers``. AST-verify each required call is a
+    descendant of a Try node whose ``.handlers`` is non-empty."""
     import ast
     import inspect
 
@@ -518,15 +523,20 @@ def test_reconcile_prologue_never_raises():
 
     tree = ast.parse(inspect.getsource(run))
 
-    # Collect calls that are lexically inside any Try.body in the function.
-    guarded: set[str] = set()
+    # For each call, record whether it is lexically inside a Try whose body has at
+    # least one `except` handler. A call seen inside an except-less Try (e.g. a
+    # try/finally) is recorded with has_except=False unless ALSO covered by a
+    # handled Try — we take the strongest coverage seen (any handled Try wins).
+    coverage: dict[str, bool] = {}
 
     class _Visitor(ast.NodeVisitor):
         def visit_Try(self, node: ast.Try) -> None:
+            has_except = len(node.handlers) >= 1
             for stmt in node.body:
                 for sub in ast.walk(stmt):
                     if isinstance(sub, ast.Call):
-                        guarded.add(ast.unparse(sub.func))
+                        name = ast.unparse(sub.func)
+                        coverage[name] = coverage.get(name, False) or has_except
             self.generic_visit(node)
 
     _Visitor().visit(tree)
@@ -536,7 +546,13 @@ def test_reconcile_prologue_never_raises():
         "plugin_reconcile.reconcile",
         "plugin_reconcile.apply_to_syspath",
     ):
-        assert needed in guarded, (
+        assert needed in coverage, (
             f"{needed}(...) must run inside a try/except in run() — a raise on "
             "the reconcile prologue freezes the panel (constraint #1)."
+        )
+        assert coverage[needed], (
+            f"{needed}(...) is inside a Try with NO except handler (a bare "
+            "try/finally) — an exception would still propagate and freeze the "
+            "panel. It must sit inside a try that has at least one `except` "
+            "(constraint #1)."
         )

@@ -437,6 +437,15 @@ def _pip_install(
                 "pip",
                 "install",
                 *_PIP_NET_ARGS,
+                # NOTE: `-c` only constrains the RUNTIME wheel dependencies pip
+                # resolves — it does NOT reach inside a PEP 517 isolated build
+                # environment. When a plugin (or a transitive dep) is an sdist,
+                # pip spins up a fresh, isolated build env that does NOT inherit
+                # these constraints, and the build-backend code (hatchling,
+                # setuptools, etc.) runs as ROOT here because reconcile installs
+                # before the matrix library drops privileges (constraint #13). So
+                # adding a package effectively runs its build scripts as root on
+                # first install. Prefer wheels / vetted, pinned sources.
                 "-c",
                 constraints,
                 requirement,

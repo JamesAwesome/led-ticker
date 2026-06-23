@@ -37,6 +37,32 @@ def compute_diff(declared: set[str], installed: set[str]) -> tuple[set[str], set
     return (declared - installed, installed - declared)
 
 
+def _exact_pin(requirement_line: str) -> str | None:
+    """Return the exact ``==X.Y.Z`` version pinned by a manifest line, else None.
+
+    Only an EXACT ``==`` pin on a PyPI-style requirement is returned — a restart
+    can reliably detect a drift between that pin and the installed version. git /
+    url / unpinned / range-spec (``>=``, ``~=``) lines return None: a restart
+    can't tell whether the upstream source moved, so reconcile must not churn
+    them (the volume reset is the documented way to refresh a non-pinned source).
+    """
+    line = requirement_line.strip()
+    # Reject anything that isn't a plain PyPI requirement.
+    if line.startswith(("git+", "-e ", "http://", "https://")) or "://" in line:
+        return None
+    if "==" not in line:
+        return None
+    # Take the version token after the FIRST '==', trimming a trailing marker /
+    # comment / extra-spec (`pkg==1.2.3 ; python_version>='3.10'`).
+    after = line.split("==", 1)[1].strip()
+    for delim in (";", " ", ",", "#"):
+        idx = after.find(delim)
+        if idx != -1:
+            after = after[:idx]
+    after = after.strip()
+    return after or None
+
+
 def resolve_target(volume_root: Path = Path("/data/plugins")) -> Target:
     if volume_root.is_dir() and os.access(volume_root, os.W_OK):
         venv = volume_root / "venv"
@@ -111,12 +137,20 @@ def is_depended_on(dist: str) -> bool:
     return False
 
 
+_TRANSITION_KEYS = ("transition", "entry_transition", "widget_transition")
+
+
 def referenced_namespaces(config_path: Path) -> set[str]:
     """Return the set of plugin namespace prefixes referenced in config_path.
 
-    Parses widget ``type`` fields and returns the part before the first dot
-    for any type that contains a dot.  Never raises — a bad or missing config
-    returns an empty set.
+    Parses widget ``type`` fields AND the transition-selecting string keys
+    (``transition`` / ``entry_transition`` / ``widget_transition``), returning the
+    part before the first dot for any value that contains a dot. A plugin used
+    ONLY via ``transition = "nyancat.forward"`` (never a widget ``type``) must
+    still count as referenced so the uninstall guard blocks it — otherwise the
+    guard would let the plugin be uninstalled while config still uses it,
+    breaking the next boot. Never raises — a bad or missing config returns an
+    empty set.
     """
     try:
         data = tomllib.loads(config_path.read_text(encoding="utf-8"))
@@ -129,6 +163,10 @@ def referenced_namespaces(config_path: Path) -> set[str]:
             t = o.get("type")
             if isinstance(t, str) and "." in t:
                 out.add(t.split(".")[0])
+            for key in _TRANSITION_KEYS:
+                v = o.get(key)
+                if isinstance(v, str) and "." in v:
+                    out.add(v.split(".")[0])
             for v in o.values():
                 walk(v)
         elif isinstance(o, list):
@@ -341,6 +379,48 @@ def reconcile(
         installed = set(installed_map.keys())
 
         to_install, to_uninstall = compute_diff(declared, installed)
+
+        # Version-pin drift on an ALREADY-installed plugin. compute_diff is a pure
+        # namespace set-difference with no version awareness, so editing a manifest
+        # line `led-ticker-pool==0.1.0` -> `==0.2.0` and restarting would be a
+        # silent no-op (pool is in both `declared` and `installed`). For each
+        # declared+installed plugin whose manifest line carries an EXACT `==X.Y.Z`
+        # pin that differs from the installed dist version, add it to the install
+        # set so pip reinstalls/upgrades in place under the pinned line. For
+        # UNPINNED or git/url/non-`==` lines a restart can't reliably detect a
+        # source change — do NOT churn them; log one INFO so the operator knows the
+        # volume reset is the way to refresh a non-pinned source.
+        # Tripwires: test_reconcile_pin_change_on_installed_plugin,
+        # test_reconcile_unpinned_installed_plugin_not_reinstalled.
+        for ns in sorted(declared & installed):
+            line = declared_reqs.get(ns)
+            if not line:
+                continue
+            pin = _exact_pin(line)
+            dist = installed_map.get(ns, ns)
+            if pin is None:
+                _log.info(
+                    "plugin reconcile: %s is declared+installed via a non-pinned "
+                    "source (%s); cannot verify the source changed on a restart — "
+                    "reset the plugin volume to refresh it",
+                    ns,
+                    line,
+                )
+                continue
+            try:
+                current = importlib.metadata.version(dist)
+            except importlib.metadata.PackageNotFoundError:
+                current = None
+            if current is not None and current != pin:
+                _log.info(
+                    "plugin reconcile: %s pin changed (installed %s -> manifest "
+                    "%s); reinstalling in place",
+                    ns,
+                    current,
+                    pin,
+                )
+                to_install.add(ns)
+
         _log.info(
             "plugin reconcile: declared=%s installed=%s to_install=%s to_uninstall=%s",
             sorted(declared),

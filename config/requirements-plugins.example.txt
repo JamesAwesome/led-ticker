@@ -13,6 +13,12 @@
 # - For production signs, pin first-party data plugins to a version with ==
 #   (e.g. led-ticker-pool==0.1.0) so a restart doesn't silently pick up a new
 #   release. PyPI installs can pin with == (unpinned shown below for easy copying).
+# - Updating an EXACT == pin (0.1.0 -> 0.2.0) and restarting reinstalls in place:
+#   the startup reconcile compares the manifest pin to the installed version.
+#   Changing an UNPINNED line, a range spec (>=, ~=), or a git/URL source is NOT
+#   reliably detected on a restart (the reconcile can't tell the source moved) —
+#   to refresh a non-pinned source you must reset the plugin volume
+#   (docker compose stop && docker volume rm ticker-plugins && docker compose up -d).
 # - Homage / third-party plugins install from a git URL with the #subdirectory=
 #   fragment; for those, pin to a tag or commit SHA rather than @main to avoid
 #   silent code drift on restart.

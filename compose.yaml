@@ -24,7 +24,7 @@ services:
     volumes:
       - ./config:/code/config:ro
       - ticker-status:/run/led-ticker   # shared with webui; display process writes status.json here
-      - ticker-plugins:/data/plugins   # installed plugins (runtime reconcile); reset = docker volume rm ticker-plugins
+      - ticker-plugins:/data/plugins   # installed plugins (runtime reconcile); reset = docker compose stop && docker volume rm ticker-plugins && docker compose up -d
     env_file:
       - path: ./.env
         required: false     # repo may not have .env if no API keys are needed

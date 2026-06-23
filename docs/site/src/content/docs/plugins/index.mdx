@@ -51,6 +51,12 @@ docker compose restart
 
 Once installed, a plugin registers automatically via its `led_ticker.plugins` entry point — its widget types are available immediately at startup.
 
+### Changing a plugin's version or source
+
+Editing an **exact PyPI pin** (`led-ticker-pool==0.1.0` → `==0.2.0`) and restarting is enough: the reconcile compares the manifest pin against the installed version and reinstalls in place when they differ.
+
+Changing an **unpinned** line, a **range** spec (`>=`, `~=`), or a **git/URL source** (e.g. retargeting `@main` or a moved branch) is _not_ reliably detected on a restart — the namespace is unchanged and the reconcile can't tell whether the upstream source moved, so it leaves the installed copy alone (and logs an INFO saying so). To force a refresh of a non-pinned source, reset the plugin volume (see [reset all plugins](#removing-a-plugin) below). Pinning to a tag or commit SHA avoids this entirely and is recommended for production signs.
+
 ## Removing a plugin
 
 Delete the line from `config/requirements-plugins.txt` and restart:
@@ -69,18 +75,19 @@ Before removing a plugin, also remove its widget types from `config.toml`. If `c
 **To reset all plugins** (reinstall everything from scratch on the next start):
 
 ```bash
+docker compose stop
 docker volume rm ticker-plugins
-docker compose restart
+docker compose up -d
 ```
 
-This is also the fix if a plugin volume becomes corrupt or out of sync.
+Stop the stack first: `docker volume rm` refuses to remove a volume that is still mounted by a running container. This is also the fix if a plugin volume becomes corrupt or out of sync.
 
 ## Offline / air-gapped installs
 
 The first `docker compose restart` after adding a plugin needs network access to download it. If your sign runs without internet access, either:
 
 - **Pre-seed the volume** by running `docker compose restart` once on a networked machine (or host), then moving the volume data to the air-gapped sign.
-- **Build a derivative image** that bakes the plugin in: write a small Dockerfile that starts `FROM led-ticker` and adds a `RUN pip install …` layer with your plugins, build it on a machine with network access, then deploy that image to the air-gapped sign.
+- **Build a derivative image** that bakes the plugin in: write a small Dockerfile that starts `FROM led-ticker` and adds a `RUN pip install -c /code/constraints-core.txt <plugin>` layer with your plugins, build it on a machine with network access, then deploy that image to the air-gapped sign. The `-c /code/constraints-core.txt` flag pins the install to core's frozen dependency versions, so a baked plugin can't bump a core-pinned dependency (the same constraint the runtime reconcile applies).
 
 ## Relationship to the `[plugins]` config block
 

@@ -14,7 +14,8 @@
     "preview": "astro preview",
     "build-demos": "node scripts/build-demos.mjs",
     "lint": "prettier --check . && astro check",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check:llms": "node scripts/check-llms.mjs"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.40.0",

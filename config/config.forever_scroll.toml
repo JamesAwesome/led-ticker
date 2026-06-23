@@ -4,7 +4,7 @@
 # and rebuild before running:
 #   led-ticker-weather  weather.current
 #   led-ticker-rss      rss.feed
-#   led-ticker-nyancat  nyancat.alternating
+#   led-ticker-flair  nyancat.alternating
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────

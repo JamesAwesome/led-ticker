@@ -12,7 +12,10 @@
   #live { font-size: .85rem; }
   #live.ok::before { content: "● "; color: #4c4; }
   #live.stale::before, #live.missing::before, #live.unreadable::before, #live.schema_mismatch::before { content: "● "; color: #c44; }
-  nav { display: flex; gap: .4rem; margin-left: auto; }
+  .token-bar { display: flex; align-items: center; gap: .35rem; margin-left: auto; }
+  .token-bar label { font-size: .8rem; color: #888; }
+  .token-bar input { background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: .35rem .5rem; font-family: ui-monospace, monospace; font-size: .82rem; width: 9rem; }
+  nav { display: flex; gap: .4rem; }
   nav button { background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: .4rem .9rem; cursor: pointer; }
   nav button.active { background: #36c; border-color: #36c; color: #fff; }
   main { padding: 1.2rem; max-width: 70rem; margin: 0 auto; }
@@ -33,6 +36,33 @@
   .editor-wrap { display: flex; border: 1px solid #333; border-radius: 6px; background: #000; overflow: hidden; }
   .line-gutter { border: none; border-right: 1px solid #333; border-radius: 0; width: auto; min-width: 3ch; margin: 0; overflow: hidden; text-align: right; color: #555; user-select: none; line-height: 1.4; }
   .editor-wrap .editor-content { border: none; border-radius: 0; flex: 1; white-space: pre; overflow: auto; line-height: 1.4; margin: 0; }
+  /* Store tab styles */
+  .store-banner { border-radius: 6px; padding: .75rem 1rem; margin-bottom: .75rem; font-size: .9rem; }
+  .store-banner.pending { background: #1a2a1a; border: 1px solid #3a6a3a; }
+  .store-banner.offline { background: #2a2a1a; border: 1px solid #5a5a2a; }
+  .store-banner.auth { background: #1a1a2a; border: 1px solid #3a3a6a; }
+  .store-banner code { font-family: ui-monospace, monospace; background: #000; border: 1px solid #444; border-radius: 4px; padding: .1rem .4rem; cursor: pointer; user-select: all; }
+  .store-plugin { display: flex; align-items: flex-start; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid #2a2a2a; }
+  .store-plugin:last-child { border-bottom: none; }
+  .store-plugin-body { flex: 1; min-width: 0; }
+  .store-plugin-name { font-weight: 600; }
+  .store-plugin-repo { font-size: .78rem; color: #6db3f2; margin-left: .4rem; text-decoration: none; opacity: .8; }
+  .store-plugin-repo:hover { opacity: 1; text-decoration: underline; }
+  .store-plugin-summary { color: #aaa; font-size: .88rem; margin: .15rem 0; }
+  .store-plugin-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .3rem; }
+  .chip { font-size: .75rem; font-family: ui-monospace, monospace; background: #252525; border: 1px solid #3a3a3a; border-radius: 4px; padding: .1rem .4rem; color: #aaa; }
+  .chip-pack { background: #16314f; border-color: #2d5a8c; color: #6db3f2; }  /* pack indicator — blue, distinct from neutral "provides" chips */
+  .store-badge { font-size: .75rem; padding: .2rem .55rem; border-radius: 12px; font-weight: 600; white-space: nowrap; }
+  .badge-active { background: #143014; border: 1px solid #2a6a2a; color: #6c6; }
+  .badge-restart { background: #1a1a30; border: 1px solid #3a3a7a; color: #99f; }
+  .badge-available { background: #222; border: 1px solid #444; color: #888; }
+  .badge-external { background: #2a1a2a; border: 1px solid #5a3a5a; color: #b8b; }
+  .store-btn { font-size: .82rem; padding: .3rem .85rem; border-radius: 6px; cursor: pointer; border: 1px solid #555; background: #222; color: #ddd; white-space: nowrap; }
+  .store-btn.install { background: #1a3a1a; border-color: #3a7a3a; color: #8d8; }
+  .store-btn.remove { background: #3a1a1a; border-color: #7a3a3a; color: #d88; }
+  .store-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .store-in-use-note { font-size: .8rem; color: #888; margin-top: .3rem; }
+  .store-action-area { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; min-width: 6rem; }
 </style>
 </head>
 <body>
@@ -40,11 +70,16 @@
   <h1 id="hostname">led-ticker</h1>
   <span id="uptime" class="muted"></span>
   <span id="live" class="missing">connecting…</span>
+  <div class="token-bar">
+    <label for="token-input">Token</label>
+    <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="enter token…">
+  </div>
   <nav>
     <button data-tab="status" class="active">Status</button>
     <button data-tab="config">Config</button>
     <button data-tab="validate">Validate</button>
     <button data-tab="inventory">Inventory</button>
+    <button data-tab="store">Store</button>
   </nav>
 </header>
 <main>
@@ -126,6 +161,28 @@
       <div id="validate-result" class="issues"></div>
     </div>
   </section>
+  <section id="tab-store" class="tab">
+    <div class="card">
+      <strong>Plugin Store</strong>
+      <p class="muted" style="margin:.4rem 0 0;">Only verified plugins are shown — for community plugins, see the <a href="https://docs.ledticker.dev/plugins/" target="_blank" rel="noopener" style="color:#88c;">docs</a>.</p>
+      <div id="store-auth-banner" class="store-banner auth" style="display:none;margin-top:.75rem;">
+        Enter your token in the field above to install or remove plugins.
+      </div>
+      <div id="store-offline-banner" class="store-banner offline" style="display:none;margin-top:.75rem;">
+        Display offline — state reflects installed plugins, not live status.
+      </div>
+      <div id="store-pending-banner" class="store-banner pending" style="display:none;margin-top:.75rem;">
+        <strong id="store-pending-count"></strong> — restart the display to activate.<br>
+        <span style="font-size:.85rem;color:#aaa;">Run: <code id="store-restart-cmd">docker compose restart</code></span>
+        <span class="muted" style="font-size:.8rem;margin-left:.5rem;">
+          (<a href="https://docs.ledticker.dev/reference/cli/" target="_blank" rel="noopener" style="color:#88c;">deployment docs</a>)
+        </span>
+      </div>
+      <div id="store-list" style="margin-top:.75rem;">
+        <p class="muted">Loading…</p>
+      </div>
+    </div>
+  </section>
   <section id="tab-inventory" class="tab">
     <div class="card">
       <strong>Fonts</strong>
@@ -145,8 +202,13 @@
 </main>
 <script>
 const qs = new URLSearchParams(location.search);
-const tok = qs.get("token");
-const auth = tok ? {"X-Web-Token": tok} : {};
+const TOKEN_KEY = "ledticker_token";
+// Token resolution order: ?token= in the URL wins (and is persisted), else the
+// value last entered into the token field (sessionStorage). `auth` is rebuilt
+// from `authToken` whenever the token changes so EVERY authed request picks it
+// up without a page reload.
+let authToken = qs.get("token") || sessionStorage.getItem(TOKEN_KEY) || "";
+let auth = authToken ? {"X-Web-Token": authToken} : {};
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
   {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]
@@ -154,6 +216,34 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
 let lastStatus = null;
 let prevSwapCount = null;
 let stallPolls = 0;
+
+// --- Token field ----------------------------------------------------------
+// Seed the field from the resolved token (URL or sessionStorage). On change,
+// persist to sessionStorage, rebuild `auth`, and re-fetch the authed views so
+// the UI reflects the now-authenticated state without a reload.
+function applyToken(value) {
+  authToken = value || "";
+  auth = authToken ? {"X-Web-Token": authToken} : {};
+  if (authToken) sessionStorage.setItem(TOKEN_KEY, authToken);
+  else sessionStorage.removeItem(TOKEN_KEY);
+}
+(function initTokenField() {
+  const input = $("token-input");
+  if (!input) return;
+  input.value = authToken;
+  let lastApplied = authToken;
+  const onChange = () => {
+    if (input.value === lastApplied) return;
+    lastApplied = input.value;
+    applyToken(input.value);
+    // Re-fetch everything that depends on auth so the view upgrades live.
+    poll();
+    loadStore();
+    if (document.querySelector('nav button[data-tab="config"]').classList.contains("active")) loadConfig();
+  };
+  input.addEventListener("change", onChange);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") onChange(); });
+})();
 
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
@@ -163,6 +253,7 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   if (b.dataset.tab === "config") loadConfig();
   if (b.dataset.tab === "validate") loadConfigList();
   if (b.dataset.tab === "inventory") loadInventory();
+  if (b.dataset.tab === "store") loadStore();
   setPreviewPolling(previewShouldPoll());
 });
 
@@ -179,7 +270,7 @@ async function poll() {
     if (r.status === 401) {
       $("live").className = "missing";
       $("live").textContent = "auth failed";
-      $("now-section").textContent = "auth failed — open this page with ?token=<your token>";
+      $("now-section").textContent = "auth failed — enter your token in the field above";
       return;
     }
     const body = await r.json();
@@ -315,7 +406,7 @@ let configBaseHash = "";
 async function loadConfig() {
   const r = await fetch("/api/config", {headers: auth});
   if (r.status === 401) {
-    $("config-editor").value = "auth failed — open this page with ?token=<your token>";
+    $("config-editor").value = "auth failed — enter your token in the field above";
     $("config-gutter").textContent = "1";
     return;
   }
@@ -386,7 +477,7 @@ $("config-validate").onclick = async () => {
   try {
     const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("config-editor").value});
     if (r.status === 413) { renderConfigErrors({errors: [{message: "Config too large (1 MB cap)."}]}); return; }
-    if (r.status === 401) { renderConfigErrors({errors: [{message: "Auth failed — open this page with ?token=<your token>."}]}); return; }
+    if (r.status === 401) { renderConfigErrors({errors: [{message: "Auth failed — enter your token in the field above."}]}); return; }
     renderConfigErrors(await r.json());
   } catch (e) {
     renderConfigErrors({errors: [{message: "Could not reach the webui — is it still running?"}]});
@@ -469,7 +560,7 @@ $("validate-run").onclick = async () => {
   try {
     const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("validate-input").value});
     if (r.status === 413) { $("validate-result").innerHTML = '<p class="error">Config too large (1 MB cap).</p>'; return; }
-    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — enter your token in the field above.</p>'; return; }
     renderIssues(await r.json());
   } catch (e) {
     $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
@@ -495,7 +586,7 @@ $("validate-file-run").onclick = async () => {
       body: JSON.stringify({name: $("config-select").value}),
     });
     if (r.status === 404) { $("validate-result").innerHTML = '<p class="error">Unknown config file.</p>'; return; }
-    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — enter your token in the field above.</p>'; return; }
     renderIssues(await r.json());
   } catch (e) {
     $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
@@ -506,7 +597,7 @@ $("load-redacted").onclick = async () => {
   try {
     const r = await fetch(`/api/config?name=${encodeURIComponent($("config-select").value)}`, {headers: auth});
     if (r.status === 404) { $("validate-result").innerHTML = '<p class="error">Unknown config file.</p>'; return; }
-    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — enter your token in the field above.</p>'; return; }
     const body = await r.json();
     if (body.state !== "ok") { $("validate-result").innerHTML = `<p class="error">${esc(body.detail || body.state || "could not load")}</p>`; return; }
     $("validate-input").value = body.toml;
@@ -546,6 +637,226 @@ async function loadInventory() {
       ? (pluginEmoji.length ? "Plugin emoji (highlighted) from the running display." : "")
       : "Display offline — plugin emoji unknown.";
   } catch (e) { /* tab shows stale/empty; other tabs unaffected */ }
+}
+
+// ---------------------------------------------------------------------------
+// Store tab
+// ---------------------------------------------------------------------------
+
+function storeBadge(state, displayOnline) {
+  // When display is offline, any declared plugin (active or restart_to_activate)
+  // gets "Installed (display offline)" because status is empty so we can't
+  // distinguish; show the clearest label.
+  if (!displayOnline && (state === "active" || state === "restart_to_activate")) {
+    return '<span class="store-badge badge-restart">Installed (display offline)</span>';
+  }
+  if (state === "active") return '<span class="store-badge badge-active">Active</span>';
+  if (state === "restart_to_activate") return '<span class="store-badge badge-restart">Restart to activate</span>';
+  if (state === "externally_installed") return '<span class="store-badge badge-external">Externally installed</span>';
+  // Coarsened state emitted by redact_anonymous for unauthenticated callers on a
+  // token-protected sign: a plugin is installed but the exact state is hidden.
+  if (state === "installed") return '<span class="store-badge badge-restart">Installed</span>';
+  return '<span class="store-badge badge-available">Available</span>';
+}
+
+function storeChips(provides, pack) {
+  const chips = [];
+  if (pack) {
+    chips.push(`<span class="chip chip-pack">📦 ${esc(pack)} pack</span>`);
+  }
+  for (const [kind, names] of Object.entries(provides || {})) {
+    for (const name of (names || [])) {
+      chips.push(`<span class="chip">${esc(kind)}: ${esc(name)}</span>`);
+    }
+  }
+  return chips.length ? `<div class="store-plugin-chips">${chips.join("")}</div>` : "";
+}
+
+function switchToConfigTab() {
+  document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
+  document.querySelectorAll("section.tab").forEach((x) => x.classList.remove("active"));
+  const btn = document.querySelector('nav button[data-tab="config"]');
+  if (btn) btn.classList.add("active");
+  const tab = $("tab-config");
+  if (tab) { tab.classList.add("active"); loadConfig(); }
+  setPreviewPolling(previewShouldPoll());
+}
+
+function renderStore(data) {
+  const authRequired = data.auth_required;
+  const hasToken = !!authToken;
+  // display_online is OMITTED for anonymous callers (redact_anonymous drops it —
+  // display liveness is deployment state). Missing ⇒ unknown ⇒ no offline banner.
+  const displayKnown = "display_online" in data;
+  const displayOnline = data.display_online;
+  const pendingCount = data.pending_count || 0;
+
+  // Auth banner: show only when token is required but not provided
+  $("store-auth-banner").style.display = (authRequired && !hasToken) ? "" : "none";
+
+  // Offline banner — only when display state is KNOWN (authed) and offline.
+  $("store-offline-banner").style.display = (displayKnown && !displayOnline) ? "" : "none";
+
+  // Pending banner
+  if (pendingCount > 0) {
+    $("store-pending-banner").style.display = "";
+    $("store-pending-count").textContent =
+      pendingCount === 1 ? "1 plugin added" : pendingCount + " plugins added";
+  } else {
+    $("store-pending-banner").style.display = "none";
+  }
+
+  const plugins = data.plugins || [];
+  if (!plugins.length) {
+    $("store-list").innerHTML = '<p class="muted">No plugins in catalog.</p>';
+    return;
+  }
+
+  const rows = plugins.map((p) => {
+    const isDeclared = p.state === "active" || p.state === "restart_to_activate";
+    const inUse = p.in_use_by || [];
+    const badge = storeBadge(p.state, displayOnline);
+    const pack = p.pack || "";
+    const packMembers = p.pack_members || [];
+    const chips = storeChips(p.provides, pack);
+
+    // externally_installed plugins get no action button: they were not installed
+    // via the manifest so the Store cannot safely remove them — the user must
+    // manage them through the host environment directly.
+    let actionHtml = "";
+    if (p.state === "available") {
+      // Install button — disabled if auth required but no token
+      const needsAuth = authRequired && !hasToken;
+      const installLabel = pack ? `Install ${esc(pack)} pack` : "Install";
+      actionHtml = `<button class="store-btn install" ${needsAuth ? "disabled" : ""}
+        data-action="install" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
+        ${needsAuth ? 'title="Enter your token to install plugins"' : ""}>${installLabel}</button>`;
+      if (needsAuth) {
+        actionHtml += '<span class="store-in-use-note">Token required</span>';
+      }
+    } else if (isDeclared) {
+      // Remove button. Trust the server's `removable` flag directly: it is False
+      // not only when THIS namespace is referenced, but also when a sibling
+      // sharing the same pip package is (the led-ticker-flair case — removing the
+      // manifest line would orphan the sibling). In the sibling case in_use_by is
+      // empty for this namespace, so we must NOT gate on inUse.length or the
+      // button renders enabled and only fails with a 409 on click.
+      const cantRemove = !p.removable;
+      const needsAuth = authRequired && !hasToken;
+      const disabledReason = cantRemove ? "config depends on this plugin" : (needsAuth ? "token required" : "");
+      const disabled = cantRemove || needsAuth;
+      const removeLabel = pack ? `Remove ${esc(pack)} pack` : "Remove";
+      actionHtml = `<button class="store-btn remove" ${disabled ? "disabled" : ""}
+        data-action="remove" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
+        ${disabledReason ? `title="${esc(disabledReason)}"` : ""}>${removeLabel}</button>`;
+      if (cantRemove && inUse.length > 0) {
+        // This namespace's own config refs — show the specific sections.
+        const refs = inUse.map((r) => `${esc(r.section)} → ${esc(r.type)}`).join(", ");
+        actionHtml += `<span class="store-in-use-note">Config depends on this — used in: ${refs}</span>`;
+      } else if (cantRemove) {
+        // Sibling-package case: removable False but no refs for this namespace.
+        actionHtml += '<span class="store-in-use-note">Config depends on a plugin sharing this package</span>';
+      } else if (needsAuth) {
+        actionHtml += '<span class="store-in-use-note">Token required</span>';
+      }
+    }
+
+    return `<div class="store-plugin">
+      <div class="store-plugin-body">
+        <div class="store-plugin-name">${esc(p.name || p.namespace)}${p.homepage ? `<a class="store-plugin-repo" href="${esc(p.homepage)}" target="_blank" rel="noopener noreferrer">↗ repo</a>` : ""}</div>
+        ${p.summary ? `<div class="store-plugin-summary">${esc(p.summary)}</div>` : ""}
+        ${chips}
+      </div>
+      <div class="store-action-area">
+        ${badge}
+        ${actionHtml}
+      </div>
+    </div>`;
+  });
+
+  $("store-list").innerHTML = rows.join("");
+
+  // Attach button handlers
+  $("store-list").querySelectorAll("button[data-action]").forEach((btn) => {
+    btn.onclick = () => {
+      const pack = btn.dataset.pack || "";
+      const members = btn.dataset.packMembers ? btn.dataset.packMembers.split(",").filter(Boolean) : [];
+      if (pack && members.length > 1) {
+        const verb = btn.dataset.action === "install" ? "Installs" : "Removes";
+        const ok = confirm(`${verb} the ${pack} pack: ${members.join(", ")}`);
+        if (!ok) return;
+      }
+      storeAction(btn.dataset.action, btn.dataset.ns);
+    };
+  });
+}
+
+async function loadStore() {
+  try {
+    // GET /api/store is in _OPEN_PATHS so unauthenticated visitors can browse
+    // the catalog (the server redacts config-derived fields for them). We DO
+    // send the token when we have one: the server returns the full unredacted
+    // payload (in_use_by, removable) so the Remove-lock pre-check works. Sending
+    // the header only upgrades the view for authenticated users; anon visitors
+    // (auth = {}) still get the redacted view.
+    const r = await fetch("/api/store", {headers: auth});
+    if (!r.ok) {
+      $("store-list").innerHTML = `<p class="muted">Could not load store (${r.status}).</p>`;
+      return;
+    }
+    renderStore(await r.json());
+  } catch (e) {
+    $("store-list").innerHTML = '<p class="muted">Could not reach the webui — is it still running?</p>';
+  }
+}
+
+async function storeAction(action, namespace) {
+  const method = action === "install" ? "POST" : "DELETE";
+  const url = action === "install" ? "/api/store/install" : "/api/store/remove";
+  try {
+    const r = await fetch(url, {
+      method,
+      headers: {...auth, "Content-Type": "application/json"},
+      body: JSON.stringify({namespace}),
+    });
+    if (r.status === 409) {
+      const body = await r.json();
+      const refs = (body.in_use_by || []).map((x) => `${esc(x.section)} → ${esc(x.type)}`).join(", ");
+      const note = document.createElement("div");
+      note.className = "store-banner auth";
+      note.style.cssText = "background:#2a1a1a;border-color:#7a3a3a;margin-bottom:.75rem;";
+      note.innerHTML = `Cannot remove <strong>${esc(namespace)}</strong> — config still uses it`
+        + (refs ? `: ${refs}` : "") + `. `
+        + `<a href="#" style="color:#88c;" id="store-go-config">Go to Config</a> to update it first.`;
+      const list = $("store-list");
+      const existing = $("store-conflict-note");
+      if (existing) existing.remove();
+      note.id = "store-conflict-note";
+      list.insertAdjacentElement("beforebegin", note);
+      $("store-go-config").onclick = (e) => { e.preventDefault(); switchToConfigTab(); };
+      return;
+    }
+    if (r.status === 401) {
+      alert("Auth failed — check your token in the field above.");
+      return;
+    }
+    if (r.status === 403) {
+      alert("Editing disabled (no token configured on the server).");
+      return;
+    }
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      alert((action === "install" ? "Install" : "Remove") + " failed: " + (body.error || r.status));
+      return;
+    }
+    // Remove any prior conflict note on success
+    const existing = $("store-conflict-note");
+    if (existing) existing.remove();
+    // Refresh the store view
+    await loadStore();
+  } catch (e) {
+    alert("Could not reach the webui — is it still running?");
+  }
 }
 
 let previewTimer = null;

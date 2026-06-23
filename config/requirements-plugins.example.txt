@@ -17,8 +17,11 @@
 #   the startup reconcile compares the manifest pin to the installed version.
 #   Changing an UNPINNED line, a range spec (>=, ~=), or a git/URL source is NOT
 #   reliably detected on a restart (the reconcile can't tell the source moved) —
-#   to refresh a non-pinned source you must reset the plugin volume
-#   (docker compose stop && docker volume rm ticker-plugins && docker compose up -d).
+#   to refresh a non-pinned source you must reset the plugin volume:
+#   docker compose down -v && docker compose up -d
+#   Note: `docker volume rm ticker-plugins` will NOT work — Compose prefixes named
+#   volumes with the project name (e.g. led-ticker_ticker-plugins), so the bare
+#   name never matches. Use `docker compose down -v` to remove by real name.
 # - Homage / third-party plugins install from a git URL with the #subdirectory=
 #   fragment; for those, pin to a tag or commit SHA rather than @main to avoid
 #   silent code drift on restart.

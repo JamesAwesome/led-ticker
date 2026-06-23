@@ -33,7 +33,8 @@ def test_webui_import_does_not_touch_rgbmatrix():
     code = (
         "import sys\n"
         "import led_ticker.webui, led_ticker.status_board,"
-        " led_ticker.webui.inventory, led_ticker.preview\n"
+        " led_ticker.webui.inventory, led_ticker.preview,"
+        " led_ticker.webui.store\n"
         "hit = [m for m in sys.modules if m.startswith('rgbmatrix')]\n"
         "assert not hit, f'webui import pulled in {hit}'\n"
         "print('PURE')\n"

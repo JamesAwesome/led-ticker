@@ -243,15 +243,23 @@ def _declared_requirements(config_path: Path) -> dict[str, str]:
     except Exception:  # noqa: BLE001
         catalog = None
 
-    # Build a lookup: dedup_key -> namespace from the catalog. Register a key for
-    # EVERY source of each entry (pypi AND git) and for both the pinned and
+    # Build a lookup: dedup_key -> {namespaces} from the catalog. Register a key
+    # for EVERY source of each entry (pypi AND git) and for both the pinned and
     # unpinned requirement forms, because `plugin add --source git` (and the
     # git+subdirectory deploy story) writes a manifest line whose dedup key is the
     # repo#subdir, not the pypi package name. Keying only the default (first)
     # source would leave a git-source line for a pypi-default catalog plugin
     # unresolved → churn (failed reinstall every boot) and a wrong uninstall of
     # the real namespace. Tripwire: test_declared_namespaces_git_source_resolves.
-    key_to_ns: dict[str, str] = {}
+    #
+    # The value is a SET, not a single namespace: a SHARED pip package maps one
+    # dedup key to MANY namespaces (e.g. led-ticker-flair ships nyancat / pokeball
+    # / pacman / sailor_moon, all keyed `led-ticker-flair`). A single-namespace
+    # map would last-write-wins-collapse the key to whichever entry the catalog
+    # loop happened to visit last, so a `led-ticker-flair` manifest line would
+    # declare only that one namespace — the others never install and never load.
+    # Tripwire: test_declared_requirements_shared_package_maps_all_namespaces.
+    key_to_ns: dict[str, set[str]] = {}
     if catalog is not None:
         for entry in catalog.entries:
             for src in entry.sources:
@@ -260,7 +268,7 @@ def _declared_requirements(config_path: Path) -> dict[str, str]:
                         k = _requirement_key(
                             entry.requirement(source=src.type, pinned=pinned)
                         )
-                        key_to_ns[k] = entry.namespace
+                        key_to_ns.setdefault(k, set()).add(entry.namespace)
                     except Exception:  # noqa: BLE001
                         pass
 
@@ -284,8 +292,12 @@ def _declared_requirements(config_path: Path) -> dict[str, str]:
         if not stripped or stripped.startswith("#"):
             continue
         key = _requirement_key(stripped)
-        ns = key_to_ns.get(key, key)
-        requirements[ns] = stripped
+        # A shared package's key maps to EVERY namespace it ships; declare each
+        # one against the same verbatim manifest line. Fall back to {key} (the
+        # line is its own namespace) when the catalog doesn't know it. Distinct
+        # keys preserve the existing per-namespace last-line-wins semantics.
+        for ns in key_to_ns.get(key, {key}):
+            requirements[ns] = stripped
     return requirements
 
 
@@ -485,32 +497,61 @@ def reconcile(
                 _log.warning("plugin reconcile: env freeze failed (%s); per-install", e)
                 shared_constraints = None
 
+        # Dedup the install work by the actual pip target. A SHARED package maps
+        # one requirement line to MANY namespaces (led-ticker-flair → nyancat /
+        # pokeball / pacman / sailor_moon), so a naive per-namespace loop would
+        # run the SAME `pip install led-ticker-flair` up to 4× — correct but
+        # wasteful on a cold Pi. Group the to-install namespaces by their install
+        # key (the verbatim manifest line, or the bare namespace when no line is
+        # known — those can't be shared), run pip ONCE per group, and emit one
+        # PluginAction per covered namespace so the per-namespace reporting (and
+        # the cache-invalidation gate below) is unchanged. Mirrors build_store's
+        # dedup-by-requirement-key spirit. Tripwire:
+        # test_reconcile_shared_package_installs_once.
+        install_groups: dict[str, list[str]] = {}
+        for ns in to_install:
+            line = declared_reqs.get(ns)
+            install_groups.setdefault(line or ns, []).append(ns)
+
         try:
-            for ns in sorted(to_install):
+            for key in sorted(install_groups):
+                covered = sorted(install_groups[key])
+                # Every namespace in a group shares one verbatim manifest line
+                # (or, for line-less namespaces, the group is a single namespace
+                # == key), so any member's requirement_line drives the install.
+                requirement_line = declared_reqs.get(covered[0])
+                label = ", ".join(covered)
                 try:
-                    _log.info("plugin reconcile: installing %s", ns)
+                    _log.info("plugin reconcile: installing %s", label)
                     code = _install_namespace(
-                        ns,
+                        covered[0],
                         target.python_exe,
                         constraints=shared_constraints,
-                        requirement_line=declared_reqs.get(ns),
+                        requirement_line=requirement_line,
                     )
                     if code != 0:
-                        detail = f"pip exited {code} installing {ns}"
+                        detail = f"pip exited {code} installing {label}"
                         _log.warning(
-                            "plugin reconcile: failed to install %s: %s", ns, detail
+                            "plugin reconcile: failed to install %s: %s", label, detail
                         )
-                        actions.append(
-                            PluginAction(namespace=ns, action="failed", detail=detail)
-                        )
+                        for ns in covered:
+                            actions.append(
+                                PluginAction(
+                                    namespace=ns, action="failed", detail=detail
+                                )
+                            )
                     else:
-                        actions.append(PluginAction(namespace=ns, action="installed"))
-                        _log.info("plugin reconcile: installed %s", ns)
+                        for ns in covered:
+                            actions.append(
+                                PluginAction(namespace=ns, action="installed")
+                            )
+                        _log.info("plugin reconcile: installed %s", label)
                 except Exception as e:  # noqa: BLE001
-                    _log.warning("plugin reconcile: failed to install %s: %s", ns, e)
-                    actions.append(
-                        PluginAction(namespace=ns, action="failed", detail=str(e))
-                    )
+                    _log.warning("plugin reconcile: failed to install %s: %s", label, e)
+                    for ns in covered:
+                        actions.append(
+                            PluginAction(namespace=ns, action="failed", detail=str(e))
+                        )
         finally:
             # The pass-level constraints file is ours to clean up (passing it into
             # _pip_install with constraints!=None means that fn does NOT delete it).

@@ -64,6 +64,15 @@ export default defineConfig({
           content:
             "try{if(localStorage.getItem('ticker:sidebar-collapsed')==='true'){document.documentElement.classList.add('sidebar-collapsed')}}catch(e){}",
         },
+        {
+          tag: "link",
+          attrs: {
+            rel: "alternate",
+            type: "text/markdown",
+            href: "/llms.txt",
+            title: "led-ticker docs as Markdown (for LLMs/agents)",
+          },
+        },
       ],
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/JamesAwesome/led-ticker" },

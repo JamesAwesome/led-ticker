@@ -1,5 +1,5 @@
 from led_ticker.plugins_catalog import load_catalog
-from led_ticker.webui.store import build_store, config_references
+from led_ticker.webui.store import build_store, config_references, redact_anonymous
 
 
 def test_config_references_widget_and_transition(tmp_path):
@@ -178,3 +178,127 @@ def test_build_store_entry_fields(tmp_path):
     }
     for entry in res["plugins"]:
         assert required <= entry.keys(), f"Missing fields in {entry}"
+
+
+# ---------------------------------------------------------------------------
+# redact_anonymous
+# ---------------------------------------------------------------------------
+
+_FULL_PAYLOAD = {
+    "display_online": True,
+    "pending_count": 2,
+    "auth_required": True,
+    "plugins": [
+        {
+            "namespace": "rss",
+            "name": "RSS Feed",
+            "summary": "RSS headlines",
+            "provides": {"widgets": ["rss.feed"]},
+            "source": "git",
+            "state": "active",
+            "removable": True,
+            "in_use_by": [{"section": "Morning", "type": "rss.feed"}],
+        },
+        {
+            "namespace": "weather",
+            "name": "Weather",
+            "summary": "Current conditions",
+            "provides": {"widgets": ["weather.current"]},
+            "source": "pypi",
+            "state": "restart_to_activate",
+            "removable": False,
+            "in_use_by": [],
+        },
+        {
+            "namespace": "crypto",
+            "name": "Crypto",
+            "summary": "CoinGecko ticker",
+            "provides": {"widgets": ["crypto.coingecko"]},
+            "source": "git",
+            "state": "available",
+            "removable": False,
+            "in_use_by": [],
+        },
+        {
+            "namespace": "mycorp.custom",
+            "name": "mycorp.custom",
+            "summary": "",
+            "provides": {},
+            "source": "",
+            "state": "externally_installed",
+            "removable": False,
+            "in_use_by": [{"section": "Custom Section", "type": "mycorp.widget"}],
+        },
+    ],
+}
+
+
+def test_redact_anonymous_in_use_by_emptied():
+    """All in_use_by lists must be emptied (config section names are private)."""
+    result = redact_anonymous(_FULL_PAYLOAD)
+    for plugin in result["plugins"]:
+        assert plugin["in_use_by"] == [], (
+            f"in_use_by not emptied for {plugin['namespace']}"
+        )
+
+
+def test_redact_anonymous_removable_false():
+    """removable must always be False (no remove button for anon callers)."""
+    result = redact_anonymous(_FULL_PAYLOAD)
+    for plugin in result["plugins"]:
+        assert plugin["removable"] is False, (
+            f"removable not False for {plugin['namespace']}"
+        )
+
+
+def test_redact_anonymous_state_coarsened_installed():
+    """active / restart_to_activate / externally_installed → 'installed'."""
+    result = redact_anonymous(_FULL_PAYLOAD)
+    ns_state = {p["namespace"]: p["state"] for p in result["plugins"]}
+    assert ns_state["rss"] == "installed"
+    assert ns_state["weather"] == "installed"
+    assert ns_state["mycorp.custom"] == "installed"
+
+
+def test_redact_anonymous_state_coarsened_available():
+    """available → 'available' (stays as-is)."""
+    result = redact_anonymous(_FULL_PAYLOAD)
+    ns_state = {p["namespace"]: p["state"] for p in result["plugins"]}
+    assert ns_state["crypto"] == "available"
+
+
+def test_redact_anonymous_pending_count_zeroed():
+    """pending_count → 0 (detail leaks how many pending restarts)."""
+    result = redact_anonymous(_FULL_PAYLOAD)
+    assert result["pending_count"] == 0
+
+
+def test_redact_anonymous_catalog_fields_preserved():
+    """Public catalog fields (namespace, name, summary, provides, source) preserved."""
+    result = redact_anonymous(_FULL_PAYLOAD)
+    for orig, anon in zip(_FULL_PAYLOAD["plugins"], result["plugins"], strict=True):
+        assert anon["namespace"] == orig["namespace"]
+        assert anon["name"] == orig["name"]
+        assert anon["summary"] == orig["summary"]
+        assert anon["provides"] == orig["provides"]
+        assert anon["source"] == orig["source"]
+
+
+def test_redact_anonymous_display_online_and_auth_required_preserved():
+    """display_online and auth_required pass through unchanged."""
+    result = redact_anonymous(_FULL_PAYLOAD)
+    assert result["display_online"] == _FULL_PAYLOAD["display_online"]
+    assert result["auth_required"] == _FULL_PAYLOAD["auth_required"]
+
+
+def test_redact_anonymous_does_not_mutate_input():
+    """redact_anonymous must return a new dict; original must be unchanged."""
+    import copy
+
+    original = copy.deepcopy(_FULL_PAYLOAD)
+    result = redact_anonymous(_FULL_PAYLOAD)
+    # Original is unchanged.
+    assert original == _FULL_PAYLOAD
+    # Result is a different object.
+    assert result is not _FULL_PAYLOAD
+    assert result["plugins"] is not _FULL_PAYLOAD["plugins"]

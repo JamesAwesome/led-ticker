@@ -169,3 +169,46 @@ def build_store(
         "auth_required": token_configured,
         "plugins": plugins,
     }
+
+
+# States that indicate some form of install presence — coarsened to "installed"
+# for anonymous callers (avoids leaking restart-to-activate / external-install
+# distinctions that hint at the operator's deployment state).
+_INSTALLED_STATES = frozenset({"active", "restart_to_activate", "externally_installed"})
+
+
+def redact_anonymous(payload: dict) -> dict:
+    """Return a copy of the store payload safe for unauthenticated callers.
+
+    Catalog-browsable fields (namespace, name, summary, provides, source,
+    display_online, auth_required) are preserved verbatim.  Config-derived
+    or deployment-detail fields are redacted:
+
+    - ``in_use_by``    → [] (config section titles are private)
+    - ``state``        → "installed" if active/restart_to_activate/externally_installed,
+                         else "available"
+    - ``removable``    → False (no remove button without auth)
+    - ``pending_count``→ 0 (leaks how many plugins are pending restart)
+
+    The input dict is not mutated; a new dict (and new plugin list) is returned.
+    Pure: no rgbmatrix, no I/O.
+    """
+    redacted_plugins = []
+    for plugin in payload.get("plugins", []):
+        coarse_state = (
+            "installed" if plugin.get("state") in _INSTALLED_STATES else "available"
+        )
+        redacted_plugins.append(
+            {
+                **plugin,
+                "in_use_by": [],
+                "state": coarse_state,
+                "removable": False,
+            }
+        )
+
+    return {
+        **payload,
+        "pending_count": 0,
+        "plugins": redacted_plugins,
+    }

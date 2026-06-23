@@ -1367,3 +1367,160 @@ async def test_remove_oversize_body_is_413(tmp_path):
         assert resp.status == 413
     finally:
         await client.close()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/store — anonymous redaction (defense-in-depth)
+# ---------------------------------------------------------------------------
+
+_RICH_FAKE_PAYLOAD = {
+    "display_online": True,
+    "pending_count": 1,
+    "auth_required": True,
+    "plugins": [
+        {
+            "namespace": "rss",
+            "name": "RSS Feed",
+            "summary": "RSS headlines",
+            "provides": {"widgets": ["rss.feed"]},
+            "source": "git",
+            "state": "active",
+            "removable": True,
+            "in_use_by": [{"section": "Morning", "type": "rss.feed"}],
+        },
+        {
+            "namespace": "crypto",
+            "name": "Crypto",
+            "summary": "CoinGecko ticker",
+            "provides": {"widgets": ["crypto.coingecko"]},
+            "source": "git",
+            "state": "available",
+            "removable": False,
+            "in_use_by": [],
+        },
+    ],
+}
+
+
+async def test_store_token_configured_no_token_header_redacts(tmp_path, monkeypatch):
+    """Token configured but no token supplied → response is redacted.
+
+    Specifically: in_use_by empty, state coarsened, removable False,
+    pending_count 0.
+    """
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        # No auth header — store is still open (in _OPEN_PATHS).
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        # No in_use_by entries must leak.
+        for plugin in body["plugins"]:
+            assert plugin["in_use_by"] == [], (
+                f"in_use_by leaked for {plugin['namespace']}"
+            )
+        # States coarsened: active → installed, available → available.
+        ns_state = {p["namespace"]: p["state"] for p in body["plugins"]}
+        assert ns_state["rss"] == "installed"
+        assert ns_state["crypto"] == "available"
+        # pending_count zeroed.
+        assert body["pending_count"] == 0
+        # removable always False.
+        assert all(not p["removable"] for p in body["plugins"])
+        # Public catalog fields intact.
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert rss["name"] == "RSS Feed"
+        assert rss["summary"] == "RSS headlines"
+    finally:
+        await client.close()
+
+
+async def test_store_token_configured_correct_token_gives_full_payload(
+    tmp_path, monkeypatch
+):
+    """Token configured + correct token supplied → full unredacted payload."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.get("/api/store", headers={"X-Web-Token": "s3cret"})
+        assert resp.status == 200
+        body = await resp.json()
+        # Full in_use_by present.
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert len(rss["in_use_by"]) == 1
+        assert rss["in_use_by"][0]["section"] == "Morning"
+        # Granular state preserved.
+        assert rss["state"] == "active"
+        assert rss["removable"] is True
+        # pending_count unredacted.
+        assert body["pending_count"] == 1
+    finally:
+        await client.close()
+
+
+async def test_store_no_token_configured_gives_full_payload(tmp_path, monkeypatch):
+    """No token configured → full payload (no token = open system, nothing to hide)."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    # token="" means no token configured.
+    client = await _client(tmp_path, token="")
+    try:
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        # Full in_use_by present.
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert len(rss["in_use_by"]) == 1
+        assert rss["state"] == "active"
+        assert rss["removable"] is True
+        assert body["pending_count"] == 1
+    finally:
+        await client.close()
+
+
+async def test_store_wrong_token_gives_redacted(tmp_path, monkeypatch):
+    """Wrong token → still 200 (open route) but payload is redacted."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.get("/api/store", headers={"X-Web-Token": "wrongtoken"})
+        assert resp.status == 200
+        body = await resp.json()
+        for plugin in body["plugins"]:
+            assert plugin["in_use_by"] == []
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert rss["state"] == "installed"
+        assert rss["removable"] is False
+        assert body["pending_count"] == 0
+    finally:
+        await client.close()
+
+
+async def test_store_correct_token_via_query_param_gives_full(tmp_path, monkeypatch):
+    """Correct token via ?token= query param → full payload (mirrors auth)."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.get("/api/store", params={"token": "s3cret"})
+        assert resp.status == 200
+        body = await resp.json()
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert rss["state"] == "active"
+        assert len(rss["in_use_by"]) == 1
+    finally:
+        await client.close()

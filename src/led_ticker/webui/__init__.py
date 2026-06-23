@@ -200,6 +200,12 @@ def build_webui_app(
             status=inner_status,
             token_configured=bool(token),
         )
+        provided = request.headers.get("X-Web-Token") or request.query.get("token")
+        authed = (not token) or (provided == token)
+        if not authed:
+            from led_ticker.webui.store import redact_anonymous  # noqa: PLC0415
+
+            payload = redact_anonymous(payload)
         return web.json_response(payload)
 
     manifest_lock = asyncio.Lock()

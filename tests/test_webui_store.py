@@ -252,12 +252,28 @@ def test_redact_anonymous_removable_false():
 
 
 def test_redact_anonymous_state_coarsened_installed():
-    """active / restart_to_activate / externally_installed → 'installed'."""
+    """active / restart_to_activate → 'installed' (catalog entries only)."""
     result = redact_anonymous(_FULL_PAYLOAD)
     ns_state = {p["namespace"]: p["state"] for p in result["plugins"]}
     assert ns_state["rss"] == "installed"
     assert ns_state["weather"] == "installed"
-    assert ns_state["mycorp.custom"] == "installed"
+
+
+def test_redact_anonymous_drops_externally_installed():
+    """Off-catalog host-installed namespaces must NOT leak to anon callers.
+
+    externally_installed entries are pure deployment data (a plugin the
+    operator pip-installed on the host, absent from the public catalog).  An
+    unauthenticated visitor to a token-protected sign must not be able to
+    enumerate them — they are dropped entirely, not merely coarsened.
+    """
+    result = redact_anonymous(_FULL_PAYLOAD)
+    anon_namespaces = {p["namespace"] for p in result["plugins"]}
+    assert "mycorp.custom" not in anon_namespaces
+    # Catalog entries remain visible.
+    assert "rss" in anon_namespaces
+    assert "weather" in anon_namespaces
+    assert "crypto" in anon_namespaces
 
 
 def test_redact_anonymous_state_coarsened_available():
@@ -274,9 +290,22 @@ def test_redact_anonymous_pending_count_zeroed():
 
 
 def test_redact_anonymous_catalog_fields_preserved():
-    """Public catalog fields (namespace, name, summary, provides, source) preserved."""
+    """Public catalog fields (namespace, name, summary, provides, source) preserved.
+
+    externally_installed entries are dropped (see
+    test_redact_anonymous_drops_externally_installed), so this only asserts
+    preservation for the surviving catalog entries, matched by namespace.
+    """
     result = redact_anonymous(_FULL_PAYLOAD)
-    for orig, anon in zip(_FULL_PAYLOAD["plugins"], result["plugins"], strict=True):
+    orig_by_ns = {p["namespace"]: p for p in _FULL_PAYLOAD["plugins"]}
+    catalog_origs = [
+        p for p in _FULL_PAYLOAD["plugins"] if p["state"] != "externally_installed"
+    ]
+    # Every surviving anon entry corresponds to a non-externally-installed orig.
+    assert len(result["plugins"]) == len(catalog_origs)
+    for anon in result["plugins"]:
+        orig = orig_by_ns[anon["namespace"]]
+        assert orig["state"] != "externally_installed"
         assert anon["namespace"] == orig["namespace"]
         assert anon["name"] == orig["name"]
         assert anon["summary"] == orig["summary"]

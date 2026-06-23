@@ -610,6 +610,9 @@ function storeBadge(state, displayOnline) {
   if (state === "active") return '<span class="store-badge badge-active">Active</span>';
   if (state === "restart_to_activate") return '<span class="store-badge badge-restart">Restart to activate</span>';
   if (state === "externally_installed") return '<span class="store-badge badge-external">Externally installed</span>';
+  // Coarsened state emitted by redact_anonymous for unauthenticated callers on a
+  // token-protected sign: a plugin is installed but the exact state is hidden.
+  if (state === "installed") return '<span class="store-badge badge-restart">Installed</span>';
   return '<span class="store-badge badge-available">Available</span>';
 }
 
@@ -680,17 +683,26 @@ function renderStore(data) {
         actionHtml += '<span class="store-in-use-note">Token required</span>';
       }
     } else if (isDeclared) {
-      // Remove button
-      const cantRemove = !p.removable && inUse.length > 0;
+      // Remove button. Trust the server's `removable` flag directly: it is False
+      // not only when THIS namespace is referenced, but also when a sibling
+      // sharing the same pip package is (the led-ticker-flair case — removing the
+      // manifest line would orphan the sibling). In the sibling case in_use_by is
+      // empty for this namespace, so we must NOT gate on inUse.length or the
+      // button renders enabled and only fails with a 409 on click.
+      const cantRemove = !p.removable;
       const needsAuth = authRequired && !hasToken;
       const disabledReason = cantRemove ? "config depends on this plugin" : (needsAuth ? "token required" : "");
       const disabled = cantRemove || needsAuth;
       actionHtml = `<button class="store-btn remove" ${disabled ? "disabled" : ""}
         data-action="remove" data-ns="${esc(p.namespace)}"
         ${disabledReason ? `title="${esc(disabledReason)}"` : ""}>Remove</button>`;
-      if (cantRemove) {
+      if (cantRemove && inUse.length > 0) {
+        // This namespace's own config refs — show the specific sections.
         const refs = inUse.map((r) => `${esc(r.section)} → ${esc(r.type)}`).join(", ");
         actionHtml += `<span class="store-in-use-note">Config depends on this — used in: ${refs}</span>`;
+      } else if (cantRemove) {
+        // Sibling-package case: removable False but no refs for this namespace.
+        actionHtml += '<span class="store-in-use-note">Config depends on a plugin sharing this package</span>';
       } else if (needsAuth) {
         actionHtml += '<span class="store-in-use-note">Token required</span>';
       }

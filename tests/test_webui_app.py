@@ -864,6 +864,48 @@ async def test_store_open_without_token(tmp_path, monkeypatch):
         await client.close()
 
 
+async def test_store_fresh_status_is_online(tmp_path):
+    """A fresh status.json → display_online True (real _read_status→build_store).
+
+    Does NOT monkeypatch _build_store, so the actual _fresh_inner_status gate is
+    exercised end-to-end.
+    """
+    status = _fresh_status(plugins=[{"namespace": "rss"}])
+    client = await _client(tmp_path, status=status)
+    try:
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["display_online"] is True
+    finally:
+        await client.close()
+
+
+async def test_store_stale_status_is_offline(tmp_path):
+    """A stale status.json → display_online False (stale ⇒ offline, per spec).
+
+    Regression for the bug where _read_status carries the inner status under
+    "status" for BOTH ok and stale envelopes, so a dead display that left a
+    snapshot on disk was reported online with live "Active" badges. The
+    _fresh_inner_status gate must drop a stale inner status to {}.
+    """
+    stale = _fresh_status(
+        published_at=time.time() - 3600,
+        min_interval=2.0,
+        plugins=[{"namespace": "rss"}],
+    )
+    client = await _client(tmp_path, status=stale)
+    try:
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["display_online"] is False
+        # No plugin should report a live "active" state from a stale snapshot.
+        assert all(p["state"] != "active" for p in body["plugins"])
+    finally:
+        await client.close()
+
+
 # POST /api/store/install — plugin store install (Task 4)
 # ---------------------------------------------------------------------------
 

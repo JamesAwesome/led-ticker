@@ -96,6 +96,21 @@ def _read_status(status_path: Path) -> dict:
     return {"state": state, "age_seconds": round(age, 1), "status": status}
 
 
+def _fresh_inner_status(status_path: Path) -> dict:
+    """Inner status dict ONLY when the envelope is fresh ("ok"), else {}.
+
+    `_read_status` carries the parsed status under "status" for both "ok" AND
+    "stale" envelopes (stale = the file is present but the display process hasn't
+    republished within the staleness threshold — e.g. the process died leaving a
+    snapshot on disk). For the Store, an empty dict is what marks the display
+    offline (build_store: display_online = bool(status)). Forwarding a stale
+    inner status would report display_online=True and live "Active" badges for a
+    dead display. Gate on freshness so stale ⇒ offline, matching the spec.
+    """
+    envelope = _read_status(status_path)
+    return envelope.get("status", {}) if envelope.get("state") == "ok" else {}
+
+
 def _build_store(**kwargs: Any) -> dict[str, Any]:
     """Call build_store from led_ticker.webui.store with lazy import.
 
@@ -209,8 +224,7 @@ def build_webui_app(
         )
 
     async def store_handler(request: web.Request) -> web.Response:
-        status_envelope = _read_status(status_path)
-        inner_status: dict = status_envelope.get("status", {})
+        inner_status: dict = _fresh_inner_status(status_path)
         manifest_path = config_path.parent / "requirements-plugins.txt"
         payload = _build_store(
             manifest_path=manifest_path,
@@ -300,8 +314,7 @@ def build_webui_app(
             )
 
         # Return the rebuilt store entry for this namespace so the UI refreshes.
-        status_envelope = _read_status(status_path)
-        inner_status: dict = status_envelope.get("status", {})
+        inner_status: dict = _fresh_inner_status(status_path)
         store_payload = _build_store(
             manifest_path=manifest_path,
             config_path=config_path,
@@ -399,8 +412,7 @@ def build_webui_app(
             )
 
         # Return the rebuilt store entry for this namespace so the UI refreshes.
-        status_envelope = _read_status(status_path)
-        inner_status: dict = status_envelope.get("status", {})
+        inner_status: dict = _fresh_inner_status(status_path)
         store_payload = _build_store(
             manifest_path=manifest_path,
             config_path=config_path,

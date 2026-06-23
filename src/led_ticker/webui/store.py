@@ -220,16 +220,24 @@ def redact_anonymous(payload: dict) -> dict:
     or deployment-detail fields are redacted:
 
     - ``in_use_by``    → [] (config section titles are private)
-    - ``state``        → "installed" if active/restart_to_activate/externally_installed,
-                         else "available"
+    - ``state``        → "installed" if active/restart_to_activate, else "available"
     - ``removable``    → False (no remove button without auth)
     - ``pending_count``→ 0 (leaks how many plugins are pending restart)
+
+    ``externally_installed`` entries are DROPPED entirely: they are host-only,
+    off-catalog plugin namespaces the operator pip-installed (pure deployment
+    data, never catalog-browsable).  Surfacing even the namespace to an
+    unauthenticated caller would leak the operator's private deployment state —
+    exactly the "external-install distinctions" this redaction exists to hide.
 
     The input dict is not mutated; a new dict (and new plugin list) is returned.
     Pure: no rgbmatrix, no I/O.
     """
     redacted_plugins = []
     for plugin in payload.get("plugins", []):
+        if plugin.get("state") == "externally_installed":
+            # Off-catalog, host-installed namespace — not browsable; drop it.
+            continue
         coarse_state = (
             "installed" if plugin.get("state") in _INSTALLED_STATES else "available"
         )

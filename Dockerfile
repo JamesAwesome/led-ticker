@@ -55,23 +55,7 @@ COPY pyproject.toml README.md LICENSE /code/
 RUN pip install --no-cache-dir -e ".[dev]" \
  && pip list --format=freeze > /code/constraints-core.txt
 
-# Layer 2b: external plugins, declared in config/requirements-plugins.txt
-# (gitignored; copy config/requirements-plugins.example.txt to create it).
-# Installed WITH dependency resolution but constrained to the core versions
-# captured in Layer 2 (-c constraints-core.txt): led-ticker is already installed
-# so it resolves without hitting PyPI, a plugin may pull its own genuinely-new
-# transitive deps, but a plugin that tries to move a core dep fails loudly here
-# at build rather than silently at runtime. Installs the live file only — if it
-# is absent, no plugins are installed (no fallback to the example). The .tx[t]
-# glob is the optional-file trick: it copies the live file if present and is
-# skipped if not; the .example is always present so the COPY always succeeds.
-# Editing the live file invalidates this cached layer and triggers a reinstall.
-COPY config/requirements-plugins.example.txt config/requirements-plugins.tx[t] /code/config/
-RUN if [ -f /code/config/requirements-plugins.txt ]; then \
-        pip install --no-cache-dir -c /code/constraints-core.txt -r /code/config/requirements-plugins.txt; \
-    else \
-        echo "No config/requirements-plugins.txt; skipping plugin install (copy the .example to add plugins)"; \
-    fi
+# Plugins are NOT baked — they install at runtime onto the ticker-plugins volume (see plugin_reconcile.py).
 
 # Layer 3: app source (rebuilds on any code change — but fast, no pip)
 COPY . /code/

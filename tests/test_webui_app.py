@@ -9,14 +9,21 @@ from led_ticker.status_board import SCHEMA_VERSION, StatusBoard
 from led_ticker.webui import build_webui_app
 
 
-async def _client(tmp_path, *, token="", config_text=None, status=None):
+async def _client(
+    tmp_path, *, token="", config_text=None, status=None, allow_restart=False
+):
     config_path = tmp_path / "config.toml"
     config_path.write_text(config_text or "[display]\nrows = 16\ncols = 32\n")
     status_path = tmp_path / "status.json"
     if status is not None:
         body = json.dumps(status) if isinstance(status, dict) else status
         status_path.write_text(body)
-    app = build_webui_app(config_path=config_path, status_path=status_path, token=token)
+    app = build_webui_app(
+        config_path=config_path,
+        status_path=status_path,
+        token=token,
+        allow_restart=allow_restart,
+    )
     client = TestClient(TestServer(app))
     await client.start_server()
     return client
@@ -2017,5 +2024,154 @@ async def test_store_correct_token_via_query_param_gives_full(tmp_path, monkeypa
         rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
         assert rss["state"] == "active"
         assert len(rss["in_use_by"]) == 1
+    finally:
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/restart — token+flag-gated restart marker writer
+# ---------------------------------------------------------------------------
+
+
+async def test_restart_with_token_and_flag_writes_marker(tmp_path):
+    """POST /api/restart: token + allow_restart=True → 200 and marker written."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart", headers={"X-Web-Token": "s3cret"})
+        assert resp.status == 200
+        body = await resp.json()
+        assert body.get("ok") is True
+        assert marker_path.exists(), "restart-requested marker was not written"
+    finally:
+        await client.close()
+
+
+async def test_restart_no_token_header_returns_401_or_403(tmp_path):
+    """POST /api/restart without a token header (token configured) → 401/403."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    try:
+        resp = await client.post("/api/restart")
+        assert resp.status in (401, 403)
+    finally:
+        await client.close()
+
+
+async def test_restart_allow_restart_false_returns_403_no_marker(tmp_path):
+    """POST /api/restart with allow_restart=False → 403 and marker NOT written."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=False)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart", headers={"X-Web-Token": "s3cret"})
+        assert resp.status == 403
+        body = await resp.json()
+        assert body.get("error") == "restart disabled"
+        assert not marker_path.exists(), (
+            "marker must not be written when restart disabled"
+        )
+    finally:
+        await client.close()
+
+
+async def test_restart_no_token_configured_returns_403(tmp_path):
+    """token="" (no token configured) → handler-level 403, even with an auth header.
+
+    Mirrors install/save convention: no token = editing/restart administratively
+    disabled.
+    """
+    client = await _client(tmp_path, token="", allow_restart=True)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart", headers={"X-Web-Token": "anything"})
+        assert resp.status == 403
+        body = await resp.json()
+        assert "editing disabled" in body["error"]
+        assert not marker_path.exists()
+    finally:
+        await client.close()
+
+
+async def test_status_includes_allow_restart_false(tmp_path):
+    """GET /api/status includes allow_restart=False when not configured."""
+    client = await _client(tmp_path, allow_restart=False)
+    try:
+        resp = await client.get("/api/status")
+        body = await resp.json()
+        assert resp.status == 200
+        assert body.get("allow_restart") is False
+    finally:
+        await client.close()
+
+
+async def test_status_includes_allow_restart_true(tmp_path):
+    """GET /api/status includes allow_restart=True when configured."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    try:
+        resp = await client.get("/api/status", headers={"X-Web-Token": "s3cret"})
+        body = await resp.json()
+        assert resp.status == 200
+        assert body.get("allow_restart") is True
+    finally:
+        await client.close()
+
+
+async def test_store_includes_allow_restart(tmp_path, monkeypatch):
+    """GET /api/store includes allow_restart in payload."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": False,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="", allow_restart=True)
+    try:
+        resp = await client.get("/api/store")
+        body = await resp.json()
+        assert resp.status == 200
+        assert body.get("allow_restart") is True
+    finally:
+        await client.close()
+
+
+async def test_store_includes_allow_restart_false_by_default(tmp_path, monkeypatch):
+    """GET /api/store includes allow_restart=False when not set."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": False,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="", allow_restart=False)
+    try:
+        resp = await client.get("/api/store")
+        body = await resp.json()
+        assert resp.status == 200
+        assert body.get("allow_restart") is False
+    finally:
+        await client.close()
+
+
+async def test_restart_token_via_query_param(tmp_path):
+    """POST /api/restart with valid token via query param → 200 and marker exists."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart", params={"token": "s3cret"})
+        assert resp.status == 200
+        assert marker_path.exists()
     finally:
         await client.close()

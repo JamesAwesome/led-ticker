@@ -187,7 +187,11 @@ async def _update_manifest_atomic(
 
 
 def build_webui_app(
-    *, config_path: Path, status_path: Path, token: str = ""
+    *,
+    config_path: Path,
+    status_path: Path,
+    token: str = "",
+    allow_restart: bool = False,
 ) -> web.Application:
     """Build the aiohttp app. Pure: no I/O at build time."""
 
@@ -200,7 +204,25 @@ def build_webui_app(
         return await handler(request)
 
     async def status_handler(request: web.Request) -> web.Response:
-        return web.json_response(_read_status(status_path))
+        payload = _read_status(status_path)
+        payload["allow_restart"] = allow_restart
+        return web.json_response(payload)
+
+    restart_marker_path = status_path.parent / "restart-requested"
+
+    async def restart_handler(request: web.Request) -> web.Response:
+        """POST /api/restart — write the restart marker for the display process.
+
+        Token-gated by the global auth middleware (restart is NOT in _OPEN_PATHS).
+        Mirrors install/save convention: no token configured → 403 editing disabled,
+        not allow_restart → 403 restart disabled.
+        """
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+        if not allow_restart:
+            return web.json_response({"error": "restart disabled"}, status=403)
+        restart_marker_path.write_text("")
+        return web.json_response({"ok": True})
 
     preview_frame_path = status_path.parent / "preview.bin"
     preview_marker_path = status_path.parent / "preview-requested"
@@ -252,6 +274,7 @@ def build_webui_app(
             from led_ticker.webui.store import redact_anonymous  # noqa: PLC0415
 
             payload = redact_anonymous(payload)
+        payload["allow_restart"] = allow_restart
         return web.json_response(payload)
 
     manifest_lock = asyncio.Lock()
@@ -439,6 +462,7 @@ def build_webui_app(
 
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
+    app.router.add_post("/api/restart", restart_handler)
     app.router.add_get("/api/store", store_handler)
     app.router.add_post("/api/store/install", install_handler)
     app.router.add_delete("/api/store/remove", remove_handler)
@@ -679,12 +703,23 @@ def _add_page_route(app: web.Application) -> None:
 
 
 async def serve_webui(
-    *, config_path: Path, status_path: Path, host: str, port: int, token: str = ""
+    *,
+    config_path: Path,
+    status_path: Path,
+    host: str,
+    port: int,
+    token: str = "",
+    allow_restart: bool = False,
 ) -> web.AppRunner:
     """Start the listener; caller keeps the runner and calls .cleanup().
     Same contract as busy_http.serve_busy."""
     runner = web.AppRunner(
-        build_webui_app(config_path=config_path, status_path=status_path, token=token)
+        build_webui_app(
+            config_path=config_path,
+            status_path=status_path,
+            token=token,
+            allow_restart=allow_restart,
+        )
     )
     await runner.setup()
     try:
@@ -707,6 +742,7 @@ async def run_webui(config_path: Path, web_cfg) -> None:
         token=resolve_secret_token(
             "LED_TICKER_WEB_TOKEN", web_cfg.token, label="web.token"
         ),
+        allow_restart=web_cfg.allow_restart,
     )
     try:
         await asyncio.Event().wait()

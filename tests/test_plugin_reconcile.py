@@ -135,9 +135,11 @@ def test_reconcile_installs_missing_uninstalls_undeclared(tmp_path, monkeypatch)
 
     def fake_install(ns, py):
         installed.append(ns)
+        return 0
 
     def fake_uninstall(dist, py):
         uninstalled.append(dist)
+        return 0
 
     monkeypatch.setattr(r, "_install_namespace", fake_install)
     monkeypatch.setattr(r, "_uninstall_dist", fake_uninstall)
@@ -228,6 +230,48 @@ def test_reconcile_calls_ensure_volume_venv_for_volume_target(tmp_path, monkeypa
     assert calls  # ensure_volume_venv was called
 
 
+def test_reconcile_failed_action_on_install_nonzero_exit(tmp_path, monkeypatch):
+    """A non-zero pip exit code on install yields action='failed', not 'installed'."""
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / "config.toml").write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-rss\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+
+    def fake_install(ns, py):
+        return 1  # non-zero exit — pip failed
+
+    monkeypatch.setattr(r, "_install_namespace", fake_install)
+    actions = r.reconcile(tmp_path / "config.toml")
+    assert any(a.action == "failed" and a.namespace == "rss" for a in actions)
+    assert not any(a.action == "installed" for a in actions)
+    failed = next(a for a in actions if a.action == "failed")
+    assert "pip exited 1" in failed.detail
+
+
+def test_reconcile_failed_action_on_uninstall_nonzero_exit(tmp_path, monkeypatch):
+    """Non-zero pip exit code on uninstall yields action='failed', not 'uninstalled'."""
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / "config.toml").write_text("")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {"old": "led-ticker-old"})
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+
+    def fake_uninstall(dist, py):
+        return 2  # non-zero exit — pip failed
+
+    monkeypatch.setattr(r, "_uninstall_dist", fake_uninstall)
+    actions = r.reconcile(tmp_path / "config.toml")
+    assert any(a.action == "failed" and a.namespace == "old" for a in actions)
+    assert not any(a.action == "uninstalled" for a in actions)
+    failed = next(a for a in actions if a.action == "failed")
+    assert "pip exited 2" in failed.detail
+
+
 def test_reconcile_noop_when_declared_matches_installed(tmp_path, monkeypatch):
     import led_ticker.plugin_reconcile as r
 
@@ -264,10 +308,11 @@ def test_declared_namespaces_fallback_to_key(tmp_path, monkeypatch):
     import led_ticker.plugin_reconcile as r
     from led_ticker.plugins_catalog import Catalog
 
+    # load_catalog is imported inside the function body, so patch it at the
+    # source module so the lazy import picks up the stub.
     monkeypatch.setattr(
-        "led_ticker.plugin_reconcile.load_catalog",
+        "led_ticker.plugins_catalog.load_catalog",
         lambda: Catalog(entries=()),
-        raising=False,
     )
     manifest = tmp_path / "requirements-plugins.txt"
     manifest.write_text("my-custom-plugin\n")

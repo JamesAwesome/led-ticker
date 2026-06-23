@@ -42,7 +42,7 @@ RUN cd /opt && \
 
 # Layer 2: app dependencies (only rebuilds if pyproject.toml changes). After
 # installing, snapshot the exact installed versions into a pip constraints file
-# (constraints-core.txt) so plugin installs in Layer 2b can pull their own new
+# (constraints-core.txt) so runtime plugin installs can pull their own new
 # deps but cannot move core's stack. `pip list --format=freeze` renders the
 # editable led-ticker as `led-ticker==<v>` (a valid constraint), unlike
 # `pip freeze` which emits an unusable `-e ...` line.

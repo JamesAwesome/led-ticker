@@ -75,7 +75,6 @@ def ensure_volume_venv(venv_dir: Path, *, runner=subprocess.run) -> None:
         [sys.executable, "-m", "venv", "--system-site-packages", str(venv_dir)],
         check=True,
     )
-    venv_dir.mkdir(exist_ok=True)
     stamp.write_text(_py_tag())
 
 
@@ -288,9 +287,18 @@ def reconcile(
         for ns in sorted(to_install):
             try:
                 _log.info("plugin reconcile: installing %s", ns)
-                _install_namespace(ns, target.python_exe)
-                actions.append(PluginAction(namespace=ns, action="installed"))
-                _log.info("plugin reconcile: installed %s", ns)
+                code = _install_namespace(ns, target.python_exe)
+                if code != 0:
+                    detail = f"pip exited {code} installing {ns}"
+                    _log.warning(
+                        "plugin reconcile: failed to install %s: %s", ns, detail
+                    )
+                    actions.append(
+                        PluginAction(namespace=ns, action="failed", detail=detail)
+                    )
+                else:
+                    actions.append(PluginAction(namespace=ns, action="installed"))
+                    _log.info("plugin reconcile: installed %s", ns)
             except Exception as e:  # noqa: BLE001
                 _log.warning("plugin reconcile: failed to install %s: %s", ns, e)
                 actions.append(
@@ -313,9 +321,18 @@ def reconcile(
                 continue
             try:
                 _log.info("plugin reconcile: uninstalling %s (%s)", ns, dist)
-                _uninstall_dist(dist, target.python_exe)
-                actions.append(PluginAction(namespace=ns, action="uninstalled"))
-                _log.info("plugin reconcile: uninstalled %s", ns)
+                code = _uninstall_dist(dist, target.python_exe)
+                if code != 0:
+                    detail = f"pip exited {code} uninstalling {dist}"
+                    _log.warning(
+                        "plugin reconcile: failed to uninstall %s: %s", ns, detail
+                    )
+                    actions.append(
+                        PluginAction(namespace=ns, action="failed", detail=detail)
+                    )
+                else:
+                    actions.append(PluginAction(namespace=ns, action="uninstalled"))
+                    _log.info("plugin reconcile: uninstalled %s", ns)
             except Exception as e:  # noqa: BLE001
                 _log.warning("plugin reconcile: failed to uninstall %s: %s", ns, e)
                 actions.append(

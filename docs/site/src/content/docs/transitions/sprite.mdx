@@ -7,20 +7,52 @@ import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-Sprite transitions run a pixel-art character across the panel, erasing the outgoing widget and revealing the incoming one. They are provided by four packages in the external **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — `nyancat`, `pokeball`, `pacman`, and `sailor_moon` — each with forward, reverse, and alternating variants. Reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`.
+Sprite transitions run a pixel-art character across the panel, erasing the outgoing widget and revealing the incoming one. Reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`.
 
-## Install
+## Homage transitions (flair pack)
 
-Add the families you want to `config/requirements-plugins.txt` (copied from `config/requirements-plugins.example.txt`) — install only the ones you use:
+The four homage families — **nyancat**, **pokeball**, **pacman**, and **sailor_moon** — ship together in the `led-ticker-flair` package (one install, four entry points, each with `.forward`, `.reverse`, and `.alternating` variants).
+
+### Install
+
+Add one line to `config/requirements-plugins.txt` (copied from `config/requirements-plugins.example.txt`):
 
 ```text
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@nyancat-v0.1.0#subdirectory=plugins/nyancat
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@pokeball-v0.1.0#subdirectory=plugins/pokeball
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@pacman-v0.1.0#subdirectory=plugins/pacman
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@sailor_moon-v0.1.0#subdirectory=plugins/sailor_moon
+git+https://github.com/JamesAwesome/led-ticker-plugins.git@flair-v0.1.0#subdirectory=plugins/flair
 ```
 
-Each package registers its transitions at startup; the `pokeball` package also registers the `:pokeball.ball:` emoji. See [Plugins](/plugins/) for the install flow. A bare `transition = "nyancat"` (the pre-plugin spelling) now raises a config-load error pointing at the namespaced `nyancat.forward` slug.
+One install registers all four families. See [Plugins](/plugins/) for the install flow.
+
+A bare `transition = "nyancat"` (the pre-plugin spelling) raises a config-load error pointing at the namespaced `nyancat.forward` slug — the namespaced form is what the flair pack registers.
+
+:::note[Existing configs need no change]
+The type strings (`nyancat.forward`, `pokeball.alternating`, etc.) are unchanged — only the install source consolidates. Configs already using these transitions keep working as-is. If you previously pinned individual family tags (e.g. `@nyancat-v0.1.0`), those installs continue to work; switch to the single flair line at your convenience.
+:::
+
+### Nyan Cat (`nyancat`)
+
+Nyan Cat flies across the panel with a rainbow trail. Auto-activates a hi-res webp sprite on scaled signs (see [Hires](#hires) below).
+
+| Type string           | Direction            |
+| --------------------- | -------------------- |
+| `nyancat.forward`     | Left → right         |
+| `nyancat.reverse`     | Right → left         |
+| `nyancat.alternating` | Alternates each swap |
+
+<DemoGif
+  src="/demos-long/transitions-nyancat.gif"
+  caption="nyancat.forward — Nyan Cat flies left-to-right with rainbow trail"
+/>
+
+### Pokéball (`pokeball`)
+
+A Pokéball rolls across with a run-cycle sprite chasing. `show_pikachu` / `show_pokeball` toggle the sprite elements. Auto-activates a hi-res sprite on scaled signs (see [Hires](#hires) below). Also ships the `:pokeball.ball:` emoji.
+
+| Type string            | Direction            |
+| ---------------------- | -------------------- |
+| `pokeball.forward`     | Left → right         |
+| `pokeball.reverse`     | Right → left         |
+| `pokeball.alternating` | Alternates each swap |
 
 <DemoGif
   src="/demos-long/transitions-pokeball.gif"
@@ -32,15 +64,30 @@ Each package registers its transitions at startup; the `pokeball` package also r
   caption="pokeball.forward — single-sprite modes via show_pikachu / show_pokeball"
 />
 
-<DemoGif
-  src="/demos-long/transitions-nyancat.gif"
-  caption="nyancat.forward — Nyan Cat flies left-to-right with rainbow trail"
-/>
+### Pac-Man (`pacman`)
+
+Pac-Man chases three scared ghosts with a chomping animation. Keeps its 8-bit look at all scales.
+
+| Type string          | Direction            |
+| -------------------- | -------------------- |
+| `pacman.forward`     | Left → right         |
+| `pacman.reverse`     | Right → left         |
+| `pacman.alternating` | Alternates each swap |
 
 <DemoGif
   src="/demos-long/transitions-pacman.gif"
   caption="pacman.forward — Pac-Man chases 3 scared ghosts with chomping animation"
 />
+
+### Sailor Moon (`sailor_moon`)
+
+The Moon Stick wand sweeps across with a sparkle trail. Keeps its 8-bit look at all scales.
+
+| Type string               | Direction            |
+| ------------------------- | -------------------- |
+| `sailor_moon.forward`     | Left → right         |
+| `sailor_moon.reverse`     | Right → left         |
+| `sailor_moon.alternating` | Alternates each swap |
 
 <DemoGif
   src="/demos-long/transitions-sailor_moon.gif"

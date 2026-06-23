@@ -74,44 +74,44 @@
     {
       "name": "nyancat",
       "namespace": "nyancat",
-      "summary": "Nyan Cat sprite-trail transitions (nyancat.forward/.reverse/.alternating; hi-res).",
-      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/nyancat",
+      "summary": "Nyan Cat sprite-trail transitions (nyancat.forward/.reverse/.alternating; hi-res). Part of the led-ticker-flair pack.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": { "transitions": ["nyancat.forward", "nyancat.reverse", "nyancat.alternating"] },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "nyancat-v0.1.0", "subdirectory": "plugins/nyancat" }
+        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flair-v0.1.0", "subdirectory": "plugins/flair" }
       ]
     },
     {
       "name": "pokeball",
       "namespace": "pokeball",
-      "summary": "Pokeball/Pikachu sprite-trail transitions (pokeball.forward/.reverse/.alternating; hi-res) and the :pokeball.ball: emoji.",
-      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pokeball",
+      "summary": "Pokeball/Pikachu sprite-trail transitions (pokeball.forward/.reverse/.alternating; hi-res) and the :pokeball.ball: emoji. Part of the led-ticker-flair pack.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": {
         "transitions": ["pokeball.forward", "pokeball.reverse", "pokeball.alternating"],
         "emoji": ["pokeball.ball"]
       },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "pokeball-v0.1.0", "subdirectory": "plugins/pokeball" }
+        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flair-v0.1.0", "subdirectory": "plugins/flair" }
       ]
     },
     {
       "name": "pacman",
       "namespace": "pacman",
-      "summary": "Pac-Man sprite-trail transitions (pacman.forward/.reverse/.alternating).",
-      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pacman",
+      "summary": "Pac-Man sprite-trail transitions (pacman.forward/.reverse/.alternating). Part of the led-ticker-flair pack.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": { "transitions": ["pacman.forward", "pacman.reverse", "pacman.alternating"] },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "pacman-v0.1.0", "subdirectory": "plugins/pacman" }
+        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flair-v0.1.0", "subdirectory": "plugins/flair" }
       ]
     },
     {
       "name": "sailor_moon",
       "namespace": "sailor_moon",
-      "summary": "Sailor Moon sprite-trail transitions (sailor_moon.forward/.reverse/.alternating).",
-      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/sailor_moon",
+      "summary": "Sailor Moon sprite-trail transitions (sailor_moon.forward/.reverse/.alternating). Part of the led-ticker-flair pack.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": { "transitions": ["sailor_moon.forward", "sailor_moon.reverse", "sailor_moon.alternating"] },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "sailor_moon-v0.1.0", "subdirectory": "plugins/sailor_moon" }
+        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flair-v0.1.0", "subdirectory": "plugins/flair" }
       ]
     }
   ]

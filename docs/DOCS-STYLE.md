@@ -40,6 +40,16 @@ Borrowed from Adafruit Learn:
 16. **A next-step CTA on every page.** End every page — including reference and concept pages — by pulling the reader forward (`TutorialNav`/`RelatedPages` or a "next" link), not just tutorials — a dead-end page ends the session.
 17. **No release-history framing.** led-ticker is unreleased — don't describe anything as "legacy", "deprecated", "backward-compatible", "no longer accepted", or "still works as before." There's no prior version to preserve, so document the current way only.
 
+### Comparison & positioning pages
+
+Pages that describe the outside world (alternatives, "why use this") carry copy risks the rest of the docs don't. Rules:
+
+1. **Steelman, don't strawman.** Describe each alternative in its best light and say plainly when to pick *it* over led-ticker. No "unlike X, we…", no superlatives ("the best", "the only").
+2. **Send people elsewhere honestly.** For wrong-fit cases, name the better tool.
+3. **Evergreen external claims.** Keep volatile facts out of body copy — star counts, "recently acquired", version numbers, "most popular". Use qualitative comparisons, an "as of <date>" note, and push specifics to footnotes.
+4. **Cite outside claims.** Any factual claim about a third-party tool gets a source link or footnote.
+5. **Links to alternatives are informational, not upsell.** A competitor's GitHub link for honest comparison is fine; affiliate/buy links are not (see "No product upsell" below).
+
 ### Do NOT copy (from Adafruit)
 
 - **No product upsell / buy-now links** in prose — we're open source. Link hardware once on the Hardware pages, never mid-tutorial.
@@ -62,6 +72,7 @@ The technical-writer reviewer runs this against each completed docs task. Aim fo
 - [ ] Cross-links instead of duplication; a next-step CTA at the bottom.
 - [ ] Builds clean (`make docs-build`) + lint clean (`make docs-lint`); fences balanced.
 - [ ] Tone consistent + matter-of-fact (no upsell, no breathless marketing, no release-history framing).
+- [ ] If the page describes external tools: each alternative is steelmanned, claims are sourced + evergreen, and the page recommends the right tool for wrong-fit cases.
 
 ## 4. Mechanics
 

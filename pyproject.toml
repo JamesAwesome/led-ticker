@@ -13,12 +13,29 @@ requires-python = ">=3.14"
 authors = [
     { name = "James Awesome", email = "james@morelli.nyc" },
 ]
+keywords = [
+    "raspberry-pi",
+    "led-matrix",
+    "rgb-led-matrix",
+    "hub75",
+    "adafruit",
+    "led-sign",
+    "led-ticker",
+    "led-display",
+    "rpi-rgb-led-matrix",
+    "asyncio",
+    "pixel-art",
+    "scrolling-text",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.14",
     "Operating System :: POSIX :: Linux",
     "Topic :: Multimedia :: Graphics",
+    "Topic :: System :: Hardware",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
 ]
 dependencies = [
     "Pillow>=10.0",

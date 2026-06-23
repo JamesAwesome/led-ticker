@@ -1,0 +1,85 @@
+---
+title: countup widget
+description: Days since a past date — message with date arithmetic baked in.
+---
+
+import DemoGif from "../../../components/DemoGif.astro";
+import TomlExample from "../../../components/TomlExample.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The `countup` widget is a `message` with date arithmetic baked in. Every draw it
+renders `<text>: <N>` where N is the number of days from `countup_date` to today.
+The count is recomputed on each draw, so it rolls to the next value at midnight
+without restarting the process.
+
+<TomlExample
+  title="Minimal example"
+  code={`[[playlist.section.widget]]
+type = "countup"
+text = "Days since launch"
+countup_date = 2024-01-01`}
+/>
+
+## Before the date arrives
+
+If `countup_date` is still in the future, the widget does not display and a warning
+is emitted at config load:
+
+```
+WARNING: countup_date is in the future — widget will not display until that date arrives.
+```
+
+Once the date arrives the widget shows `0` and counts up from there. To count _down_
+to a future date, see [countdown](/widgets/countdown/).
+
+## Options
+
+<OptionsTable source="widgets/countup" />
+
+Set the content string with `text =`.
+
+## Common patterns
+
+### Branded color
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "countup"
+text = "Days Open"
+countup_date = 2024-03-15
+font_color = [255, 140, 0]`}
+/>
+
+### Rainbow sweep
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "countup"
+text = "Days Strong"
+countup_date = 2023-01-01
+font_color = "rainbow"`}
+/>
+
+### Rainbow border with solid text
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "countup"
+text = "Days Running"
+countup_date = 2023-06-01
+font_color = [255, 255, 255]
+border = "rainbow"`}
+/>
+
+For full details on `font_color`, `border`, `center`, `padding`, and `bg_color`,
+see the [color providers](/concepts/color-providers/) and [borders](/concepts/borders/)
+concept pages — the knobs work identically to `countdown`.
+
+## Tips
+
+### Typewriter is not available on `countup`
+
+`animation = "typewriter"` is rejected on `countup` — it's only supported on `message`, `gif`, and `image`. For dynamic color, use [`font_color = "rainbow"`](/concepts/color-providers/) or a gradient.
+
+<RelatedPages slugs={["widgets/countdown", "widgets/message", "concepts/color-providers"]} />

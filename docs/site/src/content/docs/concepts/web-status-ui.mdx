@@ -240,10 +240,10 @@ The Config tab reports **"applied live"** when the running display picked up the
 
 Some config changes — adding a plugin, changing `[display]` settings, toggling `[busy_light]` — cannot be applied by hot-reload alone. They require a full restart of the display process.
 
-The web UI can trigger that restart for you. When `allow_restart = true` is set in your `[web]` block, a **Restart to apply** button appears on the Status tab and in any "restart required" banner the hot-reload engine shows. Clicking it:
+The web UI can trigger that restart for you. When `allow_restart = true` is set in your `[web]` block, a **Restart to apply** button appears in the **Config tab's** "restart required" notice (after a save that needs a restart) and in the **Store tab's** pending-restart banner (when a plugin install or remove is queued). Clicking it:
 
 1. Confirms the action (a brief in-button countdown lets you cancel).
-2. Posts to `/api/restart` — a token is required if one is configured.
+2. Posts to `/api/restart` — a token must be configured and supplied (the same token that gates config saves); with no token configured the endpoint returns 403.
 3. The display process detects the signal on its next loop pass and exits cleanly (`sys.exit(0)`).
 4. Your process supervisor brings the display back. On Docker, `restart: unless-stopped` handles this automatically. On bare metal with systemd, `Restart=always` (or `on-success`) does the same.
 

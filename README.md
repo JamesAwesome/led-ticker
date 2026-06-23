@@ -3,7 +3,7 @@
 [![CI](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi via a TOML config. It runs HUB75 panels through an Adafruit RGB Matrix HAT (or Bonnet) on top of the [`hzeller/rpi-rgb-led-matrix`](https://github.com/hzeller/rpi-rgb-led-matrix) library, so anything that library drives, led-ticker drives. Two reference builds share one codebase and one Docker image:
+An asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi via a TOML config. It runs HUB75 panels through an Adafruit RGB Matrix HAT (or Bonnet) on top of [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/JamesAwesome/rpi-rgb-led-matrix) — our modified fork of [`hzeller/rpi-rgb-led-matrix`](https://github.com/hzeller/rpi-rgb-led-matrix) that adds Raspberry Pi 5 (RP1) support and a few patches — so anything that library drives, led-ticker drives. Two reference builds share one codebase and one Docker image:
 
 - **Smallsign** — Pi 4 + 5× chained 16×32 panels = 160×16 logical canvas
 - **Bigsign** — Pi 5 + 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 canvas
@@ -109,7 +109,7 @@ Hardware reference (BOM, wiring, panel-tuning knobs): <https://docs.ledticker.de
 
 ### Hardware compatibility
 
-led-ticker works with the same hardware as the underlying `hzeller/rpi-rgb-led-matrix` library:
+led-ticker works with the same hardware as the underlying `jamesawesome/rpi-rgb-led-matrix` library (our fork of `hzeller/rpi-rgb-led-matrix`):
 
 - **Controller boards:** Adafruit RGB Matrix HAT and RGB Matrix Bonnet (`hardware_mapping = "adafruit-hat"`). Other HUB75 wiring/GPIO mappings supported by the library also work.
 - **Panels:** HUB75 RGB LED matrix panels — any pitch (P3, P4, P5, …). The reference builds use P3 32×64 and 16×32 panels; chains and serpentine layouts are configured in TOML.
@@ -125,6 +125,10 @@ See the [hardware reference](https://docs.ledticker.dev/hardware/building-your-o
 - **Be excellent to each other:** [Code of Conduct](CODE_OF_CONDUCT.md)
 - **Security:** report privately — see [SECURITY.md](SECURITY.md)
 - **General contact:** hello@ledticker.dev
+
+## Origins & transparency
+
+led-ticker began as an original asyncio LED-ticker library written by James Awesome, and was developed further with the use of Claude AI.
 
 ## License
 

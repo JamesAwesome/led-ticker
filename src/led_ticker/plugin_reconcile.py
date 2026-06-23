@@ -5,6 +5,7 @@ build drops root. NEVER raises: a failure is recorded + logged, the panel boots.
 """
 
 import importlib.metadata
+import logging
 import os
 import shutil
 import subprocess
@@ -13,6 +14,8 @@ import tomllib
 from pathlib import Path
 
 import attrs
+
+_log = logging.getLogger(__name__)
 
 
 @attrs.frozen
@@ -153,3 +156,191 @@ def uninstall_blocked_reason(
     if is_depended_on(dist):
         return "depended on by another installed plugin"
     return None
+
+
+# ── reconcile orchestrator ────────────────────────────────────────────────────
+
+_MANIFEST_NAME = "requirements-plugins.txt"
+
+
+def _declared_namespaces(config_path: Path) -> set[str]:
+    """Return the set of plugin namespaces declared in the manifest beside config.
+
+    The manifest is ``requirements-plugins.txt`` in the same directory as
+    ``config_path``. Each non-comment line is a pip requirement string; we map
+    it to a namespace via the bundled catalog (namespace == catalog entry's
+    ``namespace`` field), falling back to the ``_requirement_key`` dedup key
+    when no catalog match exists.  Never raises — a missing/unreadable manifest
+    returns an empty set.
+    """
+    manifest = config_path.parent / _MANIFEST_NAME
+    if not manifest.exists():
+        return set()
+    # Lazy import to mirror app/plugin_cmd.py import-purity convention.
+    from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
+    from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
+
+    try:
+        catalog = load_catalog()
+    except Exception:  # noqa: BLE001
+        catalog = None
+
+    # Build a lookup: dedup_key -> namespace from the catalog.
+    key_to_ns: dict[str, str] = {}
+    if catalog is not None:
+        for entry in catalog.entries:
+            try:
+                k = _requirement_key(entry.requirement())
+                key_to_ns[k] = entry.namespace
+            except Exception:  # noqa: BLE001
+                pass
+
+    namespaces: set[str] = set()
+    for line in manifest.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        key = _requirement_key(stripped)
+        ns = key_to_ns.get(key, key)
+        namespaces.add(ns)
+    return namespaces
+
+
+def _install_namespace(ns: str, python_exe: str) -> int:
+    """Pip-install the requirement for namespace ``ns``.
+
+    Resolves the manifest line for this namespace via the catalog, then
+    delegates to ``_pip_install`` in ``app/plugin_cmd``. Returns the pip exit
+    code (0 = success).
+    """
+    from led_ticker.app.plugin_cmd import _pip_install  # noqa: PLC0415
+    from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
+
+    try:
+        catalog = load_catalog()
+        entry = catalog.get(ns)
+        requirement = entry.requirement() if entry is not None else ns
+    except Exception:  # noqa: BLE001
+        requirement = ns
+
+    return _pip_install(requirement, python_exe=python_exe)
+
+
+def _uninstall_dist(dist: str, python_exe: str) -> int:
+    """Pip-uninstall distribution ``dist``. Returns the pip exit code."""
+    from led_ticker.app.plugin_cmd import _pip_uninstall  # noqa: PLC0415
+
+    return _pip_uninstall(dist, python_exe=python_exe)
+
+
+def reconcile(
+    config_path: Path,
+    *,
+    volume_root: Path = Path("/data/plugins"),
+) -> list[PluginAction]:
+    """Make the installed plugins match the manifest beside ``config_path``.
+
+    Steps:
+    1. Resolve install target (volume venv or the active venv).
+    2. If volume target, ensure the volume venv exists/is current.
+    3. Read declared namespaces from the manifest next to ``config_path``.
+    4. Read installed namespaces from live entry points.
+    5. Compute diff (to_install, to_uninstall).
+    6. Install missing plugins; uninstall undeclared (with guards).
+    7. Each action is wrapped in try/except → ``PluginAction(action="failed")``.
+    8. The WHOLE body is wrapped in try/except — NEVER raises; returns ``[]``.
+
+    Returns a list of ``PluginAction`` describing what was done.
+    """
+    try:
+        target = resolve_target(volume_root=volume_root)
+        _log.info(
+            "plugin reconcile: target=%s python=%s", target.kind, target.python_exe
+        )
+
+        if target.kind == "volume":
+            venv_dir = volume_root / "venv"
+            ensure_volume_venv(venv_dir)
+
+        declared = _declared_namespaces(config_path)
+        manifest = config_path.parent / _MANIFEST_NAME
+        if not manifest.exists():
+            _log.info(
+                "plugin reconcile: no manifest found at %s — skipping reconcile",
+                manifest,
+            )
+
+        installed_map = installed_plugin_dists()  # {namespace: dist_name}
+        installed = set(installed_map.keys())
+
+        to_install, to_uninstall = compute_diff(declared, installed)
+        _log.info(
+            "plugin reconcile: declared=%s installed=%s to_install=%s to_uninstall=%s",
+            sorted(declared),
+            sorted(installed),
+            sorted(to_install),
+            sorted(to_uninstall),
+        )
+
+        referenced = referenced_namespaces(config_path)
+        actions: list[PluginAction] = []
+
+        for ns in sorted(to_install):
+            try:
+                _log.info("plugin reconcile: installing %s", ns)
+                _install_namespace(ns, target.python_exe)
+                actions.append(PluginAction(namespace=ns, action="installed"))
+                _log.info("plugin reconcile: installed %s", ns)
+            except Exception as e:  # noqa: BLE001
+                _log.warning("plugin reconcile: failed to install %s: %s", ns, e)
+                actions.append(
+                    PluginAction(namespace=ns, action="failed", detail=str(e))
+                )
+
+        for ns in sorted(to_uninstall):
+            dist = installed_map.get(ns, ns)
+            reason = uninstall_blocked_reason(ns, dist, referenced)
+            if reason is not None:
+                _log.info(
+                    "plugin reconcile: blocked uninstall of %s (%s): %s",
+                    ns,
+                    dist,
+                    reason,
+                )
+                actions.append(
+                    PluginAction(namespace=ns, action="blocked", detail=reason)
+                )
+                continue
+            try:
+                _log.info("plugin reconcile: uninstalling %s (%s)", ns, dist)
+                _uninstall_dist(dist, target.python_exe)
+                actions.append(PluginAction(namespace=ns, action="uninstalled"))
+                _log.info("plugin reconcile: uninstalled %s", ns)
+            except Exception as e:  # noqa: BLE001
+                _log.warning("plugin reconcile: failed to uninstall %s: %s", ns, e)
+                actions.append(
+                    PluginAction(namespace=ns, action="failed", detail=str(e))
+                )
+
+        return actions
+
+    except Exception as e:  # noqa: BLE001
+        _log.error("plugin reconcile: unexpected error — %s", e, exc_info=True)
+        return []
+
+
+def apply_to_syspath(target: Target) -> None:
+    """Insert the volume venv's site-packages at ``sys.path[0]`` (idempotent).
+
+    Only acts when ``target.site_packages`` is set and the directory exists.
+    Inserting at position 0 ensures volume-installed plugins shadow any same-named
+    packages in the base environment — safe because the volume venv was built with
+    ``--system-site-packages``, so core's deps are still available.
+    """
+    sp = target.site_packages
+    if not sp:
+        return
+    if not Path(sp).exists():
+        return
+    if sp not in sys.path:
+        sys.path.insert(0, sp)

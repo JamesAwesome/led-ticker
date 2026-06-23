@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Agent-/LLM-friendly Markdown of these docs:
+#   /llms.txt        index of all pages
+#   /llms-full.txt   the entire docs as one Markdown document
+Sitemap: https://docs.ledticker.dev/sitemap-index.xml

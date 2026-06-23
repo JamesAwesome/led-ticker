@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import remarkGfm from "remark-gfm";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -40,6 +41,13 @@ export default defineConfig({
   },
   integrations: [
     starlight({
+      plugins: [
+        starlightLlmsTxt({
+          projectName: "led-ticker",
+          description:
+            "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",
+        }),
+      ],
       title: "led-ticker",
       description:
         "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",
@@ -55,6 +63,15 @@ export default defineConfig({
           tag: "script",
           content:
             "try{if(localStorage.getItem('ticker:sidebar-collapsed')==='true'){document.documentElement.classList.add('sidebar-collapsed')}}catch(e){}",
+        },
+        {
+          tag: "link",
+          attrs: {
+            rel: "alternate",
+            type: "text/markdown",
+            href: "/llms.txt",
+            title: "led-ticker docs as Markdown (for LLMs/agents)",
+          },
         },
       ],
       social: [

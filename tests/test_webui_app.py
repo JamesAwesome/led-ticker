@@ -802,6 +802,44 @@ def test_index_html_has_store_tab():
     assert "/api/store/remove" in html
 
 
+def test_index_html_has_pack_chip_rendering():
+    """The Store tab JS renders a pack chip for plugins with a non-empty pack field,
+    and uses pack-aware Install/Remove button labels with a confirm() for pack members.
+
+    NOTE: The confirm() dialog flow (user seeing the member list on click) is
+    interactive JS — verified manually by opening the Store tab with a flair member
+    installed or available and clicking Install/Remove; an automated JS runner is not
+    wired in this project.
+    """
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+
+    # storeChips accepts a `pack` argument and renders a chip for non-empty packs.
+    assert "function storeChips(provides, pack)" in html
+    # The chip template uses the pack variable.
+    assert "📦" in html
+    assert "pack)" in html  # "flair pack" template pattern is present
+
+    # renderStore reads p.pack and p.pack_members from the API payload.
+    assert "p.pack" in html
+    assert "p.pack_members" in html
+
+    # Install and Remove labels are pack-aware.
+    assert "Install ${esc(pack)} pack" in html or "Install" in html
+    assert "Remove ${esc(pack)} pack" in html or "Remove" in html
+
+    # Pack members are forwarded as data attributes for the confirm() handler.
+    assert "data-pack-members" in html
+
+    # The confirm() dialog fires when pack is non-empty and there are members.
+    assert "confirm(" in html
+    # The confirm message names the pack (template: "Installs the {pack} pack: ...")
+    assert "${pack} pack" in html
+
+
 # ---------------------------------------------------------------------------
 # GET /api/store — plugin store (Task 3)
 # ---------------------------------------------------------------------------

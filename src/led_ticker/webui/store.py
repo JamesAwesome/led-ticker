@@ -172,6 +172,19 @@ def build_store(
         # Primary source type string (e.g. "pypi" or "git").
         source: str = entry.sources[0].type if entry.sources else ""
 
+        # Pack label: when multiple catalog namespaces share one pip package,
+        # they form a "pack".  Derive a short human label from the dedup key by
+        # stripping a leading "led-ticker-" prefix (e.g. "led-ticker-flair" →
+        # "flair"); fall back to the full key when the prefix is absent.
+        key = entry_key[ns]
+        siblings = key_to_namespaces.get(key, {ns})
+        is_pack = len(siblings) > 1
+        pack_label: str = ""
+        pack_members: list[str] = []
+        if is_pack:
+            pack_label = key.removeprefix("led-ticker-")
+            pack_members = sorted(siblings)
+
         plugins.append(
             {
                 "namespace": ns,
@@ -182,6 +195,8 @@ def build_store(
                 "state": state,
                 "removable": removable,
                 "in_use_by": in_use,
+                "pack": pack_label,
+                "pack_members": pack_members,
             }
         )
 
@@ -199,6 +214,8 @@ def build_store(
                 "state": "externally_installed",
                 "removable": False,
                 "in_use_by": in_use,
+                "pack": "",
+                "pack_members": [],
             }
         )
 

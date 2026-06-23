@@ -656,8 +656,11 @@ function storeBadge(state, displayOnline) {
   return '<span class="store-badge badge-available">Available</span>';
 }
 
-function storeChips(provides) {
+function storeChips(provides, pack) {
   const chips = [];
+  if (pack) {
+    chips.push(`<span class="chip">📦 ${esc(pack)} pack</span>`);
+  }
   for (const [kind, names] of Object.entries(provides || {})) {
     for (const name of (names || [])) {
       chips.push(`<span class="chip">${esc(kind)}: ${esc(name)}</span>`);
@@ -710,7 +713,9 @@ function renderStore(data) {
     const isDeclared = p.state === "active" || p.state === "restart_to_activate";
     const inUse = p.in_use_by || [];
     const badge = storeBadge(p.state, displayOnline);
-    const chips = storeChips(p.provides);
+    const pack = p.pack || "";
+    const packMembers = p.pack_members || [];
+    const chips = storeChips(p.provides, pack);
 
     // externally_installed plugins get no action button: they were not installed
     // via the manifest so the Store cannot safely remove them — the user must
@@ -719,9 +724,10 @@ function renderStore(data) {
     if (p.state === "available") {
       // Install button — disabled if auth required but no token
       const needsAuth = authRequired && !hasToken;
+      const installLabel = pack ? `Install ${esc(pack)} pack` : "Install";
       actionHtml = `<button class="store-btn install" ${needsAuth ? "disabled" : ""}
-        data-action="install" data-ns="${esc(p.namespace)}"
-        ${needsAuth ? 'title="Enter your token to install plugins"' : ""}>Install</button>`;
+        data-action="install" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
+        ${needsAuth ? 'title="Enter your token to install plugins"' : ""}>${installLabel}</button>`;
       if (needsAuth) {
         actionHtml += '<span class="store-in-use-note">Token required</span>';
       }
@@ -736,9 +742,10 @@ function renderStore(data) {
       const needsAuth = authRequired && !hasToken;
       const disabledReason = cantRemove ? "config depends on this plugin" : (needsAuth ? "token required" : "");
       const disabled = cantRemove || needsAuth;
+      const removeLabel = pack ? `Remove ${esc(pack)} pack` : "Remove";
       actionHtml = `<button class="store-btn remove" ${disabled ? "disabled" : ""}
-        data-action="remove" data-ns="${esc(p.namespace)}"
-        ${disabledReason ? `title="${esc(disabledReason)}"` : ""}>Remove</button>`;
+        data-action="remove" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
+        ${disabledReason ? `title="${esc(disabledReason)}"` : ""}>${removeLabel}</button>`;
       if (cantRemove && inUse.length > 0) {
         // This namespace's own config refs — show the specific sections.
         const refs = inUse.map((r) => `${esc(r.section)} → ${esc(r.type)}`).join(", ");
@@ -768,7 +775,16 @@ function renderStore(data) {
 
   // Attach button handlers
   $("store-list").querySelectorAll("button[data-action]").forEach((btn) => {
-    btn.onclick = () => storeAction(btn.dataset.action, btn.dataset.ns);
+    btn.onclick = () => {
+      const pack = btn.dataset.pack || "";
+      const members = btn.dataset.packMembers ? btn.dataset.packMembers.split(",").filter(Boolean) : [];
+      if (pack && members.length > 1) {
+        const verb = btn.dataset.action === "install" ? "Installs" : "Removes";
+        const ok = confirm(`${verb} the ${pack} pack: ${members.join(", ")}`);
+        if (!ok) return;
+      }
+      storeAction(btn.dataset.action, btn.dataset.ns);
+    };
   });
 }
 

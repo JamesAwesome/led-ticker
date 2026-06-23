@@ -460,3 +460,103 @@ def test_build_store_catalog_active_but_undeclared(tmp_path):
         f"got {entry['state']!r}"
     )
     assert entry["removable"] is False
+
+
+# ---------------------------------------------------------------------------
+# Pack indicator (led-ticker-flair: nyancat/pokeball/pacman/sailor_moon)
+# ---------------------------------------------------------------------------
+
+_FLAIR_NAMESPACES_FULL = ("nyancat", "pokeball", "pacman", "sailor_moon")
+
+
+def test_build_store_pack_fields_flair_members(tmp_path):
+    """Flair pack members each have pack=='flair' and pack_members lists all four
+    sorted namespaces; a solo plugin (e.g. rss) has pack=='' and pack_members==[]."""
+    cat = load_catalog()
+    flair_ns = {e.namespace for e in cat.entries} & set(_FLAIR_NAMESPACES_FULL)
+    assert flair_ns == set(_FLAIR_NAMESPACES_FULL), (
+        "catalog must carry all four flair entries"
+    )
+
+    man = tmp_path / "requirements-plugins.txt"
+    man.write_text("")
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    res = build_store(
+        manifest_path=man, config_path=cfg, status={}, token_configured=False
+    )
+    plugins_by_ns = {p["namespace"]: p for p in res["plugins"]}
+
+    # All four flair members must carry pack=="flair" and the full sorted list.
+    expected_members = sorted(_FLAIR_NAMESPACES_FULL)
+    for ns in _FLAIR_NAMESPACES_FULL:
+        entry = plugins_by_ns[ns]
+        assert entry["pack"] == "flair", (
+            f"{ns}: expected pack=='flair', got {entry['pack']!r}"
+        )
+        assert entry["pack_members"] == expected_members, (
+            f"{ns}: expected pack_members=={expected_members!r}, "
+            f"got {entry['pack_members']!r}"
+        )
+
+    # A solo plugin (rss ships as led-ticker-rss, only one namespace) must have
+    # empty pack fields.
+    rss = plugins_by_ns.get("rss")
+    assert rss is not None, "rss must be in catalog"
+    assert rss["pack"] == "", f"rss: expected pack=='', got {rss['pack']!r}"
+    assert rss["pack_members"] == [], (
+        f"rss: expected pack_members==[], got {rss['pack_members']!r}"
+    )
+
+
+def test_redact_anonymous_preserves_pack_fields(tmp_path):
+    """redact_anonymous must NOT strip pack/pack_members — they are catalog-derived
+    public data, same class as name/summary/provides."""
+    payload = {
+        "display_online": True,
+        "pending_count": 0,
+        "auth_required": True,
+        "plugins": [
+            {
+                "namespace": "nyancat",
+                "name": "nyancat",
+                "summary": "Nyan Cat transitions.",
+                "provides": {"transitions": ["nyancat.forward"]},
+                "source": "pypi",
+                "state": "active",
+                "removable": False,
+                "in_use_by": [{"section": "S", "type": "nyancat.forward"}],
+                "pack": "flair",
+                "pack_members": ["nyancat", "pacman", "pokeball", "sailor_moon"],
+            },
+            {
+                "namespace": "rss",
+                "name": "rss",
+                "summary": "RSS headlines.",
+                "provides": {"widgets": ["rss.feed"]},
+                "source": "pypi",
+                "state": "available",
+                "removable": False,
+                "in_use_by": [],
+                "pack": "",
+                "pack_members": [],
+            },
+        ],
+    }
+    result = redact_anonymous(payload)
+    ns_map = {p["namespace"]: p for p in result["plugins"]}
+
+    # Pack member: pack/pack_members preserved.
+    nyancat = ns_map["nyancat"]
+    assert nyancat["pack"] == "flair", (
+        f"pack should be 'flair' after redact, got {nyancat['pack']!r}"
+    )
+    expected_pack_members = ["nyancat", "pacman", "pokeball", "sailor_moon"]
+    assert nyancat["pack_members"] == expected_pack_members, (
+        f"pack_members should survive redact, got {nyancat['pack_members']!r}"
+    )
+
+    # Solo plugin: empty pack fields also preserved (not altered).
+    rss = ns_map["rss"]
+    assert rss["pack"] == ""
+    assert rss["pack_members"] == []

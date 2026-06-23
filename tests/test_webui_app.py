@@ -236,6 +236,8 @@ async def test_root_serves_page(tmp_path):
             "preview-canvas",
             "overlays-card",
             "no overlays installed",
+            "plugin-reconcile-card",
+            "Plugin install results",
         ):
             assert marker in text
     finally:
@@ -248,6 +250,47 @@ async def test_root_is_auth_gated(tmp_path):
         assert (await client.get("/")).status == 401
         ok = await client.get("/", params={"token": "s3cret"})
         assert ok.status == 200
+    finally:
+        await client.close()
+
+
+async def test_status_carries_plugin_reconcile(tmp_path):
+    """plugin_reconcile list is present in the /api/status payload (even when empty)."""
+    client = await _client(tmp_path, status=_fresh_status())
+    try:
+        body = await (await client.get("/api/status")).json()
+        assert body["state"] == "ok"
+        assert "plugin_reconcile" in body["status"]
+        assert isinstance(body["status"]["plugin_reconcile"], list)
+    finally:
+        await client.close()
+
+
+async def test_status_plugin_reconcile_entries(tmp_path):
+    """plugin_reconcile entries are passed through; failed/blocked carry detail."""
+    reconcile = [
+        {"namespace": "rss.feed", "action": "installed", "detail": ""},
+        {
+            "namespace": "weather.current",
+            "action": "blocked",
+            "detail": "config still references 'weather' widgets",
+        },
+        {
+            "namespace": "nyancat",
+            "action": "failed",
+            "detail": "ImportError: no module named nyancat",
+        },
+    ]
+    client = await _client(tmp_path, status=_fresh_status(plugin_reconcile=reconcile))
+    try:
+        body = await (await client.get("/api/status")).json()
+        assert body["state"] == "ok"
+        pr = body["status"]["plugin_reconcile"]
+        assert len(pr) == 3
+        assert pr[0] == {"namespace": "rss.feed", "action": "installed", "detail": ""}
+        assert pr[1]["action"] == "blocked"
+        assert "weather" in pr[1]["detail"]
+        assert pr[2]["action"] == "failed"
     finally:
         await client.close()
 

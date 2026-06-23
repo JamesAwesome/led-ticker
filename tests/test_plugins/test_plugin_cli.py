@@ -803,3 +803,86 @@ def test_pip_install_uses_given_python(monkeypatch):
     monkeypatch.setattr(plugin_cmd.subprocess, "run", fake_run)
     plugin_cmd._pip_install("led-ticker-pool", python_exe="/venv/bin/python")
     assert all(c[0] == "/venv/bin/python" for c in seen)
+
+
+# --- pip subprocess: timeouts + argument-like-requirement guard ---
+
+
+def test_pip_install_passes_timeout_and_net_args(monkeypatch):
+    """The install (and freeze) subprocess.run calls are wall-clock bounded and
+    the install carries pip --timeout/--retries so a flaky link can't hang boot."""
+    import subprocess as sp
+
+    from led_ticker.app import plugin_cmd
+
+    seen = []
+
+    def fake_run(cmd, **kw):
+        seen.append((cmd, kw))
+        return sp.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(plugin_cmd.subprocess, "run", fake_run)
+    plugin_cmd._pip_install("led-ticker-pool", python_exe="/venv/bin/python")
+    # both calls carry a timeout= kwarg
+    assert all("timeout" in kw and kw["timeout"] for _, kw in seen)
+    install_cmd = next(c for c, _ in seen if "install" in c)
+    assert "--timeout" in install_cmd and "--retries" in install_cmd
+
+
+def test_pip_uninstall_passes_timeout(monkeypatch):
+    import subprocess as sp
+
+    from led_ticker.app import plugin_cmd
+
+    seen = []
+
+    def fake_run(cmd, **kw):
+        seen.append((cmd, kw))
+        return sp.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(plugin_cmd.subprocess, "run", fake_run)
+    plugin_cmd._pip_uninstall("led-ticker-pool", python_exe="/venv/bin/python")
+    assert seen and all("timeout" in kw and kw["timeout"] for _, kw in seen)
+
+
+def test_pip_install_refuses_argument_like_requirement(monkeypatch):
+    """A manifest line starting with '-' (e.g. --pre) is rejected, never shelled
+    out as a pip flag."""
+    import pytest
+
+    from led_ticker.app import plugin_cmd
+
+    called = []
+    monkeypatch.setattr(plugin_cmd.subprocess, "run", lambda *a, **k: called.append(a))
+    for bad in ("--pre", "--index-url=evil", "-e"):
+        with pytest.raises(ValueError, match="argument-like"):
+            plugin_cmd._pip_install(bad, python_exe="/venv/bin/python")
+    assert called == []  # never reached subprocess
+
+
+def test_pip_install_allows_editable_spec(monkeypatch):
+    """`-e <spec>` is the one '-' form allowed (intentional editable install)."""
+    import subprocess as sp
+
+    from led_ticker.app import plugin_cmd
+
+    seen = []
+    monkeypatch.setattr(
+        plugin_cmd.subprocess,
+        "run",
+        lambda cmd, **kw: seen.append(cmd) or sp.CompletedProcess(cmd, 0, "", ""),
+    )
+    plugin_cmd._pip_install("-e git+https://x/y.git", python_exe="/venv/bin/python")
+    assert seen  # reached subprocess, not rejected
+
+
+def test_pip_uninstall_refuses_argument_like_dist(monkeypatch):
+    import pytest
+
+    from led_ticker.app import plugin_cmd
+
+    called = []
+    monkeypatch.setattr(plugin_cmd.subprocess, "run", lambda *a, **k: called.append(a))
+    with pytest.raises(ValueError, match="argument-like"):
+        plugin_cmd._pip_uninstall("--yes", python_exe="/venv/bin/python")
+    assert called == []

@@ -57,16 +57,17 @@ the full output format (human + JSON), exit codes, and CI examples.
 ## `led-ticker plugin`
 
 Manage plugins. Two pairs of verbs: **`add` / `remove`** edit the manifest
-(`config/requirements-plugins.txt`) only — the **Docker** path, where the image
-build does the install — and **`install` / `uninstall`** also run pip, for
+(`config/requirements-plugins.txt`) only — the **Docker** path, where a
+`docker compose restart` triggers a startup reconcile that installs from the
+manifest (no rebuild) — and **`install` / `uninstall`** also run pip, for
 bare-metal/dev. (The old `led-ticker plugins` is a deprecated alias of
 `plugin status`.)
 
 ```bash
-# Docker: edit the manifest, then rebuild
+# Docker: edit the manifest, then restart
 led-ticker plugin add pool          # + line in requirements-plugins.txt (no pip)
 led-ticker plugin remove pool       # − line (no pip)
-docker compose up -d --build        # the build installs from the manifest
+docker compose restart              # installs/uninstalls on the next start — no rebuild
 
 # Bare-metal / dev: also pip-install now
 led-ticker plugin install pool      # add + pip install

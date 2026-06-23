@@ -403,3 +403,240 @@ def test_apply_to_syspath_noop_when_dir_missing(tmp_path):
     old_path = sys.path[:]
     r.apply_to_syspath(target)
     assert sys.path == old_path
+
+
+# ── cross-environment scan (finding #1) ────────────────────────────────────────
+
+
+def _write_fake_plugin_distinfo(site_packages, dist_name, namespace):
+    """Lay down a minimal *.dist-info with a led_ticker.plugins entry point so
+    importlib.metadata can discover it once site_packages is on sys.path."""
+    site_packages.mkdir(parents=True, exist_ok=True)
+    di = site_packages / f"{dist_name.replace('-', '_')}-0.1.0.dist-info"
+    di.mkdir()
+    (di / "METADATA").write_text(
+        f"Metadata-Version: 2.1\nName: {dist_name}\nVersion: 0.1.0\n"
+    )
+    (di / "entry_points.txt").write_text(
+        f"[led_ticker.plugins]\n{namespace} = {dist_name.replace('-', '_')}:register\n"
+    )
+    (di / "RECORD").write_text("")
+
+
+def test_reconcile_observes_target_env_installed(tmp_path, monkeypatch):
+    """Reconcile must scan the TARGET (volume) environment, not the base
+    interpreter. A plugin present ONLY in the volume site-packages must be seen
+    as `installed` so it isn't reinstalled and (when undeclared) is uninstalled.
+
+    Non-monkeypatched on installed_plugin_dists/is_depended_on — it exercises the
+    real cross-environment scan via apply_to_syspath inserting the volume
+    site-packages before the diff. Regression for the wrong-environment bug.
+    """
+    import importlib.metadata
+    import sys
+
+    import led_ticker.plugin_reconcile as r
+
+    site_packages = tmp_path / "vol" / "venv" / "lib" / "pyX" / "site-packages"
+    _write_fake_plugin_distinfo(site_packages, "led-ticker-rss", "rss")
+
+    # The autouse hermetic fixture stubs entry_points(group=...) to []. Restore a
+    # REAL scan rooted at whatever is on sys.path (distributions() is NOT stubbed)
+    # so this test exercises the genuine cross-environment lookup: the fake plugin
+    # is only visible once apply_to_syspath has inserted `site_packages`.
+    def real_scan(*args, **kwargs):
+        group = kwargs.get("group")
+        eps = []
+        for dist in importlib.metadata.distributions():
+            for ep in dist.entry_points:
+                if group is None or ep.group == group:
+                    eps.append(ep)
+        return eps
+
+    monkeypatch.setattr(importlib.metadata, "entry_points", real_scan)
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")  # no widget references -> rss is undeclared + unreferenced
+    (tmp_path / "requirements-plugins.txt").write_text("")  # declared = empty
+
+    # Force a volume target pointed at our fake site-packages; skip real venv
+    # creation. resolve_target/ensure_volume_venv are infra, not under test here.
+    monkeypatch.setattr(
+        r,
+        "resolve_target",
+        lambda **k: r.Target("volume", "py", str(site_packages)),
+    )
+    monkeypatch.setattr(r, "ensure_volume_venv", lambda venv_dir: None)
+    # is_depended_on is NOT patched — real scan. Capture the uninstall target.
+    uninstalled = []
+    monkeypatch.setattr(
+        r, "_uninstall_dist", lambda dist, py: uninstalled.append(dist) or 0
+    )
+    monkeypatch.setattr(
+        r, "_install_namespace", lambda ns, py: (_ for _ in ()).throw(AssertionError())
+    )
+
+    inserted_before = str(site_packages) in sys.path
+    try:
+        actions = r.reconcile(cfg, volume_root=tmp_path / "vol")
+    finally:
+        while str(site_packages) in sys.path:
+            sys.path.remove(str(site_packages))
+        if inserted_before:
+            sys.path.insert(0, str(site_packages))
+
+    # rss was observed as installed in the volume env -> uninstalled (true sync),
+    # NOT treated as missing-and-reinstalled.
+    assert "led-ticker-rss" in uninstalled
+    assert any(a.action == "uninstalled" and a.namespace == "rss" for a in actions)
+
+
+def test_reconcile_invalidates_caches_after_install(tmp_path, monkeypatch):
+    """After a successful install/uninstall, reconcile drops import caches so the
+    immediately-following entry-point discovery sees the change (no 2nd restart)."""
+    import importlib
+
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-rss\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+    monkeypatch.setattr(r, "_install_namespace", lambda ns, py: 0)
+
+    calls = []
+    monkeypatch.setattr(importlib, "invalidate_caches", lambda: calls.append(1))
+    r.reconcile(cfg)
+    assert calls  # invalidate_caches fired after the install
+
+
+def test_reconcile_no_invalidate_when_nothing_changed(tmp_path, monkeypatch):
+    """A pure no-op pass must not pay for a cache invalidation."""
+    import importlib
+
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {"rss": "led-ticker-rss"})
+    calls = []
+    monkeypatch.setattr(importlib, "invalidate_caches", lambda: calls.append(1))
+    r.reconcile(cfg)
+    assert calls == []
+
+
+# ── ensure_volume_venv recreate path (finding #7) ──────────────────────────────
+
+
+def test_ensure_recreates_venv_when_stamp_mismatches(tmp_path):
+    """Stamp present but wrong Python version -> rmtree + recreate + new stamp."""
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "stale_marker").write_text("x")
+    (venv / ".python-version").write_text("3.0")  # deliberately wrong
+
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        venv.mkdir(exist_ok=True)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    ensure_volume_venv(venv, runner=fake_run)
+    assert any("--system-site-packages" in c for c in calls)  # recreated
+    assert not (venv / "stale_marker").exists()  # old tree was removed
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    assert (venv / ".python-version").read_text() == py_version  # fresh stamp
+
+
+# ── volume python_exe used for install/uninstall (finding #8) ──────────────────
+
+
+def test_reconcile_uses_target_python_exe_for_install(tmp_path, monkeypatch):
+    """Install must shell out via the volume venv's python, not sys.executable."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    target_py = "/data/plugins/venv/bin/python"
+    monkeypatch.setattr(
+        r, "resolve_target", lambda **k: r.Target("volume", target_py, None)
+    )
+    monkeypatch.setattr(r, "ensure_volume_venv", lambda venv_dir: None)
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+    seen_py = []
+    monkeypatch.setattr(r, "_install_namespace", lambda ns, py: seen_py.append(py) or 0)
+    r.reconcile(cfg, volume_root=tmp_path / "vol")
+    assert seen_py == [target_py]
+    assert sys.executable not in seen_py
+
+
+def test_reconcile_uses_target_python_exe_for_uninstall(tmp_path, monkeypatch):
+    """Uninstall must shell out via the volume venv's python, not sys.executable."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    target_py = "/data/plugins/venv/bin/python"
+    monkeypatch.setattr(
+        r, "resolve_target", lambda **k: r.Target("volume", target_py, None)
+    )
+    monkeypatch.setattr(r, "ensure_volume_venv", lambda venv_dir: None)
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {"old": "led-ticker-old"})
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+    seen_py = []
+    monkeypatch.setattr(r, "_uninstall_dist", lambda dist, py: seen_py.append(py) or 0)
+    r.reconcile(cfg, volume_root=tmp_path / "vol")
+    assert seen_py == [target_py]
+    assert sys.executable not in seen_py
+
+
+# ── multi-plugin failure isolation (finding #9) ────────────────────────────────
+
+
+def test_reconcile_one_install_failure_does_not_block_others(tmp_path, monkeypatch):
+    """One plugin's install failure must not prevent the others from proceeding."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss", "baseball"})
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+
+    def fake_install(ns, py):
+        return 1 if ns == "baseball" else 0
+
+    monkeypatch.setattr(r, "_install_namespace", fake_install)
+    actions = r.reconcile(cfg)
+    by_ns = {a.namespace: a.action for a in actions}
+    assert by_ns.get("rss") == "installed"
+    assert by_ns.get("baseball") == "failed"
+
+
+def test_reconcile_one_install_raise_does_not_block_others(tmp_path, monkeypatch):
+    """A raising install (e.g. pip TimeoutExpired) is isolated per-plugin."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss", "baseball"})
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+
+    def fake_install(ns, py):
+        if ns == "baseball":
+            raise RuntimeError("pip hung")
+        return 0
+
+    monkeypatch.setattr(r, "_install_namespace", fake_install)
+    actions = r.reconcile(cfg)
+    by_ns = {a.namespace: a.action for a in actions}
+    assert by_ns.get("rss") == "installed"
+    assert by_ns.get("baseball") == "failed"

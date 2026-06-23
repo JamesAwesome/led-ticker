@@ -80,7 +80,7 @@ This is also the fix if a plugin volume becomes corrupt or out of sync.
 The first `docker compose restart` after adding a plugin needs network access to download it. If your sign runs without internet access, either:
 
 - **Pre-seed the volume** by running `docker compose restart` once on a networked machine (or host), then moving the volume data to the air-gapped sign.
-- **Build a custom image** with the plugin baked in (`docker compose up -d --build` on a machine with network access — this is still supported and appropriate for air-gapped deployments).
+- **Build a derivative image** that bakes the plugin in: write a small Dockerfile that starts `FROM led-ticker` and adds a `RUN pip install …` layer with your plugins, build it on a machine with network access, then deploy that image to the air-gapped sign.
 
 ## Relationship to the `[plugins]` config block
 

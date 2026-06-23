@@ -260,6 +260,15 @@ def reconcile(
         if target.kind == "volume":
             venv_dir = volume_root / "venv"
             ensure_volume_venv(venv_dir)
+            # Put the volume venv's site-packages on sys.path BEFORE scanning the
+            # installed set. The display process is the BASE interpreter; plugins
+            # live in the volume venv's site-packages, which is invisible to
+            # importlib.metadata until inserted here. Without this the installed
+            # scan reads the base env (effectively empty), so true-sync uninstall
+            # never fires and every plugin reinstalls every boot.
+            # Tripwire: test_reconcile_observes_target_env_installed.
+            apply_to_syspath(target)
+            importlib.invalidate_caches()
 
         declared = _declared_namespaces(config_path)
         manifest = config_path.parent / _MANIFEST_NAME
@@ -339,6 +348,14 @@ def reconcile(
                     PluginAction(namespace=ns, action="failed", detail=str(e))
                 )
 
+        # If anything changed on disk this pass, drop the import-system caches so
+        # the immediately-following entry-point discovery in run() sees freshly
+        # installed plugins (and stops seeing uninstalled ones) without a second
+        # restart. Covers the local-venv path too (apply_to_syspath is a no-op
+        # there). Tripwire: test_reconcile_invalidates_caches_after_install.
+        if any(a.action in ("installed", "uninstalled") for a in actions):
+            importlib.invalidate_caches()
+
         return actions
 
     except Exception as e:  # noqa: BLE001
@@ -361,3 +378,8 @@ def apply_to_syspath(target: Target) -> None:
         return
     if sp not in sys.path:
         sys.path.insert(0, sp)
+    # Drop any stale FileFinder/path-importer caches so packages just installed
+    # into this directory (this boot) are discoverable by the import system and
+    # importlib.metadata's entry-point scan. Cheap; required by the importlib
+    # docs after creating modules / mutating sys.path at runtime.
+    importlib.invalidate_caches()

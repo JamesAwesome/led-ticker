@@ -359,14 +359,36 @@ def _installed_namespaces() -> set[str]:
     return {ep.name for ep in eps}
 
 
+# Bound pip subprocesses so a slow/flaky network can't hang startup before the
+# frame builds (reconcile runs in run()'s prologue, panel dark until it returns).
+# A hung pip raises TimeoutExpired -> recorded as a "failed" PluginAction; the
+# panel comes up sans that plugin instead of staying dark indefinitely.
+_PIP_NET_ARGS = ["--timeout", "30", "--retries", "2"]
+_PIP_INSTALL_TIMEOUT_S = 300
+_PIP_FREEZE_TIMEOUT_S = 60
+_PIP_UNINSTALL_TIMEOUT_S = 120
+
+
 def _pip_install(requirement: str, *, python_exe: str = sys.executable) -> int:
     """Freeze the current env to a constraints file, then pip-install the
     requirement under it so a plugin can't move core's pinned deps. Returns the
-    pip exit code (0 = success)."""
+    pip exit code (0 = success).
+
+    Refuses argument-like requirements (a manifest line starting with ``-``,
+    e.g. ``--pre`` / ``--index-url``) so a stray flag can't be smuggled in as a
+    pip option. The one ``-`` form allowed is ``-e <spec>`` (an editable
+    install), the documented, intentional pip form. Raises
+    ``subprocess.TimeoutExpired`` if pip stalls past the per-call wall clock —
+    the caller (reconcile) records that as ``failed``."""
+    if requirement.startswith("-") and not requirement.startswith("-e "):
+        raise ValueError(
+            f"refusing to pip-install an argument-like requirement: {requirement!r}"
+        )
     freeze = subprocess.run(
         [python_exe, "-m", "pip", "list", "--format=freeze"],
         capture_output=True,
         text=True,
+        timeout=_PIP_FREEZE_TIMEOUT_S,
     )
     if freeze.returncode != 0:
         print(freeze.stderr, file=sys.stderr)
@@ -378,7 +400,17 @@ def _pip_install(requirement: str, *, python_exe: str = sys.executable) -> int:
         constraints = fh.name
     try:
         proc = subprocess.run(
-            [python_exe, "-m", "pip", "install", "-c", constraints, requirement],
+            [
+                python_exe,
+                "-m",
+                "pip",
+                "install",
+                *_PIP_NET_ARGS,
+                "-c",
+                constraints,
+                requirement,
+            ],
+            timeout=_PIP_INSTALL_TIMEOUT_S,
         )
     finally:
         Path(constraints).unlink(missing_ok=True)
@@ -387,8 +419,15 @@ def _pip_install(requirement: str, *, python_exe: str = sys.executable) -> int:
 
 def _pip_uninstall(dist: str, *, python_exe: str = sys.executable) -> int:
     """pip-uninstall a distribution by name. Returns the pip exit code (pip exits
-    0 with a warning when the package isn't installed)."""
-    proc = subprocess.run([python_exe, "-m", "pip", "uninstall", "-y", dist])
+    0 with a warning when the package isn't installed).
+
+    Refuses an argument-like ``dist`` for the same reason as ``_pip_install``."""
+    if dist.startswith("-"):
+        raise ValueError(f"refusing to pip-uninstall an argument-like dist: {dist!r}")
+    proc = subprocess.run(
+        [python_exe, "-m", "pip", "uninstall", "-y", dist],
+        timeout=_PIP_UNINSTALL_TIMEOUT_S,
+    )
     return proc.returncode
 
 

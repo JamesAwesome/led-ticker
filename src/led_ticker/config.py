@@ -204,6 +204,7 @@ class WebConfig:
     http_port: int = 8080
     token: str = ""  # empty = open; non-empty enables auth on every route
     status_path: str = "/run/led-ticker/status.json"
+    allow_restart: bool = False  # enables "restart display" control in web UI
 
 
 @dataclass
@@ -289,6 +290,7 @@ def _parse_web_block(raw: dict) -> WebConfig | None:
         http_port=w_raw.get("http_port", 8080),
         token=w_raw.get("token", ""),
         status_path=w_raw.get("status_path", "/run/led-ticker/status.json"),
+        allow_restart=w_raw.get("allow_restart", False),
     )
     if not isinstance(cfg.http_host, str):
         raise ValueError(
@@ -306,6 +308,8 @@ def _parse_web_block(raw: dict) -> WebConfig | None:
         raise ValueError(
             f"web.status_path must be a non-empty string; got {cfg.status_path!r}."
         )
+    if not isinstance(cfg.allow_restart, bool):
+        raise ValueError("[web] allow_restart must be a boolean (true/false)")
     return cfg
 
 

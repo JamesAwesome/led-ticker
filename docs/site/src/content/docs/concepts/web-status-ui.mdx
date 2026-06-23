@@ -46,7 +46,7 @@ The Store tab lists every plugin in the [catalog](/plugins/available/) and shows
 
 **A token is required to install or remove.** Browsing the Store is open, but any write action returns 401 without a valid token. Set `LED_TICKER_WEB_TOKEN` in your `.env` (see [Auth](#auth) below).
 
-**Changes take effect on the next `docker compose restart`** — the same as editing `config/requirements-plugins.txt` by hand. The Store writes the manifest for you and shows a "pending restart" banner with a copyable restart command once there is a queued change. There is no one-click restart from the browser; you run the command yourself.
+**Changes take effect on the next restart** — the same as editing `config/requirements-plugins.txt` by hand. The Store writes the manifest for you and shows a "pending restart" banner once there is a queued change. If `allow_restart = true` is set in your `[web]` block, the banner also shows a **Restart to apply** button — click it and the display process exits cleanly, then your process supervisor (Docker or systemd) brings it back with the new plugins loaded. If `allow_restart` is not set, the banner shows a copyable command you can run yourself:
 
 ```bash
 docker compose restart
@@ -236,9 +236,39 @@ The Config tab reports **"applied live"** when the running display picked up the
 
 **Deploy note.** The webui container must be able to write the host-bind-mounted `config.toml`. In `compose.yaml` the webui service mounts the config directory `:rw` (the display service still mounts it `:ro`). On bare metal, confirm the user running `led-ticker webui` has write permission to the config directory. If the Pi's config directory is owned by root and the sidecar runs as an unprivileged user, `chown` the directory or add the sidecar user to the owning group.
 
+## Restarting the display process
+
+Some config changes — adding a plugin, changing `[display]` settings, toggling `[busy_light]` — cannot be applied by hot-reload alone. They require a full restart of the display process.
+
+The web UI can trigger that restart for you. When `allow_restart = true` is set in your `[web]` block, a **Restart to apply** button appears on the Status tab and in any "restart required" banner the hot-reload engine shows. Clicking it:
+
+1. Confirms the action (a brief in-button countdown lets you cancel).
+2. Posts to `/api/restart` — a token is required if one is configured.
+3. The display process detects the signal on its next loop pass and exits cleanly (`sys.exit(0)`).
+4. Your process supervisor brings the display back. On Docker, `restart: unless-stopped` handles this automatically. On bare metal with systemd, `Restart=always` (or `on-success`) does the same.
+
+**The panel goes dark for roughly 5–10 seconds** while the process exits and restarts. This is expected — it is not a reboot of the Pi, and the sign resumes where it left off once the display process is back.
+
+**`allow_restart` is off by default.** Enable it by adding the field to your `[web]` block:
+
+<TomlExample
+  title="Enabling the restart button"
+  code={`[web]
+allow_restart = true   # enables the Restart to apply button in the web UI`}
+/>
+
+The `config/config.example.toml` shipped with the project sets `allow_restart = true` in its commented-out `[web]` block — uncomment the whole block to get the button alongside the other defaults.
+
+<Aside type="caution">
+  **Bare metal: set up a supervisor before enabling this.** If you enable `allow_restart` without a
+  supervisor configured to restart the process, clicking the button leaves the sign dark. On bare
+  metal, confirm your systemd unit has `Restart=always` or `Restart=on-success` before flipping this
+  on. On Docker, `restart: unless-stopped` is already set in `compose.yaml`.
+</Aside>
+
 ## What it does not do
 
-- No restart or reboot button.
+- No Pi reboot.
 - No brightness control.
 
 ## Troubleshooting

@@ -407,6 +407,80 @@ def test_declared_namespaces_skips_comment_lines(tmp_path):
     assert not any(n.startswith("#") for n in ns)
 
 
+# ── shared-package declaration (led-ticker-flair) ─────────────────────────────
+
+_FLAIR_NAMESPACES = {"nyancat", "pokeball", "pacman", "sailor_moon"}
+
+
+def test_declared_requirements_shared_package_maps_all_namespaces(tmp_path):
+    """A shared pip package (led-ticker-flair) declares EVERY namespace it ships.
+
+    Regression: key_to_ns used to be a single-namespace map (last-write-wins), so
+    a `led-ticker-flair` manifest line collapsed to whichever flair entry the
+    catalog loop visited last (`sailor_moon`) — pacman/nyancat/pokeball never
+    installed. Uses the real bundled catalog (the flair entries are real).
+    """
+    import led_ticker.plugin_reconcile as r
+
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text("led-ticker-flair\n")
+    config = tmp_path / "config.toml"
+    config.write_text("")
+
+    reqs = r._declared_requirements(config)
+    for ns in _FLAIR_NAMESPACES:
+        assert ns in reqs, f"{ns} should be declared by a led-ticker-flair line"
+        assert reqs[ns] == "led-ticker-flair"
+
+
+def test_declared_namespaces_shared_package_includes_all_siblings(tmp_path):
+    """_declared_namespaces wraps _declared_requirements — all four flair names."""
+    import led_ticker.plugin_reconcile as r
+
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text("led-ticker-flair\n")
+    config = tmp_path / "config.toml"
+    config.write_text("")
+
+    assert r._declared_namespaces(config) >= _FLAIR_NAMESPACES
+
+
+def test_reconcile_shared_package_installs_once(tmp_path, monkeypatch):
+    """A 4-namespace shared package installs the pip line ONCE, not 4×.
+
+    With led-ticker-flair declared and nothing installed, to_install covers all
+    four flair namespaces — but the actual pip install must run a single time for
+    the shared package (correct-but-wasteful 4× installs are deduped). Every
+    covered namespace still gets an "installed" action.
+    """
+    import led_ticker.plugin_reconcile as r
+
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text("led-ticker-flair\n")
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")  # no widget refs
+
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+
+    calls: list[str | None] = []
+
+    def fake_install(ns, py, *, constraints=None, requirement_line=None):
+        calls.append(requirement_line)
+        return 0
+
+    monkeypatch.setattr(r, "_install_namespace", fake_install)
+    actions = r.reconcile(cfg)
+
+    # pacman (and its siblings) are installed.
+    by_ns = {a.namespace: a.action for a in actions}
+    for ns in _FLAIR_NAMESPACES:
+        assert by_ns.get(ns) == "installed", f"{ns} should be installed"
+
+    # The shared package's pip install ran exactly ONCE for led-ticker-flair.
+    assert calls == ["led-ticker-flair"]
+
+
 # ── apply_to_syspath ──────────────────────────────────────────────────────────
 
 

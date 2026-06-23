@@ -203,6 +203,7 @@ A few behaviors are **conventions** the type carries, not `api.*` calls:
 - **`font_color` injection** — to accept the standard `font_color` color-provider knob, declare a `font_color: object = None` field on the widget; the loader coerces the TOML value to a `ColorProvider` and injects it. Without the field, `font_color` is rejected as unknown.
 - **`frame_invariant`** — `ColorProviderBase` / `BorderEffectBase` require subclasses to set a `frame_invariant: bool` class attr. `True` means output never varies by frame (enables a static fast path); `False` forces a per-tick redraw.
 - **`restart_on_visit`** — a color provider or border may set `restart_on_visit = False` to keep a continuous animation phase across a section's `loop_count`, instead of resetting on each visit.
+- **`should_display`** — a widget may define `def should_display(self) -> bool`. The engine calls it once per section pass; returning `False` removes the widget from that pass (it is re-evaluated on the next pass). Absent → always shown. A `should_display` that raises keeps the widget — a visibility check must never crash the render loop. Use it to gate a widget on a runtime condition: the built-in `countdown` / `countup` widgets hide while their day count is negative; a custom widget could show only during certain hours.
 
 ## Where to next
 

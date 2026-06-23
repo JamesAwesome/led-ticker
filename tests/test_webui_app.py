@@ -772,6 +772,28 @@ def test_index_html_has_config_validation_card():
     assert "config_validation" in html
 
 
+def test_error_and_warning_are_global_color_utilities():
+    """`.error` (red) and `.warning` (amber) are used as global utility classes
+    — plugin-emoji chips (`<code class="warning">` in #inv-emoji) and table error
+    cells (`<td class="error">`) live OUTSIDE the config-editor `.issues` panels.
+    Scoping the rules to `.issues` leaves those unstyled (the inventory plugin-emoji
+    highlight silently did nothing). Assert global rules, not `.issues`-only ones."""
+    import re
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    # A line whose selector STARTS with `.error` / `.warning` is a global rule;
+    # `.issues .error { ... }` (line starts with `.issues`) does NOT match.
+    assert re.search(
+        r"^\s*\.error\s*\{", html, re.MULTILINE
+    ), "no global `.error` color rule"
+    assert re.search(
+        r"^\s*\.warning\s*\{", html, re.MULTILINE
+    ), "no global `.warning` color rule"
+
+
 def test_index_html_has_store_tab():
     """The Store tab nav button and section are present in the page HTML."""
     from pathlib import Path

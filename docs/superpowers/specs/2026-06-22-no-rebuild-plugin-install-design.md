@@ -17,7 +17,7 @@ The manifest (`requirements-plugins.txt`) is the **source of truth**; a startup 
 1. **Sequencing:** foundation first; the web Store UI is a separate later spec.
 2. **Local target:** local/bare-metal installs into the **active venv** (today's `led-ticker plugin install` behavior). Docker installs into a **plugins volume**. One reconcile, two natural backends, auto-detected.
 3. **Docker volume mechanism:** a **`--system-site-packages` venv on a named volume** (inherits core from the image; only plugins + their *new* deps live on the volume — no core duplication, first-install downloads only what's new). The image stays immutable.
-4. **Reconcile model:** **true sync** — install declared-but-missing plugins AND uninstall installed-but-undeclared ones. The manifest is fully authoritative. Uninstall is **scoped to `led_ticker.plugins` entry-point packages only** — never core, never non-plugin packages.
+4. **Reconcile model:** **true sync** — install declared-but-missing plugins AND uninstall installed-but-undeclared ones. The manifest is fully authoritative. Uninstall is **guarded** (independent eng + PM research, 2026-06-22 — see §"Uninstall guards"): scoped to `led_ticker.plugins` entry-point packages, dist resolved via the installed `EntryPoint.dist.name`, **skipped if another installed dist depends on it OR if the active `config.toml` still references its widget type**, and backed by the `--system-site-packages` floor that makes core physically un-uninstallable from the volume venv.
 5. **Activation:** restart-to-apply (reconcile runs at startup). No live hot-load in this spec (a restart is seconds, not a rebuild). Hot-load deferred.
 6. **Visibility (hobbyist):** reconcile results are **surfaced on the web status page** + logged with clear progress — not buried in `docker compose logs`.
 
@@ -33,7 +33,7 @@ Runs in the established **pre-frame-build / pre-root-drop slot** in `app/run.py`
 1. Resolve the **target backend**: container (volume present) → the volume venv; else → the active venv. **Log the chosen target** ("reconcile: installing into /data/plugins/venv" / "<active venv path>").
 2. Read the manifest (`config/requirements-plugins.txt`). If absent, **log a hint** ("no requirements-plugins.txt — copy requirements-plugins.example.txt to add plugins") and skip.
 3. **Diff** the manifest's declared plugins against currently-installed `led_ticker.plugins` entry-point packages (reuse `_installed_namespaces` / dist-key logic from `app/plugin_cmd.py`).
-4. **Install** declared-but-missing, **constraint-pinned** (reuse `_pip_install`'s frozen-core constraints, targeting the resolved venv's pip). **Uninstall** installed-but-undeclared plugin packages (scoped to the entry-point group). Log each action with progress.
+4. **Install** declared-but-missing, **constraint-pinned** (reuse `_pip_install`'s frozen-core constraints, via the **resolved venv's own pip** — never `sys.executable` when the target is the volume venv). **Uninstall** installed-but-undeclared plugin packages per the **§"Uninstall guards"** below. Log each action with progress.
 5. **Per-plugin failure isolation:** any single install/uninstall failure is caught, recorded, and logged — the reconcile continues and the panel still boots (mirrors load-time plugin isolation). NEVER raise out of the hook.
 6. Return a **reconcile result** (per-plugin: installed / uninstalled / unchanged / failed + message) for status surfacing.
 
@@ -54,6 +54,19 @@ Add a **`plugins` (reconcile) block** to the status board (schema bump): last re
 ### 7. compose.yaml + docs
 - Add the `ticker-plugins` volume + the `/data/plugins` mount on the display service, **with a comment**: what it holds, and "to reset all installed plugins: `docker volume rm ticker-plugins && docker compose restart`".
 - Docs: a prominent **"add a plugin in seconds — edit `requirements-plugins.txt` then `docker compose restart` (no `--build`)"** callout on the Plugins page; document removal (delete the line → restart) and the reset command. Each plugin page already shows its exact install line (from the PyPI-install work, #270).
+
+## Uninstall guards (from independent eng + PM research, 2026-06-22)
+
+Both reviews agreed true-sync uninstall is safe to ship, but entry-point scoping ALONE is insufficient (pip silently uninstalls a package even when another installed package depends on it — verified). The uninstall step MUST apply all of:
+1. **Entry-point scope** — only consider dists that own a `led_ticker.plugins` entry point.
+2. **Resolve via `EntryPoint.dist.name`** — uninstall the *installed* dist (handles third-party / monorepo / raw-spec plugins correctly), NOT the catalog `led-ticker-<name>` guess.
+3. **Skip-if-depended-on** — before uninstalling dist D, scan `importlib.metadata` `requires` of every *other* still-installed dist; if any requires D, skip + log (don't break a sibling/core).
+4. **Skip-if-config-references-it** (PM-required) — if a widget `type` under D's namespace appears in the active `config.toml`, SKIP, log "still referenced by config.toml — remove those widgets first", and surface "removal blocked" on the status page. Never silently remove a plugin the running config depends on (it would boot into a validation error).
+5. **Target the volume venv's own pip** (`<venv>/bin/python -m pip`), never `sys.executable`.
+6. **`--system-site-packages` core floor** — pip in the volume venv *cannot* uninstall an inherited image/core package (verified: "outside environment … No files were found to uninstall") — the backstop that uninstall can never touch core.
+7. **Per-item isolation** (§2.5); orphaned transitive deps are left (volume bloat only — reclaim via the volume reset).
+
+Each guard gets a test.
 
 ## Reuse (don't reinvent)
 `app/plugin_cmd.py`: `_pip_install` (constraint-pinned), `_installed_namespaces` (entry-point discovery), the manifest parse / `_declared_keys` / dist-key helpers, `_remove_requirement`. The reconcile is a new orchestrator over these, parameterized by the target venv's pip.
@@ -76,5 +89,5 @@ The reconcile installs/uninstalls from the **trusted local manifest** (a file on
 ## Risks / open items
 - **Constraint #13:** the reconcile MUST run while still root (to create the venv on the root-owned volume mountpoint) and BEFORE `load_plugins`. Mis-ordering = either a permission failure or plugins not importable. Guarded by the pre-drop-slot tripwire.
 - **venv Python-version staleness:** handled by the version-stamp + recreate; the recreate path needs network (first boot after an image Python bump) — logged.
-- **True-sync uninstall safety:** must only ever uninstall packages in the `led_ticker.plugins` entry-point group AND absent from the manifest — explicit guard + test so it can never touch core or a non-plugin dependency.
-- The Docker build's existing Layer-2b plugin install (`requirements-plugins.txt` baked at build) becomes redundant for the no-rebuild path; decide in the plan whether to keep it (works for a baked image) or drop it (volume reconcile is now the path). Likely keep as a harmless fallback; the plan resolves it.
+- **True-sync uninstall safety — RESOLVED** (independent eng + PM research, 2026-06-22): entry-point scoping alone is insufficient (pip silently breaks dependents — verified). Mitigated by the full guard list in §"Uninstall guards" (dist via `EntryPoint.dist.name`, skip-if-depended-on, skip-if-config-references, volume-venv pip, `--system-site-packages` core floor), each tested.
+- **Layer-2b — DECISION: DROP** (independent eng + PM research, 2026-06-22, unanimous): a baked plugin lives in the immutable image venv, and the volume reconcile **provably cannot uninstall it** — the same `--system-site-packages` floor that protects core also traps a baked plugin → a "baked ghost" true-sync can never remove without the rebuild this spec exists to eliminate (and a removed-from-manifest baked plugin would stay importable, silently breaking the declarative contract). **The named-volume venv is the SINGLE plugin install path.** Drop Layer-2b; update the compose comment + deploy docs (first `restart` after adding plugins pulls them — a one-time ~30s wait, not a rebuild; offline/air-gapped = pre-seed the volume or build a custom image). Re-add as a hybrid ONLY if a real no-network-first-boot requirement appears (then mark image-venv-resident plugins non-removable).

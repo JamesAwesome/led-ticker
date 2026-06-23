@@ -1,0 +1,11 @@
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "led-ticker",
+  "description": "An open-source asyncio Python toolkit that drives large HUB75 RGB LED matrix signs from a Raspberry Pi with a TOML config — scrolling news, weather, crypto, sports, and calendar feeds.",
+  "url": "https://docs.ledticker.dev",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Raspberry Pi OS, Linux",
+  "license": "https://github.com/JamesAwesome/led-ticker/blob/main/LICENSE",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}

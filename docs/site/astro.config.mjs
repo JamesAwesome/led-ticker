@@ -4,6 +4,7 @@ import starlightLlmsTxt from "starlight-llms-txt";
 import remarkGfm from "remark-gfm";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import structuredData from "./src/structured-data.json";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -73,6 +74,11 @@ export default defineConfig({
             title: "led-ticker docs as Markdown (for LLMs/agents)",
           },
         },
+        {
+          tag: "script",
+          attrs: { type: "application/ld+json" },
+          content: JSON.stringify(structuredData),
+        },
       ],
       social: [
         { icon: "github", label: "GitHub", href: "https://github.com/JamesAwesome/led-ticker" },
@@ -80,6 +86,7 @@ export default defineConfig({
       sidebar: [
         { label: "Home", link: "/" },
         { label: "Getting started", link: "/getting-started/" },
+        { label: "Why led-ticker?", link: "/why-led-ticker/" },
         {
           label: "Tutorial",
           items: [

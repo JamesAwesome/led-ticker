@@ -12,7 +12,10 @@
   #live { font-size: .85rem; }
   #live.ok::before { content: "● "; color: #4c4; }
   #live.stale::before, #live.missing::before, #live.unreadable::before, #live.schema_mismatch::before { content: "● "; color: #c44; }
-  nav { display: flex; gap: .4rem; margin-left: auto; }
+  .token-bar { display: flex; align-items: center; gap: .35rem; margin-left: auto; }
+  .token-bar label { font-size: .8rem; color: #888; }
+  .token-bar input { background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: .35rem .5rem; font-family: ui-monospace, monospace; font-size: .82rem; width: 9rem; }
+  nav { display: flex; gap: .4rem; }
   nav button { background: #222; color: #ddd; border: 1px solid #444; border-radius: 6px; padding: .4rem .9rem; cursor: pointer; }
   nav button.active { background: #36c; border-color: #36c; color: #fff; }
   main { padding: 1.2rem; max-width: 70rem; margin: 0 auto; }
@@ -64,6 +67,10 @@
   <h1 id="hostname">led-ticker</h1>
   <span id="uptime" class="muted"></span>
   <span id="live" class="missing">connecting…</span>
+  <div class="token-bar">
+    <label for="token-input">Token</label>
+    <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="enter token…">
+  </div>
   <nav>
     <button data-tab="status" class="active">Status</button>
     <button data-tab="config">Config</button>
@@ -156,7 +163,7 @@
       <strong>Plugin Store</strong>
       <p class="muted" style="margin:.4rem 0 0;">Only verified plugins are shown — for community plugins, see the <a href="https://docs.ledticker.dev/plugins/" target="_blank" rel="noopener" style="color:#88c;">docs</a>.</p>
       <div id="store-auth-banner" class="store-banner auth" style="display:none;margin-top:.75rem;">
-        Enter your token in the URL (<code>?token=…</code>) to install or remove plugins.
+        Enter your token in the field above to install or remove plugins.
       </div>
       <div id="store-offline-banner" class="store-banner offline" style="display:none;margin-top:.75rem;">
         Display offline — state reflects installed plugins, not live status.
@@ -192,8 +199,13 @@
 </main>
 <script>
 const qs = new URLSearchParams(location.search);
-const tok = qs.get("token");
-const auth = tok ? {"X-Web-Token": tok} : {};
+const TOKEN_KEY = "ledticker_token";
+// Token resolution order: ?token= in the URL wins (and is persisted), else the
+// value last entered into the token field (sessionStorage). `auth` is rebuilt
+// from `authToken` whenever the token changes so EVERY authed request picks it
+// up without a page reload.
+let authToken = qs.get("token") || sessionStorage.getItem(TOKEN_KEY) || "";
+let auth = authToken ? {"X-Web-Token": authToken} : {};
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
   {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]
@@ -201,6 +213,34 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
 let lastStatus = null;
 let prevSwapCount = null;
 let stallPolls = 0;
+
+// --- Token field ----------------------------------------------------------
+// Seed the field from the resolved token (URL or sessionStorage). On change,
+// persist to sessionStorage, rebuild `auth`, and re-fetch the authed views so
+// the UI reflects the now-authenticated state without a reload.
+function applyToken(value) {
+  authToken = value || "";
+  auth = authToken ? {"X-Web-Token": authToken} : {};
+  if (authToken) sessionStorage.setItem(TOKEN_KEY, authToken);
+  else sessionStorage.removeItem(TOKEN_KEY);
+}
+(function initTokenField() {
+  const input = $("token-input");
+  if (!input) return;
+  input.value = authToken;
+  let lastApplied = authToken;
+  const onChange = () => {
+    if (input.value === lastApplied) return;
+    lastApplied = input.value;
+    applyToken(input.value);
+    // Re-fetch everything that depends on auth so the view upgrades live.
+    poll();
+    loadStore();
+    if (document.querySelector('nav button[data-tab="config"]').classList.contains("active")) loadConfig();
+  };
+  input.addEventListener("change", onChange);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") onChange(); });
+})();
 
 document.querySelectorAll("nav button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("nav button").forEach((x) => x.classList.remove("active"));
@@ -227,7 +267,7 @@ async function poll() {
     if (r.status === 401) {
       $("live").className = "missing";
       $("live").textContent = "auth failed";
-      $("now-section").textContent = "auth failed — open this page with ?token=<your token>";
+      $("now-section").textContent = "auth failed — enter your token in the field above";
       return;
     }
     const body = await r.json();
@@ -363,7 +403,7 @@ let configBaseHash = "";
 async function loadConfig() {
   const r = await fetch("/api/config", {headers: auth});
   if (r.status === 401) {
-    $("config-editor").value = "auth failed — open this page with ?token=<your token>";
+    $("config-editor").value = "auth failed — enter your token in the field above";
     $("config-gutter").textContent = "1";
     return;
   }
@@ -434,7 +474,7 @@ $("config-validate").onclick = async () => {
   try {
     const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("config-editor").value});
     if (r.status === 413) { renderConfigErrors({errors: [{message: "Config too large (1 MB cap)."}]}); return; }
-    if (r.status === 401) { renderConfigErrors({errors: [{message: "Auth failed — open this page with ?token=<your token>."}]}); return; }
+    if (r.status === 401) { renderConfigErrors({errors: [{message: "Auth failed — enter your token in the field above."}]}); return; }
     renderConfigErrors(await r.json());
   } catch (e) {
     renderConfigErrors({errors: [{message: "Could not reach the webui — is it still running?"}]});
@@ -517,7 +557,7 @@ $("validate-run").onclick = async () => {
   try {
     const r = await fetch("/api/validate", {method: "POST", headers: auth, body: $("validate-input").value});
     if (r.status === 413) { $("validate-result").innerHTML = '<p class="error">Config too large (1 MB cap).</p>'; return; }
-    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — enter your token in the field above.</p>'; return; }
     renderIssues(await r.json());
   } catch (e) {
     $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
@@ -543,7 +583,7 @@ $("validate-file-run").onclick = async () => {
       body: JSON.stringify({name: $("config-select").value}),
     });
     if (r.status === 404) { $("validate-result").innerHTML = '<p class="error">Unknown config file.</p>'; return; }
-    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — enter your token in the field above.</p>'; return; }
     renderIssues(await r.json());
   } catch (e) {
     $("validate-result").innerHTML = '<p class="error">Could not reach the webui — is it still running?</p>';
@@ -554,7 +594,7 @@ $("load-redacted").onclick = async () => {
   try {
     const r = await fetch(`/api/config?name=${encodeURIComponent($("config-select").value)}`, {headers: auth});
     if (r.status === 404) { $("validate-result").innerHTML = '<p class="error">Unknown config file.</p>'; return; }
-    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — open this page with ?token=&lt;your token&gt;.</p>'; return; }
+    if (r.status === 401) { $("validate-result").innerHTML = '<p class="error">Auth failed — enter your token in the field above.</p>'; return; }
     const body = await r.json();
     if (body.state !== "ok") { $("validate-result").innerHTML = `<p class="error">${esc(body.detail || body.state || "could not load")}</p>`; return; }
     $("validate-input").value = body.toml;
@@ -638,15 +678,18 @@ function switchToConfigTab() {
 
 function renderStore(data) {
   const authRequired = data.auth_required;
-  const hasToken = !!tok;
+  const hasToken = !!authToken;
+  // display_online is OMITTED for anonymous callers (redact_anonymous drops it —
+  // display liveness is deployment state). Missing ⇒ unknown ⇒ no offline banner.
+  const displayKnown = "display_online" in data;
   const displayOnline = data.display_online;
   const pendingCount = data.pending_count || 0;
 
   // Auth banner: show only when token is required but not provided
   $("store-auth-banner").style.display = (authRequired && !hasToken) ? "" : "none";
 
-  // Offline banner
-  $("store-offline-banner").style.display = displayOnline ? "none" : "";
+  // Offline banner — only when display state is KNOWN (authed) and offline.
+  $("store-offline-banner").style.display = (displayKnown && !displayOnline) ? "" : "none";
 
   // Pending banner
   if (pendingCount > 0) {
@@ -774,8 +817,12 @@ async function storeAction(action, namespace) {
       $("store-go-config").onclick = (e) => { e.preventDefault(); switchToConfigTab(); };
       return;
     }
-    if (r.status === 401 || r.status === 403) {
-      alert("Auth required — open this page with ?token=<your token>");
+    if (r.status === 401) {
+      alert("Auth failed — check your token in the field above.");
+      return;
+    }
+    if (r.status === 403) {
+      alert("Editing disabled (no token configured on the server).");
       return;
     }
     if (!r.ok) {

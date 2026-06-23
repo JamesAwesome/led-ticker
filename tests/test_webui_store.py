@@ -80,7 +80,11 @@ def test_build_store_externally_installed(tmp_path):
 
 
 def test_build_store_pending_count(tmp_path):
-    """pending_count == number of restart_to_activate entries."""
+    """pending_count == number of DISTINCT pending pip packages (dedup by
+    requirement key), not pending namespaces — the flair siblings share one
+    package, so installing it is one pending install, not four."""
+    from led_ticker.app.plugin_cmd import _requirement_key
+
     cat = load_catalog()
     man = tmp_path / "requirements-plugins.txt"
     # Declare all catalog entries but report none as active
@@ -92,8 +96,10 @@ def test_build_store_pending_count(tmp_path):
         manifest_path=man, config_path=cfg, status={}, token_configured=False
     )
     pending_entries = [p for p in res["plugins"] if p["state"] == "restart_to_activate"]
-    assert res["pending_count"] == len(pending_entries)
-    assert res["pending_count"] == len(cat.entries)
+    distinct_keys = {_requirement_key(e.requirement()) for e in cat.entries}
+    assert res["pending_count"] == len(distinct_keys)
+    # Fewer distinct packages than namespaces (flair collapses 4 → 1).
+    assert res["pending_count"] < len(pending_entries)
 
 
 def test_build_store_removable_respects_in_use(tmp_path):
@@ -313,11 +319,21 @@ def test_redact_anonymous_catalog_fields_preserved():
         assert anon["source"] == orig["source"]
 
 
-def test_redact_anonymous_display_online_and_auth_required_preserved():
-    """display_online and auth_required pass through unchanged."""
+def test_redact_anonymous_display_online_dropped_auth_required_preserved():
+    """display_online is dropped (deployment liveness, hidden from anon callers);
+    auth_required passes through unchanged."""
     result = redact_anonymous(_FULL_PAYLOAD)
-    assert result["display_online"] == _FULL_PAYLOAD["display_online"]
+    assert "display_online" not in result
     assert result["auth_required"] == _FULL_PAYLOAD["auth_required"]
+
+
+def test_redact_anonymous_is_idempotent():
+    """A second apply must be a fixed point — coarsening an already-coarsened
+    payload must not regress 'installed' back to 'available', and display_online
+    stays dropped."""
+    once = redact_anonymous(_FULL_PAYLOAD)
+    twice = redact_anonymous(once)
+    assert twice == once
 
 
 def test_redact_anonymous_does_not_mutate_input():
@@ -367,6 +383,44 @@ def test_build_store_shared_package_siblings_not_removable_when_one_in_use(tmp_p
             f"{ns} shares led-ticker-flair with the in-use nyancat — must not be "
             f"removable, got removable={entry['removable']!r}"
         )
+
+
+def test_build_store_pending_count_dedups_shared_package(tmp_path):
+    """One led-ticker-flair install marks all four flair namespaces
+    restart_to_activate, but it is ONE pending package — pending_count must
+    count distinct requirement keys, not namespaces (so the banner says 1)."""
+    cat = load_catalog()
+    flair = {e.namespace for e in cat.entries} & set(_FLAIR_NAMESPACES)
+    assert flair == set(_FLAIR_NAMESPACES), "catalog must carry the four flair entries"
+
+    man = tmp_path / "requirements-plugins.txt"
+    man.write_text("led-ticker-flair\n")  # one line declares all four namespaces
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    # No flair namespace active → all four are restart_to_activate.
+    res = build_store(
+        manifest_path=man, config_path=cfg, status={}, token_configured=False
+    )
+    pending = [p for p in res["plugins"] if p["state"] == "restart_to_activate"]
+    assert {p["namespace"] for p in pending} >= set(_FLAIR_NAMESPACES)
+    # ...but the four flair rows collapse to ONE pending package: pending_count
+    # equals the number of DISTINCT requirement keys, not pending namespaces.
+    from led_ticker.app.plugin_cmd import _requirement_key
+
+    distinct_pending_keys = {
+        _requirement_key(e.requirement())
+        for e in cat.entries
+        if e.namespace in {p["namespace"] for p in pending}
+    }
+    assert res["pending_count"] == len(distinct_pending_keys)
+    assert res["pending_count"] < len(pending)  # dedup actually collapsed rows
+    # The four flair namespaces contribute exactly one key.
+    flair_keys = {
+        _requirement_key(e.requirement())
+        for e in cat.entries
+        if e.namespace in _FLAIR_NAMESPACES
+    }
+    assert len(flair_keys) == 1
 
 
 def test_config_references_inline_emoji_token(tmp_path):

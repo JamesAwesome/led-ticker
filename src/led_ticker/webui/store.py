@@ -85,6 +85,7 @@ def build_store(
     status: dict[str, Any],
     token_configured: bool,
     catalog: Catalog | None = None,
+    refs: dict[str, list[dict[str, str]]] | None = None,
 ) -> dict[str, Any]:
     """Derive the Plugin Store payload from all state sources.
 
@@ -95,13 +96,18 @@ def build_store(
       plugins           list   — one entry per catalog plugin + any extras
         Each entry: namespace, name, summary, provides (dict of kind->list),
         source (str), state, removable (bool), in_use_by (list of {section,type})
+
+    ``refs`` (config-reference map) is computed from ``config_path`` when None.
+    Callers that already parsed it (e.g. remove_handler) may pass it in so
+    config.toml is parsed once per request instead of twice.
     """
     catalog = catalog or load_catalog()
 
     display_online: bool = bool(status)
     active: set[str] = _active_namespaces(status)
     declared_keys: set[str] = _declared_keys(manifest_path)
-    refs = config_references(config_path)
+    if refs is None:
+        refs = config_references(config_path)
 
     # Build namespace -> CatalogEntry map for O(1) lookup.
     ns_to_entry: dict[str, CatalogEntry] = {e.namespace: e for e in catalog.entries}
@@ -196,7 +202,19 @@ def build_store(
             }
         )
 
-    pending_count = sum(1 for p in plugins if p["state"] == "restart_to_activate")
+    # Count DISTINCT pending packages, not namespaces.  Multiple catalog
+    # namespaces can share one pip package (e.g. nyancat/pokeball/pacman/
+    # sailor_moon → led-ticker-flair); installing that single package marks all
+    # four sibling rows restart_to_activate, but it is ONE pending install — so
+    # dedup by the manifest requirement key (entry_key) before counting.
+    pending_count = len(
+        {
+            entry_key[p["namespace"]]
+            for p in plugins
+            if p["state"] == "restart_to_activate"
+            and p["namespace"] in entry_key  # catalog entries only
+        }
+    )
 
     return {
         "display_online": display_online,
@@ -208,21 +226,30 @@ def build_store(
 
 # States that indicate some form of install presence — coarsened to "installed"
 # for anonymous callers (avoids leaking restart-to-activate / external-install
-# distinctions that hint at the operator's deployment state).
-_INSTALLED_STATES = frozenset({"active", "restart_to_activate", "externally_installed"})
+# distinctions that hint at the operator's deployment state).  "installed" is
+# itself in the set so a second redact is a fixed point (idempotent): coarsening
+# an already-coarsened payload keeps "installed" rather than dropping it back to
+# "available".
+_INSTALLED_STATES = frozenset(
+    {"active", "restart_to_activate", "externally_installed", "installed"}
+)
 
 
 def redact_anonymous(payload: dict) -> dict:
     """Return a copy of the store payload safe for unauthenticated callers.
 
     Catalog-browsable fields (namespace, name, summary, provides, source,
-    display_online, auth_required) are preserved verbatim.  Config-derived
-    or deployment-detail fields are redacted:
+    auth_required) are preserved verbatim.  Config-derived or deployment-detail
+    fields are redacted:
 
     - ``in_use_by``    → [] (config section titles are private)
     - ``state``        → "installed" if active/restart_to_activate, else "available"
     - ``removable``    → False (no remove button without auth)
     - ``pending_count``→ 0 (leaks how many plugins are pending restart)
+    - ``display_online``→ dropped (display liveness is deployment state — the
+      operator chose to hide it from unauthenticated callers, same class as the
+      external-install / pending detail above; the frontend treats a missing
+      field as "unknown" and shows no offline banner)
 
     ``externally_installed`` entries are DROPPED entirely: they are host-only,
     off-catalog plugin namespaces the operator pip-installed (pure deployment
@@ -250,8 +277,12 @@ def redact_anonymous(payload: dict) -> dict:
             }
         )
 
-    return {
+    out = {
         **payload,
         "pending_count": 0,
         "plugins": redacted_plugins,
     }
+    # Drop deployment-liveness from anonymous callers (idempotent: pop is a no-op
+    # on an already-redacted payload).
+    out.pop("display_online", None)
+    return out

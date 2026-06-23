@@ -807,6 +807,36 @@ def test_index_html_has_store_tab():
 # ---------------------------------------------------------------------------
 
 
+def test_index_html_has_token_field():
+    """A token input field lets users enter the token in the UI (not just ?token=)."""
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    # The password input field is present and seeded/persisted via sessionStorage.
+    assert 'id="token-input"' in html
+    assert 'type="password"' in html
+    assert "sessionStorage" in html
+    assert "ledticker_token" in html
+    # Messages point users at the field, not the old "?token=" URL instruction.
+    assert "enter your token in the field above" in html
+
+
+def test_token_ok_constant_time_compare():
+    """_token_ok: open system always passes; otherwise constant-time match."""
+    from led_ticker.webui import _token_ok
+
+    # No token configured → open system, any (or no) provided value passes.
+    assert _token_ok(None, "") is True
+    assert _token_ok("anything", "") is True
+    # Token configured → exact match required; None/empty/wrong all fail.
+    assert _token_ok("s3cret", "s3cret") is True
+    assert _token_ok("wrong", "s3cret") is False
+    assert _token_ok(None, "s3cret") is False
+    assert _token_ok("", "s3cret") is False
+
+
 async def test_store_returns_expected_shape(tmp_path, monkeypatch):
     """GET /api/store → 200 with plugins list and metadata keys."""
     import led_ticker.webui as webui_mod
@@ -1456,6 +1486,38 @@ async def test_remove_no_token_configured_returns_403(tmp_path):
         await client.close()
 
 
+async def test_install_missing_namespace_is_400(tmp_path):
+    """POST /api/store/install with an empty/absent namespace → 400 (not 500)."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        for body in ({}, {"namespace": ""}, {"namespace": 7}):
+            resp = await client.post(
+                "/api/store/install",
+                json=body,
+                headers={"X-Web-Token": "s3cret"},
+            )
+            assert resp.status == 400, body
+            assert (await resp.json())["error"] == "missing namespace"
+    finally:
+        await client.close()
+
+
+async def test_remove_missing_namespace_is_400(tmp_path):
+    """DELETE /api/store/remove with an empty/absent namespace → 400 (not 500)."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        for body in ({}, {"namespace": ""}, {"namespace": 7}):
+            resp = await client.delete(
+                "/api/store/remove",
+                json=body,
+                headers={"X-Web-Token": "s3cret"},
+            )
+            assert resp.status == 400, body
+            assert (await resp.json())["error"] == "missing namespace"
+    finally:
+        await client.close()
+
+
 async def test_install_bad_json_body_is_400(tmp_path):
     """POST /api/store/install with a malformed JSON body → 400 (handler ValueError
     branch), not 500.  Token configured + supplied so the guard passes."""
@@ -1710,6 +1772,18 @@ _RICH_FAKE_PAYLOAD = {
             "removable": False,
             "in_use_by": [],
         },
+        {
+            # Off-catalog, host pip-installed namespace. redact_anonymous must
+            # DROP this entirely for unauthenticated callers (deployment state).
+            "namespace": "mycorp.custom",
+            "name": "mycorp.custom",
+            "summary": "",
+            "provides": {},
+            "source": "",
+            "state": "externally_installed",
+            "removable": False,
+            "in_use_by": [{"section": "Custom", "type": "mycorp.widget"}],
+        },
     ],
 }
 
@@ -1747,6 +1821,11 @@ async def test_store_token_configured_no_token_header_redacts(tmp_path, monkeypa
         rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
         assert rss["name"] == "RSS Feed"
         assert rss["summary"] == "RSS headlines"
+        # externally_installed namespace must NOT leak end-to-end through the
+        # handler (anon-drop fires in the route, not just the unit).
+        assert "mycorp.custom" not in {p["namespace"] for p in body["plugins"]}
+        # display_online is dropped for anonymous callers (deployment state).
+        assert "display_online" not in body
     finally:
         await client.close()
 
@@ -1816,6 +1895,9 @@ async def test_store_wrong_token_gives_redacted(tmp_path, monkeypatch):
         assert rss["state"] == "installed"
         assert rss["removable"] is False
         assert body["pending_count"] == 0
+        # Wrong token is anonymous: externally_installed namespace dropped.
+        assert "mycorp.custom" not in {p["namespace"] for p in body["plugins"]}
+        assert "display_online" not in body
     finally:
         await client.close()
 

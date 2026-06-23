@@ -12,6 +12,7 @@ must never import rgbmatrix (tripwire lands in tests/test_webui_purity.py).
 
 import asyncio
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -50,6 +51,20 @@ MAX_VALIDATE_BODY = 1024 * 1024  # 1 MB (used by the /api/validate task)
 # configured. The store endpoint is public so the UI can render the plugin list
 # for unauthenticated visitors who want to see what is installed.
 _OPEN_PATHS = frozenset({"/api/store"})
+
+
+def _token_ok(provided: str | None, token: str) -> bool:
+    """Constant-time token check.
+
+    Returns True when the caller is authorized: either no token is configured
+    (open system) or the provided value matches in constant time.  Using
+    hmac.compare_digest avoids leaking the token via response-timing on a
+    char-by-char `==` comparison.  The open/no-token case is decided BEFORE the
+    compare so an open system never depends on the (empty) token bytes.
+    """
+    if not token:
+        return True
+    return hmac.compare_digest(provided or "", token)
 
 
 def _read_status(status_path: Path) -> dict:
@@ -180,7 +195,7 @@ def build_webui_app(
     async def auth(request: web.Request, handler):
         if token and request.path not in _OPEN_PATHS:
             provided = request.headers.get("X-Web-Token") or request.query.get("token")
-            if provided != token:
+            if not _token_ok(provided, token):
                 return web.json_response({"error": "unauthorized"}, status=401)
         return await handler(request)
 
@@ -233,8 +248,7 @@ def build_webui_app(
             token_configured=bool(token),
         )
         provided = request.headers.get("X-Web-Token") or request.query.get("token")
-        authed = (not token) or (provided == token)
-        if not authed:
+        if not _token_ok(provided, token):
             from led_ticker.webui.store import redact_anonymous  # noqa: PLC0415
 
             payload = redact_anonymous(payload)
@@ -292,19 +306,10 @@ def build_webui_app(
                 for stripped in (line.strip() for line in lines)
             )
             if declared:
-                return None  # idempotent: no write
-            kept: list[str] = []
-            for line in lines:
-                stripped = line.strip()
-                if (
-                    stripped
-                    and not stripped.startswith("#")
-                    and _requirement_key(stripped) == req_key
-                ):
-                    continue  # drop stale line; append fresh req below
-                kept.append(line)
-            kept.append(req)
-            return "\n".join(kept).rstrip("\n") + "\n"
+                return None  # idempotent: no write — and no stale line to drop,
+                # since any matching line would have set `declared` above.
+            # Not declared: every existing line is a keeper; append the fresh req.
+            return "\n".join([*lines, req]).rstrip("\n") + "\n"
 
         try:
             await _update_manifest_atomic(manifest_path, add_requirement, manifest_lock)
@@ -412,12 +417,15 @@ def build_webui_app(
             )
 
         # Return the rebuilt store entry for this namespace so the UI refreshes.
+        # config_refs was already parsed above for the in-use guard; pass it so
+        # build_store doesn't re-parse config.toml a second time per DELETE.
         inner_status: dict = _fresh_inner_status(status_path)
         store_payload = _build_store(
             manifest_path=manifest_path,
             config_path=config_path,
             status=inner_status,
             token_configured=bool(token),
+            refs=config_refs,
         )
         plugin_entry = next(
             (

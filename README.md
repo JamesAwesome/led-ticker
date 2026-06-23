@@ -8,6 +8,8 @@ An asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi 
 - **Smallsign** — Pi 4 + 5× chained 16×32 panels = 160×16 logical canvas
 - **Bigsign** — Pi 5 + 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 canvas
 
+New to LED signs? [Why led-ticker?](https://docs.ledticker.dev/why-led-ticker/) covers when a Raspberry Pi HUB75 sign is the right tool — and when WLED, Tidbyt, or an ESP32 clock fits better.
+
 Full documentation: <https://docs.ledticker.dev>
 
 ## Quick start

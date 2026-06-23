@@ -13,7 +13,7 @@ The web status UI is a read-only browser dashboard you open while the sign is ru
 
 ## What's on the dashboard
 
-Four tabs, one URL (`http://<pi>:8080`):
+Five tabs, one URL (`http://<pi>:8080`):
 
 | Tab           | What it shows                                                                                                                                                      |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -21,6 +21,7 @@ Four tabs, one URL (`http://<pi>:8080`):
 | **Config**    | The full `config.toml` the display process loaded, with every value that looks like a secret replaced by `•••`. Safe to screenshot and share when troubleshooting. |
 | **Validate**  | Validate a file from the config directory against the real sign, or paste a candidate config into the text area and click **Validate**.                            |
 | **Inventory** | Fonts, image/gif assets, and emoji slugs found in the config directory.                                                                                            |
+| **Store**     | Browse and install catalog plugins. Browsing is open; installing or removing requires a token.                                                                     |
 
 ### Validate tab
 
@@ -38,6 +39,18 @@ The Inventory tab shows what the sidecar can see in the config directory (capped
 - **Fonts** — user fonts from `config/fonts/` (which take precedence over bundled ones) and the bundled BDF and hires fonts included with led-ticker.
 - **Assets** — image and gif files (`config/`, recursively) with their file size.
 - **Emoji** — core slugs and hires-only slugs baked into the installed package. Plugin emoji (such as `:baseball.ball:`) appear only while the display process is running — the sidecar itself never loads plugins, so the names come from `status.json` published by the display process.
+
+### Store tab
+
+The Store tab lists every plugin in the [catalog](/plugins/available/) and shows each one's current state — whether it is active, queued for the next restart, or available to install. Click **Install** to add a plugin or **Remove** to drop one.
+
+**A token is required to install or remove.** Browsing the Store is open, but any write action returns 401 without a valid token. Set `LED_TICKER_WEB_TOKEN` in your `.env` (see [Auth](#auth) below).
+
+**Changes take effect on the next `docker compose restart`** — the same as editing `config/requirements-plugins.txt` by hand. The Store writes the manifest for you and shows a "pending restart" banner with a copyable restart command once there is a queued change. There is no one-click restart from the browser; you run the command yourself.
+
+**Removal is blocked while your config still uses the plugin.** If `config.toml` references any of the plugin's widget or transition types, the Store shows which sections they appear in and links to the Config editor so you can remove them first. Once the config is clean, click **Remove** again and restart.
+
+**Catalog plugins only.** The Store lists verified catalog plugins. Community plugins or plugins you are developing locally go in `config/requirements-plugins.txt` directly (see [Installing a plugin](/plugins/#installing-a-plugin)).
 
 ### Status tab — plugin detail
 

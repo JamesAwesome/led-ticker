@@ -51,6 +51,22 @@ docker compose restart
 
 Once installed, a plugin registers automatically via its `led_ticker.plugins` entry point — its widget types are available immediately at startup.
 
+### Install from the web UI
+
+If you have the [web status UI](/concepts/web-status-ui/) running, the **Store tab** offers a point-and-click alternative for catalog plugins. Open the dashboard, click **Store**, find the plugin you want, and click **Install**. The Store writes `config/requirements-plugins.txt` for you.
+
+**A token is required to install or remove.** Browsing the list is open, but clicking Install or Remove requires a valid token — set `LED_TICKER_WEB_TOKEN` in your `.env` (see the [web UI auth docs](/concepts/web-status-ui/#auth)). Without a token the buttons are disabled.
+
+**Changes take effect on the next `docker compose restart`** — same as editing the manifest by hand. Once you click Install, the Store shows a "pending restart" banner with a copyable restart command. Run it from your project root when you are ready:
+
+```bash
+docker compose restart
+```
+
+**Removal is blocked while your config still uses the plugin.** If `config.toml` still references any of the plugin's widget or transition types when you click Remove, the Store tells you which sections they appear in and links to the Config editor to remove them first. Once the config is clean, click Remove again and restart.
+
+**Catalog plugins only.** The Store lists only verified catalog plugins from the led-ticker-plugins monorepo. To install a community plugin or a plugin you are developing locally, add it to `config/requirements-plugins.txt` directly (see the CLI section above).
+
 ### Changing a plugin's version or source
 
 Editing an **exact PyPI pin** (`led-ticker-pool==0.1.0` → `==0.2.0`) and restarting is enough: the reconcile compares the manifest pin against the installed version and reinstalls in place when they differ.

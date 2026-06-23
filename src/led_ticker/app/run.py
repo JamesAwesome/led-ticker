@@ -485,6 +485,17 @@ def _setup_status_board(
 
 async def run(config_path: Path) -> None:
     """Main application loop."""
+    # Reconcile installed plugins against the manifest (requirements-plugins.txt)
+    # BEFORE plugin load so reconciled packages are importable during entry-point
+    # discovery. Also runs before build_frame_from_config, which drops root
+    # (constraint #13) — pip install/uninstall needs root on the volume.
+    # Tripwire: test_reconcile_runs_before_load_plugins_and_frame_build.
+    from led_ticker import plugin_reconcile  # noqa: PLC0415
+
+    _recon_target = plugin_reconcile.resolve_target()
+    _recon_actions = plugin_reconcile.reconcile(config_path)
+    plugin_reconcile.apply_to_syspath(_recon_target)
+
     # Plugins must load before load_config so plugin-provided easings (and any
     # other config-load-validated surface) are visible to validation.
     plugins = _load_plugins_for_config(config_path)
@@ -510,6 +521,11 @@ async def run(config_path: Path) -> None:
     # volume mountpoint. Tripwire: test_setup_runs_before_frame_build.
     _status_handle = _setup_status_board(config, config_path, plugins)
     try:
+        # Record reconcile outcome now that the board is active. Both the
+        # reconcile and this record call run pre-drop (before
+        # build_frame_from_config). record_plugin_reconcile is instrumentation
+        # only — never raises into the engine.
+        status_board.record_plugin_reconcile(_recon_actions)
         # Validate the loaded config once and surface the full report (logs +
         # status board). Never fatal: the build-time guards degrade invalid
         # widgets/transitions, so the sign boots regardless. Runs after plugins

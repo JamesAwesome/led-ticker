@@ -453,3 +453,39 @@ def test_run_builds_overlay_roster_in_source():
     assert "set_overlay_roster(" in src
     assert '"kind": "core"' in src  # busy_light entry synthesized in run()
     assert '"kind": "plugin"' in src  # plugin overlay entries
+
+
+def test_reconcile_runs_before_load_plugins_and_frame_build():
+    """Tripwire: reconcile must run before plugin load and before the frame drop-root.
+
+    plugin_reconcile.reconcile(...) + apply_to_syspath(...) must appear in
+    run() BEFORE _load_plugins_for_config(...) (so reconciled packages are
+    importable when plugins load), and _load_plugins_for_config must appear
+    BEFORE build_frame_from_config (constraint #13 — root drops during frame
+    construction). This is a source-order assertion mirroring the style of
+    test_setup_runs_before_frame_build.
+    """
+    import inspect
+
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    reconcile_at = src.index("plugin_reconcile.reconcile(")
+    apply_at = src.index("apply_to_syspath(")
+    load_plugins_at = src.index("_load_plugins_for_config(")
+    frame_at = src.index("build_frame_from_config(")
+
+    assert reconcile_at < load_plugins_at, (
+        "plugin_reconcile.reconcile(...) must appear in run() BEFORE "
+        "_load_plugins_for_config(...) so reconciled packages are importable "
+        "when plugins load."
+    )
+    assert apply_at < load_plugins_at, (
+        "apply_to_syspath(...) must appear in run() BEFORE "
+        "_load_plugins_for_config(...) so the volume venv site-packages are on "
+        "sys.path before entry-point discovery."
+    )
+    assert load_plugins_at < frame_at, (
+        "_load_plugins_for_config must precede build_frame_from_config — the "
+        "matrix library drops root during frame construction (constraint #13)."
+    )

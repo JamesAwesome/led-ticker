@@ -2175,3 +2175,163 @@ async def test_restart_token_via_query_param(tmp_path):
         assert marker_path.exists()
     finally:
         await client.close()
+
+
+# ---------------------------------------------------------------------------
+# Task 4: Static-marker tests for the "Restart to apply" frontend button
+# ---------------------------------------------------------------------------
+# Interactive flows verified manually (no JS runner):
+#   1. allow_restart=true + token set → button enabled; clicking shows confirm()
+#      "The sign will go dark for a few seconds while the display restarts. Continue?"
+#      → POST /api/restart with X-Web-Token header → "restarting… Ns" live counter
+#      → polls GET /api/status until display_online drops then recovers
+#        → "Display back online ✔" → Store banner hides + store reloads
+#        / config-editor notice hides.
+#   2. allow_restart=true + no token → clicking focuses the token field and shows
+#      "Enter your token in the field above first."
+#   3. allow_restart=false → button rendered disabled with the tooltip text.
+#   4. 60s timeout: "The display hasn't come back. Refresh this page;
+#      if the sign is still dark, check the container is running
+#      (docker compose ps) and view the logs."
+#   5. POST /api/restart fails (non-200) → status shows the error, button re-enabled.
+
+
+def _read_index_html():
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    return (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+
+
+def test_index_html_has_restart_button_hooks():
+    """The restart button infrastructure is present in the page HTML.
+
+    Checks the static markers the JS relies on; interactive flows are manual.
+    """
+    html = _read_index_html()
+
+    # Wrapper elements rendered into by renderRestartBtn()
+    assert 'id="store-restart-btn-wrap"' in html, (
+        "Store pending banner must have a restart button wrapper"
+    )
+    assert 'id="store-restart-status"' in html, (
+        "Store pending banner must have a restart status element"
+    )
+    assert 'id="config-restart-btn-wrap"' in html, (
+        "Config-editor restart notice must have a restart button wrapper"
+    )
+
+    # Config restart notice container
+    assert 'id="config-restart-notice"' in html, (
+        "Config-editor restart-required notice div must be present"
+    )
+    assert "Restart required" in html, (
+        "Config restart notice must contain 'Restart required' heading"
+    )
+    assert 'id="config-restart-fields"' in html, (
+        "Config restart notice must have a fields span"
+    )
+
+    # Core JS functions present
+    assert "function renderRestartBtn(" in html, (
+        "renderRestartBtn function must be defined"
+    )
+    assert "async function doRestart(" in html, (
+        "doRestart async function must be defined"
+    )
+
+    # allow_restart is read from the payload
+    assert "allow_restart" in html, "JS must read allow_restart from the API payload"
+    assert "lastAllowRestart" in html, (
+        "JS must track lastAllowRestart across poll()/renderStore() calls"
+    )
+
+
+def test_index_html_restart_confirm_text():
+    """The confirm() dialog uses the dark-panel text from the spec."""
+    html = _read_index_html()
+    dark_text = (
+        "The sign will go dark for a few seconds while the display restarts. Continue?"
+    )
+    assert dark_text in html, (
+        "confirm() must use the exact dark-panel warning text from the spec"
+    )
+
+
+def test_index_html_restart_disabled_tooltip():
+    """The disabled button carries the allow_restart tooltip text."""
+    html = _read_index_html()
+    assert "Browser restart is off" in html, (
+        "Disabled button tooltip must mention 'Browser restart is off'"
+    )
+    assert "allow_restart = true" in html, (
+        "Disabled tooltip must tell users to set allow_restart = true"
+    )
+    assert "systemd Restart=" in html, (
+        "Disabled tooltip must mention systemd Restart= for non-Docker users"
+    )
+
+
+def test_index_html_restart_timeout_message():
+    """The 60s timeout message is present for the maintainer check."""
+    html = _read_index_html()
+    assert "docker compose ps" in html, (
+        "Timeout message must include 'docker compose ps' diagnostic"
+    )
+    assert "hasn't come back" in html, (
+        "Timeout message must tell users the display hasn't come back"
+    )
+
+
+def test_index_html_restart_uses_header_not_url():
+    """Token is sent via X-Web-Token header, never embedded in the URL."""
+    html = _read_index_html()
+    # The POST uses {headers: auth} — auth holds the X-Web-Token header.
+    assert '"/api/restart"' in html, "POST /api/restart must be present"
+    # The URL must not include token as a query parameter.
+    assert '"/api/restart?token=' not in html, (
+        "Token must be sent via header only, never in the /api/restart URL"
+    )
+    assert 'method: "POST"' in html or "method:'POST'" in html, (
+        "restart must use POST method"
+    )
+
+
+def test_index_html_restart_reads_display_online_for_poll():
+    """The recovery poll reads display_online / body.state from /api/status."""
+    html = _read_index_html()
+    # The poller checks body.state === "ok" as the proxy for display_online.
+    assert "body2.state" in html or "display_online" in html, (
+        "recovery poll must check display liveness from /api/status"
+    )
+    assert "wentOffline" in html, (
+        "poller must track whether the display went offline before declaring recovery"
+    )
+
+
+def test_index_html_restart_button_in_store_pending_banner():
+    """The store pending banner calls renderRestartBtn for its wrapper."""
+    html = _read_index_html()
+    # The renderStore function calls renderRestartBtn with the store wrapper id.
+    assert "store-restart-btn-wrap" in html
+    assert "store-restart-status" in html
+    # renderRestartBtn is called inside renderStore (the pendingCount > 0 branch).
+    assert 'renderRestartBtn("store-restart-btn-wrap"' in html, (
+        "renderStore must call renderRestartBtn with 'store-restart-btn-wrap'"
+    )
+
+
+def test_index_html_restart_button_in_config_editor_notice():
+    """The config-editor notice calls renderRestartBtn via showConfigRestartNotice."""
+    html = _read_index_html()
+    assert "function showConfigRestartNotice(" in html, (
+        "showConfigRestartNotice helper must be defined"
+    )
+    assert "function hideConfigRestartNotice(" in html, (
+        "hideConfigRestartNotice helper must be defined"
+    )
+    assert 'renderRestartBtn("config-restart-btn-wrap"' in html, (
+        "showConfigRestartNotice must call renderRestartBtn "
+        "with 'config-restart-btn-wrap'"
+    )

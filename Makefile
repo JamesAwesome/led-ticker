@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker
 
 # --- Developer Setup ---
 
@@ -90,6 +90,9 @@ docs-dev:  ## Run the Astro Starlight dev server (http://localhost:4321/)
 
 docs-build:  ## Build the docs site to docs/site/dist/
 	cd docs/site && (corepack enable 2>/dev/null || true) && pnpm install --frozen-lockfile && pnpm run build
+
+docs-check-llms:  ## Build the docs + verify the llms.txt Markdown export
+	cd docs/site && (corepack enable 2>/dev/null || true) && pnpm install --frozen-lockfile && pnpm run build && pnpm run check:llms
 
 docs-lint:  ## Lint the docs site (prettier --check + astro check)
 	cd docs/site && (corepack enable 2>/dev/null || true) && pnpm install --frozen-lockfile && pnpm run lint

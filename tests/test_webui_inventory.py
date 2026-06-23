@@ -16,6 +16,23 @@ def test_user_fonts_missing_dir_is_empty(tmp_path):
     assert build_inventory(tmp_path)["fonts"]["user"] == []
 
 
+def test_user_fonts_excludes_non_font_files(tmp_path):
+    # A user's config/fonts/ dir often ships non-font files alongside a font —
+    # e.g. a license. Only actual font files (.bdf/.ttf/.otf/.ttc) should list.
+    fonts = tmp_path / "fonts"
+    fonts.mkdir()
+    (fonts / "Atkinson.ttf").write_bytes(b"x")
+    (fonts / "pixel.bdf").write_bytes(b"x")
+    (fonts / "Inter.otf").write_bytes(b"x")
+    (fonts / "FSLA_NonCommercial_License.html").write_text("license")
+    (fonts / "README.txt").write_text("notes")
+    assert build_inventory(tmp_path)["fonts"]["user"] == [
+        "Atkinson.ttf",
+        "Inter.otf",
+        "pixel.bdf",
+    ]
+
+
 def test_bundled_fonts_nonempty_and_sorted(tmp_path):
     bundled = build_inventory(tmp_path)["fonts"]["bundled"]
     assert any(b.endswith(".bdf") for b in bundled)  # 5x8.bdf etc.

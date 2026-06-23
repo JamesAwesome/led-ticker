@@ -623,9 +623,14 @@ async function loadInventory() {
       '<tr><td class="muted">no image/gif assets in the config directory</td></tr>';
     $("inv-assets-note").textContent = inv.assets_truncated ? `(showing first ${inv.assets.length})` : "";
     const pluginEmoji = [];
+    const seenEmoji = new Set();
     for (const p of (lastStatus && lastStatus.plugins) || []) {
       for (const surface of ["emojis", "hires_emojis"]) {
-        for (const slug of (p.names && p.names[surface]) || []) pluginEmoji.push(slug);
+        for (const slug of (p.names && p.names[surface]) || []) {
+          // A slug registered as both lowres + hires (e.g. pokeball.ball) shows
+          // on both surfaces — dedup so it's listed once.
+          if (!seenEmoji.has(slug)) { seenEmoji.add(slug); pluginEmoji.push(slug); }
+        }
       }
     }
     const chips = (xs, cls) => xs.map((s) => `<code class="${cls}" style="margin:.15rem;display:inline-block;">:${esc(s)}:</code>`).join(" ");

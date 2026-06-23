@@ -147,7 +147,7 @@ that wires up the systemd unit on a fresh Pi.
 
 ### The rgbmatrix library is hardcoded to a fork in the Dockerfile
 
-The Dockerfile pins [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/jamesawesome/rpi-rgb-led-matrix) (based on [hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886) plus one bullseye-GCC-10 patch). If you `apt install` or `pip install` a different rgbmatrix on the Pi outside the Docker image — or check out upstream `hzeller/master` and `make install` it — your Pi will diverge from what the engine was tested against, and you'll spend an afternoon chasing flicker that isn't a config bug. Run via the Docker image, or rebuild from source against the pinned fork.
+The Dockerfile pins [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/JamesAwesome/rpi-rgb-led-matrix) — our fork of `hzeller/rpi-rgb-led-matrix`. It tracks upstream's Pi 5 RP1 support ([hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886)) and adds three patches the engine depends on: a GCC-10 build fix, a Pillow shim, and a **SubFill Python binding that upstream doesn't ship**. Because of that last one, stock upstream is not a drop-in replacement. If you `apt install` or `pip install` a different rgbmatrix on the Pi outside the Docker image — or check out upstream `hzeller/master` and `make install` it — your Pi will diverge from what the engine was tested against, and you'll spend an afternoon chasing flicker that isn't a config bug. Run via the Docker image, or rebuild from source against the pinned fork.
 
 ### USB-C "5V 3A" power supplies aren't dedicated panel supplies
 

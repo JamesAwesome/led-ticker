@@ -155,7 +155,7 @@ The Remap string follows the format `Remap:WIDTH,HEIGHT|x,yORIENT|...` with one 
 - **2×2 grid (chain runs along the bottom row first, then top row right-to-left)**, all panels upright: `Remap:128,64|0,32n|64,32n|64,0n|0,0n`
 - **Single row of 4 panels**, all upright, chain enters left: `Remap:256,32|0,0n|64,0n|128,0n|192,0n`
 
-If your physical layout doesn't match the chain order from the data cable, every panel in the wrong position needs an entry in the Remap string. See the upstream [hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) README for the full Remap reference.
+If your physical layout doesn't match the chain order from the data cable, every panel in the wrong position needs an entry in the Remap string. See the upstream [`hzeller/rpi-rgb-led-matrix`](https://github.com/hzeller/rpi-rgb-led-matrix) README — the base for the [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/JamesAwesome/rpi-rgb-led-matrix) fork led-ticker ships — for the full Remap reference.
 
 ### Wiring or driver problem? Run `panel-test` first
 

@@ -49,6 +49,7 @@
   .store-plugin-summary { color: #aaa; font-size: .88rem; margin: .15rem 0; }
   .store-plugin-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .3rem; }
   .chip { font-size: .75rem; font-family: ui-monospace, monospace; background: #252525; border: 1px solid #3a3a3a; border-radius: 4px; padding: .1rem .4rem; color: #aaa; }
+  .chip-pack { background: #16314f; border-color: #2d5a8c; color: #6db3f2; }  /* pack indicator — blue, distinct from neutral "provides" chips */
   .store-badge { font-size: .75rem; padding: .2rem .55rem; border-radius: 12px; font-weight: 600; white-space: nowrap; }
   .badge-active { background: #143014; border: 1px solid #2a6a2a; color: #6c6; }
   .badge-restart { background: #1a1a30; border: 1px solid #3a3a7a; color: #99f; }
@@ -659,7 +660,7 @@ function storeBadge(state, displayOnline) {
 function storeChips(provides, pack) {
   const chips = [];
   if (pack) {
-    chips.push(`<span class="chip">📦 ${esc(pack)} pack</span>`);
+    chips.push(`<span class="chip chip-pack">📦 ${esc(pack)} pack</span>`);
   }
   for (const [kind, names] of Object.entries(provides || {})) {
     for (const name of (names || [])) {

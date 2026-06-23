@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import remarkGfm from "remark-gfm";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -40,6 +41,13 @@ export default defineConfig({
   },
   integrations: [
     starlight({
+      plugins: [
+        starlightLlmsTxt({
+          projectName: "led-ticker",
+          description:
+            "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",
+        }),
+      ],
       title: "led-ticker",
       description:
         "An asyncio Python toolkit for displaying scrolling feeds on RGB LED matrix panels.",

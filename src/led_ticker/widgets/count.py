@@ -33,6 +33,26 @@ def _coerce_font_color(value: Any) -> ColorProvider:
     return value
 
 
+def _wrong_side_warning(date_field: str, value: Any, warn_when: str) -> list[str]:
+    """One advisory string when a count date sits on the wrong side of today
+    (so the widget would be perpetually hidden), else []. `warn_when` is "past"
+    (countdown) or "future" (countup)."""
+    if not isinstance(value, date):
+        return []  # missing / wrong type is reported by other rules
+    today = date.today()
+    if warn_when == "past" and value < today:
+        return [
+            f"{date_field} {value.isoformat()} is in the past — this countdown "
+            f"won't display (did you mean a countup?)"
+        ]
+    if warn_when == "future" and value > today:
+        return [
+            f"{date_field} {value.isoformat()} is in the future — this countup "
+            f"won't display until then (did you mean a countdown?)"
+        ]
+    return []
+
+
 @attrs.define
 class _CountWidget(FrameAwareBase):
     """Shared base for day-count widgets. Renders `f"{text}: {days}"`; `days`
@@ -118,6 +138,10 @@ class TickerCountdown(_CountWidget):
     def _days(self) -> int:
         return (self.countdown_date - date.today()).days
 
+    @classmethod
+    def validate_config_warnings(cls, cfg: dict[str, Any], ctx: Any) -> list[str]:
+        return _wrong_side_warning("countdown_date", cfg.get("countdown_date"), "past")
+
 
 @register("countup")
 @attrs.define
@@ -128,3 +152,7 @@ class TickerCountup(_CountWidget):
 
     def _days(self) -> int:
         return (date.today() - self.countup_date).days
+
+    @classmethod
+    def validate_config_warnings(cls, cfg: dict[str, Any], ctx: Any) -> list[str]:
+        return _wrong_side_warning("countup_date", cfg.get("countup_date"), "future")

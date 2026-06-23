@@ -68,3 +68,32 @@ def test_back_compat_countdown_import():
     from led_ticker.widgets.message import TickerCountdown as FromMessage
 
     assert FromMessage is TickerCountdown
+
+
+def test_countup_future_date_warns():
+    cfg = {"countup_date": _future(5), "text": "X"}
+    msgs = TickerCountup.validate_config_warnings(cfg, None)
+    assert len(msgs) == 1 and "future" in msgs[0]
+
+
+def test_countup_past_date_no_warning():
+    cfg = {"countup_date": _past(5), "text": "X"}
+    assert TickerCountup.validate_config_warnings(cfg, None) == []
+
+
+def test_countdown_past_date_warns():
+    cfg = {"countdown_date": _past(5), "text": "X"}
+    msgs = TickerCountdown.validate_config_warnings(cfg, None)
+    assert len(msgs) == 1 and "past" in msgs[0]
+
+
+def test_countdown_future_date_no_warning():
+    cfg = {"countdown_date": _future(5), "text": "X"}
+    assert TickerCountdown.validate_config_warnings(cfg, None) == []
+
+
+def test_wrong_side_warning_ignores_missing_or_nondate():
+    assert TickerCountup.validate_config_warnings({"text": "X"}, None) == []
+    assert (
+        TickerCountdown.validate_config_warnings({"countdown_date": "nope"}, None) == []
+    )

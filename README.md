@@ -99,6 +99,10 @@ docker compose up -d
 
 The compose file mounts `./config` read-only into the container; edit TOML on the host and the running display hot-reloads most changes live (widgets, sections, schedule, brightness) — a restart is needed only for hardware-level fields like the panel chain or scaling.
 
+### Web UI (optional)
+
+An optional sidecar serves a read-only status dashboard (live preview, monitors, plugins, inventory) plus a token-gated config editor. Enable it with the `webui` compose profile — `COMPOSE_PROFILES=webui docker compose up -d`. Details: <https://docs.ledticker.dev/concepts/web-status-ui/>.
+
 ### Systemd
 
 `deploy/led-ticker.service` and `deploy/install.sh` manage auto-start and auto-restart-on-crash. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.

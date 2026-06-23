@@ -2,14 +2,11 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-weather      weather.current
-#   led-ticker-rss          rss.feed
-#   led-ticker-nyancat      nyancat.alternating
-#   led-ticker-pacman       pacman.alternating
-#   led-ticker-pokeball     pokeball.alternating
-#   led-ticker-sailor_moon  sailor_moon.alternating
-#   led-ticker-baseball     baseball.scores, baseball.standings, baseball.statcast, baseball.attendance, baseball.roll*, :baseball.ball:
-#   led-ticker-pool         pool.monitor
+#   led-ticker-weather   weather.current
+#   led-ticker-rss       rss.feed
+#   led-ticker-flair     nyancat / pokeball / pacman / sailor_moon transitions
+#   led-ticker-baseball  baseball.scores, baseball.standings, baseball.statcast, baseball.attendance, baseball.roll*, :baseball.ball:
+#   led-ticker-pool      pool.monitor
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────

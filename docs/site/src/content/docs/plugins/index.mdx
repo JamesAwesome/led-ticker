@@ -91,12 +91,11 @@ Before removing a plugin, also remove its widget types from `config.toml`. If `c
 **To reset all plugins** (reinstall everything from scratch on the next start):
 
 ```bash
-docker compose stop
-docker volume rm ticker-plugins
+docker compose down -v
 docker compose up -d
 ```
 
-Stop the stack first: `docker volume rm` refuses to remove a volume that is still mounted by a running container. This is also the fix if a plugin volume becomes corrupt or out of sync.
+`docker compose down -v` stops the stack and removes the project's named volumes by their real names (e.g. `led-ticker_ticker-plugins`). Running `docker volume rm ticker-plugins` with the bare name will silently fail — Compose prefixes named volumes with the project name. This is also the fix if a plugin volume becomes corrupt or out of sync.
 
 ## Offline / air-gapped installs
 

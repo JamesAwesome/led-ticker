@@ -2,7 +2,7 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-pacman  pacman.forward / .reverse / .alternating
+#   led-ticker-flair  pacman.forward / .reverse / .alternating
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-pokeball  pokeball.forward / .alternating
+#   led-ticker-flair  pokeball.forward / .alternating
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────

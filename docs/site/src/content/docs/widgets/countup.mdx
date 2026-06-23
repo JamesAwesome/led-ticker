@@ -24,10 +24,10 @@ countup_date = 2024-01-01`}
 ## Before the date arrives
 
 If `countup_date` is still in the future, the widget does not display and a warning
-is emitted at config load:
+is emitted at config load, along the lines of:
 
 ```
-WARNING: countup_date is in the future — widget will not display until that date arrives.
+countup_date 2027-01-01 is in the future — this countup won't display until then (did you mean a countdown?)
 ```
 
 Once the date arrives the widget shows `0` and counts up from there. To count _down_

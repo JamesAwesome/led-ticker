@@ -97,3 +97,35 @@ def test_wrong_side_warning_ignores_missing_or_nondate():
     assert (
         TickerCountdown.validate_config_warnings({"countdown_date": "nope"}, None) == []
     )
+
+
+def test_timezone_default_matches_local_today():
+    w = TickerCountup("X", countup_date=_past(5))
+    assert w._today() == date.today()
+
+
+def test_timezone_field_used_for_today():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    w = TickerCountup("X", countup_date=_past(5), timezone="UTC")
+    assert w._today() == datetime.now(ZoneInfo("UTC")).date()
+
+
+def test_validate_config_accepts_valid_timezone():
+    assert TickerCountup.validate_config({"timezone": "America/New_York"}) == []
+    assert TickerCountdown.validate_config({"timezone": "UTC"}) == []
+
+
+def test_validate_config_no_timezone_ok():
+    assert TickerCountup.validate_config({"text": "X"}) == []
+
+
+def test_validate_config_rejects_bad_timezone():
+    msgs = TickerCountup.validate_config({"timezone": "Not/AZone"})
+    assert len(msgs) == 1 and "valid IANA" in msgs[0]
+
+
+def test_validate_config_rejects_nonstring_timezone():
+    msgs = TickerCountdown.validate_config({"timezone": 5})
+    assert len(msgs) == 1 and "string" in msgs[0]

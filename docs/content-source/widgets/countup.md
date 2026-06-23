@@ -11,3 +11,4 @@
 | `bg_color` | RGB list | none | Background fill color. Painted across the full panel before text. |
 | `border` | `"rainbow"` \| `"color_cycle"` \| `"lightbulbs"` \| `[r,g,b]` \| `{style="...", ...}` | none | Perimeter border ring — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see [/concepts/borders/](/concepts/borders/). |
 | `padding` | int | `6` | Horizontal padding (logical pixels) added when text scrolls. |
+| `timezone` | IANA name \| none | system local | Timezone for computing the day count and the show/hide boundary, e.g. `"America/New_York"`. Uses stdlib `zoneinfo` — no extra dependencies. Defaults to the sign's local date. |

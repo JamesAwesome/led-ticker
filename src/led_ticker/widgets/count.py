@@ -10,8 +10,9 @@ from the rotation that pass (see ticker.py), so it disappears instead of
 rendering a negative number.
 """
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import attrs
 
@@ -69,7 +70,34 @@ class _CountWidget(FrameAwareBase):
     padding: int = 6
     # Optional perimeter border — same contract as TickerMessage.border.
     border: Any | None = attrs.field(default=None, kw_only=True)
+    # Optional IANA timezone (e.g. "America/New_York"); None = the sign's local
+    # date. Same field + validation as the clock widget so "today" matches the
+    # clock/schedule when a tz is configured.
+    timezone: str | None = attrs.field(default=None, kw_only=True)
     _baseline_y: int = attrs.field(init=False, default=-1)
+
+    @classmethod
+    def validate_config(cls, cfg: dict[str, Any]) -> list[str]:
+        """Value-level checks run at config load (factories._run_validate_config).
+        Validates the optional `timezone` (mirrors the clock widget)."""
+        errors: list[str] = []
+        tz = cfg.get("timezone")
+        if tz is not None:
+            if not isinstance(tz, str):
+                errors.append(
+                    f"timezone must be a string IANA name, got {type(tz).__name__}"
+                )
+            else:
+                try:
+                    ZoneInfo(tz)
+                except (ZoneInfoNotFoundError, ValueError):
+                    errors.append(f"timezone {tz!r} is not a valid IANA timezone name")
+        return errors
+
+    def _today(self) -> date:
+        """Today's date in the configured timezone (local date when unset)."""
+        tz = ZoneInfo(self.timezone) if self.timezone else None
+        return datetime.now(tz).date()
 
     def _days(self) -> int:
         """Signed day distance from today. Subclass responsibility."""
@@ -136,7 +164,7 @@ class TickerCountdown(_CountWidget):
     countdown_date: date = attrs.field(kw_only=True)
 
     def _days(self) -> int:
-        return (self.countdown_date - date.today()).days
+        return (self.countdown_date - self._today()).days
 
     @classmethod
     def validate_config_warnings(cls, cfg: dict[str, Any], ctx: Any) -> list[str]:
@@ -151,7 +179,7 @@ class TickerCountup(_CountWidget):
     countup_date: date = attrs.field(kw_only=True)
 
     def _days(self) -> int:
-        return (date.today() - self.countup_date).days
+        return (self._today() - self.countup_date).days
 
     @classmethod
     def validate_config_warnings(cls, cfg: dict[str, Any], ctx: Any) -> list[str]:

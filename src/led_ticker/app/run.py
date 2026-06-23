@@ -37,7 +37,7 @@ from led_ticker.app.factories import (
 from led_ticker.busy_http import serve_busy
 from led_ticker.config import load_config, resolve_secret_token
 from led_ticker.plugin import StartupContext
-from led_ticker.ticker import Ticker, _expand_sources, _maybe_wrap
+from led_ticker.ticker import Ticker, _displayable, _expand_sources, _maybe_wrap
 from led_ticker.transitions import Transition, run_transition
 from led_ticker.widget import _build_sink, run_monitor_loop, spawn_tracked
 
@@ -280,6 +280,22 @@ async def _run_startup_validation(config_path: Path) -> None:
         errors=_serialize_issues(result.errors),
         warnings=_serialize_issues(result.warnings),
         ts=datetime.now().isoformat(),
+    )
+
+
+def _entry_transition_active(
+    last_widget: Any, first_widget: Any, entry_trans: Any
+) -> bool:
+    """Whether an inter-section ENTRY transition should run. Requires a DISPLAYABLE
+    outgoing widget: a cached `last_widget` that has since gone out of range (e.g. a
+    countdown that crossed its date between sections) must NOT render as the
+    transition's outgoing frame — that would briefly flash the negative count the
+    visibility filter otherwise hides."""
+    return (
+        last_widget is not None
+        and _displayable(last_widget)
+        and first_widget is not None
+        and entry_trans is not None
     )
 
 
@@ -732,10 +748,8 @@ async def run(config_path: Path) -> None:
                             first_widget = expanded[0] if expanded else None
                         else:
                             first_widget = None
-                        just_transitioned = (
-                            last_widget is not None
-                            and first_widget is not None
-                            and entry_trans is not None
+                        just_transitioned = _entry_transition_active(
+                            last_widget, first_widget, entry_trans
                         )
                         if just_transitioned:
                             assert (

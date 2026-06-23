@@ -238,8 +238,17 @@ async def test_root_serves_page(tmp_path):
             "no overlays installed",
             "plugin-reconcile-card",
             "Plugin install results",
+            # Store tab markers
+            'data-tab="store"',
+            'id="tab-store"',
+            "Only verified plugins are shown",
+            "store-auth-banner",
+            "store-offline-banner",
+            "store-pending-banner",
+            "store-list",
+            "/api/store",
         ):
-            assert marker in text
+            assert marker in text, f"missing marker: {marker!r}"
     finally:
         await client.close()
 
@@ -761,6 +770,34 @@ def test_index_html_has_config_validation_card():
     assert 'id="config-validation-card"' in html
     assert 'id="config-validation-body"' in html
     assert "config_validation" in html
+
+
+def test_index_html_has_store_tab():
+    """The Store tab nav button and section are present in the page HTML."""
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    # Nav button
+    assert 'data-tab="store"' in html
+    # Tab section
+    assert 'id="tab-store"' in html
+    # Catalog-only note (key fragment)
+    assert "Only verified plugins are shown" in html
+    # Pending banner with restart command
+    assert "docker compose restart" in html
+    # Auth banner
+    assert "store-auth-banner" in html
+    # Offline banner
+    assert "store-offline-banner" in html
+    # Store list container
+    assert 'id="store-list"' in html
+    # JS function references
+    assert "loadStore" in html
+    assert "storeAction" in html
+    assert "/api/store/install" in html
+    assert "/api/store/remove" in html
 
 
 # ---------------------------------------------------------------------------

@@ -309,7 +309,7 @@ def _parse_web_block(raw: dict) -> WebConfig | None:
             f"web.status_path must be a non-empty string; got {cfg.status_path!r}."
         )
     if not isinstance(cfg.allow_restart, bool):
-        raise ValueError("[web] allow_restart must be a boolean (true/false)")
+        raise ValueError("web.allow_restart must be a boolean (true/false)")
     return cfg
 
 

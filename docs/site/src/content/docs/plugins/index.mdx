@@ -97,6 +97,10 @@ docker compose up -d
 
 `docker compose down -v` stops the stack and removes the project's named volumes by their real names (e.g. `led-ticker_ticker-plugins`). Running `docker volume rm ticker-plugins` with the bare name will silently fail — Compose prefixes named volumes with the project name. This is also the fix if a plugin volume becomes corrupt or out of sync.
 
+:::note[Migrating to a plugin pack]
+If plugins you previously installed separately have since merged into a single **pack** — e.g. the homage sprite-trail plugins `led-ticker-nyancat` / `-pokeball` / `-pacman` / `-sailor_moon` are now one `led-ticker-flair` pack — replace the old per-family lines in `requirements-plugins.txt` with the single pack line, then run **`docker compose down -v`** (a plain restart is not enough). A restart leaves the old packages installed: their namespaces are now also provided by the pack, so the reconciler sees them as still-declared and won't remove them, and the duplicate registration shows up as `namespace already claimed by another plugin` on the status page. `down -v` clears the volume so only the pack is reinstalled.
+:::
+
 ## Offline / air-gapped installs
 
 The first `docker compose restart` after adding a plugin needs network access to download it. If your sign runs without internet access, either:

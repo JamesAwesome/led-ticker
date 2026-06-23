@@ -4,10 +4,12 @@ Runs at the top of app/run.py:run() — before plugins load and before the frame
 build drops root. NEVER raises: a failure is recorded + logged, the panel boots.
 """
 
+import importlib.metadata
 import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import attrs
@@ -72,3 +74,82 @@ def ensure_volume_venv(venv_dir: Path, *, runner=subprocess.run) -> None:
     )
     venv_dir.mkdir(exist_ok=True)
     stamp.write_text(_py_tag())
+
+
+# ── Uninstall guards ──────────────────────────────────────────────────────────
+
+_PLUGINS_ENTRY_GROUP = "led_ticker.plugins"
+
+
+def installed_plugin_dists() -> dict[str, str]:
+    """Return {namespace: dist_name} from installed entry points.
+
+    Uses ep.dist.name (the real distribution name), NOT a catalog guess.
+    """
+    out: dict[str, str] = {}
+    for ep in importlib.metadata.entry_points(group=_PLUGINS_ENTRY_GROUP):
+        dist = getattr(ep, "dist", None)
+        if dist is not None and getattr(dist, "name", None):
+            out[ep.name] = dist.name
+    return out
+
+
+def is_depended_on(dist: str) -> bool:
+    """Return True if any OTHER installed distribution requires ``dist``."""
+    target = dist.lower().replace("_", "-")
+    for d in importlib.metadata.distributions():
+        if (d.metadata["Name"] or "").lower().replace("_", "-") == target:
+            continue
+        for req in d.requires or []:
+            name = req.split(";")[0].split("[")[0].split("(")[0]
+            for op in ("==", ">=", "<=", "~=", ">", "<", "!="):
+                name = name.split(op)[0]
+            if name.strip().lower().replace("_", "-") == target:
+                return True
+    return False
+
+
+def referenced_namespaces(config_path: Path) -> set[str]:
+    """Return the set of plugin namespace prefixes referenced in config_path.
+
+    Parses widget ``type`` fields and returns the part before the first dot
+    for any type that contains a dot.  Never raises — a bad or missing config
+    returns an empty set.
+    """
+    try:
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except OSError, tomllib.TOMLDecodeError:
+        return set()
+    out: set[str] = set()
+
+    def walk(o: object) -> None:
+        if isinstance(o, dict):
+            t = o.get("type")
+            if isinstance(t, str) and "." in t:
+                out.add(t.split(".")[0])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(data)
+    return out
+
+
+def uninstall_blocked_reason(
+    namespace: str, dist: str, referenced: set[str]
+) -> str | None:
+    """Return a human-readable reason string if the uninstall must be skipped.
+
+    Blocks when:
+    - the config still references widgets in ``namespace``, OR
+    - another installed dist depends on ``dist``.
+
+    Returns ``None`` when the uninstall is safe to proceed.
+    """
+    if namespace in referenced:
+        return f"config still references '{namespace}' widgets — remove them first"
+    if is_depended_on(dist):
+        return "depended on by another installed plugin"
+    return None

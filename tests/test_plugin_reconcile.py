@@ -5,7 +5,9 @@ from led_ticker.plugin_reconcile import (
     PluginAction,
     compute_diff,
     ensure_volume_venv,
+    referenced_namespaces,
     resolve_target,
+    uninstall_blocked_reason,
 )
 
 
@@ -68,3 +70,41 @@ def test_ensure_noop_when_stamp_matches(tmp_path):
 
     ensure_volume_venv(venv, runner=runner)
     assert calls == []  # no recreate
+
+
+# ── Uninstall guards ──────────────────────────────────────────────────────────
+
+
+def test_referenced_namespaces_reads_widget_types(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section.widget]]\ntype="rss.feed"\n'
+    )
+    assert "rss" in referenced_namespaces(cfg)
+
+
+def test_referenced_namespaces_missing_file_is_empty(tmp_path):
+    assert referenced_namespaces(tmp_path / "absent.toml") == set()
+
+
+def test_blocked_when_config_references(monkeypatch):
+    import led_ticker.plugin_reconcile as r
+
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+    assert uninstall_blocked_reason("rss", "led-ticker-rss", {"rss"}) is not None
+
+
+def test_blocked_when_depended_on(monkeypatch):
+    import led_ticker.plugin_reconcile as r
+
+    monkeypatch.setattr(r, "is_depended_on", lambda d: True)
+    reason = uninstall_blocked_reason("rss", "led-ticker-rss", set())
+    assert reason and "depended" in reason
+
+
+def test_not_blocked_when_safe(monkeypatch):
+    import led_ticker.plugin_reconcile as r
+
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+    assert uninstall_blocked_reason("rss", "led-ticker-rss", set()) is None

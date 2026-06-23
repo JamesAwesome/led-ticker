@@ -138,20 +138,17 @@ def build_store(
             state = "active"
         elif is_declared:
             state = "restart_to_activate"
+        elif is_active:
+            # Catalog plugin is active (in status["plugins"]) but NOT declared in
+            # the manifest — the user removed its manifest line while the display
+            # process is still running it.  A restart is REQUIRED to actually
+            # uninstall it (no manifest line → the reconciler drops it on the next
+            # boot).  Surface that as `restart_to_remove` and count it as pending
+            # so the restart banner appears; the row's action is "Install" (re-add
+            # / undo, since it's no longer declared).
+            state = "restart_to_remove"
         else:
-            # Edge case: catalog plugin is active (in status["plugins"]) but NOT
-            # declared in the manifest.  This can happen when a plugin was installed
-            # outside the manifest (e.g. manually pip-installed), or if the manifest
-            # was edited to remove it while the display process is still running.
-            # Under Spec 1's true-sync guarantee this should be rare; on the next
-            # restart the plugin will be uninstalled (no manifest line → reconciler
-            # drops it).  We represent it as "available" here because:
-            #   - it does NOT appear in the externally_installed bucket (that is only
-            #     for namespaces absent from the catalog entirely), and
-            #   - clicking Install correctly adds the manifest line, which is the
-            #     right remediation action for the user.
-            # "available" is the v1-acceptable representation; a future v2 could
-            # introduce "catalog_active_undeclared" if the distinction matters.
+            # Catalog plugin neither declared nor active — installable.
             state = "available"
 
         in_use = refs.get(ns, [])
@@ -224,11 +221,15 @@ def build_store(
     # sailor_moon → led-ticker-flair); installing that single package marks all
     # four sibling rows restart_to_activate, but it is ONE pending install — so
     # dedup by the manifest requirement key (entry_key) before counting.
+    # `restart_to_remove` (active-but-undeclared: the user removed the manifest
+    # line, restart needed to actually uninstall) is also pending — count it so
+    # the restart banner appears for removals too.
+    _PENDING_STATES = ("restart_to_activate", "restart_to_remove")
     pending_count = len(
         {
             entry_key[p["namespace"]]
             for p in plugins
-            if p["state"] == "restart_to_activate"
+            if p["state"] in _PENDING_STATES
             and p["namespace"] in entry_key  # catalog entries only
         }
     )
@@ -248,7 +249,13 @@ def build_store(
 # an already-coarsened payload keeps "installed" rather than dropping it back to
 # "available".
 _INSTALLED_STATES = frozenset(
-    {"active", "restart_to_activate", "externally_installed", "installed"}
+    {
+        "active",
+        "restart_to_activate",
+        "restart_to_remove",
+        "externally_installed",
+        "installed",
+    }
 )
 
 
@@ -260,7 +267,8 @@ def redact_anonymous(payload: dict) -> dict:
     fields are redacted:
 
     - ``in_use_by``    → [] (config section titles are private)
-    - ``state``        → "installed" if active/restart_to_activate, else "available"
+    - ``state``        → "installed" if active/restart_to_activate/
+      restart_to_remove, else "available"
     - ``removable``    → False (no remove button without auth)
     - ``pending_count``→ 0 (leaks how many plugins are pending restart)
     - ``display_online``→ dropped (display liveness is deployment state — the

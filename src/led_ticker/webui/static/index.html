@@ -63,6 +63,14 @@
   .store-btn:disabled { opacity: .45; cursor: not-allowed; }
   .store-in-use-note { font-size: .8rem; color: #888; margin-top: .3rem; }
   .store-action-area { display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; min-width: 6rem; }
+  /* Restart-to-apply button */
+  .restart-btn { font-size: .82rem; padding: .35rem .9rem; border-radius: 6px; cursor: pointer; border: 1px solid #4a6a4a; background: #1a3a1a; color: #8d8; white-space: nowrap; margin-top: .5rem; }
+  .restart-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .restart-btn-wrap { margin-top: .5rem; }
+  .restart-status { font-size: .82rem; color: #aaa; margin-top: .3rem; }
+  /* Config-editor restart-required notice */
+  .restart-notice { background: #1a1a2a; border: 1px solid #3a3a6a; border-radius: 6px; padding: .75rem 1rem; margin-top: .75rem; font-size: .9rem; display: none; }
+  .restart-notice strong { color: #99f; }
 </style>
 </head>
 <body>
@@ -139,6 +147,12 @@
         <span id="config-status" class="muted"></span>
       </div>
       <div id="config-errors" class="issues" style="display:none;margin-top:.4rem;"></div>
+      <div id="config-restart-notice" class="restart-notice">
+        <strong>Restart required</strong> — some changes only take effect after restarting the display.<br>
+        <span id="config-restart-fields" class="muted"></span>
+        <div class="restart-btn-wrap" id="config-restart-btn-wrap"></div>
+        <div id="config-restart-status" class="restart-status"></div>
+      </div>
     </div>
   </section>
   <section id="tab-validate" class="tab">
@@ -177,6 +191,8 @@
         <span class="muted" style="font-size:.8rem;margin-left:.5rem;">
           (<a href="https://docs.ledticker.dev/reference/cli/" target="_blank" rel="noopener" style="color:#88c;">deployment docs</a>)
         </span>
+        <div class="restart-btn-wrap" id="store-restart-btn-wrap"></div>
+        <div id="store-restart-status" class="restart-status"></div>
       </div>
       <div id="store-list" style="margin-top:.75rem;">
         <p class="muted">Loading…</p>
@@ -216,6 +232,137 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
 let lastStatus = null;
 let prevSwapCount = null;
 let stallPolls = 0;
+// allow_restart as last seen from /api/status or /api/store
+let lastAllowRestart = false;
+
+// ---------------------------------------------------------------------------
+// Restart-to-apply button — reusable across Store pending banner and
+// config-editor restart-required notice.
+// ---------------------------------------------------------------------------
+
+// renderRestartBtn(wrapId, statusId, allowRestart)
+//   wrapId     — id of the .restart-btn-wrap container
+//   statusId   — id of the .restart-status element (or null)
+//   allowRestart — bool from the API payload
+//   onDone     — callback called on recovery (e.g. refresh store)
+function renderRestartBtn(wrapId, statusId, allowRestart, onDone) {
+  const wrap = $(wrapId);
+  if (!wrap) return;
+  const DISABLED_TOOLTIP = "Browser restart is off — set [web] allow_restart = true (and ensure your service auto-restarts: Docker, or systemd Restart=)";
+  let btn;
+  if (!allowRestart) {
+    btn = document.createElement("button");
+    btn.className = "restart-btn";
+    btn.disabled = true;
+    btn.title = DISABLED_TOOLTIP;
+    btn.textContent = "Restart to apply";
+    wrap.innerHTML = "";
+    wrap.appendChild(btn);
+    return;
+  }
+  btn = document.createElement("button");
+  btn.className = "restart-btn";
+  btn.textContent = "Restart to apply";
+  btn.title = "Quick restart to activate your changes — the sign goes dark ~5–10s";
+  wrap.innerHTML = "";
+  wrap.appendChild(btn);
+  btn.onclick = () => doRestart(btn, statusId, onDone);
+}
+
+function _setRestartStatus(statusId, text) {
+  if (!statusId) return;
+  const el = $(statusId);
+  if (el) el.textContent = text;
+}
+
+async function doRestart(btn, statusId, onDone) {
+  if (!authToken) {
+    // Prompt — consistent with install/remove: user needs the token
+    $("token-input") && $("token-input").focus();
+    _setRestartStatus(statusId, "Enter your token in the field above first.");
+    return;
+  }
+  const ok = confirm("The sign will go dark for a few seconds while the display restarts. Continue?");
+  if (!ok) return;
+  btn.disabled = true;
+  let elapsed = 0;
+
+  // Capture the CURRENT boot timestamp before triggering the restart. The new
+  // process writes a fresh started_at into status.json on boot, so a CHANGED
+  // started_at is the robust "a new process actually started" signal — unlike
+  // an offline→online edge, which never fires when the restart completes
+  // between polls (or when the marker is consumed before any poll sees offline).
+  // If we can't read it (display already down / unreadable), priorStartedAt
+  // stays null and we fall back to "any present started_at + online" == success.
+  let priorStartedAt = null;
+  try {
+    const r0 = await fetch("/api/status", {headers: auth});
+    const body0 = await r0.json();
+    if (body0 && body0.status && typeof body0.status.started_at === "number") {
+      priorStartedAt = body0.status.started_at;
+    }
+  } catch (e) {
+    // ignore — treat as unknown prior (fall back to present+online success)
+  }
+
+  _setRestartStatus(statusId, "restarting… (usually ~5–10s)");
+  const ticker = setInterval(() => {
+    elapsed++;
+    _setRestartStatus(statusId, "restarting… " + elapsed + "s");
+  }, 1000);
+  try {
+    const r = await fetch("/api/restart", {method: "POST", headers: auth});
+    if (!r.ok) {
+      clearInterval(ticker);
+      const body = await r.json().catch(() => ({}));
+      _setRestartStatus(statusId, "Restart failed: " + (body.error || String(r.status)));
+      btn.disabled = false;
+      return;
+    }
+  } catch (e) {
+    clearInterval(ticker);
+    _setRestartStatus(statusId, "Could not reach the webui — is it still running?");
+    btn.disabled = false;
+    return;
+  }
+  // POST succeeded — poll /api/status until a NEW process is observed: started_at
+  // is present AND differs from priorStartedAt (= a fresh boot). This is the SOLE
+  // success signal — no offline-edge / time-based heuristic.
+  const TIMEOUT_MS = 60000;
+  const POLL_INTERVAL_MS = 1500;
+  const start = Date.now();
+  const poll = setInterval(async () => {
+    elapsed = Math.round((Date.now() - start) / 1000);
+    if (Date.now() - start > TIMEOUT_MS) {
+      clearInterval(poll);
+      clearInterval(ticker);
+      _setRestartStatus(statusId,
+        "The display hasn't come back. Refresh this page; if the sign is still dark, check the container is running (docker compose ps) and view the logs.");
+      btn.disabled = false;
+      return;
+    }
+    try {
+      const r2 = await fetch("/api/status", {headers: auth});
+      const body2 = await r2.json();
+      const online = body2.state === "ok";
+      const startedAt = (body2 && body2.status && typeof body2.status.started_at === "number")
+        ? body2.status.started_at : null;
+      // Success when a NEW boot timestamp is observed. If we never captured a
+      // prior (display was already down), any present started_at + online counts.
+      const restarted = startedAt !== null && online &&
+        (priorStartedAt === null || startedAt !== priorStartedAt);
+      if (restarted) {
+        clearInterval(poll);
+        clearInterval(ticker);
+        _setRestartStatus(statusId, "Display back online ✔");
+        btn.disabled = false;
+        if (onDone) onDone();
+      }
+    } catch (e) {
+      // unreachable webui mid-restart — keep polling until the timeout
+    }
+  }, POLL_INTERVAL_MS);
+}
 
 // --- Token field ----------------------------------------------------------
 // Seed the field from the resolved token (URL or sessionStorage). On change,
@@ -274,6 +421,7 @@ async function poll() {
       return;
     }
     const body = await r.json();
+    if (typeof body.allow_restart === "boolean") lastAllowRestart = body.allow_restart;
     const live = $("live");
     live.className = body.state;
     if (!body.status) {
@@ -524,6 +672,23 @@ $("config-save").onclick = async () => {
   }
 };
 
+function showConfigRestartNotice(fields) {
+  const notice = $("config-restart-notice");
+  const fieldEl = $("config-restart-fields");
+  if (!notice) return;
+  if (fieldEl) fieldEl.textContent = fields && fields.length ? "Fields requiring restart: " + fields.map(esc).join(", ") : "";
+  notice.style.display = "";
+  renderRestartBtn("config-restart-btn-wrap", "config-restart-status", lastAllowRestart, () => {
+    hideConfigRestartNotice();
+    $("config-status").textContent = "display restarted ✔";
+  });
+}
+
+function hideConfigRestartNotice() {
+  const notice = $("config-restart-notice");
+  if (notice) notice.style.display = "none";
+}
+
 async function pollReloadOutcome(priorAt, attemptsLeft) {
   try {
     const r = await fetch("/api/status", {headers: auth});
@@ -544,12 +709,16 @@ async function pollReloadOutcome(priorAt, attemptsLeft) {
     // Fresh reload (lr.at && lr.at !== priorAt) — interpret the outcome.
     if (lr.ok && !(lr.restart_required || []).length) {
       status.textContent = "applied live ✓";
+      hideConfigRestartNotice();
     } else if (lr.ok && (lr.restart_required || []).length) {
       status.textContent = "saved — restart required for: " + lr.restart_required.map(esc).join(", ");
+      showConfigRestartNotice(lr.restart_required);
     } else if (lr.error) {
       status.textContent = "reload rejected: " + esc(lr.error);
+      hideConfigRestartNotice();
     } else {
       status.textContent = "saved";
+      hideConfigRestartNotice();
     }
   } catch (e) {
     $("config-status").textContent = "saved (could not confirm reload status)";
@@ -657,6 +826,9 @@ function storeBadge(state, displayOnline) {
   }
   if (state === "active") return '<span class="store-badge badge-active">Active</span>';
   if (state === "restart_to_activate") return '<span class="store-badge badge-restart">Restart to activate</span>';
+  // Active-but-undeclared: the user removed the manifest line; a restart will
+  // uninstall it. Amber, like restart_to_activate.
+  if (state === "restart_to_remove") return '<span class="store-badge badge-restart">Restart to remove</span>';
   if (state === "externally_installed") return '<span class="store-badge badge-external">Externally installed</span>';
   // Coarsened state emitted by redact_anonymous for unauthenticated callers on a
   // token-protected sign: a plugin is installed but the exact state is hidden.
@@ -695,6 +867,8 @@ function renderStore(data) {
   const displayKnown = "display_online" in data;
   const displayOnline = data.display_online;
   const pendingCount = data.pending_count || 0;
+  const allowRestart = !!data.allow_restart;
+  lastAllowRestart = allowRestart;
 
   // Auth banner: show only when token is required but not provided
   $("store-auth-banner").style.display = (authRequired && !hasToken) ? "" : "none";
@@ -707,6 +881,10 @@ function renderStore(data) {
     $("store-pending-banner").style.display = "";
     $("store-pending-count").textContent =
       pendingCount === 1 ? "1 plugin added" : pendingCount + " plugins added";
+    renderRestartBtn("store-restart-btn-wrap", "store-restart-status", allowRestart, () => {
+      setTimeout(() => { $("store-restart-status").textContent = ""; }, 3000);
+      loadStore();
+    });
   } else {
     $("store-pending-banner").style.display = "none";
   }
@@ -729,10 +907,18 @@ function renderStore(data) {
     // via the manifest so the Store cannot safely remove them — the user must
     // manage them through the host environment directly.
     let actionHtml = "";
-    if (p.state === "available") {
+    // `restart_to_remove` is active-but-undeclared (manifest line removed, restart
+    // pending to uninstall). Its action is Install — re-adding the manifest line
+    // undoes the pending removal — so treat it like `available` for the button.
+    if (p.state === "available" || p.state === "restart_to_remove") {
       // Install button — disabled if auth required but no token
       const needsAuth = authRequired && !hasToken;
-      const installLabel = pack ? `Install ${esc(pack)} pack` : "Install";
+      const undo = p.state === "restart_to_remove";
+      // `available`: Install / "Install <pack> pack". `restart_to_remove`:
+      // Undo remove (re-adds the manifest line, cancelling the pending uninstall).
+      const installLabel = undo
+        ? (pack ? `Undo remove ${esc(pack)} pack` : "Undo remove")
+        : (pack ? `Install ${esc(pack)} pack` : "Install");
       actionHtml = `<button class="store-btn install" ${needsAuth ? "disabled" : ""}
         data-action="install" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
         ${needsAuth ? 'title="Enter your token to install plugins"' : ""}>${installLabel}</button>`;

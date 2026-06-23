@@ -1107,3 +1107,17 @@ def test_display_hot_reload_can_be_disabled(tmp_path):
     )
     cfg = load_config(cfg_file)
     assert cfg.display.hot_reload is False
+
+
+def test_web_block_allow_restart_parsed():
+    from led_ticker.config import _parse_web_block
+
+    cfg = _parse_web_block({"web": {"allow_restart": True}})
+    assert cfg is not None and cfg.allow_restart is True
+
+
+def test_web_block_allow_restart_defaults_false():
+    from led_ticker.config import _parse_web_block
+
+    cfg = _parse_web_block({"web": {}})
+    assert cfg is not None and cfg.allow_restart is False

@@ -8,6 +8,7 @@ the run loop here only orchestrates.
 import asyncio
 import contextlib
 import logging
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -37,9 +38,24 @@ from led_ticker.app.factories import (
 from led_ticker.busy_http import serve_busy
 from led_ticker.config import load_config, resolve_secret_token
 from led_ticker.plugin import StartupContext
-from led_ticker.ticker import Ticker, _displayable, _expand_sources, _maybe_wrap
+from led_ticker.ticker import (
+    RestartRequested,
+    Ticker,
+    _displayable,
+    _expand_sources,
+    _maybe_wrap,
+)
 from led_ticker.transitions import Transition, run_transition
 from led_ticker.widget import _build_sink, run_monitor_loop, spawn_tracked
+
+
+def _consume_restart_marker(marker_path: Path) -> bool:
+    """True if a web-UI restart was requested. Deletes the marker FIRST so the
+    restarted process doesn't re-read it and exit again (loop-safety)."""
+    if not marker_path.exists():
+        return False
+    marker_path.unlink(missing_ok=True)
+    return True
 
 
 async def _ttl_ticker(busy: Any, interval: float = 1.0) -> None:
@@ -536,6 +552,25 @@ async def run(config_path: Path) -> None:
     # load and the while-True loop is captured in the seed hash (not absorbed
     # into a stale baseline that would make the first-edit invisible).
     watcher = _reload.ConfigWatcher(config_path, enabled=config.display.hot_reload)
+    # MUST stay on tmpfs (the ticker-status volume, alongside status.json): the
+    # Ticker polls this marker with a `stat` at engine-tick rate (~20/s). On
+    # tmpfs that's ~µs and negligible; if status_path ever moved to the SD card,
+    # 20 flash stats/sec would add render-tick cost + wear — time-gate it then.
+    _restart_marker: Path | None = (
+        Path(config.web.status_path).expanduser().parent / "restart-requested"
+        if config.web is not None
+        else None
+    )
+
+    def _restart_requested() -> bool:
+        """Consume-and-signal: True (and the marker deleted) iff a web-UI
+        restart is pending. Shared by the outer-loop check, the per-section
+        check, and the Ticker's per-tick `restart_check` so a queued restart
+        is honoured within ~one engine tick rather than a full playlist cycle.
+        Deletes the marker BEFORE returning True (loop-safety: the restarted
+        process must not re-read it and exit again)."""
+        return _restart_marker is not None and _consume_restart_marker(_restart_marker)
+
     # Surface any coerce warnings recorded by load_config (string-of-digits
     # int/float fields, mixed-case enum strings). Same messages that
     # `led-ticker validate` shows as rule-37 warnings; logging at startup
@@ -635,6 +670,18 @@ async def run(config_path: Path) -> None:
 
             try:
                 while True:
+                    # Belt-and-suspenders outer-loop check (once per full
+                    # playlist cycle). The per-section check below and the
+                    # Ticker's per-tick restart_check give the actual
+                    # second-level responsiveness; this catches the rare case
+                    # of an empty/no-section playlist that never enters the
+                    # inner loops.
+                    if _restart_requested():
+                        logging.info(
+                            "restart requested via web UI"
+                            " — exiting for supervisor restart"
+                        )
+                        sys.exit(0)
                     if watcher.changed():
                         new_config, errors, transient = await _reload.load_and_validate(
                             config_path
@@ -683,6 +730,18 @@ async def run(config_path: Path) -> None:
                                 ok=True, ts=ts, restart_required=restart_required
                             )
                     for section_index, section in enumerate(config.sections):
+                        # Per-section restart check: caps latency at one
+                        # section even for run modes where the per-tick
+                        # ticker hook can't fire (e.g. an empty section that
+                        # never enters a tick loop). The Ticker's per-tick
+                        # restart_check (below) gives finer ~second-level
+                        # responsiveness within a section.
+                        if _restart_requested():
+                            logging.info(
+                                "restart requested via web UI"
+                                " — exiting for supervisor restart"
+                            )
+                            sys.exit(0)
                         status_board.record_section(
                             index=section_index,
                             total=len(config.sections),
@@ -858,6 +917,11 @@ async def run(config_path: Path) -> None:
                             "scale": section.scale,
                             "content_height": section.content_height,
                             "breaker": render_breaker,
+                            # Per-tick restart check: lets the engine unwind
+                            # from inside a long hold/scroll within ~one engine
+                            # tick (tens of ms) when a web-UI restart is queued,
+                            # instead of waiting for the section/playlist to end.
+                            "restart_check": _restart_requested,
                         }
                         if section.scroll_step_ms is not None:
                             ticker_kwargs["scroll_speed"] = (
@@ -886,6 +950,19 @@ async def run(config_path: Path) -> None:
                             await getattr(ticker, run_method)(**run_kwargs)
                         except asyncio.CancelledError:
                             raise
+                        except RestartRequested:
+                            # The Ticker's per-tick restart_check fired mid-hold
+                            # /scroll: the marker was already consumed (deleted)
+                            # inside `_restart_requested`. The `finally` below
+                            # cancels the enqueue task; then exit cleanly for the
+                            # supervisor to restart us (SystemExit threads up
+                            # through finally → shutdown hooks, same path as the
+                            # outer-loop / per-section checks).
+                            logging.info(
+                                "restart requested via web UI"
+                                " — exiting for supervisor restart"
+                            )
+                            sys.exit(0)
                         finally:
                             if (
                                 ticker._enqueue_task is not None

@@ -9,14 +9,21 @@ from led_ticker.status_board import SCHEMA_VERSION, StatusBoard
 from led_ticker.webui import build_webui_app
 
 
-async def _client(tmp_path, *, token="", config_text=None, status=None):
+async def _client(
+    tmp_path, *, token="", config_text=None, status=None, allow_restart=False
+):
     config_path = tmp_path / "config.toml"
     config_path.write_text(config_text or "[display]\nrows = 16\ncols = 32\n")
     status_path = tmp_path / "status.json"
     if status is not None:
         body = json.dumps(status) if isinstance(status, dict) else status
         status_path.write_text(body)
-    app = build_webui_app(config_path=config_path, status_path=status_path, token=token)
+    app = build_webui_app(
+        config_path=config_path,
+        status_path=status_path,
+        token=token,
+        allow_restart=allow_restart,
+    )
     client = TestClient(TestServer(app))
     await client.start_server()
     return client
@@ -803,12 +810,12 @@ def test_error_and_warning_are_global_color_utilities():
     html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
     # A line whose selector STARTS with `.error` / `.warning` is a global rule;
     # `.issues .error { ... }` (line starts with `.issues`) does NOT match.
-    assert re.search(
-        r"^\s*\.error\s*\{", html, re.MULTILINE
-    ), "no global `.error` color rule"
-    assert re.search(
-        r"^\s*\.warning\s*\{", html, re.MULTILINE
-    ), "no global `.warning` color rule"
+    assert re.search(r"^\s*\.error\s*\{", html, re.MULTILINE), (
+        "no global `.error` color rule"
+    )
+    assert re.search(r"^\s*\.warning\s*\{", html, re.MULTILINE), (
+        "no global `.warning` color rule"
+    )
 
 
 def test_index_html_has_store_tab():
@@ -1927,6 +1934,8 @@ async def test_store_token_configured_no_token_header_redacts(tmp_path, monkeypa
         assert "mycorp.custom" not in {p["namespace"] for p in body["plugins"]}
         # display_online is dropped for anonymous callers (deployment state).
         assert "display_online" not in body
+        # allow_restart must survive redaction (public, like auth_required).
+        assert "allow_restart" in body
     finally:
         await client.close()
 
@@ -2019,3 +2028,357 @@ async def test_store_correct_token_via_query_param_gives_full(tmp_path, monkeypa
         assert len(rss["in_use_by"]) == 1
     finally:
         await client.close()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/restart — token+flag-gated restart marker writer
+# ---------------------------------------------------------------------------
+
+
+async def test_restart_with_token_and_flag_writes_marker(tmp_path):
+    """POST /api/restart: token + allow_restart=True → 200 and marker written."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart", headers={"X-Web-Token": "s3cret"})
+        assert resp.status == 200
+        body = await resp.json()
+        assert body.get("ok") is True
+        assert marker_path.exists(), "restart-requested marker was not written"
+    finally:
+        await client.close()
+
+
+async def test_restart_no_token_header_returns_401_or_403(tmp_path):
+    """POST /api/restart without a token header (token configured) → 401/403."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart")
+        assert resp.status in (401, 403)
+        assert not marker_path.exists(), "marker must not be written when auth fails"
+    finally:
+        await client.close()
+
+
+async def test_restart_allow_restart_false_returns_403_no_marker(tmp_path):
+    """POST /api/restart with allow_restart=False → 403 and marker NOT written."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=False)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart", headers={"X-Web-Token": "s3cret"})
+        assert resp.status == 403
+        body = await resp.json()
+        assert body.get("error") == "restart disabled"
+        assert not marker_path.exists(), (
+            "marker must not be written when restart disabled"
+        )
+    finally:
+        await client.close()
+
+
+async def test_restart_no_token_configured_returns_403(tmp_path):
+    """token="" (no token configured) → handler-level 403, even with an auth header.
+
+    Mirrors install/save convention: no token = editing/restart administratively
+    disabled.
+    """
+    client = await _client(tmp_path, token="", allow_restart=True)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart", headers={"X-Web-Token": "anything"})
+        assert resp.status == 403
+        body = await resp.json()
+        assert "editing disabled" in body["error"]
+        assert not marker_path.exists()
+    finally:
+        await client.close()
+
+
+async def test_status_includes_allow_restart_false(tmp_path):
+    """GET /api/status includes allow_restart=False when not configured."""
+    client = await _client(tmp_path, allow_restart=False)
+    try:
+        resp = await client.get("/api/status")
+        body = await resp.json()
+        assert resp.status == 200
+        assert body.get("allow_restart") is False
+    finally:
+        await client.close()
+
+
+async def test_status_includes_allow_restart_true(tmp_path):
+    """GET /api/status includes allow_restart=True when configured."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    try:
+        resp = await client.get("/api/status", headers={"X-Web-Token": "s3cret"})
+        body = await resp.json()
+        assert resp.status == 200
+        assert body.get("allow_restart") is True
+    finally:
+        await client.close()
+
+
+async def test_store_includes_allow_restart(tmp_path, monkeypatch):
+    """GET /api/store includes allow_restart in payload."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": False,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="", allow_restart=True)
+    try:
+        resp = await client.get("/api/store")
+        body = await resp.json()
+        assert resp.status == 200
+        assert body.get("allow_restart") is True
+    finally:
+        await client.close()
+
+
+async def test_store_includes_allow_restart_false_by_default(tmp_path, monkeypatch):
+    """GET /api/store includes allow_restart=False when not set."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": False,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="", allow_restart=False)
+    try:
+        resp = await client.get("/api/store")
+        body = await resp.json()
+        assert resp.status == 200
+        assert body.get("allow_restart") is False
+    finally:
+        await client.close()
+
+
+async def test_restart_token_via_query_param(tmp_path):
+    """POST /api/restart with valid token via query param → 200 and marker exists."""
+    client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    marker_path = tmp_path / "restart-requested"
+    try:
+        resp = await client.post("/api/restart", params={"token": "s3cret"})
+        assert resp.status == 200
+        assert marker_path.exists()
+    finally:
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# Task 4: Static-marker tests for the "Restart to apply" frontend button
+# ---------------------------------------------------------------------------
+# Interactive flows verified manually (no JS runner):
+#   1. allow_restart=true + token set → button enabled; clicking shows confirm()
+#      "The sign will go dark for a few seconds while the display restarts. Continue?"
+#      → POST /api/restart with X-Web-Token header → "restarting… Ns" live counter
+#      → captures prior started_at, then polls GET /api/status until
+#        body.status.started_at CHANGES (a new process booted)
+#        → "Display back online ✔" → Store banner hides + store reloads
+#        / config-editor notice hides.
+#   2. allow_restart=true + no token → clicking focuses the token field and shows
+#      "Enter your token in the field above first."
+#   3. allow_restart=false → button rendered disabled with the tooltip text.
+#   4. 60s timeout: "The display hasn't come back. Refresh this page;
+#      if the sign is still dark, check the container is running
+#      (docker compose ps) and view the logs."
+#   5. POST /api/restart fails (non-200) → status shows the error, button re-enabled.
+
+
+def _read_index_html():
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    return (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+
+
+def test_index_html_has_restart_button_hooks():
+    """The restart button infrastructure is present in the page HTML.
+
+    Checks the static markers the JS relies on; interactive flows are manual.
+    """
+    html = _read_index_html()
+
+    # Wrapper elements rendered into by renderRestartBtn()
+    assert 'id="store-restart-btn-wrap"' in html, (
+        "Store pending banner must have a restart button wrapper"
+    )
+    assert 'id="store-restart-status"' in html, (
+        "Store pending banner must have a restart status element"
+    )
+    assert 'id="config-restart-btn-wrap"' in html, (
+        "Config-editor restart notice must have a restart button wrapper"
+    )
+    assert 'id="config-restart-status"' in html, (
+        "Config-editor restart notice must have a restart status element"
+    )
+
+    # Config restart notice container
+    assert 'id="config-restart-notice"' in html, (
+        "Config-editor restart-required notice div must be present"
+    )
+    assert "Restart required" in html, (
+        "Config restart notice must contain 'Restart required' heading"
+    )
+    assert 'id="config-restart-fields"' in html, (
+        "Config restart notice must have a fields span"
+    )
+
+    # Core JS functions present
+    assert "function renderRestartBtn(" in html, (
+        "renderRestartBtn function must be defined"
+    )
+    assert "async function doRestart(" in html, (
+        "doRestart async function must be defined"
+    )
+
+    # allow_restart is read from the payload
+    assert "allow_restart" in html, "JS must read allow_restart from the API payload"
+    assert "lastAllowRestart" in html, (
+        "JS must track lastAllowRestart across poll()/renderStore() calls"
+    )
+
+
+def test_index_html_restart_confirm_text():
+    """The confirm() dialog uses the dark-panel text from the spec."""
+    html = _read_index_html()
+    dark_text = (
+        "The sign will go dark for a few seconds while the display restarts. Continue?"
+    )
+    assert dark_text in html, (
+        "confirm() must use the exact dark-panel warning text from the spec"
+    )
+
+
+def test_index_html_restart_disabled_tooltip():
+    """The disabled button carries the allow_restart tooltip text."""
+    html = _read_index_html()
+    assert "Browser restart is off" in html, (
+        "Disabled button tooltip must mention 'Browser restart is off'"
+    )
+    assert "allow_restart = true" in html, (
+        "Disabled tooltip must tell users to set allow_restart = true"
+    )
+    assert "systemd Restart=" in html, (
+        "Disabled tooltip must mention systemd Restart= for non-Docker users"
+    )
+
+
+def test_index_html_restart_timeout_message():
+    """The 60s timeout message is present for the maintainer check."""
+    html = _read_index_html()
+    assert "docker compose ps" in html, (
+        "Timeout message must include 'docker compose ps' diagnostic"
+    )
+    assert "hasn't come back" in html, (
+        "Timeout message must tell users the display hasn't come back"
+    )
+
+
+def test_index_html_restart_uses_header_not_url():
+    """Token is sent via X-Web-Token header, never embedded in the URL."""
+    html = _read_index_html()
+    # The POST uses {headers: auth} — auth holds the X-Web-Token header.
+    assert '"/api/restart"' in html, "POST /api/restart must be present"
+    # The URL must not include token as a query parameter.
+    assert '"/api/restart?token=' not in html, (
+        "Token must be sent via header only, never in the /api/restart URL"
+    )
+    assert 'method: "POST"' in html or "method:'POST'" in html, (
+        "restart must use POST method"
+    )
+
+
+def test_index_html_restart_detects_via_started_at_change():
+    """The recovery poll declares success via a CHANGED started_at boot
+    timestamp (a new process actually started), not an offline→online edge.
+
+    Replaces the old wentOffline heuristic, which falsely reported "back
+    online" when the display never restarted (it never went offline because
+    the marker hadn't been consumed yet)."""
+    html = _read_index_html()
+    # started_at is the robust success signal — read from body.status.started_at.
+    assert "started_at" in html, (
+        "recovery poll must read started_at from /api/status (body.status.started_at)"
+    )
+    assert "priorStartedAt" in html, (
+        "doRestart must capture the prior started_at before POST and compare it"
+    )
+    # The old offline-edge heuristic must be gone entirely.
+    assert "wentOffline" not in html, (
+        "wentOffline heuristic must be removed — started_at change is the sole signal"
+    )
+    # Still reads liveness as part of the success gate.
+    assert "body2.state" in html, (
+        "recovery poll must still confirm the display is online (body2.state === 'ok')"
+    )
+
+
+def test_index_html_restart_button_in_store_pending_banner():
+    """The store pending banner calls renderRestartBtn for its wrapper."""
+    html = _read_index_html()
+    # The renderStore function calls renderRestartBtn with the store wrapper id.
+    assert "store-restart-btn-wrap" in html
+    assert "store-restart-status" in html
+    # renderRestartBtn is called inside renderStore (the pendingCount > 0 branch).
+    assert 'renderRestartBtn("store-restart-btn-wrap"' in html, (
+        "renderStore must call renderRestartBtn with 'store-restart-btn-wrap'"
+    )
+
+
+def test_index_html_restart_button_in_config_editor_notice():
+    """The config-editor notice calls renderRestartBtn via showConfigRestartNotice."""
+    html = _read_index_html()
+    assert "function showConfigRestartNotice(" in html, (
+        "showConfigRestartNotice helper must be defined"
+    )
+    assert "function hideConfigRestartNotice(" in html, (
+        "hideConfigRestartNotice helper must be defined"
+    )
+    assert 'renderRestartBtn("config-restart-btn-wrap"' in html, (
+        "showConfigRestartNotice must call renderRestartBtn "
+        "with 'config-restart-btn-wrap'"
+    )
+    # showConfigRestartNotice must pass "config-restart-status" as statusId so
+    # the restarting/elapsed/failed/recovered feedback is surfaced in the config tab.
+    assert (
+        'renderRestartBtn("config-restart-btn-wrap", "config-restart-status"' in html
+    ), (
+        "showConfigRestartNotice must pass 'config-restart-status' as the statusId "
+        "so restart progress feedback is visible in the config tab"
+    )
+
+
+def test_index_html_store_restart_ondone_clears_status_after_delay():
+    """The Store onDone callback clears the restart status via setTimeout (not sync).
+
+    A synchronous .textContent = '' runs before loadStore() resolves and erases
+    the 'Display back online ✔' message before it's visible.  The fix wraps the
+    clear in a setTimeout so it fires after a short delay.
+    """
+    html = _read_index_html()
+    # The async clear must be deferred — synchronous clear is the bug.
+    assert "setTimeout(" in html and "store-restart-status" in html, (
+        "store-restart-status clear must use setTimeout, not a synchronous assignment"
+    )
+    # Verify the exact pattern: setTimeout wrapping the clear, not a bare sync clear.
+    assert 'setTimeout(() => { $("store-restart-status").textContent = ""; }' in html, (
+        "onDone must clear store-restart-status via setTimeout, not synchronously"
+    )

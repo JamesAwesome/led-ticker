@@ -6,7 +6,7 @@ import inspect
 import itertools
 import logging
 import math
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import attrs
@@ -26,6 +26,20 @@ from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class RestartRequested(Exception):
+    """Raised inside the per-tick display loops when a web-UI restart marker
+    is present, so the engine unwinds promptly (within a few seconds) instead
+    of waiting for the next full playlist cycle.
+
+    The `restart_check` callback (see `Ticker.restart_check`) is responsible
+    for consuming (deleting) the marker BEFORE this is raised — loop-safety:
+    the restarted process must not re-read the marker and exit again. The
+    app-level loop catches this and calls `sys.exit(0)` for a clean
+    supervisor restart.
+    """
+
 
 # Logical footprint of the hi-res circle separator: 1 left pad + 8
 # circle + 1 right pad = 10 logical px. Matches today's " \u2022 " BDF
@@ -187,6 +201,12 @@ class Ticker:
     # to this default.
     scroll_speed: float = 0.05
     breaker: RenderBreaker = attrs.field(factory=RenderBreaker)
+    # Optional zero-arg predicate polled once per engine tick. When it returns
+    # True, the engine raises RestartRequested to unwind promptly for a web-UI
+    # restart. The callback MUST consume (delete) the restart marker before
+    # returning True — loop-safety, so the restarted process doesn't re-read
+    # the marker and exit again. None disables the in-tick check entirely.
+    restart_check: Callable[[], bool] | None = None
     last_scroll_pos: int = attrs.field(init=False, default=0)
     _visit_counter: int = attrs.field(init=False, default=0)
     _current_visit: int = attrs.field(init=False, default=0)
@@ -413,6 +433,19 @@ class Ticker:
         if hasattr(widget, "advance_frame"):
             widget.advance_frame(visit_id=self._current_visit)
 
+    def _maybe_restart(self) -> None:
+        """Poll the restart_check callback once. If it returns True, raise
+        RestartRequested so the engine unwinds promptly for a web-UI restart.
+
+        Called at the top of every per-tick loop body so a queued restart is
+        honoured within ~one engine tick (tens of ms) rather than waiting for
+        the next full playlist cycle. The callback consumes (deletes) the
+        marker itself before returning True — loop-safety. Cheap: a tmpfs
+        `stat` per tick. None disables the check.
+        """
+        if self.restart_check is not None and self.restart_check():
+            raise RestartRequested
+
     def _safe_draw(
         self, widget: Any, canvas: Any, cursor_pos: int = 0
     ) -> tuple[Any, int]:
@@ -442,6 +475,7 @@ class Ticker:
         loop = asyncio.get_running_loop()
         cursor_pos = 0
         for _ in range(n_ticks):
+            self._maybe_restart()
             t0 = loop.time()
             self._advance_frame_if_supported(widget)
             reset_canvas(canvas, bg_color)
@@ -594,6 +628,7 @@ class Ticker:
             )
             stop = -(n_passes * cycle_width)
             while pos > stop:
+                self._maybe_restart()
                 t0 = loop.time()
                 pos -= 1
                 self._advance_frame_if_supported(ticker_obj)
@@ -610,6 +645,7 @@ class Ticker:
                 loops_floor = 0
             tick = 0
             while tick < n_ticks:
+                self._maybe_restart()
                 t0 = loop.time()
                 self._advance_frame_if_supported(ticker_obj)
                 reset_canvas(canvas, bg_color)
@@ -632,6 +668,7 @@ class Ticker:
             padding = get_widget_padding(ticker_obj, default=0)
             stop_pos = -(cursor_pos - canvas.width) + padding
             while pos > stop_pos:
+                self._maybe_restart()
                 t0 = loop.time()
                 pos -= 1
                 self._advance_frame_if_supported(ticker_obj)
@@ -796,6 +833,7 @@ class Ticker:
 
         loop = asyncio.get_running_loop()
         while pos > 0:
+            self._maybe_restart()
             # Advance the per-tick frame so animated title providers
             # (rainbow, color_cycle) animate during scroll-in. Without
             # this, the title freezes on its visit-initial hue while it
@@ -859,6 +897,7 @@ class Ticker:
 
         loop = asyncio.get_running_loop()
         while True:
+            self._maybe_restart()
             # Advance the per-tick frame on the widget currently on-screen
             # so animated providers (rainbow, color_cycle) animate during
             # the scroll. Without this, RSS stories with `font_color =
@@ -934,6 +973,7 @@ class Ticker:
 
         loop = asyncio.get_running_loop()
         while True:
+            self._maybe_restart()
             # Advance the per-tick frame on every UNIQUE widget being
             # drawn this tick so animated providers (rainbow, color_cycle)
             # animate during side-by-side scroll. Dedup by id() because
@@ -1061,6 +1101,7 @@ class Ticker:
         wrapper_scale = safe_scale(canvas)
         real = unwrap_to_real(canvas)
         while True:
+            self._maybe_restart()
             try:
                 widget = self.notif_queue.get_nowait()
             except asyncio.QueueEmpty:

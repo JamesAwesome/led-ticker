@@ -573,3 +573,61 @@ class TestConsumeRestartMarker:
         from led_ticker.app.run import _consume_restart_marker
 
         assert _consume_restart_marker(tmp_path / "restart-requested") is False
+
+    def test_restart_checked_per_section_not_only_per_playlist(self):
+        """FIX A: the restart marker must be consumed at LEAST per-section, not
+        only once per full playlist cycle. Source-scan run() for the
+        per-section check (`_restart_requested()` inside the
+        `for section_index, section` loop)."""
+        import inspect
+
+        from led_ticker.app.run import run
+
+        src = inspect.getsource(run)
+        lines = src.splitlines()
+        for_idx = next(
+            i for i, ln in enumerate(lines) if "for section_index, section" in ln
+        )
+        # The for-section loop body (the next ~30 lines) must contain a
+        # restart check + sys.exit, so latency is one section not a playlist.
+        body = "\n".join(lines[for_idx : for_idx + 30])
+        assert "_restart_requested()" in body, (
+            "run() must check the restart marker inside the for-section loop "
+            "(per-section), not only at the top of the outer while-True "
+            "(per-playlist) — otherwise restart 'frequently fails' until the "
+            "playlist cycles back around."
+        )
+        assert "sys.exit(0)" in body, (
+            "the per-section restart check must exit cleanly via sys.exit(0)"
+        )
+
+    def test_ticker_per_tick_restart_check_wired(self):
+        """FIX A (better): the Ticker receives a per-tick restart_check so a
+        restart unwinds within ~one engine tick, and run() catches the
+        resulting RestartRequested with a clean sys.exit(0)."""
+        import inspect
+
+        from led_ticker.app.run import run
+
+        src = inspect.getsource(run)
+        assert '"restart_check": _restart_requested' in src, (
+            "Ticker must be constructed with restart_check=_restart_requested "
+            "for second-level restart responsiveness"
+        )
+        assert "except RestartRequested:" in src, (
+            "run() must catch RestartRequested raised by the per-tick hook"
+        )
+
+    def test_restart_check_consumes_before_exit(self):
+        """Loop-safety: _restart_requested calls _consume_restart_marker, which
+        deletes the marker BEFORE signalling — so the restarted process can't
+        re-read it and exit again."""
+        import inspect
+
+        from led_ticker.app.run import run
+
+        src = inspect.getsource(run)
+        assert "_consume_restart_marker(_restart_marker)" in src, (
+            "_restart_requested must consume (delete) the marker via "
+            "_consume_restart_marker before returning True"
+        )

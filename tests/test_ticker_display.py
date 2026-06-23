@@ -7,6 +7,7 @@ import pytest
 
 from led_ticker.scaled_canvas import ScaledCanvas
 from led_ticker.ticker import (
+    RestartRequested,
     Ticker,
 )
 
@@ -57,6 +58,58 @@ class TestFromRssFeed:
         q = asyncio.Queue()
         ticker = Ticker.from_rss_feed(feed, mock_frame, notif_queue=q)
         assert ticker.notif_queue is q
+
+
+class TestRestartCheck:
+    """Per-tick restart hook (FIX A): a web-UI restart is honoured promptly
+    from inside the hold/scroll loops, not only once per playlist cycle."""
+
+    async def test_hold_raises_restart_when_check_true(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """A held (non-overflowing) widget unwinds via RestartRequested when
+        restart_check returns True — instead of holding for the full
+        hold_time. The check is polled inside _hold_ticks per tick."""
+        widget = make_widget(content_width=40)  # fits → hold branch
+        calls = {"n": 0}
+
+        def check():
+            calls["n"] += 1
+            return True  # restart pending on the first tick
+
+        ticker = Ticker(monitors=[], frame=mock_frame, restart_check=check)
+        with pytest.raises(RestartRequested):
+            await ticker._swap_and_scroll(canvas, widget, hold_time=5.0)
+        assert calls["n"] >= 1, "restart_check must be polled inside the hold loop"
+
+    async def test_scroll_raises_restart_when_check_true(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """An overflowing (scrolling) widget unwinds via RestartRequested from
+        the scroll loop when restart_check returns True."""
+        widget = make_widget(content_width=400)  # overflows → scroll branch
+        ticker = Ticker(monitors=[], frame=mock_frame, restart_check=lambda: True)
+        with pytest.raises(RestartRequested):
+            await ticker._swap_and_scroll(canvas, widget, hold_time=0.0)
+
+    async def test_no_restart_when_check_false(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """restart_check returning False never raises — normal display."""
+        widget = make_widget(content_width=40)
+        ticker = Ticker(monitors=[], frame=mock_frame, restart_check=lambda: False)
+        result_canvas, pos, scroll_pos = await ticker._swap_and_scroll(canvas, widget)
+        assert result_canvas is canvas
+
+    async def test_no_restart_when_check_none(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """restart_check defaulting to None disables the in-tick check."""
+        widget = make_widget(content_width=40)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        assert ticker.restart_check is None
+        result_canvas, _, _ = await ticker._swap_and_scroll(canvas, widget)
+        assert result_canvas is canvas
 
 
 class TestSwapAndScroll:

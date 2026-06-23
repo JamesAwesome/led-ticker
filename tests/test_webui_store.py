@@ -437,12 +437,16 @@ def test_config_references_inline_emoji_token(tmp_path):
 
 
 def test_build_store_catalog_active_but_undeclared(tmp_path):
-    """Catalog plugin active in status but absent from manifest -> 'available'.
+    """Catalog plugin active in status but absent from manifest -> 'restart_to_remove'.
 
-    Documented edge case (store.py): can happen when the manifest was edited to
-    remove a line while the display is still running. Must NOT be classified as
-    'externally_installed' (that bucket is for namespaces absent from the catalog
-    entirely)."""
+    The user removed the manifest line while the display is still running it;
+    a restart is required to actually uninstall it. This must be counted as
+    pending (so the restart banner shows) and must NOT be classified as
+    'externally_installed' (that bucket is for namespaces absent from the
+    catalog entirely).
+
+    NOTE: this intentionally CHANGED from the earlier 'available' behavior —
+    'available' hid the fact that a restart was needed to remove the plugin."""
     cat = load_catalog()
     ns = cat.entries[0].namespace
     man = tmp_path / "requirements-plugins.txt"
@@ -456,11 +460,54 @@ def test_build_store_catalog_active_but_undeclared(tmp_path):
         token_configured=False,
     )
     entry = next(p for p in res["plugins"] if p["namespace"] == ns)
-    assert entry["state"] == "available", (
-        f"catalog plugin active-but-undeclared should be 'available', "
+    assert entry["state"] == "restart_to_remove", (
+        f"catalog plugin active-but-undeclared should be 'restart_to_remove', "
         f"got {entry['state']!r}"
     )
     assert entry["removable"] is False
+    # A pending removal must surface the restart banner.
+    assert res["pending_count"] >= 1, (
+        "active-but-undeclared (restart_to_remove) must count toward pending_count "
+        "so the restart banner shows for removals"
+    )
+
+
+def test_build_store_removed_plugin_shows_pending_banner(tmp_path):
+    """Removing a declared plugin's manifest line while it's still active
+    (restart_to_remove) raises pending_count from 0 to >=1 — driving the
+    restart banner. Compares the declared (no pending) baseline to the
+    undeclared-but-active (pending) case for the same plugin."""
+    cat = load_catalog()
+    entry0 = cat.entries[0]
+    ns = entry0.namespace
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+
+    # Baseline: declared AND active -> 'active', not pending.
+    man_declared = tmp_path / "declared.txt"
+    man_declared.write_text(entry0.requirement() + "\n")
+    res_declared = build_store(
+        manifest_path=man_declared,
+        config_path=cfg,
+        status={"plugins": [{"namespace": ns}]},
+        token_configured=False,
+    )
+    declared_entry = next(p for p in res_declared["plugins"] if p["namespace"] == ns)
+    assert declared_entry["state"] == "active"
+    assert res_declared["pending_count"] == 0
+
+    # Remove the manifest line (still active) -> restart_to_remove, pending.
+    man_removed = tmp_path / "removed.txt"
+    man_removed.write_text("")
+    res_removed = build_store(
+        manifest_path=man_removed,
+        config_path=cfg,
+        status={"plugins": [{"namespace": ns}]},
+        token_configured=False,
+    )
+    removed_entry = next(p for p in res_removed["plugins"] if p["namespace"] == ns)
+    assert removed_entry["state"] == "restart_to_remove"
+    assert res_removed["pending_count"] >= 1
 
 
 # ---------------------------------------------------------------------------

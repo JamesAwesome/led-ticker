@@ -286,6 +286,25 @@ async function doRestart(btn, statusId, onDone) {
   if (!ok) return;
   btn.disabled = true;
   let elapsed = 0;
+
+  // Capture the CURRENT boot timestamp before triggering the restart. The new
+  // process writes a fresh started_at into status.json on boot, so a CHANGED
+  // started_at is the robust "a new process actually started" signal — unlike
+  // an offline→online edge, which never fires when the restart completes
+  // between polls (or when the marker is consumed before any poll sees offline).
+  // If we can't read it (display already down / unreadable), priorStartedAt
+  // stays null and we fall back to "any present started_at + online" == success.
+  let priorStartedAt = null;
+  try {
+    const r0 = await fetch("/api/status", {headers: auth});
+    const body0 = await r0.json();
+    if (body0 && body0.status && typeof body0.status.started_at === "number") {
+      priorStartedAt = body0.status.started_at;
+    }
+  } catch (e) {
+    // ignore — treat as unknown prior (fall back to present+online success)
+  }
+
   _setRestartStatus(statusId, "restarting… (usually ~5–10s)");
   const ticker = setInterval(() => {
     elapsed++;
@@ -306,19 +325,14 @@ async function doRestart(btn, statusId, onDone) {
     btn.disabled = false;
     return;
   }
-  // POST succeeded — now poll for display going offline then recovering.
-  // Phase 1: wait for display to go offline (or already offline within 15s).
-  // Phase 2: wait for display to come back online (up to 60s total).
+  // POST succeeded — poll /api/status until a NEW process is observed: started_at
+  // is present AND differs from priorStartedAt (= a fresh boot). This is the SOLE
+  // success signal — no offline-edge / time-based heuristic.
   const TIMEOUT_MS = 60000;
   const POLL_INTERVAL_MS = 1500;
   const start = Date.now();
-  let wentOffline = false;
   const poll = setInterval(async () => {
     elapsed = Math.round((Date.now() - start) / 1000);
-    // Time-based fallback: if the restart completed faster than one full poll
-    // cycle could observe the offline state, force wentOffline so recovery is
-    // still detected (8s > the ~6s status-staleness window).
-    if (!wentOffline && (Date.now() - start) > 8000) wentOffline = true;
     if (Date.now() - start > TIMEOUT_MS) {
       clearInterval(poll);
       clearInterval(ticker);
@@ -330,11 +344,14 @@ async function doRestart(btn, statusId, onDone) {
     try {
       const r2 = await fetch("/api/status", {headers: auth});
       const body2 = await r2.json();
-      const displayOnline = body2.state === "ok";
-      if (!wentOffline && !displayOnline) {
-        wentOffline = true;
-      }
-      if (wentOffline && displayOnline) {
+      const online = body2.state === "ok";
+      const startedAt = (body2 && body2.status && typeof body2.status.started_at === "number")
+        ? body2.status.started_at : null;
+      // Success when a NEW boot timestamp is observed. If we never captured a
+      // prior (display was already down), any present started_at + online counts.
+      const restarted = startedAt !== null && online &&
+        (priorStartedAt === null || startedAt !== priorStartedAt);
+      if (restarted) {
         clearInterval(poll);
         clearInterval(ticker);
         _setRestartStatus(statusId, "Display back online ✔");
@@ -342,8 +359,7 @@ async function doRestart(btn, statusId, onDone) {
         if (onDone) onDone();
       }
     } catch (e) {
-      // unreachable webui — treat as offline (wentOffline)
-      if (!wentOffline) wentOffline = true;
+      // unreachable webui mid-restart — keep polling until the timeout
     }
   }, POLL_INTERVAL_MS);
 }
@@ -810,6 +826,9 @@ function storeBadge(state, displayOnline) {
   }
   if (state === "active") return '<span class="store-badge badge-active">Active</span>';
   if (state === "restart_to_activate") return '<span class="store-badge badge-restart">Restart to activate</span>';
+  // Active-but-undeclared: the user removed the manifest line; a restart will
+  // uninstall it. Amber, like restart_to_activate.
+  if (state === "restart_to_remove") return '<span class="store-badge badge-restart">Restart to remove</span>';
   if (state === "externally_installed") return '<span class="store-badge badge-external">Externally installed</span>';
   // Coarsened state emitted by redact_anonymous for unauthenticated callers on a
   // token-protected sign: a plugin is installed but the exact state is hidden.
@@ -888,10 +907,18 @@ function renderStore(data) {
     // via the manifest so the Store cannot safely remove them — the user must
     // manage them through the host environment directly.
     let actionHtml = "";
-    if (p.state === "available") {
+    // `restart_to_remove` is active-but-undeclared (manifest line removed, restart
+    // pending to uninstall). Its action is Install — re-adding the manifest line
+    // undoes the pending removal — so treat it like `available` for the button.
+    if (p.state === "available" || p.state === "restart_to_remove") {
       // Install button — disabled if auth required but no token
       const needsAuth = authRequired && !hasToken;
-      const installLabel = pack ? `Install ${esc(pack)} pack` : "Install";
+      const undo = p.state === "restart_to_remove";
+      // `available`: Install / "Install <pack> pack". `restart_to_remove`:
+      // Undo remove (re-adds the manifest line, cancelling the pending uninstall).
+      const installLabel = undo
+        ? (pack ? `Undo remove ${esc(pack)} pack` : "Undo remove")
+        : (pack ? `Install ${esc(pack)} pack` : "Install");
       actionHtml = `<button class="store-btn install" ${needsAuth ? "disabled" : ""}
         data-action="install" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
         ${needsAuth ? 'title="Enter your token to install plugins"' : ""}>${installLabel}</button>`;

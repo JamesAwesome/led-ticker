@@ -2188,7 +2188,8 @@ async def test_restart_token_via_query_param(tmp_path):
 #   1. allow_restart=true + token set → button enabled; clicking shows confirm()
 #      "The sign will go dark for a few seconds while the display restarts. Continue?"
 #      → POST /api/restart with X-Web-Token header → "restarting… Ns" live counter
-#      → polls GET /api/status until display_online drops then recovers
+#      → captures prior started_at, then polls GET /api/status until
+#        body.status.started_at CHANGES (a new process booted)
 #        → "Display back online ✔" → Store banner hides + store reloads
 #        / config-editor notice hides.
 #   2. allow_restart=true + no token → clicking focuses the token field and shows
@@ -2305,15 +2306,28 @@ def test_index_html_restart_uses_header_not_url():
     )
 
 
-def test_index_html_restart_reads_display_online_for_poll():
-    """The recovery poll reads display_online / body.state from /api/status."""
+def test_index_html_restart_detects_via_started_at_change():
+    """The recovery poll declares success via a CHANGED started_at boot
+    timestamp (a new process actually started), not an offline→online edge.
+
+    Replaces the old wentOffline heuristic, which falsely reported "back
+    online" when the display never restarted (it never went offline because
+    the marker hadn't been consumed yet)."""
     html = _read_index_html()
-    # The poller checks body.state === "ok" as the proxy for display_online.
-    assert "body2.state" in html or "display_online" in html, (
-        "recovery poll must check display liveness from /api/status"
+    # started_at is the robust success signal — read from body.status.started_at.
+    assert "started_at" in html, (
+        "recovery poll must read started_at from /api/status (body.status.started_at)"
     )
-    assert "wentOffline" in html, (
-        "poller must track whether the display went offline before declaring recovery"
+    assert "priorStartedAt" in html, (
+        "doRestart must capture the prior started_at before POST and compare it"
+    )
+    # The old offline-edge heuristic must be gone entirely.
+    assert "wentOffline" not in html, (
+        "wentOffline heuristic must be removed — started_at change is the sole signal"
+    )
+    # Still reads liveness as part of the success gate.
+    assert "body2.state" in html, (
+        "recovery poll must still confirm the display is online (body2.state === 'ok')"
     )
 
 

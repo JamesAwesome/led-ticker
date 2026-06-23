@@ -1108,3 +1108,195 @@ async def test_install_idempotent_when_already_declared(tmp_path, monkeypatch):
         assert lines.count(req) == 1, "duplicate requirement line written"
     finally:
         await client.close()
+
+
+# DELETE /api/store/remove — plugin store remove (Task 5)
+# ---------------------------------------------------------------------------
+
+
+def _fake_rss_entry():
+    """Return a minimal CatalogEntry for the rss plugin (test fixture).
+
+    Namespace is "rss" (single-segment, matching the real catalog).  The widget
+    type "rss.feed" maps back to namespace "rss" via config_references' split-on-dot
+    logic (ns_source.split(".")[0]).
+    """
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    entry = CatalogEntry(
+        name="rss",
+        namespace="rss",
+        summary="RSS/Atom feed headlines.",
+        homepage="",
+        provides=PluginProvides(widgets=("rss.feed",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="main",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    return entry, Catalog(entries=(entry,))
+
+
+async def test_remove_known_namespace_removes_manifest_line(tmp_path, monkeypatch):
+    """DELETE /api/store/remove with a declared namespace (not in config) →
+    200, manifest line removed, response carries the updated store entry."""
+    import led_ticker.webui as webui_mod
+
+    fake_entry, fake_catalog = _fake_rss_entry()
+    req = fake_entry.requirement()
+
+    def fake_build_store(**kwargs):
+        return {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [
+                {
+                    "namespace": "rss",
+                    "name": "rss",
+                    "summary": "RSS/Atom feed headlines.",
+                    "provides": {"widgets": ["rss.feed"]},
+                    "source": "git",
+                    "state": "available",
+                    "removable": False,
+                    "in_use_by": [],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(webui_mod, "_build_store", fake_build_store)
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    # Write a manifest containing the rss requirement.
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["namespace"] == "rss"
+        # Manifest must no longer contain the requirement line.
+        manifest_text = manifest_path.read_text()
+        assert req not in manifest_text
+    finally:
+        await client.close()
+
+
+async def test_remove_in_use_returns_409(tmp_path, monkeypatch):
+    """DELETE /api/store/remove when config references the plugin → 409 with
+    in_use_by listing {section, type}; manifest unchanged."""
+    import led_ticker.webui as webui_mod
+
+    fake_entry, fake_catalog = _fake_rss_entry()
+    req = fake_entry.requirement()
+
+    def fake_build_store(**kwargs):
+        return {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        }
+
+    # config_references will return refs for rss.feed because the config TOML
+    # contains a widget with type = "rss.feed".
+    config_text = '[display]\nrows = 16\ncols = 32\n\n[[section]]\ntype = "rss.feed"\n'
+
+    monkeypatch.setattr(webui_mod, "_build_store", fake_build_store)
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    client = await _client(tmp_path, token="s3cret", config_text=config_text)
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 409
+        body = await resp.json()
+        assert body.get("error") == "in_use"
+        assert "in_use_by" in body
+        refs = body["in_use_by"]
+        assert isinstance(refs, list) and len(refs) > 0
+        assert any(r.get("type") == "rss.feed" for r in refs)
+        # Manifest must be UNCHANGED.
+        assert manifest_path.read_text() == req + "\n"
+    finally:
+        await client.close()
+
+
+async def test_remove_without_token_rejected(tmp_path, monkeypatch):
+    """DELETE /api/store/remove without token (token configured) → 401/403."""
+    import led_ticker.webui as webui_mod
+
+    _, fake_catalog = _fake_rss_entry()
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+        )
+        assert resp.status in (401, 403)
+    finally:
+        await client.close()
+
+
+async def test_remove_unknown_namespace_returns_400(tmp_path, monkeypatch):
+    """DELETE /api/store/remove with a namespace not in the catalog → 400."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import Catalog
+
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=()))
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "notreal.plugin"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 400
+        body = await resp.json()
+        assert body.get("error") == "unknown plugin"
+    finally:
+        await client.close()

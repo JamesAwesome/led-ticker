@@ -296,10 +296,99 @@ def build_webui_app(
         )
         return web.json_response(plugin_entry)
 
+    async def remove_handler(request: web.Request) -> web.Response:
+        """DELETE /api/store/remove — drop a catalog plugin from the manifest.
+
+        Token-gated by the global auth middleware (remove is NOT in _OPEN_PATHS).
+        Mirrors install_handler's "no token → 403 editing disabled" convention.
+        Guards against removing a plugin that the running config still references
+        (config-ref 409) so the panel can't be broken by a dangling type/transition.
+        """
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+
+        namespace = payload.get("namespace") if isinstance(payload, dict) else None
+        if not isinstance(namespace, str) or not namespace:
+            return web.json_response({"error": "missing namespace"}, status=400)
+
+        # Resolve namespace → CatalogEntry.
+        catalog = _load_catalog_lazy()
+        entry = next((e for e in catalog.entries if e.namespace == namespace), None)
+        if entry is None:
+            return web.json_response({"error": "unknown plugin"}, status=400)
+
+        # Config-reference guard: refuse if the running config still uses this plugin.
+        from led_ticker.webui.store import config_references  # noqa: PLC0415
+
+        refs = config_references(config_path).get(namespace, [])
+        if refs:
+            return web.json_response({"error": "in_use", "in_use_by": refs}, status=409)
+
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+
+        # Import helpers lazily to keep the module rgbmatrix-pure.
+        from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
+
+        req = entry.requirement()
+        req_key = _requirement_key(req)
+
+        # Drop the matching line(s) from the manifest text (text-level, no direct
+        # file write — we own the atomic write via _write_manifest_atomic).
+        lines = (
+            manifest_path.read_text(encoding="utf-8").splitlines()
+            if manifest_path.exists()
+            else []
+        )
+        kept: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if (
+                stripped
+                and not stripped.startswith("#")
+                and _requirement_key(stripped) == req_key
+            ):
+                continue  # drop this line
+            kept.append(line)
+
+        body = "\n".join(kept).rstrip("\n")
+        new_text = body + "\n" if body else ""
+
+        try:
+            await _write_manifest_atomic(manifest_path, new_text, manifest_lock)
+        except OSError as e:
+            return web.json_response(
+                {"error": f"manifest write failed: {e}"}, status=500
+            )
+
+        # Return the rebuilt store entry for this namespace so the UI refreshes.
+        status_envelope = _read_status(status_path)
+        inner_status: dict = status_envelope.get("status", {})
+        store_payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+        )
+        plugin_entry = next(
+            (
+                p
+                for p in store_payload.get("plugins", [])
+                if p["namespace"] == namespace
+            ),
+            {"namespace": namespace},
+        )
+        return web.json_response(plugin_entry)
+
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
     app.router.add_get("/api/store", store_handler)
     app.router.add_post("/api/store/install", install_handler)
+    app.router.add_delete("/api/store/remove", remove_handler)
     _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)

@@ -153,7 +153,7 @@ Read by a lightweight `read_plugins_config()` **before** full `load_config` (plu
   acme = "acme_pkg:register"     # entry-point name = namespace; value = module:register (or module)
   ```
 - **`led-ticker plugins`** — lists loaded plugins (namespace, source, contribution **names** like `acme.clock`) + any failures. `led-ticker validate` and `--list-fields ns.x` load plugins first. `--config` works before or after the subcommand.
-- **Deployment**: local plugins ride the existing `./config:/code/config:ro` mount → `config/plugins/`. Installed packages are pip-installed into the image (recommended: a `config/requirements-plugins.txt` consumed by a documented Dockerfile layer, or a `FROM led-ticker` user image).
+- **Deployment**: local plugins ride the existing `./config:/code/config:ro` mount → `config/plugins/`. Installed packages install at runtime onto the `ticker-plugins` Docker volume — edit `config/requirements-plugins.txt` and `docker compose restart`; a startup reconcile makes the volume match the manifest (no image rebuild). For offline/air-gapped signs, build a derivative image (`FROM led-ticker`) that bakes the plugin with `RUN pip install …`.
 
 ### The plugin catalog (`plugins_catalog.json`)
 

@@ -5,7 +5,7 @@ description: The MLB standings widget is provided by the baseball package in led
 
 The **MLB standings** widget is provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo, referenced in config as `type = "baseball.standings"`.
 
-- **To add it to your sign:** add `led-ticker-baseball` to `config/requirements-plugins.txt` and rebuild — see [Plugins](/plugins/) for the full flow. It uses MLB's free StatsAPI, so no API key is required.
+- **To add it to your sign:** add `led-ticker-baseball` to `config/requirements-plugins.txt` and restart (`docker compose restart`) — see [Plugins](/plugins/) for the full flow. It uses MLB's free StatsAPI, so no API key is required.
 - **Full documentation** — options, top-N + tracked-team selection, offseason behavior, and screenshots — lives in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
 
 The same package also ships the [`baseball.scores`](/widgets/mlb/) widget, the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/), and the `:baseball.ball:` emoji. It's another example of led-ticker's [plugin system](/plugins/) — a way to add widgets, transitions, and emoji that aren't part of core.

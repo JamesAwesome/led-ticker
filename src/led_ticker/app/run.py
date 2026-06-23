@@ -492,9 +492,22 @@ async def run(config_path: Path) -> None:
     # Tripwire: test_reconcile_runs_before_load_plugins_and_frame_build.
     from led_ticker import plugin_reconcile  # noqa: PLC0415
 
-    _recon_target = plugin_reconcile.resolve_target()
-    _recon_actions = plugin_reconcile.reconcile(config_path)
-    plugin_reconcile.apply_to_syspath(_recon_target)
+    # The reconcile body never raises (it wraps itself), but resolve_target and
+    # apply_to_syspath run OUTSIDE that guard. This is the dark-panel prologue —
+    # before build_frame_from_config — so a raise here freezes the panel
+    # (constraint #1). Wrap the whole prologue so ANYTHING in the reconcile path
+    # failing still lets the panel boot with no plugins reconciled.
+    # Tripwire: test_reconcile_prologue_never_raises.
+    _recon_actions: list = []
+    try:
+        _recon_target = plugin_reconcile.resolve_target()
+        _recon_actions = plugin_reconcile.reconcile(config_path)
+        # reconcile() already applies the volume site-packages to sys.path
+        # internally; this belt-and-suspenders call covers the local-venv path
+        # (a no-op when target.site_packages is None) and MUST follow reconcile.
+        plugin_reconcile.apply_to_syspath(_recon_target)
+    except Exception:  # noqa: BLE001
+        logging.error("plugin reconcile prologue failed", exc_info=True)
 
     # Plugins must load before load_config so plugin-provided easings (and any
     # other config-load-validated surface) are visible to validation.

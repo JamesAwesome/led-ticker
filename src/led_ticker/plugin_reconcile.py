@@ -162,19 +162,23 @@ def uninstall_blocked_reason(
 _MANIFEST_NAME = "requirements-plugins.txt"
 
 
-def _declared_namespaces(config_path: Path) -> set[str]:
-    """Return the set of plugin namespaces declared in the manifest beside config.
+def _declared_requirements(config_path: Path) -> dict[str, str]:
+    """Return ``{namespace: requirement_line}`` declared in the manifest.
 
     The manifest is ``requirements-plugins.txt`` in the same directory as
     ``config_path``. Each non-comment line is a pip requirement string; we map
     it to a namespace via the bundled catalog (namespace == catalog entry's
     ``namespace`` field), falling back to the ``_requirement_key`` dedup key
-    when no catalog match exists.  Never raises — a missing/unreadable manifest
-    returns an empty set.
+    when no catalog match exists.  The VALUE is the operator's verbatim manifest
+    line (stripped) — the install path threads it through to pip so an explicit
+    pin/source (``led-ticker-pool==0.1.0``, a git+url line) is honored instead
+    of being re-derived as the catalog default. If two lines map to the same
+    namespace, the last one wins (matches set-dedup semantics).  Never raises —
+    a missing/unreadable manifest returns an empty dict.
     """
     manifest = config_path.parent / _MANIFEST_NAME
     if not manifest.exists():
-        return set()
+        return {}
     # Lazy import to mirror app/plugin_cmd.py import-purity convention.
     from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
     from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
@@ -205,39 +209,62 @@ def _declared_namespaces(config_path: Path) -> set[str]:
                     except Exception:  # noqa: BLE001
                         pass
 
-    namespaces: set[str] = set()
+    requirements: dict[str, str] = {}
     for line in manifest.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
         key = _requirement_key(stripped)
         ns = key_to_ns.get(key, key)
-        namespaces.add(ns)
-    return namespaces
+        requirements[ns] = stripped
+    return requirements
+
+
+def _declared_namespaces(config_path: Path) -> set[str]:
+    """Return the set of plugin namespaces declared in the manifest beside config.
+
+    Thin wrapper over ``_declared_requirements`` kept for the diff computation
+    (and for tests that monkeypatch the declared set directly).  Never raises.
+    """
+    return set(_declared_requirements(config_path))
 
 
 def _install_namespace(
-    ns: str, python_exe: str, *, constraints: str | None = None
+    ns: str,
+    python_exe: str,
+    *,
+    constraints: str | None = None,
+    requirement_line: str | None = None,
 ) -> int:
     """Pip-install the requirement for namespace ``ns``.
 
-    Resolves the manifest line for this namespace via the catalog, then
-    delegates to ``_pip_install`` in ``app/plugin_cmd``. Returns the pip exit
-    code (0 = success).
+    When ``requirement_line`` is given (the operator's verbatim manifest line) it
+    is installed AS WRITTEN — so an explicit pin/source (``led-ticker-pool==0.1.0``,
+    a ``git+url`` line) is honored. The manifest is the source of truth for the
+    version/source dimension; re-deriving the requirement from the catalog would
+    silently install the catalog default (latest, unpinned) and defeat operator
+    pins on a fresh/recreated volume venv. Only when no manifest line is known
+    (a namespace surfaced without an originating line) do we fall back to the
+    catalog requirement, then to the bare namespace. Returns the pip exit code
+    (0 = success). Tripwire: test_reconcile_honors_manifest_pin.
 
     ``constraints`` (a path produced once per reconcile pass by
     ``_freeze_to_constraints``) is forwarded so the per-install env freeze is
     skipped — one freeze per pass instead of one per plugin.
     """
     from led_ticker.app.plugin_cmd import _pip_install  # noqa: PLC0415
-    from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
 
-    try:
-        catalog = load_catalog()
-        entry = catalog.get(ns)
-        requirement = entry.requirement() if entry is not None else ns
-    except Exception:  # noqa: BLE001
-        requirement = ns
+    if requirement_line:
+        requirement = requirement_line
+    else:
+        from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
+
+        try:
+            catalog = load_catalog()
+            entry = catalog.get(ns)
+            requirement = entry.requirement() if entry is not None else ns
+        except Exception:  # noqa: BLE001
+            requirement = ns
 
     return _pip_install(requirement, python_exe=python_exe, constraints=constraints)
 
@@ -303,6 +330,12 @@ def reconcile(
             return []
 
         declared = _declared_namespaces(config_path)
+        # The verbatim manifest line per namespace, so the install path honors
+        # operator pins/sources instead of re-deriving the catalog default.
+        # Read separately from `declared` (which may be monkeypatched in tests):
+        # a namespace with no known line falls back to the catalog requirement
+        # inside `_install_namespace`.
+        declared_reqs = _declared_requirements(config_path)
 
         installed_map = installed_plugin_dists()  # {namespace: dist_name}
         installed = set(installed_map.keys())
@@ -345,7 +378,10 @@ def reconcile(
                 try:
                     _log.info("plugin reconcile: installing %s", ns)
                     code = _install_namespace(
-                        ns, target.python_exe, constraints=shared_constraints
+                        ns,
+                        target.python_exe,
+                        constraints=shared_constraints,
+                        requirement_line=declared_reqs.get(ns),
                     )
                     if code != 0:
                         detail = f"pip exited {code} installing {ns}"

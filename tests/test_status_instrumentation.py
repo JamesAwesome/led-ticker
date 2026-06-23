@@ -487,6 +487,12 @@ def test_reconcile_runs_before_load_plugins_and_frame_build():
         "_load_plugins_for_config(...) so the volume venv site-packages are on "
         "sys.path before entry-point discovery."
     )
+    assert reconcile_at < apply_at, (
+        "apply_to_syspath in run() must follow reconcile() — reconcile already "
+        "handles the internal apply for volume targets; the outer call is a "
+        "belt-and-suspenders guard for the local-venv path and must not precede "
+        "the reconcile."
+    )
     assert load_plugins_at < frame_at, (
         "_load_plugins_for_config must precede build_frame_from_config — the "
         "matrix library drops root during frame construction (constraint #13)."
@@ -496,3 +502,41 @@ def test_reconcile_runs_before_load_plugins_and_frame_build():
         "and before build_frame_from_config(...) so the board is ready to "
         "receive reconcile event records."
     )
+
+
+def test_reconcile_prologue_never_raises():
+    """Tripwire (constraint #1): the reconcile prologue in run() — resolve_target,
+    reconcile, apply_to_syspath — must all sit inside a try/except so a raise on
+    the dark-panel prologue (before build_frame_from_config) cannot freeze the
+    panel. reconcile() guards its own body, but resolve_target/apply_to_syspath
+    run outside that guard. AST-verify all three calls are descendants of a Try
+    node within run()."""
+    import ast
+    import inspect
+
+    from led_ticker.app.run import run
+
+    tree = ast.parse(inspect.getsource(run))
+
+    # Collect calls that are lexically inside any Try.body in the function.
+    guarded: set[str] = set()
+
+    class _Visitor(ast.NodeVisitor):
+        def visit_Try(self, node: ast.Try) -> None:
+            for stmt in node.body:
+                for sub in ast.walk(stmt):
+                    if isinstance(sub, ast.Call):
+                        guarded.add(ast.unparse(sub.func))
+            self.generic_visit(node)
+
+    _Visitor().visit(tree)
+
+    for needed in (
+        "plugin_reconcile.resolve_target",
+        "plugin_reconcile.reconcile",
+        "plugin_reconcile.apply_to_syspath",
+    ):
+        assert needed in guarded, (
+            f"{needed}(...) must run inside a try/except in run() — a raise on "
+            "the reconcile prologue freezes the panel (constraint #1)."
+        )

@@ -133,7 +133,7 @@ def test_reconcile_installs_missing_uninstalls_undeclared(tmp_path, monkeypatch)
     monkeypatch.setattr(r, "is_depended_on", lambda d: False)
     installed, uninstalled = [], []
 
-    def fake_install(ns, py, *, constraints=None):
+    def fake_install(ns, py, *, constraints=None, requirement_line=None):
         installed.append(ns)
         return 0
 
@@ -186,7 +186,7 @@ def test_reconcile_records_failed_action_on_install_error(tmp_path, monkeypatch)
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def boom(ns, py, *, constraints=None):
+    def boom(ns, py, *, constraints=None, requirement_line=None):
         raise RuntimeError("pip exploded")
 
     monkeypatch.setattr(r, "_install_namespace", boom)
@@ -242,7 +242,7 @@ def test_reconcile_failed_action_on_install_nonzero_exit(tmp_path, monkeypatch):
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def fake_install(ns, py, *, constraints=None):
+    def fake_install(ns, py, *, constraints=None, requirement_line=None):
         return 1  # non-zero exit — pip failed
 
     monkeypatch.setattr(r, "_install_namespace", fake_install)
@@ -286,7 +286,7 @@ def test_reconcile_noop_when_declared_matches_installed(tmp_path, monkeypatch):
     monkeypatch.setattr(
         r,
         "_install_namespace",
-        lambda ns, py, *, constraints=None: installed.append(ns),
+        lambda ns, py, *, constraints=None, requirement_line=None: installed.append(ns),
     )
     monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: uninstalled.append(d))
     actions = r.reconcile(tmp_path / "config.toml")
@@ -482,7 +482,9 @@ def test_reconcile_observes_target_env_installed(tmp_path, monkeypatch):
     monkeypatch.setattr(
         r,
         "_install_namespace",
-        lambda ns, py, *, constraints=None: (_ for _ in ()).throw(AssertionError()),
+        lambda ns, py, *, constraints=None, requirement_line=None: (
+            _ for _ in ()
+        ).throw(AssertionError()),
     )
 
     inserted_before = str(site_packages) in sys.path
@@ -513,7 +515,11 @@ def test_reconcile_invalidates_caches_after_install(tmp_path, monkeypatch):
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
-    monkeypatch.setattr(r, "_install_namespace", lambda ns, py, *, constraints=None: 0)
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda ns, py, *, constraints=None, requirement_line=None: 0,
+    )
 
     calls = []
     monkeypatch.setattr(importlib, "invalidate_caches", lambda: calls.append(1))
@@ -583,7 +589,9 @@ def test_reconcile_uses_target_python_exe_for_install(tmp_path, monkeypatch):
     monkeypatch.setattr(
         r,
         "_install_namespace",
-        lambda ns, py, *, constraints=None: seen_py.append(py) or 0,
+        lambda ns, py, *, constraints=None, requirement_line=None: (
+            seen_py.append(py) or 0
+        ),
     )
     r.reconcile(cfg, volume_root=tmp_path / "vol")
     assert seen_py == [target_py]
@@ -626,7 +634,7 @@ def test_reconcile_one_install_failure_does_not_block_others(tmp_path, monkeypat
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss", "baseball"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def fake_install(ns, py, *, constraints=None):
+    def fake_install(ns, py, *, constraints=None, requirement_line=None):
         return 1 if ns == "baseball" else 0
 
     monkeypatch.setattr(r, "_install_namespace", fake_install)
@@ -647,7 +655,7 @@ def test_reconcile_one_install_raise_does_not_block_others(tmp_path, monkeypatch
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss", "baseball"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def fake_install(ns, py, *, constraints=None):
+    def fake_install(ns, py, *, constraints=None, requirement_line=None):
         if ns == "baseball":
             raise RuntimeError("pip hung")
         return 0
@@ -848,3 +856,155 @@ def test_reconcile_one_uninstall_raise_does_not_block_others(tmp_path, monkeypat
     by_ns = {a.namespace: a.action for a in actions}
     assert by_ns.get("rss") == "failed"
     assert by_ns.get("old") == "uninstalled"
+
+
+# ── manifest pin/source is honored by the install path (findings #1/#3) ────────
+
+
+def test_reconcile_honors_manifest_pin(tmp_path, monkeypatch):
+    """A pinned manifest line (led-ticker-pool==0.1.0) must be pip-installed AS
+    WRITTEN — not re-derived as the catalog default (unversioned latest). The
+    manifest is the source of truth for the version/source dimension."""
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")  # no widget refs
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool==0.1.0\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    # pool is missing -> to_install; the real _declared_namespaces /
+    # _declared_requirements run against the manifest above.
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+
+    seen: list[str] = []
+
+    def fake_pip_install(requirement, *, python_exe=sys.executable, constraints=None):
+        seen.append(requirement)
+        return 0
+
+    monkeypatch.setattr(pc, "_pip_install", fake_pip_install)
+    # _freeze_to_constraints would shell out to real pip; stub it.
+    monkeypatch.setattr(
+        pc, "_freeze_to_constraints", lambda py=sys.executable: (None, 0)
+    )
+
+    actions = r.reconcile(cfg)
+    assert any(a.action == "installed" and a.namespace == "pool" for a in actions)
+    # The exact pinned line, NOT the catalog default ("led-ticker-pool").
+    assert seen == ["led-ticker-pool==0.1.0"]
+
+
+def test_reconcile_honors_git_source_manifest_line(tmp_path, monkeypatch):
+    """A git+url manifest line (e.g. `plugin add --source git`) installs as the
+    operator wrote it, not the catalog's PyPI default."""
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    git_line = "git+https://github.com/JamesAwesome/led-ticker-pool.git@v0.1.0"
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text(git_line + "\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+
+    seen: list[str] = []
+    monkeypatch.setattr(
+        pc,
+        "_pip_install",
+        lambda req, *, python_exe=sys.executable, constraints=None: (
+            seen.append(req) or 0
+        ),
+    )
+    monkeypatch.setattr(
+        pc, "_freeze_to_constraints", lambda py=sys.executable: (None, 0)
+    )
+
+    r.reconcile(cfg)
+    assert seen == [git_line]
+
+
+def test_install_namespace_falls_back_to_catalog_without_line():
+    """With no manifest line, _install_namespace re-derives from the catalog
+    (back-compat: a namespace surfaced without an originating line)."""
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    seen: list[str] = []
+    orig = pc._pip_install
+    try:
+        pc._pip_install = lambda req, *, python_exe=sys.executable, constraints=None: (
+            seen.append(req) or 0
+        )
+        r._install_namespace("pool", "py", requirement_line=None)
+    finally:
+        pc._pip_install = orig
+    # Catalog default for pool is the bare PyPI name.
+    assert seen == ["led-ticker-pool"]
+
+
+# ── pass-level freeze failure falls back to per-install freeze (finding #7) ─────
+
+
+def test_reconcile_freeze_nonzero_falls_back_to_per_install(tmp_path, monkeypatch):
+    """When the pass-level freeze exits non-zero (returns (None, rc)), the pending
+    installs still proceed, each with constraints=None (its own per-install freeze)."""
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss", "baseball"})
+    monkeypatch.setattr(r, "_declared_requirements", lambda p: {})
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+    monkeypatch.setattr(
+        pc, "_freeze_to_constraints", lambda py=sys.executable: (None, 1)
+    )
+
+    constraints_seen: list = []
+    monkeypatch.setattr(
+        pc,
+        "_pip_install",
+        lambda req, *, python_exe=sys.executable, constraints=None: (
+            constraints_seen.append(constraints) or 0
+        ),
+    )
+
+    actions = r.reconcile(cfg)
+    assert {a.action for a in actions} == {"installed"}
+    # Both installs proceeded with no pass-level constraints file.
+    assert constraints_seen == [None, None]
+
+
+def test_reconcile_freeze_raise_falls_back_to_per_install(tmp_path, monkeypatch):
+    """When the pass-level freeze RAISES (e.g. TimeoutExpired), the except branch
+    sets shared_constraints=None and the installs still proceed."""
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss", "baseball"})
+    monkeypatch.setattr(r, "_declared_requirements", lambda p: {})
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+
+    def boom_freeze(py=sys.executable):
+        raise subprocess.TimeoutExpired("pip", 1)
+
+    monkeypatch.setattr(pc, "_freeze_to_constraints", boom_freeze)
+
+    constraints_seen: list = []
+    monkeypatch.setattr(
+        pc,
+        "_pip_install",
+        lambda req, *, python_exe=sys.executable, constraints=None: (
+            constraints_seen.append(constraints) or 0
+        ),
+    )
+
+    actions = r.reconcile(cfg)
+    assert {a.action for a in actions} == {"installed"}
+    assert constraints_seen == [None, None]

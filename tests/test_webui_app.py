@@ -1418,6 +1418,78 @@ async def test_remove_oversize_body_is_413(tmp_path):
         await client.close()
 
 
+async def test_install_no_token_configured_returns_403(tmp_path):
+    """token="" (editing administratively disabled) → handler-level 403 even WITH
+    an auth header.  Exercises the handler guard, not the middleware 401 path
+    (mirrors test_put_config_rejects_without_token)."""
+    client = await _client(tmp_path, token="")
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+            headers={"X-Web-Token": "anything"},
+        )
+        assert resp.status == 403
+        body = await resp.json()
+        assert "editing disabled" in body["error"]
+        # No manifest written: the guard short-circuits before any write.
+        assert not manifest_path.exists()
+    finally:
+        await client.close()
+
+
+async def test_remove_no_token_configured_returns_403(tmp_path):
+    """token="" (editing administratively disabled) → handler-level 403 even WITH
+    an auth header.  Exercises the handler guard, not the middleware 401 path."""
+    client = await _client(tmp_path, token="")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "anything"},
+        )
+        assert resp.status == 403
+        body = await resp.json()
+        assert "editing disabled" in body["error"]
+    finally:
+        await client.close()
+
+
+async def test_install_bad_json_body_is_400(tmp_path):
+    """POST /api/store/install with a malformed JSON body → 400 (handler ValueError
+    branch), not 500.  Token configured + supplied so the guard passes."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            data="not json",
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 400
+        body = await resp.json()
+        assert body["error"] == "body must be JSON"
+    finally:
+        await client.close()
+
+
+async def test_remove_bad_json_body_is_400(tmp_path):
+    """DELETE /api/store/remove with a malformed JSON body → 400 (handler
+    ValueError branch), not 500.  Token configured + supplied so the guard passes."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            data="not json",
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 400
+        body = await resp.json()
+        assert body["error"] == "body must be JSON"
+    finally:
+        await client.close()
+
+
 async def test_remove_bak_created(tmp_path, monkeypatch):
     """remove uses the same atomic .bak path as install: prior manifest backed up."""
     import led_ticker.webui as webui_mod

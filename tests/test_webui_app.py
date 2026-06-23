@@ -1145,6 +1145,13 @@ async def test_install_idempotent_when_already_declared(tmp_path, monkeypatch):
             if ln.strip() and not ln.strip().startswith("#")
         ]
         assert lines.count(req) == 1, "duplicate requirement line written"
+        # Idempotent path must not touch the manifest at all: no .bak written.
+        bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+        assert not bak.exists(), "idempotent install wrote a .bak (unnecessary write)"
+        # Manifest content is byte-for-byte unchanged.
+        assert manifest_path.read_text() == req + "\n", (
+            "manifest content changed on idempotent install"
+        )
     finally:
         await client.close()
 
@@ -1365,6 +1372,197 @@ async def test_remove_oversize_body_is_413(tmp_path):
             headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
         )
         assert resp.status == 413
+    finally:
+        await client.close()
+
+
+async def test_remove_bak_created(tmp_path, monkeypatch):
+    """remove uses the same atomic .bak path as install: prior manifest backed up."""
+    import led_ticker.webui as webui_mod
+
+    fake_entry, fake_catalog = _fake_rss_entry()
+    req = fake_entry.requirement()
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [{"namespace": "rss", "state": "available"}],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+        assert bak.exists(), ".bak not created by remove"
+        assert bak.read_text() == req + "\n", "prior manifest content not preserved"
+    finally:
+        await client.close()
+
+
+async def test_remove_write_failure_is_500(tmp_path, monkeypatch):
+    """os.replace raising during remove → 500, no leftover .tmp, manifest intact."""
+    import led_ticker.webui as webui_mod
+
+    fake_entry, fake_catalog = _fake_rss_entry()
+    req = fake_entry.requirement()
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    def boom(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(webui_mod.os, "replace", boom)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 500
+        body = await resp.json()
+        assert "manifest write failed" in body["error"]
+        assert not (tmp_path / "requirements-plugins.txt.tmp").exists()
+        assert manifest_path.read_text() == req + "\n", "manifest changed on failure"
+    finally:
+        await client.close()
+
+
+async def test_install_write_failure_is_500(tmp_path, monkeypatch):
+    """os.replace raising during install → 500, no leftover .tmp, manifest intact."""
+    import led_ticker.webui as webui_mod
+
+    _, fake_catalog = _fake_rss_entry()
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text("# existing\n")
+
+    def boom(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(webui_mod.os, "replace", boom)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 500
+        body = await resp.json()
+        assert "manifest write failed" in body["error"]
+        assert not (tmp_path / "requirements-plugins.txt.tmp").exists()
+        assert manifest_path.read_text() == "# existing\n", (
+            "manifest changed on failure"
+        )
+    finally:
+        await client.close()
+
+
+async def test_remove_shared_package_sibling_in_config_returns_409(
+    tmp_path, monkeypatch
+):
+    """Removing pokeball when config uses nyancat.forward must 409: both ship as
+    led-ticker-flair, so dropping the line would orphan the in-use nyancat
+    transition. The guard must be requirement-key-aware, not namespace-exact."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    def _flair(ns, transitions):
+        return CatalogEntry(
+            name=ns,
+            namespace=ns,
+            summary="",
+            homepage="",
+            provides=PluginProvides(transitions=tuple(transitions)),
+            sources=(CatalogSource(type="pypi", package="led-ticker-flair"),),
+        )
+
+    nyancat = _flair("nyancat", ["nyancat.forward"])
+    pokeball = _flair("pokeball", ["pokeball.forward"])
+    fake_catalog = Catalog(entries=(nyancat, pokeball))
+
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text("led-ticker-flair\n")
+    config_text = (
+        "[display]\nrows = 16\ncols = 32\n\n"
+        '[[section]]\nmode = "swap"\ntransition = "nyancat.forward"\n'
+    )
+
+    client = await _client(tmp_path, token="s3cret", config_text=config_text)
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "pokeball"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 409, (
+            "removing a flair sibling while nyancat is in use must 409"
+        )
+        body = await resp.json()
+        assert body.get("error") == "in_use"
+        # The write must be skipped entirely — manifest untouched.
+        assert manifest_path.read_text() == "led-ticker-flair\n", (
+            "manifest must be unchanged when the 409 guard fires"
+        )
     finally:
         await client.close()
 

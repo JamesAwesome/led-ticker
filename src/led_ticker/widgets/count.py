@@ -90,7 +90,7 @@ class _CountWidget(FrameAwareBase):
             else:
                 try:
                     ZoneInfo(tz)
-                except (ZoneInfoNotFoundError, ValueError):
+                except ZoneInfoNotFoundError, ValueError:
                     errors.append(f"timezone {tz!r} is not a valid IANA timezone name")
         return errors
 

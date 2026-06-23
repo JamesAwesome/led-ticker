@@ -719,9 +719,13 @@ function renderStore(data) {
 
 async function loadStore() {
   try {
-    // GET /api/store is intentionally open (no auth header): the route is in
-    // _OPEN_PATHS so unauthenticated visitors can browse the plugin list.
-    const r = await fetch("/api/store");
+    // GET /api/store is in _OPEN_PATHS so unauthenticated visitors can browse
+    // the catalog (the server redacts config-derived fields for them). We DO
+    // send the token when we have one: the server returns the full unredacted
+    // payload (in_use_by, removable) so the Remove-lock pre-check works. Sending
+    // the header only upgrades the view for authenticated users; anon visitors
+    // (auth = {}) still get the redacted view.
+    const r = await fetch("/api/store", {headers: auth});
     if (!r.ok) {
       $("store-list").innerHTML = `<p class="muted">Could not load store (${r.status}).</p>`;
       return;

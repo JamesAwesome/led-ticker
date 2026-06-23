@@ -18,6 +18,7 @@ import os
 import shutil
 import time
 import tomllib
+from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -116,15 +117,32 @@ def _load_catalog_lazy():
     return load_catalog()
 
 
-async def _write_manifest_atomic(
-    manifest_path: Path, new_text: str, lock: asyncio.Lock
+async def _update_manifest_atomic(
+    manifest_path: Path,
+    transform: Callable[[str], str | None],
+    lock: asyncio.Lock,
 ) -> None:
-    """Atomic manifest write: lock → .bak backup → tmp + os.replace.
+    """Atomic read-modify-write of the manifest under a single locked section.
 
-    Mirrors save_handler's backup+atomic pattern so both callers share
-    identical durability semantics.  Caller holds no pre-existing lock.
+    The ENTIRE read→compute→write cycle runs inside ``lock`` so two concurrent
+    authenticated requests (install/install, remove/remove, install/remove)
+    cannot interleave around an await and lose an update — mirroring
+    save_handler's whole-critical-section lock discipline.
+
+    ``transform`` receives the freshly-read manifest text (``""`` when absent)
+    and returns the new text to write, or ``None`` to skip the write entirely
+    (e.g. an idempotent install where the requirement is already declared — so
+    no spurious .bak is produced).
+
+    Write durability mirrors save_handler: .bak backup → tmp + os.replace.
     """
     async with lock:
+        current = (
+            manifest_path.read_text(encoding="utf-8") if manifest_path.exists() else ""
+        )
+        new_text = transform(current)
+        if new_text is None:
+            return
         tmp = manifest_path.with_name(manifest_path.name + ".tmp")
         try:
             if manifest_path.exists():
@@ -243,26 +261,24 @@ def build_webui_app(
         manifest_path = config_path.parent / "requirements-plugins.txt"
 
         # Import helpers lazily to keep the module rgbmatrix-pure.
-        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
-            _declared_keys,
-            _requirement_key,
-        )
+        from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
 
         req = entry.requirement()
         req_key = _requirement_key(req)
 
-        # Check whether requirement is already declared (dedup key match).
-        declared = _declared_keys(manifest_path)
-        if req_key not in declared:
-            # Build updated manifest text via _update_requirements then read back,
-            # but we need atomic write — so compute the new text manually instead
-            # of letting _update_requirements write directly.  We replicate its
-            # dedup logic: read current lines, replace/append, format.
-            lines = (
-                manifest_path.read_text(encoding="utf-8").splitlines()
-                if manifest_path.exists()
-                else []
+        def add_requirement(current: str) -> str | None:
+            # Runs INSIDE manifest_lock against the freshly-read manifest text.
+            # Returning None skips the write (idempotent: already declared → no
+            # spurious .bak).  Dedup logic mirrors _update_requirements.
+            lines = current.splitlines()
+            declared = any(
+                stripped
+                and not stripped.startswith("#")
+                and _requirement_key(stripped) == req_key
+                for stripped in (line.strip() for line in lines)
             )
+            if declared:
+                return None  # idempotent: no write
             kept: list[str] = []
             for line in lines:
                 stripped = line.strip()
@@ -274,14 +290,14 @@ def build_webui_app(
                     continue  # drop stale line; append fresh req below
                 kept.append(line)
             kept.append(req)
-            new_text = "\n".join(kept).rstrip("\n") + "\n"
+            return "\n".join(kept).rstrip("\n") + "\n"
 
-            try:
-                await _write_manifest_atomic(manifest_path, new_text, manifest_lock)
-            except OSError as e:
-                return web.json_response(
-                    {"error": f"manifest write failed: {e}"}, status=500
-                )
+        try:
+            await _update_manifest_atomic(manifest_path, add_requirement, manifest_lock)
+        except OSError as e:
+            return web.json_response(
+                {"error": f"manifest write failed: {e}"}, status=500
+            )
 
         # Return the rebuilt store entry for this namespace so the UI refreshes.
         status_envelope = _read_status(status_path)
@@ -331,44 +347,52 @@ def build_webui_app(
         if entry is None:
             return web.json_response({"error": "unknown plugin"}, status=400)
 
-        # Config-reference guard: refuse if the running config still uses this plugin.
-        from led_ticker.webui.store import config_references  # noqa: PLC0415
-
-        refs = config_references(config_path).get(namespace, [])
-        if refs:
-            return web.json_response({"error": "in_use", "in_use_by": refs}, status=409)
-
-        manifest_path = config_path.parent / "requirements-plugins.txt"
-
         # Import helpers lazily to keep the module rgbmatrix-pure.
         from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
 
         req = entry.requirement()
         req_key = _requirement_key(req)
 
-        # Drop the matching line(s) from the manifest text (text-level, no direct
-        # file write — we own the atomic write via _write_manifest_atomic).
-        lines = (
-            manifest_path.read_text(encoding="utf-8").splitlines()
-            if manifest_path.exists()
-            else []
-        )
-        kept: list[str] = []
-        for line in lines:
-            stripped = line.strip()
-            if (
-                stripped
-                and not stripped.startswith("#")
-                and _requirement_key(stripped) == req_key
-            ):
-                continue  # drop this line
-            kept.append(line)
+        # Config-reference guard: refuse if the running config still uses THIS
+        # plugin OR any sibling namespace that shares the same pip package.
+        # Multiple catalog namespaces can map to one package (e.g. nyancat/
+        # pokeball/pacman/sailor_moon → led-ticker-flair); removing the manifest
+        # line drops the package for all of them, so removing one must not break
+        # a config that references a sibling.
+        from led_ticker.webui.store import config_references  # noqa: PLC0415
 
-        body = "\n".join(kept).rstrip("\n")
-        new_text = body + "\n" if body else ""
+        siblings = {
+            e.namespace
+            for e in catalog.entries
+            if _requirement_key(e.requirement()) == req_key
+        }
+        siblings.add(namespace)
+        config_refs = config_references(config_path)
+        refs = [r for ns in siblings for r in config_refs.get(ns, [])]
+        if refs:
+            return web.json_response({"error": "in_use", "in_use_by": refs}, status=409)
+
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+
+        def drop_requirement(current: str) -> str:
+            # Runs INSIDE manifest_lock against the freshly-read manifest text.
+            kept: list[str] = []
+            for line in current.splitlines():
+                stripped = line.strip()
+                if (
+                    stripped
+                    and not stripped.startswith("#")
+                    and _requirement_key(stripped) == req_key
+                ):
+                    continue  # drop this line
+                kept.append(line)
+            body = "\n".join(kept).rstrip("\n")
+            return body + "\n" if body else ""
 
         try:
-            await _write_manifest_atomic(manifest_path, new_text, manifest_lock)
+            await _update_manifest_atomic(
+                manifest_path, drop_requirement, manifest_lock
+            )
         except OSError as e:
             return web.json_response(
                 {"error": f"manifest write failed: {e}"}, status=500

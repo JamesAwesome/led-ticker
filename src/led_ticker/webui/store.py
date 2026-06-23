@@ -4,6 +4,7 @@ Combines the catalog, the manifest, status.json, and config references into
 the payload the Store tab renders. Verified pure by tests/test_webui_purity.py.
 """
 
+import re
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,11 @@ from led_ticker.app.plugin_cmd import _declared_keys, _requirement_key
 from led_ticker.plugins_catalog import Catalog, CatalogEntry, load_catalog
 
 _TRANSITION_KEYS = ("transition", "entry_transition", "widget_transition")
+
+# Inline emoji token in widget text, e.g. ":pokeball.ball:".  A namespaced slug
+# carries a dot; the namespace is the leading segment.  Matches the slug grammar
+# used by pixel_emoji (lowercase, digits, underscore, dotted sub-paths).
+_EMOJI_TOKEN = re.compile(r":([a-z0-9_]+)\.[a-z0-9_.]+:")
 
 
 def config_references(config_path: Path) -> dict[str, list[dict[str, str]]]:
@@ -26,6 +32,15 @@ def config_references(config_path: Path) -> dict[str, list[dict[str, str]]]:
             ns = ns_source.split(".")[0]
             out.setdefault(ns, []).append({"section": section, "type": ns_source})
 
+    def add_emoji_refs(text: str, section: str) -> None:
+        # An inline :ns.slug: token (e.g. :pokeball.ball:) means the config
+        # depends on the plugin that PROVIDES that emoji — so removing it would
+        # leave the slug with no renderer.  Record the namespace.
+        for m in _EMOJI_TOKEN.finditer(text):
+            out.setdefault(m.group(1), []).append(
+                {"section": section, "type": m.group(0)}
+            )
+
     def walk(obj: object, section: str) -> None:
         if isinstance(obj, dict):
             title = obj.get("title")
@@ -39,9 +54,13 @@ def config_references(config_path: Path) -> dict[str, list[dict[str, str]]]:
                 if isinstance(v, str):
                     add(v, sec)
             for v in obj.values():
+                if isinstance(v, str):
+                    add_emoji_refs(v, sec)
                 walk(v, sec)
         elif isinstance(obj, list):
             for v in obj:
+                if isinstance(v, str):
+                    add_emoji_refs(v, section)
                 walk(v, section)
 
     walk(data, "config")
@@ -92,6 +111,15 @@ def build_store(
         e.namespace: _requirement_key(e.requirement()) for e in catalog.entries
     }
 
+    # Reverse map: dedup key -> namespaces that share it.  Multiple catalog
+    # namespaces can resolve to ONE pip package (e.g. nyancat/pokeball/pacman/
+    # sailor_moon all ship as led-ticker-flair).  Removing the manifest line
+    # deletes the shared package, so the in-use / removable check must consider
+    # every sibling namespace sharing the key — not just the requested one.
+    key_to_namespaces: dict[str, set[str]] = {}
+    for e in catalog.entries:
+        key_to_namespaces.setdefault(entry_key[e.namespace], set()).add(e.namespace)
+
     plugins: list[dict[str, Any]] = []
 
     # Catalog entries — one entry each regardless of install state.
@@ -121,7 +149,14 @@ def build_store(
             state = "available"
 
         in_use = refs.get(ns, [])
-        removable: bool = bool(is_declared and not in_use)
+        # Shared-package siblings: removing this manifest line drops the package
+        # for ALL namespaces sharing its dedup key.  The widget is removable only
+        # if NONE of those siblings is referenced by the running config.  in_use
+        # surfaces this namespace's own refs (for the UI note); sibling_in_use
+        # gates the removable flag.
+        siblings = key_to_namespaces.get(entry_key[ns], {ns})
+        sibling_in_use = any(refs.get(sib) for sib in siblings)
+        removable: bool = bool(is_declared and not sibling_in_use)
 
         # Convert PluginProvides tuples to plain lists for JSON serialisation.
         provides: dict[str, list[str]] = {

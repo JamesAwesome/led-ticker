@@ -302,3 +302,78 @@ def test_redact_anonymous_does_not_mutate_input():
     # Result is a different object.
     assert result is not _FULL_PAYLOAD
     assert result["plugins"] is not _FULL_PAYLOAD["plugins"]
+
+
+# ---------------------------------------------------------------------------
+# Shared-package siblings (led-ticker-flair: nyancat/pokeball/pacman/sailor_moon
+# all resolve to one pip package). Removing one must not orphan a sibling.
+# ---------------------------------------------------------------------------
+
+_FLAIR_NAMESPACES = ("nyancat", "pokeball", "pacman", "sailor_moon")
+
+
+def test_build_store_shared_package_siblings_not_removable_when_one_in_use(tmp_path):
+    """Config references nyancat.forward; all four flair entries share one pip
+    package (led-ticker-flair). Removing pokeball/pacman/sailor_moon would drop
+    the package that also provides nyancat → build_store must mark ALL FOUR
+    removable=False, not just nyancat."""
+    cat = load_catalog()
+    flair = {e.namespace for e in cat.entries} & set(_FLAIR_NAMESPACES)
+    assert flair == set(_FLAIR_NAMESPACES), "catalog must carry the four flair entries"
+
+    man = tmp_path / "requirements-plugins.txt"
+    man.write_text("led-ticker-flair\n")  # one line provides all four namespaces
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('[[playlist.section]]\nmode="swap"\ntransition="nyancat.forward"\n')
+
+    res = build_store(
+        manifest_path=man,
+        config_path=cfg,
+        status={"plugins": [{"namespace": ns} for ns in _FLAIR_NAMESPACES]},
+        token_configured=False,
+    )
+    for ns in _FLAIR_NAMESPACES:
+        entry = next(p for p in res["plugins"] if p["namespace"] == ns)
+        assert entry["removable"] is False, (
+            f"{ns} shares led-ticker-flair with the in-use nyancat — must not be "
+            f"removable, got removable={entry['removable']!r}"
+        )
+
+
+def test_config_references_inline_emoji_token(tmp_path):
+    """An inline :ns.slug: emoji in widget text counts as a config reference to
+    the providing plugin's namespace (so the remove guard can fire)."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi :pokeball.ball: there"\n'
+    )
+    refs = config_references(cfg)
+    assert "pokeball" in refs, f"expected pokeball emoji ref, got {refs}"
+    assert any(r["type"] == ":pokeball.ball:" for r in refs["pokeball"])
+
+
+def test_build_store_catalog_active_but_undeclared(tmp_path):
+    """Catalog plugin active in status but absent from manifest -> 'available'.
+
+    Documented edge case (store.py): can happen when the manifest was edited to
+    remove a line while the display is still running. Must NOT be classified as
+    'externally_installed' (that bucket is for namespaces absent from the catalog
+    entirely)."""
+    cat = load_catalog()
+    ns = cat.entries[0].namespace
+    man = tmp_path / "requirements-plugins.txt"
+    man.write_text("")  # not declared
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    res = build_store(
+        manifest_path=man,
+        config_path=cfg,
+        status={"plugins": [{"namespace": ns}]},  # active but not declared
+        token_configured=False,
+    )
+    entry = next(p for p in res["plugins"] if p["namespace"] == ns)
+    assert entry["state"] == "available", (
+        f"catalog plugin active-but-undeclared should be 'available', "
+        f"got {entry['state']!r}"
+    )
+    assert entry["removable"] is False

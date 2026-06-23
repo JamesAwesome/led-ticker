@@ -1200,22 +1200,32 @@ def _write_non_utf8(path):
     path.write_bytes(b"\xff\xfe bad bytes not utf-8")
 
 
-def test_referenced_namespaces_non_utf8_returns_empty(tmp_path):
+def test_referenced_namespaces_non_utf8_returns_empty(tmp_path, caplog):
+    import logging
+
     cfg = tmp_path / "config.toml"
     _write_non_utf8(cfg)
-    assert referenced_namespaces(cfg) == set()
+    with caplog.at_level(logging.WARNING):
+        assert referenced_namespaces(cfg) == set()
+    assert any("not valid UTF-8" in record.message for record in caplog.records)
 
 
-def test_declared_requirements_non_utf8_manifest_returns_empty(tmp_path):
+def test_declared_requirements_non_utf8_manifest_returns_empty(tmp_path, caplog):
+    import logging
+
     import led_ticker.plugin_reconcile as r
 
     cfg = tmp_path / "config.toml"
     cfg.write_text("")
     _write_non_utf8(tmp_path / "requirements-plugins.txt")
-    assert r._declared_requirements(cfg) == {}
+    with caplog.at_level(logging.WARNING):
+        assert r._declared_requirements(cfg) == {}
+    assert any("unreadable" in record.message for record in caplog.records)
 
 
-def test_reconcile_non_utf8_manifest_does_not_raise(tmp_path, monkeypatch):
+def test_reconcile_non_utf8_manifest_does_not_raise(tmp_path, monkeypatch, caplog):
+    import logging
+
     import led_ticker.plugin_reconcile as r
 
     cfg = tmp_path / "config.toml"
@@ -1224,7 +1234,9 @@ def test_reconcile_non_utf8_manifest_does_not_raise(tmp_path, monkeypatch):
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
     # Must return [] (the bad-manifest path yields empty declared) and never raise.
-    assert r.reconcile(cfg) == []
+    with caplog.at_level(logging.WARNING):
+        assert r.reconcile(cfg) == []
+    assert any("unreadable" in record.message for record in caplog.records)
 
 
 # ── Finding D: _exact_pin parametrized contract ────────────────────────────────
@@ -1260,11 +1272,25 @@ def test_apply_volume_visibility_inserts_existing_site_packages(tmp_path, monkey
 
     saved = list(sys.path)
     try:
+        # Pin the invalidate_caches() call: monkeypatch it to count invocations.
+        invalidate_calls = []
+        monkeypatch.setattr(
+            r.importlib, "invalidate_caches", lambda: invalidate_calls.append(1)
+        )
+
         r.apply_volume_visibility(volume_root=tmp_path)
         assert str(sp) in sys.path
-        # Idempotent — a second call does not duplicate the entry.
+        assert len(invalidate_calls) == 1, (
+            "invalidate_caches should be called once on first insert"
+        )
+
+        # Idempotent — a second call does not duplicate the entry and does NOT
+        # call invalidate_caches.
         r.apply_volume_visibility(volume_root=tmp_path)
         assert sys.path.count(str(sp)) == 1
+        assert len(invalidate_calls) == 1, (
+            "invalidate_caches should NOT be called on idempotent second call"
+        )
     finally:
         sys.path[:] = saved
 

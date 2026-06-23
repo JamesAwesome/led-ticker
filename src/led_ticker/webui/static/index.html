@@ -296,7 +296,7 @@ async function doRestart(btn, statusId, onDone) {
     if (!r.ok) {
       clearInterval(ticker);
       const body = await r.json().catch(() => ({}));
-      _setRestartStatus(statusId, "Restart failed: " + esc(body.error || String(r.status)));
+      _setRestartStatus(statusId, "Restart failed: " + (body.error || String(r.status)));
       btn.disabled = false;
       return;
     }
@@ -315,6 +315,10 @@ async function doRestart(btn, statusId, onDone) {
   let wentOffline = false;
   const poll = setInterval(async () => {
     elapsed = Math.round((Date.now() - start) / 1000);
+    // Time-based fallback: if the restart completed faster than one full poll
+    // cycle could observe the offline state, force wentOffline so recovery is
+    // still detected (8s > the ~6s status-staleness window).
+    if (!wentOffline && (Date.now() - start) > 8000) wentOffline = true;
     if (Date.now() - start > TIMEOUT_MS) {
       clearInterval(poll);
       clearInterval(ticker);

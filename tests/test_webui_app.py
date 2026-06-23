@@ -1934,6 +1934,8 @@ async def test_store_token_configured_no_token_header_redacts(tmp_path, monkeypa
         assert "mycorp.custom" not in {p["namespace"] for p in body["plugins"]}
         # display_online is dropped for anonymous callers (deployment state).
         assert "display_online" not in body
+        # allow_restart must survive redaction (public, like auth_required).
+        assert "allow_restart" in body
     finally:
         await client.close()
 
@@ -2050,9 +2052,11 @@ async def test_restart_with_token_and_flag_writes_marker(tmp_path):
 async def test_restart_no_token_header_returns_401_or_403(tmp_path):
     """POST /api/restart without a token header (token configured) → 401/403."""
     client = await _client(tmp_path, token="s3cret", allow_restart=True)
+    marker_path = tmp_path / "restart-requested"
     try:
         resp = await client.post("/api/restart")
         assert resp.status in (401, 403)
+        assert not marker_path.exists(), "marker must not be written when auth fails"
     finally:
         await client.close()
 

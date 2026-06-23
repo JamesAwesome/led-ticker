@@ -41,7 +41,7 @@ The canonical low-level HUB75 driver that led-ticker builds on — think of it a
 
 ### WLED
 
-WLED is the dominant platform for addressable LEDs — beautiful effects, a friendly web UI, and wide community support.[^wled] It is built for WS2812-style addressable strips and panels, not HUB75 (its HUB75 support is young and limited), and its text rendering works by pushing strings in rather than fetching and updating data feeds on its own. Pick WLED for ambient lighting and effects; pick led-ticker for a data-driven info sign that manages its own content.
+WLED is a widely-used platform for addressable LEDs — animated effects, a friendly web UI, and a large community.[^wled] It is built for WS2812-style addressable strips and panels, not HUB75 (its HUB75 support is young and limited), and its text rendering works by pushing strings in rather than fetching and updating data feeds on its own. Pick WLED for ambient lighting and effects; pick led-ticker for a data-driven info sign that manages its own content.
 
 ### Tidbyt / tronbyt
 
@@ -49,7 +49,7 @@ Tidbyt is a polished small 64×32 appliance with an app-store model (Pixlet apps
 
 ### AWTRIX3
 
-AWTRIX3 turns a ~$50 Ulanzi TC001 (ESP32, 32×8 pixel matrix) into a capable clock and notifier with solid Home Assistant integration.[^awtrix] The device itself holds no logic — dynamic content is pushed to it from Home Assistant, MQTT, or a home server. Pick it for a cheap smart-home glance display; pick led-ticker for a large standalone sign that fetches and rotates its own content with no external backend.
+AWTRIX3 turns a ~$50 Ulanzi TC001 (ESP32, 32×8 pixel matrix) into a capable clock and notifier with Home Assistant / MQTT-native integration.[^awtrix] The device itself holds no logic — dynamic content is pushed to it from Home Assistant, MQTT, or a home server. Pick it for a cheap smart-home glance display; pick led-ticker for a large standalone sign that fetches and rotates its own content with no external backend.
 
 ## Where led-ticker fits
 

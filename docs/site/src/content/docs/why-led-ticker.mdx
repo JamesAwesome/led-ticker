@@ -1,0 +1,70 @@
+---
+title: Why led-ticker?
+description: led-ticker vs WLED, Tidbyt/tronbyt, AWTRIX, and rpi-rgb-led-matrix — when a Raspberry Pi HUB75 info sign is the right tool, and when it isn't.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RelatedPages from "../../components/RelatedPages.astro";
+
+led-ticker is the batteries-included info-display layer for large HUB75 signs on a Raspberry Pi — the higher-level layer above the `rpi-rgb-led-matrix` driver, fully open and self-hosted. Most "LED matrix" tools solve a different problem. This page says which is which so you can pick the right one.
+
+## Is led-ticker right for you?
+
+<Aside type="tip" label="Quick routing">
+Pick the tool that matches your use case:
+
+- **Addressable LED strips or panels (WS2812/SK6812), ambient effects, or lighting art** → [WLED](https://github.com/WLED/WLED)
+- **A cheap (~$50) tiny desk clock or smart-home notifier** → [AWTRIX3](https://github.com/Blueforcer/awtrix3) on a Ulanzi TC001 (ESP32, 32×8)
+- **A small finished appliance with an app-store experience** → [Tidbyt](https://tidbyt.com/), or [tronbyt](https://github.com/tronbyt/server) to self-host one cloud-free
+- **Generative art or live-coded patterns** → [Pixelblaze](https://electromage.com/pixelblaze) or WLED
+- **A large, custom, config-driven info sign** (news / weather / crypto / sports / calendar) you self-host end-to-end → **led-ticker**
+  </Aside>
+
+## How the tools compare
+
+| Axis               | led-ticker                 | rpi-rgb-led-matrix  | WLED                          | Tidbyt / tronbyt                                           | AWTRIX3                                |
+| ------------------ | -------------------------- | ------------------- | ----------------------------- | ---------------------------------------------------------- | -------------------------------------- |
+| Hardware           | HUB75 panels               | HUB75 panels        | Addressable WS2812            | 64×32 appliance                                            | 32×8 (Ulanzi)                          |
+| Compute            | Raspberry Pi               | Raspberry Pi        | ESP32                         | Appliance / Pi                                             | ESP32                                  |
+| Scale              | Large, custom (256×64+)    | Large               | Strips / small matrices       | Tiny, fixed                                                | Tiny, fixed                            |
+| Primary use        | Info feeds / signage       | (you build it)      | Effects / ambient art         | Glanceable apps                                            | Clock / notifier                       |
+| Content model      | Declarative TOML + plugins | Write your own code | Web UI (push strings in)      | App store (Pixlet)                                         | Web UI + HA/MQTT                       |
+| Architecture       | Self-contained on the Pi   | Library you call    | Self-contained; you feed text | tronbyt needs a self-hosted server; Tidbyt needs its cloud | Needs Home Assistant / MQTT to feed it |
+| Open / self-hosted | Fully open, no cloud       | Open library        | Open                          | tronbyt open / Tidbyt closed+cloud                         | Open firmware                          |
+| Cost band          | ~$150+                     | ~$150+              | ~$30+                         | ~$199 / DIY                                                | ~$50                                   |
+
+## The alternatives in their own right
+
+### rpi-rgb-led-matrix
+
+The canonical low-level HUB75 driver that led-ticker builds on — think of it as the layer below, not a rival.[^hzeller] It gives you full control over every pixel in C++ or Python, which is exactly right if you want to write your own rendering engine. led-ticker is the batteries-included layer on top so you don't have to: declarative config, a plugin system for live data feeds, transitions, fonts, and emoji all come included.
+
+### WLED
+
+WLED is the dominant platform for addressable LEDs — beautiful effects, a friendly web UI, and wide community support.[^wled] It is built for WS2812-style addressable strips and panels, not HUB75 (its HUB75 support is young and limited), and its text rendering works by pushing strings in rather than fetching and updating data feeds on its own. Pick WLED for ambient lighting and effects; pick led-ticker for a data-driven info sign that manages its own content.
+
+### Tidbyt / tronbyt
+
+Tidbyt is a polished small 64×32 appliance with an app-store model (Pixlet apps); tronbyt is the open, self-hosted way to keep one running cloud-free.[^tidbyt] Both are a great fit for a tiny finished desk gadget. Tidbyt's future is uncertain and the device depends on a cloud backend; tronbyt requires running its own server. If you want a large, custom, fully self-contained sign that fetches its own feeds without a separate backend, led-ticker is the better fit.
+
+### AWTRIX3
+
+AWTRIX3 turns a ~$50 Ulanzi TC001 (ESP32, 32×8 pixel matrix) into a capable clock and notifier with solid Home Assistant integration.[^awtrix] The device itself holds no logic — dynamic content is pushed to it from Home Assistant, MQTT, or a home server. Pick it for a cheap smart-home glance display; pick led-ticker for a large standalone sign that fetches and rotates its own content with no external backend.
+
+## Where led-ticker fits
+
+led-ticker's sweet spot is large, bright, multi-panel HUB75 signs that drive their own news, weather, crypto, sports, and calendar feeds from a TOML config — fully open, self-hosted, no cloud, no smart-home backend, no subscription. If that matches what you're building, start with [Getting started](/getting-started/) or jump straight to [building your own sign](/hardware/building-your-own/).
+
+---
+
+_Comparisons reflect the landscape as of mid-2026._
+
+[^hzeller]: [hzeller/rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix)
+
+[^wled]: [WLED](https://github.com/WLED/WLED) · [WLED HUB75 notes](https://kno.wled.ge/advanced/HUB75/)
+
+[^tidbyt]: [Tidbyt joining Modal](https://modal.com/blog/tidbyt-is-joining-modal) · [tronbyt/server](https://github.com/tronbyt/server)
+
+[^awtrix]: [Blueforcer/awtrix3](https://github.com/Blueforcer/awtrix3) · [ESP32-HUB75-MatrixPanel-DMA](https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA)
+
+<RelatedPages slugs={["getting-started", "hardware/building-your-own", "plugins/available"]} />

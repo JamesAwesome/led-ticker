@@ -80,6 +80,7 @@ export default defineConfig({
       sidebar: [
         { label: "Home", link: "/" },
         { label: "Getting started", link: "/getting-started/" },
+        { label: "Why led-ticker?", link: "/why-led-ticker/" },
         {
           label: "Tutorial",
           items: [

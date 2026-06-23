@@ -51,7 +51,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 authors = [{ name = "James Awesome", email = "james@morelli.nyc" }]
 dependencies = [
-    "led-ticker",
+    "led-ticker-core>=2.0",
 ]
 
 # Each entry-point NAME is a plugin namespace -> e.g. transition = "nyancat.forward".
@@ -195,6 +195,15 @@ git mv plugins/pacman/src/led_ticker_pacman        plugins/flair/src/led_ticker_
 git mv plugins/sailor_moon/src/led_ticker_sailor_moon plugins/flair/src/led_ticker_flair/sailor_moon
 ```
 Sprites move with each module; their `Path(__file__).parent / "sprites"` loading is unchanged.
+
+- [ ] **Step 1b: Gut the old entry-point blocks (avoid duplicate-namespace conflict)**
+
+The old `plugins/{pokeball,pacman,sailor_moon}/` dirs still exist until Task 3 and still declare their `led_ticker.plugins` entry points. With the flair package now also declaring them, `uv sync` installs BOTH, and the loader rejects the duplicate namespace — breaking every test. Task 1 already did this for nyancat; do the same for the other three: delete the `[project.entry-points."led_ticker.plugins"]` block (and its one entry line) from each old pyproject:
+```bash
+# Remove the entry-point block from each old homage pyproject (Task 3 deletes the dirs entirely):
+# plugins/pokeball/pyproject.toml, plugins/pacman/pyproject.toml, plugins/sailor_moon/pyproject.toml
+```
+Edit each file to remove its `[project.entry-points."led_ticker.plugins"]` section. After this, only the flair package registers `pokeball`/`pacman`/`sailor_moon`. Verify no duplicate-namespace error on `uv sync`.
 
 - [ ] **Step 2: Update each moved family's intra-package imports**
 

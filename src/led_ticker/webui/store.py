@@ -13,7 +13,7 @@ _TRANSITION_KEYS = ("transition", "entry_transition", "widget_transition")
 def config_references(config_path: Path) -> dict[str, list[dict[str, str]]]:
     try:
         data = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+    except OSError, tomllib.TOMLDecodeError, UnicodeDecodeError:
         return {}
     out: dict[str, list[dict[str, str]]] = {}
 

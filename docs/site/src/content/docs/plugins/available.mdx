@@ -47,30 +47,22 @@ Current-conditions widget (`type = "weather.current"`) that shows temperature an
 
 ## Transitions
 
-The sprite-trail transitions live in four packages, one per character family. Each ships `.forward`, `.reverse`, and `.alternating` variants — reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`. Install only the families you use. See [Sprite transitions](/transitions/sprite/) for the full catalogue and screenshots.
+### [Homage sprite-trail transitions (flair pack)](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair)
 
-### [nyancat](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/nyancat)
+Four pixel-art character families ship together in the `led-ticker-flair` package — one install brings all four. Each family provides `.forward`, `.reverse`, and `.alternating` variants; reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`. See [Sprite transitions](/transitions/sprite/) for the full catalogue, screenshots, and per-family details.
 
-Nyan Cat flies across the panel with a rainbow trail (`nyancat.forward` / `nyancat.reverse` / `nyancat.alternating`). Auto-activates a hi-res webp sprite on scaled signs. Full docs in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/nyancat/README.md).
+```text
+led-ticker-flair
+```
+
+- **nyancat** — Nyan Cat with rainbow trail (`nyancat.forward` / `.reverse` / `.alternating`); hi-res on scaled signs.
+- **pokeball** — Pokéball with run-cycle sprite (`pokeball.forward` / `.reverse` / `.alternating`); hi-res on scaled signs; ships `:pokeball.ball:` emoji.
+- **pacman** — Pac-Man chasing three scared ghosts (`pacman.forward` / `.reverse` / `.alternating`).
+- **sailor_moon** — Moon Stick wand with sparkle trail (`sailor_moon.forward` / `.reverse` / `.alternating`).
 
 <PluginCatalog name="nyancat" />
-
-### [pokeball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pokeball)
-
-A Pokéball rolls across with a run-cycle sprite chasing (`pokeball.forward` / `pokeball.reverse` / `pokeball.alternating`); `show_pikachu` / `show_pokeball` toggle the sprite elements. Auto-activates a hi-res sprite on scaled signs and ships the `:pokeball.ball:` emoji. Full docs in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/pokeball/README.md).
-
 <PluginCatalog name="pokeball" />
-
-### [pacman](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pacman)
-
-Pac-Man chases three scared ghosts with a chomping animation (`pacman.forward` / `pacman.reverse` / `pacman.alternating`). Keeps its 8-bit look at all scales. Full docs in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/pacman/README.md).
-
 <PluginCatalog name="pacman" />
-
-### [sailor_moon](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/sailor_moon)
-
-The Moon Stick wand sweeps across with a sparkle trail (`sailor_moon.forward` / `sailor_moon.reverse` / `sailor_moon.alternating`). Keeps its 8-bit look at all scales. Full docs in the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/sailor_moon/README.md).
-
 <PluginCatalog name="sailor_moon" />
 
 ---

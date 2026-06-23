@@ -49,14 +49,7 @@ led-ticker-rss
 # Current-conditions weather, WeatherAPI.com (type = "weather.current"):
 led-ticker-weather
 
-# Nyan Cat sprite-trail transitions (transition = "nyancat.forward" / ".reverse" / ".alternating"):
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@nyancat-v0.1.0#subdirectory=plugins/nyancat
-
-# Pokéball sprite-trail transitions (transition = "pokeball.forward" etc.) + :pokeball.ball: emoji:
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@pokeball-v0.1.0#subdirectory=plugins/pokeball
-
-# Pac-Man sprite-trail transitions (transition = "pacman.forward" etc.):
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@pacman-v0.1.0#subdirectory=plugins/pacman
-
-# Sailor Moon sprite-trail transitions (transition = "sailor_moon.forward" etc.):
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@sailor_moon-v0.1.0#subdirectory=plugins/sailor_moon
+# Homage sprite-trail transitions — nyancat / pokeball / pacman / sailor_moon
+# (transition = "nyancat.forward" etc.) plus the :pokeball.ball: emoji.
+# One install brings all four; the type strings are unchanged.
+led-ticker-flair

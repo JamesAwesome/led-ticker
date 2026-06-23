@@ -71,21 +71,19 @@ def test_data_plugins_retain_git_source():
         assert e.requirement(source="git").endswith(f"#subdirectory=plugins/{name}")
 
 
-def test_homage_plugins_install_from_the_monorepo():
-    """The 4 homage plugins (not on PyPI) install git-only from the flair pack."""
+def test_homage_plugins_install_from_pypi():
+    """The 4 homage families ship in the led-ticker-flair PyPI package — one
+    install brings all four (the type strings stay namespaced per family)."""
     cat = load_catalog()
     for name in _HOMAGE_PLUGINS:
         e = cat.get(name)
         assert e is not None, f"missing plugin {name!r}"
         assert len(e.sources) == 1, f"{name}: expected 1 source, got {len(e.sources)}"
         src = e.sources[0]
-        assert src.type == "git"
-        assert src.url == "https://github.com/JamesAwesome/led-ticker-plugins"
-        # all four families now consolidate into the shared flair pack
-        assert src.subdirectory == "plugins/flair"
-        assert src.ref == "flair-v0.1.0"
-        # the emitted requirement carries the flair subdirectory fragment
-        assert e.requirement().endswith("#subdirectory=plugins/flair")
+        assert src.type == "pypi"
+        # all four families consolidate into the shared led-ticker-flair package
+        assert src.package == "led-ticker-flair"
+        assert e.requirement() == "led-ticker-flair"
 
 
 def test_split_families_provide_their_types():

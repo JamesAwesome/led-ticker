@@ -52,4 +52,4 @@ led-ticker-weather
 # Homage sprite-trail transitions — nyancat / pokeball / pacman / sailor_moon
 # (transition = "nyancat.forward" etc.) plus the :pokeball.ball: emoji.
 # One install brings all four; the type strings are unchanged.
-git+https://github.com/JamesAwesome/led-ticker-plugins.git@flair-v0.1.0#subdirectory=plugins/flair
+led-ticker-flair

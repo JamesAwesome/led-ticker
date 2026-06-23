@@ -78,7 +78,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": { "transitions": ["nyancat.forward", "nyancat.reverse", "nyancat.alternating"] },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flair-v0.1.0", "subdirectory": "plugins/flair" }
+        { "type": "pypi", "package": "led-ticker-flair" }
       ]
     },
     {
@@ -91,7 +91,7 @@
         "emoji": ["pokeball.ball"]
       },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flair-v0.1.0", "subdirectory": "plugins/flair" }
+        { "type": "pypi", "package": "led-ticker-flair" }
       ]
     },
     {
@@ -101,7 +101,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": { "transitions": ["pacman.forward", "pacman.reverse", "pacman.alternating"] },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flair-v0.1.0", "subdirectory": "plugins/flair" }
+        { "type": "pypi", "package": "led-ticker-flair" }
       ]
     },
     {
@@ -111,7 +111,7 @@
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": { "transitions": ["sailor_moon.forward", "sailor_moon.reverse", "sailor_moon.alternating"] },
       "sources": [
-        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flair-v0.1.0", "subdirectory": "plugins/flair" }
+        { "type": "pypi", "package": "led-ticker-flair" }
       ]
     }
   ]

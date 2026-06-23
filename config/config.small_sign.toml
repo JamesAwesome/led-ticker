@@ -22,6 +22,18 @@ brightness = 60
 gpio_slowdown = 2
 hardware_mapping = "adafruit-hat"
 
+# Dim the panel overnight: 10pm → 6:30am, every day. Times are wall-clock in the
+# timezone below; any hour outside this window uses the [display] `brightness` (60).
+[display.schedule]
+enabled = true
+timezone = "America/New_York"
+
+[[display.schedule.windows]]
+start = "22:00"            # 10pm — wraps past midnight to 6:30am
+end = "06:30"
+brightness = 15            # dim, not off (set brightness = 0 to switch the panel off)
+# days omitted = every day; e.g. days = ["mon", "tue", "wed", "thu", "fri"] for weekdays only
+
 [title]
 delay = 5
 

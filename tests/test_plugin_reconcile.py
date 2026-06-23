@@ -1,6 +1,8 @@
 import subprocess
 import sys
 
+import pytest
+
 from led_ticker.plugin_reconcile import (
     PluginAction,
     compute_diff,
@@ -323,16 +325,27 @@ def test_reconcile_noop_when_declared_matches_installed(tmp_path, monkeypatch):
     import led_ticker.plugin_reconcile as r
 
     (tmp_path / "config.toml").write_text("")
+    # A manifest MUST exist or reconcile early-returns on `not manifest.exists()`
+    # before ever reaching the declared==installed noop path. Make it match the
+    # monkeypatched declared/installed set so the noop branch is what runs.
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-rss==1.0.0\n")
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
+    monkeypatch.setattr(
+        r, "_declared_requirements", lambda p: {"rss": "led-ticker-rss==1.0.0"}
+    )
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {"rss": "led-ticker-rss"})
+    # Installed version matches the pin -> no pin-drift reinstall either.
+    monkeypatch.setattr(r.importlib.metadata, "version", lambda dist: "1.0.0")
     installed, uninstalled = [], []
     monkeypatch.setattr(
         r,
         "_install_namespace",
-        lambda ns, py, *, constraints=None, requirement_line=None: installed.append(ns),
+        lambda ns, py, *, constraints=None, requirement_line=None: (
+            installed.append(ns) or 0
+        ),
     )
-    monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: uninstalled.append(d))
+    monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: uninstalled.append(d) or 0)
     actions = r.reconcile(tmp_path / "config.toml")
     assert installed == [] and uninstalled == []
     assert actions == []
@@ -1176,3 +1189,92 @@ def test_reconcile_freeze_raise_falls_back_to_per_install(tmp_path, monkeypatch)
     actions = r.reconcile(cfg)
     assert {a.action for a in actions} == {"installed"}
     assert constraints_seen == [None, None]
+
+
+# ── Finding A: non-UTF-8 files must not escape the never-raises contracts ───────
+
+
+def _write_non_utf8(path):
+    # 0xff is invalid as a UTF-8 start byte -> read_text(encoding="utf-8") raises
+    # UnicodeDecodeError (a ValueError, NOT an OSError).
+    path.write_bytes(b"\xff\xfe bad bytes not utf-8")
+
+
+def test_referenced_namespaces_non_utf8_returns_empty(tmp_path):
+    cfg = tmp_path / "config.toml"
+    _write_non_utf8(cfg)
+    assert referenced_namespaces(cfg) == set()
+
+
+def test_declared_requirements_non_utf8_manifest_returns_empty(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    _write_non_utf8(tmp_path / "requirements-plugins.txt")
+    assert r._declared_requirements(cfg) == {}
+
+
+def test_reconcile_non_utf8_manifest_does_not_raise(tmp_path, monkeypatch):
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    _write_non_utf8(tmp_path / "requirements-plugins.txt")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+    # Must return [] (the bad-manifest path yields empty declared) and never raise.
+    assert r.reconcile(cfg) == []
+
+
+# ── Finding D: _exact_pin parametrized contract ────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "line,expected",
+    [
+        ("led-ticker-pool==0.1.0", "0.1.0"),
+        ("led-ticker-pool==0.1.0 ; python_version>='3.10'", "0.1.0"),
+        ("led-ticker-pool", None),  # unpinned
+        ("led-ticker-pool>=0.1.0", None),  # range, not exact
+        ("git+https://example.com/p.git", None),  # vcs source
+        ("led-ticker-pool==1.2.0,<2.0", None),  # compound — not an exact pin
+        ("led-ticker-pool==", None),  # empty after ==
+    ],
+)
+def test_exact_pin(line, expected):
+    import led_ticker.plugin_reconcile as r
+
+    assert r._exact_pin(line) == expected
+
+
+# ── Finding B: apply_volume_visibility ─────────────────────────────────────────
+
+
+def test_apply_volume_visibility_inserts_existing_site_packages(tmp_path, monkeypatch):
+    import led_ticker.plugin_reconcile as r
+
+    py = f"{sys.version_info.major}.{sys.version_info.minor}"
+    sp = tmp_path / "venv" / "lib" / f"python{py}" / "site-packages"
+    sp.mkdir(parents=True)
+
+    saved = list(sys.path)
+    try:
+        r.apply_volume_visibility(volume_root=tmp_path)
+        assert str(sp) in sys.path
+        # Idempotent — a second call does not duplicate the entry.
+        r.apply_volume_visibility(volume_root=tmp_path)
+        assert sys.path.count(str(sp)) == 1
+    finally:
+        sys.path[:] = saved
+
+
+def test_apply_volume_visibility_noop_when_absent(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    saved = list(sys.path)
+    try:
+        r.apply_volume_visibility(volume_root=tmp_path)  # no venv dir present
+        assert sys.path == saved
+    finally:
+        sys.path[:] = saved

@@ -53,13 +53,19 @@ def _exact_pin(requirement_line: str) -> str | None:
     if "==" not in line:
         return None
     # Take the version token after the FIRST '==', trimming a trailing marker /
-    # comment / extra-spec (`pkg==1.2.3 ; python_version>='3.10'`).
+    # comment (`pkg==1.2.3 ; python_version>='3.10'`).
     after = line.split("==", 1)[1].strip()
-    for delim in (";", " ", ",", "#"):
+    for delim in (";", " ", "#"):
         idx = after.find(delim)
         if idx != -1:
             after = after[:idx]
     after = after.strip()
+    # A trailing comma-spec (`pkg==1.2.0,<2.0`) is a COMPOUND constraint, not an
+    # exact pin — the `<2.0` range means a restart can't know the installed
+    # version is the only valid one, so don't treat `1.2.0` as exact (it would
+    # churn a reinstall every boot). Reject anything carrying a `,`.
+    if "," in after:
+        return None
     return after or None
 
 
@@ -156,6 +162,17 @@ def referenced_namespaces(config_path: Path) -> set[str]:
         data = tomllib.loads(config_path.read_text(encoding="utf-8"))
     except OSError, tomllib.TOMLDecodeError:
         return set()
+    except UnicodeDecodeError as e:
+        # A non-UTF-8 config is a ValueError, not OSError — it would escape the
+        # guard above and abort the whole reconcile. Honor the "empty on bad
+        # file" contract and name the offender so the operator can fix it.
+        _log.warning(
+            "plugin reconcile: config %s is not valid UTF-8 (%s) — "
+            "treating it as referencing no plugins",
+            config_path,
+            e,
+        )
+        return set()
     out: set[str] = set()
 
     def walk(o: object) -> None:
@@ -247,8 +264,22 @@ def _declared_requirements(config_path: Path) -> dict[str, str]:
                     except Exception:  # noqa: BLE001
                         pass
 
+    try:
+        manifest_text = manifest.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        # A missing/unreadable/non-UTF-8 manifest must honor the "empty dict on
+        # bad file" contract — UnicodeDecodeError is a ValueError that would
+        # otherwise escape and abort the whole reconcile. Name the offender.
+        _log.warning(
+            "plugin reconcile: manifest %s is unreadable (%s) — "
+            "treating it as declaring no plugins",
+            manifest,
+            e,
+        )
+        return {}
+
     requirements: dict[str, str] = {}
-    for line in manifest.read_text(encoding="utf-8").splitlines():
+    for line in manifest_text.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
@@ -349,8 +380,9 @@ def reconcile(
             # scan reads the base env (effectively empty), so true-sync uninstall
             # never fires and every plugin reinstalls every boot.
             # Tripwire: test_reconcile_observes_target_env_installed.
+            # apply_to_syspath already invalidates caches when it inserts the
+            # path, so no redundant invalidate is needed here.
             apply_to_syspath(target)
-            importlib.invalidate_caches()
 
         manifest = config_path.parent / _MANIFEST_NAME
         if not manifest.exists():
@@ -549,8 +581,35 @@ def apply_to_syspath(target: Target) -> None:
         return
     if sp not in sys.path:
         sys.path.insert(0, sp)
-    # Drop any stale FileFinder/path-importer caches so packages just installed
-    # into this directory (this boot) are discoverable by the import system and
-    # importlib.metadata's entry-point scan. Cheap; required by the importlib
-    # docs after creating modules / mutating sys.path at runtime.
+        # Drop any stale FileFinder/path-importer caches so packages just
+        # installed into this directory (this boot) are discoverable by the
+        # import system and importlib.metadata's entry-point scan. Required by
+        # the importlib docs after mutating sys.path. Guarded to the insert
+        # branch: a no-op re-call (already on sys.path) need not invalidate.
+        importlib.invalidate_caches()
+
+
+def apply_volume_visibility(volume_root: Path = Path("/data/plugins")) -> None:
+    """Make the volume venv's plugins VISIBLE to this process (read-only).
+
+    Used by the webui sidecar, which mounts the plugin volume ``:ro`` so its
+    ``validate_config`` can SEE plugin widget types (and not emit false-positive
+    "plugin not loaded" warnings) without ever installing anything. Deliberately
+    does NOT use ``resolve_target()``: that gates on ``os.W_OK`` and would fall
+    through to the local-venv branch on a read-only mount, leaving the volume
+    site-packages invisible. We only need the path on ``sys.path`` for import +
+    entry-point discovery — writability is irrelevant.
+
+    Inserts ``<root>/venv/lib/pythonX.Y/site-packages`` at ``sys.path[0]`` iff it
+    exists and isn't already present, then invalidates import caches. A no-op when
+    the directory is absent (no volume, or venv not yet created). Never raises.
+    """
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    sp = volume_root / "venv" / "lib" / f"python{py_version}" / "site-packages"
+    if not sp.is_dir():
+        return
+    sp_str = str(sp)
+    if sp_str in sys.path:
+        return
+    sys.path.insert(0, sp_str)
     importlib.invalidate_caches()

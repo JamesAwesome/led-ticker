@@ -48,6 +48,10 @@ services:
       # rw so the web config editor can write config.toml; the display still mounts :ro and hot-reloads the change.
       - ./config:/code/config:rw
       - ticker-status:/run/led-ticker
+      # :ro for plugin VISIBILITY only — the webui's config validator must SEE
+      # plugin widget types (else false "plugin not loaded" warnings). It never
+      # installs; only the display service mounts this :rw and reconciles.
+      - ticker-plugins:/data/plugins:ro
 
 volumes:
   # tmpfs-backed: status.json is rewritten ~every 2s. Keeping it in RAM

@@ -87,7 +87,7 @@ Stop the stack first: `docker volume rm` refuses to remove a volume that is stil
 The first `docker compose restart` after adding a plugin needs network access to download it. If your sign runs without internet access, either:
 
 - **Pre-seed the volume** by running `docker compose restart` once on a networked machine (or host), then moving the volume data to the air-gapped sign.
-- **Build a derivative image** that bakes the plugin in: write a small Dockerfile that starts `FROM led-ticker` and adds a `RUN pip install -c /code/constraints-core.txt <plugin>` layer with your plugins, build it on a machine with network access, then deploy that image to the air-gapped sign. The `-c /code/constraints-core.txt` flag pins the install to core's frozen dependency versions, so a baked plugin can't bump a core-pinned dependency (the same constraint the runtime reconcile applies).
+- **Build a derivative image** that bakes the plugin in: write a small Dockerfile that starts `FROM led-ticker` and adds a `RUN pip install -c /code/constraints-core.txt <plugin>` layer with your plugins, build it on a machine with network access, then deploy that image to the air-gapped sign. The `-c /code/constraints-core.txt` flag pins the install to core's frozen dependency versions, so a baked plugin can't bump a core-pinned dependency (the same constraint the runtime reconcile applies). One caveat: a PEP 517 build from an sdist runs in an _isolated_ build environment that does **not** inherit `-c`, so the constraint only governs the final install resolution — prefer prebuilt wheels and pin to vetted, immutable sources (a tag or commit SHA, not `@main`).
 
 ## Relationship to the `[plugins]` config block
 

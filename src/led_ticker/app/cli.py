@@ -384,6 +384,13 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(2)
+        # Make plugin widget types installed in the read-only plugin volume
+        # VISIBLE to the webui's config validator before it serves — otherwise
+        # validate_config emits false-positive "plugin not loaded" warnings for
+        # every plugin widget type. Visibility only; the webui never installs.
+        from led_ticker.plugin_reconcile import apply_volume_visibility  # noqa: PLC0415
+
+        apply_volume_visibility()
         asyncio.run(run_webui(args.config, web_cfg))
         sys.exit(0)
 

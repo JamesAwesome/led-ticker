@@ -504,7 +504,7 @@ def cmd_list(
             shown = [f":{n}:" for n in names] if kind == "emoji" else list(names)
             print(f"      {_KIND_LABELS[kind]}: {', '.join(shown)}")
     print(
-        "\n[declared] = in requirements-plugins.txt (installs on next build); "
+        "\n[declared] = in requirements-plugins.txt (installs on next restart); "
         "[installed] = in this environment now."
     )
     print("Add with:  led-ticker plugin add <name>   (or `install` to pip it now)")

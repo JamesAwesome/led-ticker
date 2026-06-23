@@ -87,6 +87,7 @@ export default defineConfig({
               items: [
                 { label: "message", link: "/widgets/message/" },
                 { label: "countdown", link: "/widgets/countdown/" },
+                { label: "countup", link: "/widgets/countup/" },
                 { label: "clock", link: "/widgets/clock/" },
                 { label: "two_row", link: "/widgets/two_row/" },
                 { label: "gif", link: "/widgets/gif/" },

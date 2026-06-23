@@ -810,12 +810,12 @@ def test_error_and_warning_are_global_color_utilities():
     html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
     # A line whose selector STARTS with `.error` / `.warning` is a global rule;
     # `.issues .error { ... }` (line starts with `.issues`) does NOT match.
-    assert re.search(
-        r"^\s*\.error\s*\{", html, re.MULTILINE
-    ), "no global `.error` color rule"
-    assert re.search(
-        r"^\s*\.warning\s*\{", html, re.MULTILINE
-    ), "no global `.warning` color rule"
+    assert re.search(r"^\s*\.error\s*\{", html, re.MULTILINE), (
+        "no global `.error` color rule"
+    )
+    assert re.search(r"^\s*\.warning\s*\{", html, re.MULTILINE), (
+        "no global `.warning` color rule"
+    )
 
 
 def test_index_html_has_store_tab():

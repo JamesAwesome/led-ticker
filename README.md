@@ -67,7 +67,7 @@ First-party data plugins are on PyPI — add them by name:
 
 The homage sprite-trail transitions (`nyancat`, `pokeball`, `pacman`, `sailor_moon`) ship together on PyPI as **`led-ticker-flair`** — one install adds all four (`transition = "nyancat.forward"` etc.) plus the `:pokeball.ball:` emoji.
 
-Browse every first-party plugin — and the guide for building your own — in the [led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins) monorepo.
+Browse the first-party plugins in the [led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins) monorepo — they double as worked examples. Building your own? The [plugin authoring guide](https://docs.ledticker.dev/plugins/) walks you through shipping it as a standalone package in your own repo — no fork, no monorepo PR needed.
 
 Pre-flight a config before deploying:
 
@@ -130,7 +130,7 @@ See the [hardware reference](https://docs.ledticker.dev/hardware/building-your-o
 - **Questions, ideas, show-and-tell:** [GitHub Discussions](https://github.com/JamesAwesome/led-ticker/discussions)
 - **Bugs & feature requests:** [Issues](https://github.com/JamesAwesome/led-ticker/issues)
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
-- **Build or contribute a plugin:** [led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)
+- **Build a plugin:** the [authoring guide](https://docs.ledticker.dev/plugins/) — ship a standalone plugin in your own repo, no fork needed
 - **Be excellent to each other:** [Code of Conduct](CODE_OF_CONDUCT.md)
 - **Security:** report privately — see [SECURITY.md](SECURITY.md)
 - **General contact:** hello@ledticker.dev

@@ -1,13 +1,13 @@
 ---
 title: Web status UI
-description: A read-only browser dashboard for your sign — now-playing status, live config viewer, in-browser config validator, and asset inventory.
+description: A browser dashboard for your sign — status, live config viewer/validator, asset inventory, and a token-gated config editor and plugin Store.
 ---
 
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
-The web status UI is a read-only browser dashboard you open while the sign is running. It shows you what the sign is displaying right now, lets you inspect the live config with secrets redacted, validate a config against the real sign before deploying it, and browse the fonts, images, and emoji available in your config directory.
+The web status UI is a browser dashboard you open while the sign is running. By default it's read-only, with token-gated editing (the config editor and the plugin Store). It shows you what the sign is displaying right now, lets you inspect the live config with secrets redacted, validate a config against the real sign before deploying it, and browse the fonts, images, and emoji available in your config directory.
 
 **What you'll need:** a running led-ticker sign with the Docker or bare-metal setup from [Getting started](/getting-started/). No additional accounts, API keys, or hardware changes required.
 
@@ -47,6 +47,10 @@ The Store tab lists every plugin in the [catalog](/plugins/available/) and shows
 **A token is required to install or remove.** Browsing the Store is open, but any write action returns 401 without a valid token. Set `LED_TICKER_WEB_TOKEN` in your `.env` (see [Auth](#auth) below).
 
 **Changes take effect on the next `docker compose restart`** — the same as editing `config/requirements-plugins.txt` by hand. The Store writes the manifest for you and shows a "pending restart" banner with a copyable restart command once there is a queued change. There is no one-click restart from the browser; you run the command yourself.
+
+```bash
+docker compose restart
+```
 
 **Removal is blocked while your config still uses the plugin.** If `config.toml` references any of the plugin's widget or transition types, the Store shows which sections they appear in and links to the Config editor so you can remove them first. Once the config is clean, click **Remove** again and restart.
 

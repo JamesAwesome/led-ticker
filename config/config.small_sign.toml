@@ -22,12 +22,11 @@ brightness = 60
 gpio_slowdown = 2
 hardware_mapping = "adafruit-hat"
 
-# Dim the panel overnight: 10pm → 6:30am, every day. Times are local wall-clock;
-# any hour outside this window uses the [display] `brightness` above (60).
+# Dim the panel overnight: 10pm → 6:30am, every day. Times are wall-clock in the
+# timezone below; any hour outside this window uses the [display] `brightness` (60).
 [display.schedule]
 enabled = true
-# timezone = "America/New_York"   # set your zone, or the times follow the Pi's
-                                  # system clock (often UTC). Strongly recommended.
+timezone = "America/New_York"
 
 [[display.schedule.windows]]
 start = "22:00"            # 10pm — wraps past midnight to 6:30am

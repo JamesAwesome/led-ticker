@@ -1151,9 +1151,9 @@ class TestBuildTransObjGuarded:
         # Guarded path degrades to None and logs which type failed.
         with caplog.at_level(logging.WARNING):
             assert _build_trans_obj_guarded(cfg) is None
-        assert any(
-            "arcade.nyancat_alternating" in r.message for r in caplog.records
-        ), "the failing transition type should be logged"
+        assert any("arcade.nyancat_alternating" in r.message for r in caplog.records), (
+            "the failing transition type should be logged"
+        )
 
     def test_cut_returns_none(self):
         from led_ticker.app.run import _build_trans_obj_guarded

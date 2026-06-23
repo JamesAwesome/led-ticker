@@ -36,22 +36,27 @@ def test_live_requirements_file_is_gitignored():
     )
 
 
-def test_dockerfile_installs_from_requirements_file():
+def test_dockerfile_does_not_bake_plugins():
+    """Layer-2b (build-time plugin install) was dropped; plugins are now
+    installed at runtime onto the ticker-plugins volume by plugin_reconcile.py.
+    This test guards against accidentally re-introducing the baked layer."""
     dockerfile = (REPO_ROOT / "Dockerfile").read_text()
-    assert "-r /code/config/requirements-plugins.txt" in dockerfile, (
-        "Dockerfile should pip-install the live requirements-plugins.txt"
+    assert "-r /code/config/requirements-plugins.txt" not in dockerfile, (
+        "Dockerfile must NOT pip-install plugins at build time — "
+        "plugins install at runtime via plugin_reconcile.py"
     )
-    assert "config/requirements-plugins.example.txt" in dockerfile, (
-        "Dockerfile should COPY the example "
-        "(guaranteed source for the optional-file trick)"
+    assert "config/requirements-plugins.tx[t]" not in dockerfile, (
+        "Dockerfile must NOT COPY the requirements-plugins file — "
+        "runtime reconcile reads it from the config volume"
     )
-    # plugins install under the core constraints file (not --no-deps), so they
-    # can bring new deps but cannot move core's pinned versions
-    assert "-c /code/constraints-core.txt" in dockerfile, (
-        "plugin install should be constrained by the core constraints file"
-    )
+    # Core constraints generation is still present in Layer 2 (plugins need it
+    # at runtime reconcile time via the constraints-core.txt the image ships).
     assert "pip list --format=freeze" in dockerfile, (
-        "Dockerfile should generate constraints-core.txt from the core env"
+        "Dockerfile should still generate constraints-core.txt from the core env"
+    )
+    assert "plugin_reconcile" in dockerfile, (
+        "Dockerfile should reference plugin_reconcile.py (in the comment "
+        "replacing the removed Layer-2b block)"
     )
     assert "POOL_PLUGIN_CACHE_BUST" not in dockerfile, (
         "the per-plugin cache-bust ARG should be removed"

@@ -165,8 +165,13 @@ def _update_requirements(path: Path, requirement: str) -> str | None:
 
 
 _SPEC_MARKERS = ("git+", "://", "@", "==", ">=", "<=", "~=", "!=", "/", "[", " ")
-_REBUILD_HINT = (
-    "Run a rebuild/redeploy (e.g. `docker compose up -d --build`) to install it."
+_ADD_HINT = (
+    "The plugin installs on next startup — Docker: `docker compose restart` "
+    "(no rebuild needed); bare-metal: restart the service or re-run install.sh."
+)
+_REMOVE_HINT = (
+    "The plugin uninstalls on next startup — Docker: `docker compose restart`. "
+    "The manifest is the source of truth: anything not listed is removed."
 )
 
 
@@ -354,36 +359,116 @@ def _installed_namespaces() -> set[str]:
     return {ep.name for ep in eps}
 
 
-def _pip_install(requirement: str) -> int:
-    """Freeze the current env to a constraints file, then pip-install the
-    requirement under it so a plugin can't move core's pinned deps. Returns the
-    pip exit code (0 = success)."""
+# Bound pip subprocesses so a slow/flaky network can't hang startup before the
+# frame builds (reconcile runs in run()'s prologue, panel dark until it returns).
+# A hung pip raises TimeoutExpired -> recorded as a "failed" PluginAction; the
+# panel comes up sans that plugin instead of staying dark indefinitely.
+_PIP_NET_ARGS = ["--timeout", "30", "--retries", "2"]
+_PIP_INSTALL_TIMEOUT_S = 300
+_PIP_FREEZE_TIMEOUT_S = 60
+_PIP_UNINSTALL_TIMEOUT_S = 120
+
+
+def _freeze_to_constraints(
+    python_exe: str = sys.executable,
+) -> tuple[str | None, int]:
+    """Freeze the target env to a temp constraints file.
+
+    Returns ``(path, 0)`` on success, or ``(None, returncode)`` (and prints
+    stderr) on a non-zero freeze exit — the caller treats a non-zero code as
+    "skip the install" and propagates the code. The constraints pin CORE's
+    already-installed deps so a plugin install can't move them. The file is the
+    CALLER's to delete (use ``_pip_install(..., constraints=path)`` then unlink).
+    Raises ``subprocess.TimeoutExpired`` if pip stalls past the freeze wall clock.
+    """
     freeze = subprocess.run(
-        [sys.executable, "-m", "pip", "list", "--format=freeze"],
+        [python_exe, "-m", "pip", "list", "--format=freeze"],
         capture_output=True,
         text=True,
+        timeout=_PIP_FREEZE_TIMEOUT_S,
     )
     if freeze.returncode != 0:
         print(freeze.stderr, file=sys.stderr)
-        return freeze.returncode
+        return (None, freeze.returncode)
     with tempfile.NamedTemporaryFile(
         "w", suffix=".txt", delete=False, encoding="utf-8"
     ) as fh:
         fh.write(freeze.stdout)
-        constraints = fh.name
+        return (fh.name, 0)
+
+
+def _pip_install(
+    requirement: str,
+    *,
+    python_exe: str = sys.executable,
+    constraints: str | None = None,
+) -> int:
+    """Freeze the current env to a constraints file, then pip-install the
+    requirement under it so a plugin can't move core's pinned deps. Returns the
+    pip exit code (0 = success).
+
+    When ``constraints`` is passed (a path produced by ``_freeze_to_constraints``)
+    the freeze is SKIPPED and that file is reused — the caller owns its lifetime.
+    This lets reconcile freeze the env ONCE per pass instead of once per plugin
+    (N-1 redundant freeze subprocesses on the first-boot dark-panel path). The
+    constraints only pin core's deps, so a just-installed plugin doesn't need to
+    appear in the constraints used for the next plugin in the same pass.
+
+    Refuses argument-like requirements (a manifest line starting with ``-``,
+    e.g. ``--pre`` / ``--index-url``) so a stray flag can't be smuggled in as a
+    pip option. The one ``-`` form allowed is ``-e <spec>`` (an editable
+    install), the documented, intentional pip form. Raises
+    ``subprocess.TimeoutExpired`` if pip stalls past the per-call wall clock —
+    the caller (reconcile) records that as ``failed``."""
+    if requirement.startswith("-") and not requirement.startswith("-e "):
+        raise ValueError(
+            f"refusing to pip-install an argument-like requirement: {requirement!r}"
+        )
+    owns_constraints = constraints is None
+    if owns_constraints:
+        constraints, freeze_rc = _freeze_to_constraints(python_exe)
+        if constraints is None:
+            return freeze_rc
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-c", constraints, requirement],
+            [
+                python_exe,
+                "-m",
+                "pip",
+                "install",
+                *_PIP_NET_ARGS,
+                # NOTE: `-c` only constrains the RUNTIME wheel dependencies pip
+                # resolves — it does NOT reach inside a PEP 517 isolated build
+                # environment. When a plugin (or a transitive dep) is an sdist,
+                # pip spins up a fresh, isolated build env that does NOT inherit
+                # these constraints, and the build-backend code (hatchling,
+                # setuptools, etc.) runs as ROOT here because reconcile installs
+                # before the matrix library drops privileges (constraint #13). So
+                # adding a package effectively runs its build scripts as root on
+                # first install. Prefer wheels / vetted, pinned sources.
+                "-c",
+                constraints,
+                requirement,
+            ],
+            timeout=_PIP_INSTALL_TIMEOUT_S,
         )
     finally:
-        Path(constraints).unlink(missing_ok=True)
+        if owns_constraints:
+            Path(constraints).unlink(missing_ok=True)
     return proc.returncode
 
 
-def _pip_uninstall(dist: str) -> int:
+def _pip_uninstall(dist: str, *, python_exe: str = sys.executable) -> int:
     """pip-uninstall a distribution by name. Returns the pip exit code (pip exits
-    0 with a warning when the package isn't installed)."""
-    proc = subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", dist])
+    0 with a warning when the package isn't installed).
+
+    Refuses an argument-like ``dist`` for the same reason as ``_pip_install``."""
+    if dist.startswith("-"):
+        raise ValueError(f"refusing to pip-uninstall an argument-like dist: {dist!r}")
+    proc = subprocess.run(
+        [python_exe, "-m", "pip", "uninstall", "-y", dist],
+        timeout=_PIP_UNINSTALL_TIMEOUT_S,
+    )
     return proc.returncode
 
 
@@ -419,7 +504,7 @@ def cmd_list(
             shown = [f":{n}:" for n in names] if kind == "emoji" else list(names)
             print(f"      {_KIND_LABELS[kind]}: {', '.join(shown)}")
     print(
-        "\n[declared] = in requirements-plugins.txt (installs on next build); "
+        "\n[declared] = in requirements-plugins.txt (installs on next restart); "
         "[installed] = in this environment now."
     )
     print("Add with:  led-ticker plugin add <name>   (or `install` to pip it now)")
@@ -474,7 +559,7 @@ def cmd_add(
         return code
     if config_warning:
         print(config_warning, file=sys.stderr)
-    print(_REBUILD_HINT)
+    print(_ADD_HINT)
     return 0
 
 
@@ -573,7 +658,7 @@ def cmd_remove(
     print(f"Removed {_removed_phrase(removed, key)} from {req_path}")
     if config_warning:
         print(config_warning, file=sys.stderr)
-    print(_REBUILD_HINT.replace("install it", "apply it"))
+    print(_REMOVE_HINT)
     return 0
 
 

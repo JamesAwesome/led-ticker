@@ -69,6 +69,10 @@
       <strong>Plugins</strong>
       <table id="plugins"><tbody></tbody></table>
     </div>
+    <div class="card" id="plugin-reconcile-card" style="display:none">
+      <strong>Plugin install results</strong>
+      <table id="plugin-reconcile"><tbody></tbody></table>
+    </div>
     <div class="card" id="disabled-widgets-card" style="display:none">
       <strong>Disabled widgets</strong>
       <table id="disabled-widgets"><tbody></tbody></table>
@@ -226,6 +230,25 @@ async function poll() {
         return `<tr><td>${esc(p.namespace)}</td><td class="muted">${names}</td></tr>`;
       })
       .concat(fails).join("") || '<tr><td class="muted">no plugins</td></tr>';
+    const pr = st.plugin_reconcile || [];
+    const prCard = $("plugin-reconcile-card");
+    if (pr.length) {
+      prCard.style.display = "";
+      $("plugin-reconcile").tBodies[0].innerHTML = pr
+        .map((p) => {
+          const highlight = p.action === "failed" || p.action === "blocked";
+          const actionCell = highlight
+            ? `<td class="error">${esc(p.action)}</td>`
+            : `<td class="muted">${esc(p.action)}</td>`;
+          const detailCell = p.detail
+            ? (highlight ? `<td class="error">${esc(p.detail)}</td>` : `<td class="muted">${esc(p.detail)}</td>`)
+            : "<td></td>";
+          return `<tr><td>${esc(p.namespace)}</td>${actionCell}${detailCell}</tr>`;
+        })
+        .join("");
+    } else {
+      prCard.style.display = "none";
+    }
     const dw = st.disabled_widgets || [];
     const dwCard = $("disabled-widgets-card");
     if (dw.length) {

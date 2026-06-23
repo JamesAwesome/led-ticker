@@ -57,16 +57,17 @@ the full output format (human + JSON), exit codes, and CI examples.
 ## `led-ticker plugin`
 
 Manage plugins. Two pairs of verbs: **`add` / `remove`** edit the manifest
-(`config/requirements-plugins.txt`) only — the **Docker** path, where the image
-build does the install — and **`install` / `uninstall`** also run pip, for
+(`config/requirements-plugins.txt`) only — the **Docker** path, where a
+`docker compose restart` triggers a startup reconcile that installs from the
+manifest (no rebuild) — and **`install` / `uninstall`** also run pip, for
 bare-metal/dev. (The old `led-ticker plugins` is a deprecated alias of
 `plugin status`.)
 
 ```bash
-# Docker: edit the manifest, then rebuild
+# Docker: edit the manifest, then restart
 led-ticker plugin add pool          # + line in requirements-plugins.txt (no pip)
 led-ticker plugin remove pool       # − line (no pip)
-docker compose up -d --build        # the build installs from the manifest
+docker compose restart              # installs/uninstalls on the next start — no rebuild
 
 # Bare-metal / dev: also pip-install now
 led-ticker plugin install pool      # add + pip install
@@ -89,7 +90,7 @@ the container mounts `./config` read-only, so `docker compose exec led-ticker
 led-ticker plugin add …` fails. If you run led-ticker purely via Docker and have
 no host `led-ticker` command, edit `config/requirements-plugins.txt` by hand
 (`cp config/requirements-plugins.example.txt config/requirements-plugins.txt`)
-and rebuild — it's the same manifest.
+and restart — `docker compose restart`. It's the same manifest.
 
 ### `plugin add` / `plugin remove` (manifest only — Docker)
 
@@ -97,9 +98,11 @@ and rebuild — it's the same manifest.
 `config/requirements-plugins.txt` (pinned to the catalog's recommended ref by
 default; a typo close to a catalog name gets a "did you mean …?"). Re-adding the
 same plugin is idempotent ("already declared" if unchanged). `remove` drops the
-matching line (idempotent — "not in …" if absent). Neither runs pip; both remind
-you to rebuild. This is the Docker workflow: the container is read-only at
-runtime, so the image build is what installs from the manifest.
+matching line (idempotent — "not in …" if absent). Neither runs pip — they only
+edit the manifest. Run `docker compose restart` to apply: a startup reconcile
+installs/uninstalls from the manifest on the next start (no rebuild needed). The
+container is read-only at runtime; plugins install onto the `ticker-plugins`
+volume, not into the image.
 
 The bundled pool/baseball/crypto entries currently pin to `@main`, so the default
 ("pinned") and `--unpinned` write the same `@main` reference today — pass a tagged
@@ -137,7 +140,7 @@ exists can't be parsed.
 
 `list` prints the bundled catalog — each plugin's name, summary, and the
 widgets/transitions it provides — marking each `[declared]` (present in
-`requirements-plugins.txt`, so it installs on the next build) and/or
+`requirements-plugins.txt`, so it installs on the next restart) and/or
 `[installed]` (importable in this environment now). `search` filters that
 catalog by a case-insensitive substring over the name, summary, and provided
 names. `--config` / `-c` locates the manifest for the `[declared]` check.

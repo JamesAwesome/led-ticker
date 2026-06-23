@@ -11,47 +11,89 @@ Plugins can surface anything with an API — sensor values, custom data feeds, b
 
 ## Installing a plugin
 
+:::tip[No rebuild needed]
+Edit `config/requirements-plugins.txt`, then `docker compose restart` — the change applies on the next start in seconds. No image rebuild needed.
+:::
+
 The CLI manages the plugin list for you — `led-ticker plugin list` shows what's available. How you add one depends on how you run led-ticker:
 
-**Docker (the common case)** — the image build installs plugins from `config/requirements-plugins.txt`, and the running container is read-only, so just **manage the manifest** and rebuild:
+**Docker (the common case)** — edit the manifest and restart:
 
 ```bash
 led-ticker plugin add pool         # + line in config/requirements-plugins.txt (no install)
 led-ticker plugin remove pool      # − line
-docker compose up -d --build       # the build installs from the manifest
+docker compose restart             # installs/uninstalls on the next start — no rebuild
 ```
 
 :::note
-`add` / `remove` only edit a host file, so run them **on the host** from your project root (where `config/` lives) — not inside the container. Don't reach for `docker compose exec led-ticker led-ticker plugin add …`: the container mounts `./config` read-only, so the write fails. If you run led-ticker purely via Docker and have no host `led-ticker` command, use the hand-edit path below instead — it's the same manifest.
+`add` / `remove` only edit a host file, so run them **on the host** from your project root (where `config/` lives) — not inside the container. Don't reach for `docker compose exec led-ticker led-ticker plugin add …`: the container mounts `./config` read-only, so the write fails. If you run led-ticker purely via Docker and have no host `led-ticker` command, edit `config/requirements-plugins.txt` by hand — it's the same manifest.
 :::
 
-**Bare-metal / dev** — `install` does the same manifest edit **and** pip-installs into your virtualenv immediately (with `uninstall` to reverse it):
+**Bare-metal / dev** — `install` does the same manifest edit **and** pip-installs into your active virtualenv immediately (with `uninstall` to reverse it):
 
 ```bash
 led-ticker plugin install pool     # add + pip install now
 led-ticker plugin uninstall pool   # remove + pip uninstall
 ```
 
-All of these resolve a catalog name to a pip source (git or PyPI), or take a raw pip spec (`git+https://…` / a PyPI requirement) like `pip` itself. Run from your project root so the manifest lands in `config/requirements-plugins.txt` (the only one the Docker build and `deploy/install.sh` read); pass `--config <path>` for a non-standard layout. See the [CLI reference](/reference/cli/#led-ticker-plugin) for all flags. `led-ticker plugin list` marks each plugin `[declared]` (in the manifest) and `[installed]` (in this environment), so you can confirm what the next build will include.
+All of these resolve a catalog name to a pip source (git or PyPI), or take a raw pip spec (`git+https://…` / a PyPI requirement) like `pip` itself. Run from your project root so the manifest lands in `config/requirements-plugins.txt` (the only one the Docker build and `deploy/install.sh` read); pass `--config <path>` for a non-standard layout. See the [CLI reference](/reference/cli/#led-ticker-plugin) for all flags. `led-ticker plugin list` marks each plugin `[declared]` (in the manifest) and `[installed]` (in this environment), so you can confirm what the next restart will include.
 
-Under the hood, `requirements-plugins.txt` is just a pip requirements file, so you can also edit it by hand — copy the template, edit, and rebuild:
+Under the hood, `requirements-plugins.txt` is just a pip requirements file, so you can also edit it by hand:
 
 ```bash
 cp config/requirements-plugins.example.txt config/requirements-plugins.txt
 # edit the list, then:
-docker compose up -d --build
+docker compose restart
 ```
 
-- The Docker image installs the listed plugins at build time, **constrained to core's dependency versions** (a plugin can bring its own new libraries but can't move a version core pins — a conflict fails the build instead of breaking silently at runtime).
+- On Docker, plugins install at container startup into a persistent `ticker-plugins` volume (separate from the image layer) — the image itself never changes. Installs are **constrained to core's dependency versions** (a plugin can bring its own new libraries but can't move a version core pins — a conflict is caught on start and logged, never breaks silently at runtime).
 - The live `config/requirements-plugins.txt` is gitignored — it's yours to customize per sign. A fresh clone installs **no** plugins until you create it.
 
 Once installed, a plugin registers automatically via its `led_ticker.plugins` entry point — its widget types are available immediately at startup.
+
+### Changing a plugin's version or source
+
+Editing an **exact PyPI pin** (`led-ticker-pool==0.1.0` → `==0.2.0`) and restarting is enough: the reconcile compares the manifest pin against the installed version and reinstalls in place when they differ.
+
+Changing an **unpinned** line, a **range** spec (`>=`, `~=`), or a **git/URL source** (e.g. retargeting `@main` or a moved branch) is _not_ reliably detected on a restart — the namespace is unchanged and the reconcile can't tell whether the upstream source moved, so it leaves the installed copy alone (and logs an INFO saying so). To force a refresh of a non-pinned source, reset the plugin volume (see [reset all plugins](#removing-a-plugin) below). Pinning to a tag or commit SHA avoids this entirely and is recommended for production signs.
+
+## Removing a plugin
+
+Delete the line from `config/requirements-plugins.txt` and restart:
+
+```bash
+led-ticker plugin remove pool
+docker compose restart
+```
+
+The container uninstalls the plugin from the `ticker-plugins` volume on the next start. The manifest is authoritative — anything not listed is removed.
+
+:::note
+Before removing a plugin, also remove its widget types from `config.toml`. If `config.toml` still references a plugin's widgets when the container starts, the reconciler blocks the uninstall (you'll see a "removal blocked" entry on the status page) and the plugin stays installed. Once you've removed the widgets from your config, the next `docker compose restart` will uninstall it cleanly.
+:::
+
+**To reset all plugins** (reinstall everything from scratch on the next start):
+
+```bash
+docker compose stop
+docker volume rm ticker-plugins
+docker compose up -d
+```
+
+Stop the stack first: `docker volume rm` refuses to remove a volume that is still mounted by a running container. This is also the fix if a plugin volume becomes corrupt or out of sync.
+
+## Offline / air-gapped installs
+
+The first `docker compose restart` after adding a plugin needs network access to download it. If your sign runs without internet access, either:
+
+- **Pre-seed the volume** by running `docker compose restart` once on a networked machine (or host), then moving the volume data to the air-gapped sign.
+- **Build a derivative image** that bakes the plugin in: write a small Dockerfile that starts `FROM led-ticker` and adds a `RUN pip install -c /code/constraints-core.txt <plugin>` layer with your plugins, build it on a machine with network access, then deploy that image to the air-gapped sign. The `-c /code/constraints-core.txt` flag pins the install to core's frozen dependency versions, so a baked plugin can't bump a core-pinned dependency (the same constraint the runtime reconcile applies). One caveat: a PEP 517 build from an sdist runs in an _isolated_ build environment that does **not** inherit `-c`, so the constraint only governs the final install resolution — prefer prebuilt wheels and pin to vetted, immutable sources (a tag or commit SHA, not `@main`).
 
 ## Relationship to the `[plugins]` config block
 
 These are complementary layers:
 
-- **`config/requirements-plugins.txt`** controls what is **installed** (build time).
+- **`config/requirements-plugins.txt`** controls what is **installed** (applied at container startup).
 - The optional **`[plugins]` block** in `config.toml` controls what is **loaded**: `enabled` toggles plugin loading, `disable = ["namespace"]` skips a plugin, and `dir` points at a local-plugin directory. It does not install anything.
 
 A plugin must be installed **and** not disabled to be active.
@@ -64,7 +106,7 @@ New to it? The four-page [**authoring guide**](/plugins/authoring/01-scaffold/) 
 
 ## If something goes wrong
 
-- **`'pool.monitor' looks like a plugin widget, but no 'pool' plugin is loaded. Install it with `led-ticker plugin install pool``** at validate/startup → the plugin isn't installed. The same hint appears for any namespaced name that doesn't resolve — a transition, border, color provider, or animation. On Docker, run `led-ticker plugin add pool` then rebuild with `docker compose up -d --build`; on bare-metal/dev, `led-ticker plugin install pool`. Either way, `led-ticker plugin status` confirms what's registered.
+- **`'pool.monitor' looks like a plugin widget, but no 'pool' plugin is loaded. Install it with `led-ticker plugin install pool``** at validate/startup → the plugin isn't installed. The same hint appears for any namespaced name that doesn't resolve — a transition, border, color provider, or animation. On Docker, run `led-ticker plugin add pool` then `docker compose restart`; on bare-metal/dev, `led-ticker plugin install pool`. Either way, `led-ticker plugin status` confirms what's registered.
 - **A plugin's widget shows `--`, dim values, or raises at startup** → that's the plugin's own runtime/config issue (e.g. pool needs `INFLUXDB_TOKEN`); check the plugin's README. A plugin that fails to _load_ is skipped with a logged error and never crashes the display.
 
 ## Available plugins

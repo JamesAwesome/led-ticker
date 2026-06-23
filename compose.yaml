@@ -24,6 +24,7 @@ services:
     volumes:
       - ./config:/code/config:ro
       - ticker-status:/run/led-ticker   # shared with webui; display process writes status.json here
+      - ticker-plugins:/data/plugins   # installed plugins (runtime reconcile); reset = docker compose stop && docker volume rm ticker-plugins && docker compose up -d
     env_file:
       - path: ./.env
         required: false     # repo may not have .env if no API keys are needed
@@ -47,6 +48,10 @@ services:
       # rw so the web config editor can write config.toml; the display still mounts :ro and hot-reloads the change.
       - ./config:/code/config:rw
       - ticker-status:/run/led-ticker
+      # :ro for plugin VISIBILITY only — the webui's config validator must SEE
+      # plugin widget types (else false "plugin not loaded" warnings). It never
+      # installs; only the display service mounts this :rw and reconciles.
+      - ticker-plugins:/data/plugins:ro
 
 volumes:
   # tmpfs-backed: status.json is rewritten ~every 2s. Keeping it in RAM
@@ -60,3 +65,4 @@ volumes:
       type: tmpfs
       device: tmpfs
       o: size=1m
+  ticker-plugins:

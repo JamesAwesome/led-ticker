@@ -8,6 +8,7 @@ first-party entries are git-only; a `pypi` source is added later (PyPI publishin
 slice) with no schema change.
 """
 
+import functools
 import json
 from importlib import resources
 
@@ -247,8 +248,14 @@ def _parse_catalog(data: dict) -> Catalog:
     return Catalog(entries=entries)
 
 
+@functools.cache
 def load_catalog() -> Catalog:
-    """Load + validate the bundled catalog. Raises ValueError on a malformed file."""
+    """Load + validate the bundled catalog. Raises ValueError on a malformed file.
+
+    Cached: the catalog is an immutable bundled package resource, so re-parsing
+    it on every reconcile pass / CLI call is pure waste. The Catalog is frozen,
+    so sharing one instance is safe.
+    """
     text = (
         resources.files("led_ticker")
         .joinpath(_CATALOG_RESOURCE)

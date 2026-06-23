@@ -44,12 +44,12 @@ Once the package is installed, led-ticker discovers it automatically — no conf
 
 ## Install it on a sign
 
-Add the package to your led-ticker checkout's `config/requirements-plugins.txt` and rebuild. The install flow (the constraint-based build, the gitignored live file) is covered on the [Plugins overview](/plugins/) — in short:
+Add the package to your led-ticker checkout's `config/requirements-plugins.txt` and restart. A startup reconcile makes the installed plugins match the file — no image rebuild. The install flow (the constraint-based install, the gitignored live file) is covered on the [Plugins overview](/plugins/) — in short:
 
 ```bash
 cp config/requirements-plugins.example.txt config/requirements-plugins.txt
 # add a line for your package (a PyPI name, or a git URL), then:
-docker compose up -d --build
+docker compose restart
 ```
 
 <Aside type="note" title="led-ticker isn't on PyPI">

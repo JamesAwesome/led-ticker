@@ -453,3 +453,106 @@ def test_run_builds_overlay_roster_in_source():
     assert "set_overlay_roster(" in src
     assert '"kind": "core"' in src  # busy_light entry synthesized in run()
     assert '"kind": "plugin"' in src  # plugin overlay entries
+
+
+def test_reconcile_runs_before_load_plugins_and_frame_build():
+    """Tripwire: reconcile must run before plugin load and before the frame drop-root.
+
+    plugin_reconcile.reconcile(...) + apply_to_syspath(...) must appear in
+    run() BEFORE _load_plugins_for_config(...) (so reconciled packages are
+    importable when plugins load), and _load_plugins_for_config must appear
+    BEFORE build_frame_from_config (constraint #13 — root drops during frame
+    construction). This is a source-order assertion mirroring the style of
+    test_setup_runs_before_frame_build.
+    """
+    import inspect
+
+    from led_ticker.app.run import run
+
+    src = inspect.getsource(run)
+    reconcile_at = src.index("plugin_reconcile.reconcile(")
+    apply_at = src.index("apply_to_syspath(")
+    load_plugins_at = src.index("_load_plugins_for_config(")
+    setup_board_at = src.index("_setup_status_board(")
+    record_at = src.index("record_plugin_reconcile(")
+    frame_at = src.index("build_frame_from_config(")
+
+    assert reconcile_at < load_plugins_at, (
+        "plugin_reconcile.reconcile(...) must appear in run() BEFORE "
+        "_load_plugins_for_config(...) so reconciled packages are importable "
+        "when plugins load."
+    )
+    assert apply_at < load_plugins_at, (
+        "apply_to_syspath(...) must appear in run() BEFORE "
+        "_load_plugins_for_config(...) so the volume venv site-packages are on "
+        "sys.path before entry-point discovery."
+    )
+    assert reconcile_at < apply_at, (
+        "apply_to_syspath in run() must follow reconcile() — reconcile already "
+        "handles the internal apply for volume targets; the outer call is a "
+        "belt-and-suspenders guard for the local-venv path and must not precede "
+        "the reconcile."
+    )
+    assert load_plugins_at < frame_at, (
+        "_load_plugins_for_config must precede build_frame_from_config — the "
+        "matrix library drops root during frame construction (constraint #13)."
+    )
+    assert setup_board_at < record_at < frame_at, (
+        "record_plugin_reconcile(...) must appear after _setup_status_board(...) "
+        "and before build_frame_from_config(...) so the board is ready to "
+        "receive reconcile event records."
+    )
+
+
+def test_reconcile_prologue_never_raises():
+    """Tripwire (constraint #1): the reconcile prologue in run() — resolve_target,
+    reconcile, apply_to_syspath — must all sit inside a try that ACTUALLY HANDLES
+    the raise (>=1 ``except`` handler) so a raise on the dark-panel prologue
+    (before build_frame_from_config) cannot freeze the panel. reconcile() guards
+    its own body, but resolve_target/apply_to_syspath run outside that guard.
+
+    A bare ``try: ... finally:`` with no ``except`` would let the exception
+    propagate and freeze the panel while still placing the calls inside a Try
+    node, so it is NOT sufficient to assert "inside a Try" — the enclosing Try
+    must have a non-empty ``.handlers``. AST-verify each required call is a
+    descendant of a Try node whose ``.handlers`` is non-empty."""
+    import ast
+    import inspect
+
+    from led_ticker.app.run import run
+
+    tree = ast.parse(inspect.getsource(run))
+
+    # For each call, record whether it is lexically inside a Try whose body has at
+    # least one `except` handler. A call seen inside an except-less Try (e.g. a
+    # try/finally) is recorded with has_except=False unless ALSO covered by a
+    # handled Try — we take the strongest coverage seen (any handled Try wins).
+    coverage: dict[str, bool] = {}
+
+    class _Visitor(ast.NodeVisitor):
+        def visit_Try(self, node: ast.Try) -> None:
+            has_except = len(node.handlers) >= 1
+            for stmt in node.body:
+                for sub in ast.walk(stmt):
+                    if isinstance(sub, ast.Call):
+                        name = ast.unparse(sub.func)
+                        coverage[name] = coverage.get(name, False) or has_except
+            self.generic_visit(node)
+
+    _Visitor().visit(tree)
+
+    for needed in (
+        "plugin_reconcile.resolve_target",
+        "plugin_reconcile.reconcile",
+        "plugin_reconcile.apply_to_syspath",
+    ):
+        assert needed in coverage, (
+            f"{needed}(...) must run inside a try/except in run() — a raise on "
+            "the reconcile prologue freezes the panel (constraint #1)."
+        )
+        assert coverage[needed], (
+            f"{needed}(...) is inside a Try with NO except handler (a bare "
+            "try/finally) — an exception would still propagate and freeze the "
+            "panel. It must sit inside a try that has at least one `except` "
+            "(constraint #1)."
+        )

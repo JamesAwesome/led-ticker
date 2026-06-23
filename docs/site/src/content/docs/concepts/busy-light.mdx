@@ -77,11 +77,18 @@ enabled = true
 source = "http"
 http_host = "0.0.0.0"
 http_port = 8081
-token = "change-me"      # shared secret; omit/empty = open on the LAN
 ttl_seconds = 0          # 0 = explicit on/off; >0 = auto-clear after N seconds`}
 />
 
-The listener exposes one route:
+Set the shared secret in the **`LED_TICKER_BUSY_TOKEN`** environment variable (for example in your `.env`) — secrets belong in the environment, not in `config.toml`:
+
+```bash
+LED_TICKER_BUSY_TOKEN=change-me
+```
+
+The display reads the token env-first. A `token = "…"` field in `[busy_light]` still works as a fallback, but it logs a warning at startup telling you to move it to `LED_TICKER_BUSY_TOKEN`. With neither set, the listener is open to anyone on the LAN.
+
+The listener exposes one route (`change-me` below stands in for your `LED_TICKER_BUSY_TOKEN` value):
 
 ```bash
 # turn the light on / off (GET with a query param — easiest for macros)

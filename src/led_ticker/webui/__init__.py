@@ -106,6 +106,38 @@ def _build_store(**kwargs: Any) -> dict[str, Any]:
     return build_store(**kwargs)
 
 
+def _load_catalog_lazy():
+    """Load the plugin catalog with lazy import (no rgbmatrix at import time).
+
+    Defined at module level so tests can monkeypatch it on this module.
+    """
+    from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
+
+    return load_catalog()
+
+
+async def _write_manifest_atomic(
+    manifest_path: Path, new_text: str, lock: asyncio.Lock
+) -> None:
+    """Atomic manifest write: lock → .bak backup → tmp + os.replace.
+
+    Mirrors save_handler's backup+atomic pattern so both callers share
+    identical durability semantics.  Caller holds no pre-existing lock.
+    """
+    async with lock:
+        tmp = manifest_path.with_name(manifest_path.name + ".tmp")
+        try:
+            if manifest_path.exists():
+                bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+                shutil.copy2(manifest_path, bak)
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(new_text, encoding="utf-8")
+            os.replace(tmp, manifest_path)
+        except OSError:
+            tmp.unlink(missing_ok=True)
+            raise
+
+
 def build_webui_app(
     *, config_path: Path, status_path: Path, token: str = ""
 ) -> web.Application:
@@ -170,9 +202,104 @@ def build_webui_app(
         )
         return web.json_response(payload)
 
+    manifest_lock = asyncio.Lock()
+
+    async def install_handler(request: web.Request) -> web.Response:
+        """POST /api/store/install — add a catalog plugin to the manifest.
+
+        Token-gated by the global auth middleware (install is NOT in _OPEN_PATHS).
+        Mirrors save_handler's "no token → 403 editing disabled" convention for
+        clarity (the middleware already blocks tokenless requests when a token is
+        configured, but a missing token means editing is administratively disabled).
+        """
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+
+        namespace = payload.get("namespace") if isinstance(payload, dict) else None
+        if not isinstance(namespace, str) or not namespace:
+            return web.json_response({"error": "missing namespace"}, status=400)
+
+        # Resolve namespace → CatalogEntry.  Catalog.get() is NAME-based, so
+        # build a namespace map the same way store.py does (O(N), N is small).
+        catalog = _load_catalog_lazy()
+        entry = next((e for e in catalog.entries if e.namespace == namespace), None)
+        if entry is None:
+            return web.json_response({"error": "unknown plugin"}, status=400)
+
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+
+        # Import helpers lazily to keep the module rgbmatrix-pure.
+        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+            _declared_keys,
+            _requirement_key,
+        )
+
+        req = entry.requirement()
+        req_key = _requirement_key(req)
+
+        # Check whether requirement is already declared (dedup key match).
+        declared = _declared_keys(manifest_path)
+        if req_key not in declared:
+            # Build updated manifest text via _update_requirements then read back,
+            # but we need atomic write — so compute the new text manually instead
+            # of letting _update_requirements write directly.  We replicate its
+            # dedup logic: read current lines, replace/append, format.
+            lines = (
+                manifest_path.read_text(encoding="utf-8").splitlines()
+                if manifest_path.exists()
+                else []
+            )
+            kept: list[str] = []
+            replaced = False
+            for line in lines:
+                stripped = line.strip()
+                if (
+                    stripped
+                    and not stripped.startswith("#")
+                    and _requirement_key(stripped) == req_key
+                ):
+                    replaced = True
+                    continue  # drop stale line; append fresh req below
+                kept.append(line)
+            kept.append(req)
+            new_text = "\n".join(kept).rstrip("\n") + "\n"
+            _ = replaced  # unused, for clarity only
+
+            try:
+                await _write_manifest_atomic(manifest_path, new_text, manifest_lock)
+            except OSError as e:
+                return web.json_response(
+                    {"error": f"manifest write failed: {e}"}, status=500
+                )
+
+        # Return the rebuilt store entry for this namespace so the UI refreshes.
+        status_envelope = _read_status(status_path)
+        inner_status: dict = status_envelope.get("status", {})
+        store_payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+        )
+        plugin_entry = next(
+            (
+                p
+                for p in store_payload.get("plugins", [])
+                if p["namespace"] == namespace
+            ),
+            {"namespace": namespace},
+        )
+        return web.json_response(plugin_entry)
+
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
     app.router.add_get("/api/store", store_handler)
+    app.router.add_post("/api/store/install", install_handler)
     _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)

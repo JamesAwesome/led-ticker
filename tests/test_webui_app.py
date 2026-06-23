@@ -823,3 +823,288 @@ async def test_store_open_without_token(tmp_path, monkeypatch):
         assert body["auth_required"] is True  # token IS configured
     finally:
         await client.close()
+
+
+# POST /api/store/install — plugin store install (Task 4)
+# ---------------------------------------------------------------------------
+
+
+async def test_install_known_namespace_writes_manifest(tmp_path, monkeypatch):
+    """POST /api/store/install with a known namespace → 200 + manifest updated."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    # Minimal catalog with one entry whose namespace we'll install.
+    fake_entry = CatalogEntry(
+        name="rss",
+        namespace="rss.feed",
+        summary="RSS/Atom feed headlines.",
+        homepage="",
+        provides=PluginProvides(widgets=("rss.feed",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="main",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    fake_catalog = Catalog(entries=(fake_entry,))
+
+    # Patch _build_store so the return value is controlled.
+    def fake_build_store(**kwargs):
+        return {
+            "display_online": False,
+            "pending_count": 1,
+            "auth_required": True,
+            "plugins": [
+                {
+                    "namespace": "rss.feed",
+                    "name": "rss",
+                    "summary": "RSS/Atom feed headlines.",
+                    "provides": {"widgets": ["rss.feed"]},
+                    "source": "git",
+                    "state": "restart_to_activate",
+                    "removable": True,
+                    "in_use_by": [],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(webui_mod, "_build_store", fake_build_store)
+
+    # Patch _load_catalog_lazy so we control catalog resolution.
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    client = await _client(tmp_path, token="s3cret")
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        # Response carries the rebuilt store entry for that namespace.
+        assert body["namespace"] == "rss.feed"
+        # Manifest must now contain the catalog requirement line.
+        assert manifest_path.exists(), "manifest was not created"
+        manifest_text = manifest_path.read_text()
+        assert "led-ticker-plugins" in manifest_text or "rss" in manifest_text
+        req = fake_entry.requirement()
+        assert req in manifest_text, f"expected {req!r} in manifest"
+        # .bak file must NOT exist (no prior manifest to back up).
+        bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+        assert not bak.exists()
+    finally:
+        await client.close()
+
+
+async def test_install_bak_created_when_manifest_exists(tmp_path, monkeypatch):
+    """When the manifest already exists, install creates a .bak before writing."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    fake_entry = CatalogEntry(
+        name="rss",
+        namespace="rss.feed",
+        summary="RSS feed.",
+        homepage="",
+        provides=PluginProvides(widgets=("rss.feed",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="main",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    fake_catalog = Catalog(entries=(fake_entry,))
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 1,
+            "auth_required": True,
+            "plugins": [
+                {
+                    "namespace": "rss.feed",
+                    "name": "rss",
+                    "summary": "",
+                    "provides": {},
+                    "source": "git",
+                    "state": "restart_to_activate",
+                    "removable": True,
+                    "in_use_by": [],
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text("# existing manifest\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        # .bak must exist with the prior content.
+        bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+        assert bak.exists(), ".bak was not created"
+        assert bak.read_text() == "# existing manifest\n"
+        # requirement line in manifest.
+        assert fake_entry.requirement() in manifest_path.read_text()
+    finally:
+        await client.close()
+
+
+async def test_install_without_token_rejected(tmp_path, monkeypatch):
+    """POST /api/store/install without token (token configured) → 401."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        # No auth header at all.
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+        )
+        assert resp.status in (401, 403)
+    finally:
+        await client.close()
+
+
+async def test_install_unknown_namespace_returns_400(tmp_path, monkeypatch):
+    """POST /api/store/install with a namespace not in the catalog → 400."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import Catalog
+
+    # Empty catalog — no known namespaces.
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=()))
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "notreal.plugin"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 400
+        body = await resp.json()
+        assert body.get("error") == "unknown plugin"
+    finally:
+        await client.close()
+
+
+async def test_install_idempotent_when_already_declared(tmp_path, monkeypatch):
+    """If requirement already in manifest, install is a no-op → 200, no dup."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    fake_entry = CatalogEntry(
+        name="rss",
+        namespace="rss.feed",
+        summary="RSS feed.",
+        homepage="",
+        provides=PluginProvides(widgets=("rss.feed",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="main",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    fake_catalog = Catalog(entries=(fake_entry,))
+    req = fake_entry.requirement()
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [
+                {
+                    "namespace": "rss.feed",
+                    "name": "rss",
+                    "summary": "",
+                    "provides": {},
+                    "source": "git",
+                    "state": "active",
+                    "removable": True,
+                    "in_use_by": [],
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        # Manifest must not have duplicate lines for the same plugin.
+        lines = [
+            ln.strip()
+            for ln in manifest_path.read_text().splitlines()
+            if ln.strip() and not ln.strip().startswith("#")
+        ]
+        assert lines.count(req) == 1, "duplicate requirement line written"
+    finally:
+        await client.close()

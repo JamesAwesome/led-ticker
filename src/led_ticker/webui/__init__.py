@@ -20,6 +20,7 @@ import time
 import tomllib
 from importlib import resources
 from pathlib import Path
+from typing import Any
 
 from aiohttp import web
 
@@ -43,6 +44,11 @@ logger = logging.getLogger(__name__)
 
 STALE_FACTOR = 3.0  # stale when published_at is older than factor × min_interval
 MAX_VALIDATE_BODY = 1024 * 1024  # 1 MB (used by the /api/validate task)
+
+# Routes that are intentionally open (no auth required) even when a token is
+# configured. The store endpoint is public so the UI can render the plugin list
+# for unauthenticated visitors who want to see what is installed.
+_OPEN_PATHS = frozenset({"/api/store"})
 
 
 def _read_status(status_path: Path) -> dict:
@@ -89,6 +95,17 @@ def _read_status(status_path: Path) -> dict:
     return {"state": state, "age_seconds": round(age, 1), "status": status}
 
 
+def _build_store(**kwargs: Any) -> dict[str, Any]:
+    """Call build_store from led_ticker.webui.store with lazy import.
+
+    Defined at module level so tests can monkeypatch it on this module.
+    The import is deferred to avoid pulling in rgbmatrix at webui import time.
+    """
+    from led_ticker.webui.store import build_store  # noqa: PLC0415
+
+    return build_store(**kwargs)
+
+
 def build_webui_app(
     *, config_path: Path, status_path: Path, token: str = ""
 ) -> web.Application:
@@ -96,7 +113,7 @@ def build_webui_app(
 
     @web.middleware
     async def auth(request: web.Request, handler):
-        if token:
+        if token and request.path not in _OPEN_PATHS:
             provided = request.headers.get("X-Web-Token") or request.query.get("token")
             if provided != token:
                 return web.json_response({"error": "unauthorized"}, status=401)
@@ -141,8 +158,21 @@ def build_webui_app(
             },
         )
 
+    async def store_handler(request: web.Request) -> web.Response:
+        status_envelope = _read_status(status_path)
+        inner_status: dict = status_envelope.get("status", {})
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+        payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+        )
+        return web.json_response(payload)
+
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
+    app.router.add_get("/api/store", store_handler)
     _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)

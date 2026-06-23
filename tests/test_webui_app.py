@@ -761,3 +761,65 @@ def test_index_html_has_config_validation_card():
     assert 'id="config-validation-card"' in html
     assert 'id="config-validation-body"' in html
     assert "config_validation" in html
+
+
+# ---------------------------------------------------------------------------
+# GET /api/store — plugin store (Task 3)
+# ---------------------------------------------------------------------------
+
+
+async def test_store_returns_expected_shape(tmp_path, monkeypatch):
+    """GET /api/store → 200 with plugins list and metadata keys."""
+    import led_ticker.webui as webui_mod
+
+    fake_payload = {
+        "display_online": False,
+        "pending_count": 0,
+        "auth_required": False,
+        "plugins": [{"namespace": "rss.feed", "state": "available"}],
+    }
+
+    def fake_build_store(**kwargs):
+        return fake_payload
+
+    monkeypatch.setattr(webui_mod, "_build_store", fake_build_store)
+
+    client = await _client(tmp_path)
+    try:
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        assert "plugins" in body
+        assert isinstance(body["plugins"], list)
+        assert "display_online" in body
+        assert "pending_count" in body
+        assert "auth_required" in body
+        assert body["plugins"][0]["namespace"] == "rss.feed"
+    finally:
+        await client.close()
+
+
+async def test_store_open_without_token(tmp_path, monkeypatch):
+    """GET /api/store does not require auth even when a token is configured."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kwargs: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        # No token header — must still return 200 (open route)
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["auth_required"] is True  # token IS configured
+    finally:
+        await client.close()

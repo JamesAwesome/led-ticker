@@ -11,6 +11,7 @@ Optional:
   center                        bool                                          default: true  — center text when it fits; false = left-align
   padding                       int (pixels)                                  default: 6  — end padding (spacing in side-by-side scroll)
   border                        "rainbow" | "color_cycle" | "lightbulbs" | [r,g,b] | {style="rainbow"|"color_cycle"|"constant"|"lightbulbs"|"bands", ...}  default: none  — animated border painted at panel edges — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see /concepts/borders/
+  timezone                      IANA name | none                              default: system local  — timezone override, e.g. "America/New_York" (default: system local)
 
 Shared fields:
   type                          

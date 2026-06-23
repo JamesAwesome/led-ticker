@@ -112,6 +112,12 @@ type = "countdown"
 text = "Days Until Summer"
 countdown_date = 2026-06-20
 
+# Counts up from any past date. Widget disappears before countup_date arrives.
+[[playlist.section.widget]]
+type = "countup"
+text = "Open for"
+countup_date = 2024-01-01
+
 # Live RSS headlines from Nintendo Life — a known-stable feed for the demo.
 # Swap feed_url for any RSS/Atom URL of your own; update_interval is seconds
 # between fetches.

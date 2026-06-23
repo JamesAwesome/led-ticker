@@ -1,9 +1,9 @@
-# Countdown Widget Options
+# Countup Widget Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `text` | string | required | Label shown before the day count, e.g. `"Until Summer"` renders as `"Until Summer: 42"`. |
-| `countdown_date` | date | required | Target date in TOML date syntax: `2026-12-25`. The day count is recomputed on every draw so the value updates at midnight without restarting the process. |
+| `text` | string | required | Label shown before the day count, e.g. `"Days since launch"` renders as `"Days since launch: 42"`. |
+| `countup_date` | date | required | Start date in TOML date syntax: `2024-01-01`. The day count is recomputed on every draw so the value updates at midnight without restarting the process. Widget does not display until this date arrives. |
 | `font` | string | `"6x12"` | BDF font name (e.g., `"5x8"`, `"6x12"`) or hires font (e.g., `"Inter-Bold"`). |
 | `font_size` | int | (BDF cell height) | Real-pixel font size for hires fonts. Required if `font` is a hires font name. |
 | `font_threshold` | int 0–255 | `128` | Rasterization threshold for hires fonts. Lower = thicker glyphs. |

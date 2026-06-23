@@ -1093,6 +1093,20 @@ class Ticker:
 # --- Queue builders ---
 
 
+def _displayable(widget: Any) -> bool:
+    """A widget may opt out of a rotation pass via `should_display()` (e.g. an
+    out-of-range count widget). Duck-typed: widgets without the method always
+    show. A check that raises keeps the widget — a visibility check must never
+    crash the render loop or silently hide content."""
+    check = getattr(widget, "should_display", None)
+    if check is None:
+        return True
+    try:
+        return bool(check())
+    except Exception:  # noqa: BLE001 - visibility must not crash the render loop
+        return True
+
+
 def _expand_sources(
     sources: list[Any], breaker: RenderBreaker | None = None
 ) -> list[Any]:
@@ -1104,6 +1118,10 @@ def _expand_sources(
     If `breaker` is given, disabled widgets (and disabled container
     stories) are filtered from the output so they never re-enter the
     rotation after being tripped.
+
+    Widgets (and container stories) that define `should_display()` are also
+    filtered: returning `False` removes the widget from this pass. A check
+    that raises keeps the widget — visibility must never crash the render loop.
     """
     from led_ticker.widget import Container
 
@@ -1113,9 +1131,11 @@ def _expand_sources(
             continue
         if isinstance(s, Container):
             for story in s.feed_stories:
-                if breaker is None or not breaker.is_disabled(story):
+                if breaker is not None and breaker.is_disabled(story):
+                    continue
+                if _displayable(story):
                     out.append(story)
-        else:
+        elif _displayable(s):
             out.append(s)
     return out
 

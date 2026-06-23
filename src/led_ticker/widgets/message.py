@@ -1,6 +1,9 @@
-"""Static text widgets: TickerMessage, TickerCountdown, and SegmentMessage."""
+"""Static text widgets: TickerMessage and SegmentMessage.
 
-from datetime import date
+TickerCountdown has moved to ``widgets/count.py``; it is re-exported from
+here for backwards compatibility.
+"""
+
 from typing import Any
 
 import attrs
@@ -303,81 +306,5 @@ class SegmentMessage:
         return canvas, cursor_pos
 
 
-@register("countdown")
-@attrs.define
-class TickerCountdown(FrameAwareBase):
-    """A countdown to a specific date."""
-
-    text: str
-    countdown_date: date
-    font: Font = attrs.Factory(lambda: FONT_DEFAULT)
-    font_color: ColorProvider = attrs.field(
-        default=attrs.Factory(lambda: DEFAULT_COLOR),
-        converter=_coerce_font_color,
-    )
-    bg_color: Color | None = attrs.field(default=None, kw_only=True)
-    center: bool = True
-    padding: int = 6
-    # Optional perimeter border effect — same contract as
-    # `TickerMessage.border` (see borders.py). Paints before text at
-    # physical resolution; advances on its per-effect counter
-    # (read via `frame_for("border")`).
-    border: Any | None = attrs.field(default=None, kw_only=True)
-    _baseline_y: int = attrs.field(init=False, default=-1)
-
-    def draw(
-        self,
-        canvas: Canvas,
-        cursor_pos: int = 0,
-        *,
-        y_offset: int = 0,
-        font_color: Any = None,
-    ) -> DrawResult:
-        # Allow callers to override font_color, but coerce raw Color to
-        # provider for uniform handling below.
-        if font_color is not None and not hasattr(font_color, "color_for"):
-            font_color = _ConstantColor(font_color)
-        provider: ColorProvider = font_color or self.font_color
-
-        today = date.today()
-        days_until = (self.countdown_date - today).days
-        text = f"{self.text}: {days_until}"
-
-        content_width = get_text_width(self.font, text, padding=0, canvas=canvas)
-        cursor_pos, end_padding = compute_cursor(
-            canvas.width, content_width, cursor_pos, self.padding, center=self.center
-        )
-
-        if self._baseline_y < 0:
-            self._baseline_y = compute_baseline(self.font, canvas, valign="center")
-        baseline_y = self._baseline_y
-
-        # Paint border BEFORE text — same contract as `TickerMessage`.
-        # Border frames the panel; text floats inside. Border reads
-        # its per-effect counter via `frame_for("border")` so
-        # transitions freeze and visit-resets honor `restart_on_visit`.
-        if self.border is not None:
-            self.border.paint(canvas, self.frame_for("border"))
-
-        if provider.per_char:
-            # Per-char provider on plain text: iterate chars so rainbow
-            # / gradient render with per-character hue offsets. Mirrors
-            # `TickerMessage.draw`'s per-char branch.
-            cursor_pos += draw_text_per_char(
-                canvas,
-                self.font,
-                cursor_pos,
-                baseline_y + y_offset,
-                text,
-                lambda idx, total: provider.color_for(
-                    self.frame_for("font_color"), idx, total
-                ),
-            )
-        else:
-            color = provider.color_for(self.frame_for("font_color"), 0, len(text))
-            cursor_pos += draw_text(
-                canvas, self.font, cursor_pos, baseline_y + y_offset, color, text
-            )
-        cursor_pos += end_padding
-
-        return canvas, cursor_pos
+# TickerCountdown moved to widgets/count.py; keep the historical import path.
+from led_ticker.widgets.count import TickerCountdown  # noqa: E402, F401

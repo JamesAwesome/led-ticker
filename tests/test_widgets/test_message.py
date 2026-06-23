@@ -558,17 +558,17 @@ class TestBaselineCache:
     def test_ticker_countdown_baseline_computed_once(self, canvas, monkeypatch):
         from datetime import date
 
-        import led_ticker.widgets.message as message_mod
-        from led_ticker.widgets.message import TickerCountdown
+        import led_ticker.widgets.count as count_mod
+        from led_ticker.widgets.count import TickerCountdown
 
         calls: list = []
-        original = message_mod.compute_baseline
+        original = count_mod.compute_baseline
 
         def _track(*args, **kwargs):
             calls.append(args)
             return original(*args, **kwargs)
 
-        monkeypatch.setattr(message_mod, "compute_baseline", _track)
+        monkeypatch.setattr(count_mod, "compute_baseline", _track)
 
         widget = TickerCountdown(text="Days", countdown_date=date(2027, 1, 1))
         widget.draw(canvas)

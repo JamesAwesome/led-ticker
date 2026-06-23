@@ -183,10 +183,15 @@ FIELD_HINTS: dict[str, FieldHint] = {
         'timezone override, e.g. "America/New_York" (default: system local)',
         "system local",
     ),
-    # --- Countdown ---
+    # --- Countdown / countup ---
     "countdown_date": FieldHint(
         "YYYY-MM-DD",
         "target date to count down to (ISO format, e.g. 2026-12-25)",
+        None,
+    ),
+    "countup_date": FieldHint(
+        "YYYY-MM-DD",
+        "start date to count up from (ISO format, e.g. 2024-01-01)",
         None,
     ),
     # --- RSS feed ---
@@ -252,7 +257,7 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "font_size": None,
     "font_threshold": None,
     "animation": {"message", "gif", "image"},
-    "border": {"message", "countdown", "two_row", "gif", "image"},
+    "border": {"message", "countdown", "countup", "two_row", "gif", "image"},
     "text_wrap": {"gif", "image"},
     "text_separator": {"gif", "image"},
     "text_separator_color": {"gif", "image"},
@@ -733,11 +738,12 @@ async def validate_widget_cfg(
     border_value = widget_cfg.pop("border", None)
     if (
         border_value is not None
-        and widget_type not in ("message", "countdown", "two_row", "gif", "image")
+        and widget_type
+        not in ("message", "countdown", "countup", "two_row", "gif", "image")
         and not _widget_declares_field(cls, "border")
     ):
         raise ValueError(
-            f'border is only valid on type="message", "countdown", '
+            f'border is only valid on type="message", "countdown", "countup", '
             f'"two_row", "gif", or "image"; got type={widget_type!r}.'
         )
     if border_value is not None:

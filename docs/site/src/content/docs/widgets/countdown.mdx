@@ -13,6 +13,9 @@ renders `<text>: <N>` where N is the number of days from today to `countdown_dat
 The count is recomputed on each draw, so it rolls to the next value at midnight
 without restarting the process.
 
+Once `countdown_date` has passed, the widget drops out of the rotation. To count
+up from a past date instead, see [countup](/widgets/countup/).
+
 <DemoGif src="/demos/widget-countdown.gif" caption="countdown to 2026-06-21 with rainbow font" />
 
 <TomlExample
@@ -83,4 +86,6 @@ border = "rainbow"`}
 
 `animation = "typewriter"` is rejected on `countdown` — it's only supported on `message`, `gif`, and `image`. For dynamic color, use [`font_color = "rainbow"`](/concepts/color-providers/) or a gradient.
 
-<RelatedPages slugs={["widgets/message", "widgets/two_row", "concepts/color-providers"]} />
+<RelatedPages
+  slugs={["widgets/countup", "widgets/message", "widgets/two_row", "concepts/color-providers"]}
+/>

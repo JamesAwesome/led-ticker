@@ -46,8 +46,8 @@ Extra widgets (and other extension points) are installed as plugins, declared in
 
 ```bash
 cp config/requirements-plugins.example.txt config/requirements-plugins.txt
-# edit to add/remove plugins, then rebuild the image:
-docker compose up -d --build
+# edit to add/remove plugins, then restart (no image rebuild needed):
+docker compose restart
 ```
 
 The live `config/requirements-plugins.txt` is gitignored (it's yours to customize); the tracked `.example` ships the pool water-temperature widget (`type = "pool.monitor"`) as a starting point. Installed plugins auto-register via their `led_ticker.plugins` entry point — no `[plugins]` config change needed.

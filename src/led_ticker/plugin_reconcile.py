@@ -184,15 +184,26 @@ def _declared_namespaces(config_path: Path) -> set[str]:
     except Exception:  # noqa: BLE001
         catalog = None
 
-    # Build a lookup: dedup_key -> namespace from the catalog.
+    # Build a lookup: dedup_key -> namespace from the catalog. Register a key for
+    # EVERY source of each entry (pypi AND git) and for both the pinned and
+    # unpinned requirement forms, because `plugin add --source git` (and the
+    # git+subdirectory deploy story) writes a manifest line whose dedup key is the
+    # repo#subdir, not the pypi package name. Keying only the default (first)
+    # source would leave a git-source line for a pypi-default catalog plugin
+    # unresolved → churn (failed reinstall every boot) and a wrong uninstall of
+    # the real namespace. Tripwire: test_declared_namespaces_git_source_resolves.
     key_to_ns: dict[str, str] = {}
     if catalog is not None:
         for entry in catalog.entries:
-            try:
-                k = _requirement_key(entry.requirement())
-                key_to_ns[k] = entry.namespace
-            except Exception:  # noqa: BLE001
-                pass
+            for src in entry.sources:
+                for pinned in (True, False):
+                    try:
+                        k = _requirement_key(
+                            entry.requirement(source=src.type, pinned=pinned)
+                        )
+                        key_to_ns[k] = entry.namespace
+                    except Exception:  # noqa: BLE001
+                        pass
 
     namespaces: set[str] = set()
     for line in manifest.read_text(encoding="utf-8").splitlines():
@@ -205,12 +216,18 @@ def _declared_namespaces(config_path: Path) -> set[str]:
     return namespaces
 
 
-def _install_namespace(ns: str, python_exe: str) -> int:
+def _install_namespace(
+    ns: str, python_exe: str, *, constraints: str | None = None
+) -> int:
     """Pip-install the requirement for namespace ``ns``.
 
     Resolves the manifest line for this namespace via the catalog, then
     delegates to ``_pip_install`` in ``app/plugin_cmd``. Returns the pip exit
     code (0 = success).
+
+    ``constraints`` (a path produced once per reconcile pass by
+    ``_freeze_to_constraints``) is forwarded so the per-install env freeze is
+    skipped — one freeze per pass instead of one per plugin.
     """
     from led_ticker.app.plugin_cmd import _pip_install  # noqa: PLC0415
     from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
@@ -222,7 +239,7 @@ def _install_namespace(ns: str, python_exe: str) -> int:
     except Exception:  # noqa: BLE001
         requirement = ns
 
-    return _pip_install(requirement, python_exe=python_exe)
+    return _pip_install(requirement, python_exe=python_exe, constraints=constraints)
 
 
 def _uninstall_dist(dist: str, python_exe: str) -> int:
@@ -270,13 +287,22 @@ def reconcile(
             apply_to_syspath(target)
             importlib.invalidate_caches()
 
-        declared = _declared_namespaces(config_path)
         manifest = config_path.parent / _MANIFEST_NAME
         if not manifest.exists():
+            # No manifest = "I have not opted into declarative plugins". Skip the
+            # whole reconcile — crucially BEFORE computing the diff. Without this
+            # return, `declared` would be the empty set and the true-sync uninstall
+            # path would treat EVERY installed plugin as undeclared and pip-uninstall
+            # it (only spared by the config-reference / depended-on guards). On the
+            # local-venv path that silently rips catalog plugins out of a dev's
+            # active venv. Tripwire: test_reconcile_missing_manifest_uninstalls_nothing.
             _log.info(
                 "plugin reconcile: no manifest found at %s — skipping reconcile",
                 manifest,
             )
+            return []
+
+        declared = _declared_namespaces(config_path)
 
         installed_map = installed_plugin_dists()  # {namespace: dist_name}
         installed = set(installed_map.keys())
@@ -293,26 +319,55 @@ def reconcile(
         referenced = referenced_namespaces(config_path)
         actions: list[PluginAction] = []
 
-        for ns in sorted(to_install):
+        # Freeze the target env's deps ONCE for the whole install pass: the
+        # constraints only pin CORE's deps so a plugin can't move them, and a
+        # just-installed plugin doesn't need to appear in the constraints used for
+        # the next install. Without this, every install re-ran a full
+        # `pip list --format=freeze` subprocess (~1-3s on a cold Pi 4 SD card),
+        # N-1 of them redundant, all on the first-boot dark-panel path.
+        # Tripwire: test_reconcile_freezes_env_once_per_pass.
+        shared_constraints: str | None = None
+        if to_install:
             try:
-                _log.info("plugin reconcile: installing %s", ns)
-                code = _install_namespace(ns, target.python_exe)
-                if code != 0:
-                    detail = f"pip exited {code} installing {ns}"
-                    _log.warning(
-                        "plugin reconcile: failed to install %s: %s", ns, detail
-                    )
-                    actions.append(
-                        PluginAction(namespace=ns, action="failed", detail=detail)
-                    )
-                else:
-                    actions.append(PluginAction(namespace=ns, action="installed"))
-                    _log.info("plugin reconcile: installed %s", ns)
-            except Exception as e:  # noqa: BLE001
-                _log.warning("plugin reconcile: failed to install %s: %s", ns, e)
-                actions.append(
-                    PluginAction(namespace=ns, action="failed", detail=str(e))
+                from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+                    _freeze_to_constraints,
                 )
+
+                shared_constraints, _rc = _freeze_to_constraints(target.python_exe)
+            except Exception as e:  # noqa: BLE001
+                # A failed pass-level freeze is non-fatal: each _install_namespace
+                # falls back to its own per-install freeze (constraints=None).
+                _log.warning("plugin reconcile: env freeze failed (%s); per-install", e)
+                shared_constraints = None
+
+        try:
+            for ns in sorted(to_install):
+                try:
+                    _log.info("plugin reconcile: installing %s", ns)
+                    code = _install_namespace(
+                        ns, target.python_exe, constraints=shared_constraints
+                    )
+                    if code != 0:
+                        detail = f"pip exited {code} installing {ns}"
+                        _log.warning(
+                            "plugin reconcile: failed to install %s: %s", ns, detail
+                        )
+                        actions.append(
+                            PluginAction(namespace=ns, action="failed", detail=detail)
+                        )
+                    else:
+                        actions.append(PluginAction(namespace=ns, action="installed"))
+                        _log.info("plugin reconcile: installed %s", ns)
+                except Exception as e:  # noqa: BLE001
+                    _log.warning("plugin reconcile: failed to install %s: %s", ns, e)
+                    actions.append(
+                        PluginAction(namespace=ns, action="failed", detail=str(e))
+                    )
+        finally:
+            # The pass-level constraints file is ours to clean up (passing it into
+            # _pip_install with constraints!=None means that fn does NOT delete it).
+            if shared_constraints is not None:
+                Path(shared_constraints).unlink(missing_ok=True)
 
         for ns in sorted(to_uninstall):
             dist = installed_map.get(ns, ns)

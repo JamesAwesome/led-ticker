@@ -369,10 +369,50 @@ _PIP_FREEZE_TIMEOUT_S = 60
 _PIP_UNINSTALL_TIMEOUT_S = 120
 
 
-def _pip_install(requirement: str, *, python_exe: str = sys.executable) -> int:
+def _freeze_to_constraints(
+    python_exe: str = sys.executable,
+) -> tuple[str | None, int]:
+    """Freeze the target env to a temp constraints file.
+
+    Returns ``(path, 0)`` on success, or ``(None, returncode)`` (and prints
+    stderr) on a non-zero freeze exit — the caller treats a non-zero code as
+    "skip the install" and propagates the code. The constraints pin CORE's
+    already-installed deps so a plugin install can't move them. The file is the
+    CALLER's to delete (use ``_pip_install(..., constraints=path)`` then unlink).
+    Raises ``subprocess.TimeoutExpired`` if pip stalls past the freeze wall clock.
+    """
+    freeze = subprocess.run(
+        [python_exe, "-m", "pip", "list", "--format=freeze"],
+        capture_output=True,
+        text=True,
+        timeout=_PIP_FREEZE_TIMEOUT_S,
+    )
+    if freeze.returncode != 0:
+        print(freeze.stderr, file=sys.stderr)
+        return (None, freeze.returncode)
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".txt", delete=False, encoding="utf-8"
+    ) as fh:
+        fh.write(freeze.stdout)
+        return (fh.name, 0)
+
+
+def _pip_install(
+    requirement: str,
+    *,
+    python_exe: str = sys.executable,
+    constraints: str | None = None,
+) -> int:
     """Freeze the current env to a constraints file, then pip-install the
     requirement under it so a plugin can't move core's pinned deps. Returns the
     pip exit code (0 = success).
+
+    When ``constraints`` is passed (a path produced by ``_freeze_to_constraints``)
+    the freeze is SKIPPED and that file is reused — the caller owns its lifetime.
+    This lets reconcile freeze the env ONCE per pass instead of once per plugin
+    (N-1 redundant freeze subprocesses on the first-boot dark-panel path). The
+    constraints only pin core's deps, so a just-installed plugin doesn't need to
+    appear in the constraints used for the next plugin in the same pass.
 
     Refuses argument-like requirements (a manifest line starting with ``-``,
     e.g. ``--pre`` / ``--index-url``) so a stray flag can't be smuggled in as a
@@ -384,20 +424,11 @@ def _pip_install(requirement: str, *, python_exe: str = sys.executable) -> int:
         raise ValueError(
             f"refusing to pip-install an argument-like requirement: {requirement!r}"
         )
-    freeze = subprocess.run(
-        [python_exe, "-m", "pip", "list", "--format=freeze"],
-        capture_output=True,
-        text=True,
-        timeout=_PIP_FREEZE_TIMEOUT_S,
-    )
-    if freeze.returncode != 0:
-        print(freeze.stderr, file=sys.stderr)
-        return freeze.returncode
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".txt", delete=False, encoding="utf-8"
-    ) as fh:
-        fh.write(freeze.stdout)
-        constraints = fh.name
+    owns_constraints = constraints is None
+    if owns_constraints:
+        constraints, freeze_rc = _freeze_to_constraints(python_exe)
+        if constraints is None:
+            return freeze_rc
     try:
         proc = subprocess.run(
             [
@@ -413,7 +444,8 @@ def _pip_install(requirement: str, *, python_exe: str = sys.executable) -> int:
             timeout=_PIP_INSTALL_TIMEOUT_S,
         )
     finally:
-        Path(constraints).unlink(missing_ok=True)
+        if owns_constraints:
+            Path(constraints).unlink(missing_ok=True)
     return proc.returncode
 
 

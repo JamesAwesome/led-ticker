@@ -133,7 +133,7 @@ def test_reconcile_installs_missing_uninstalls_undeclared(tmp_path, monkeypatch)
     monkeypatch.setattr(r, "is_depended_on", lambda d: False)
     installed, uninstalled = [], []
 
-    def fake_install(ns, py):
+    def fake_install(ns, py, *, constraints=None):
         installed.append(ns)
         return 0
 
@@ -154,6 +154,7 @@ def test_reconcile_blocks_uninstall_when_config_references(tmp_path, monkeypatch
     (tmp_path / "config.toml").write_text(
         '[[playlist.section]]\nmode="swap"\n[[playlist.section.widget]]\ntype="old.thing"\n'
     )
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {"old": "led-ticker-old"})
@@ -185,7 +186,7 @@ def test_reconcile_records_failed_action_on_install_error(tmp_path, monkeypatch)
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def boom(ns, py):
+    def boom(ns, py, *, constraints=None):
         raise RuntimeError("pip exploded")
 
     monkeypatch.setattr(r, "_install_namespace", boom)
@@ -198,6 +199,7 @@ def test_reconcile_records_failed_action_on_uninstall_error(tmp_path, monkeypatc
     import led_ticker.plugin_reconcile as r
 
     (tmp_path / "config.toml").write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {"old": "led-ticker-old"})
@@ -240,7 +242,7 @@ def test_reconcile_failed_action_on_install_nonzero_exit(tmp_path, monkeypatch):
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def fake_install(ns, py):
+    def fake_install(ns, py, *, constraints=None):
         return 1  # non-zero exit — pip failed
 
     monkeypatch.setattr(r, "_install_namespace", fake_install)
@@ -256,6 +258,7 @@ def test_reconcile_failed_action_on_uninstall_nonzero_exit(tmp_path, monkeypatch
     import led_ticker.plugin_reconcile as r
 
     (tmp_path / "config.toml").write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {"old": "led-ticker-old"})
@@ -280,7 +283,11 @@ def test_reconcile_noop_when_declared_matches_installed(tmp_path, monkeypatch):
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {"rss": "led-ticker-rss"})
     installed, uninstalled = [], []
-    monkeypatch.setattr(r, "_install_namespace", lambda ns, py: installed.append(ns))
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda ns, py, *, constraints=None: installed.append(ns),
+    )
     monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: uninstalled.append(d))
     actions = r.reconcile(tmp_path / "config.toml")
     assert installed == [] and uninstalled == []
@@ -473,7 +480,9 @@ def test_reconcile_observes_target_env_installed(tmp_path, monkeypatch):
         r, "_uninstall_dist", lambda dist, py: uninstalled.append(dist) or 0
     )
     monkeypatch.setattr(
-        r, "_install_namespace", lambda ns, py: (_ for _ in ()).throw(AssertionError())
+        r,
+        "_install_namespace",
+        lambda ns, py, *, constraints=None: (_ for _ in ()).throw(AssertionError()),
     )
 
     inserted_before = str(site_packages) in sys.path
@@ -504,7 +513,7 @@ def test_reconcile_invalidates_caches_after_install(tmp_path, monkeypatch):
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
-    monkeypatch.setattr(r, "_install_namespace", lambda ns, py: 0)
+    monkeypatch.setattr(r, "_install_namespace", lambda ns, py, *, constraints=None: 0)
 
     calls = []
     monkeypatch.setattr(importlib, "invalidate_caches", lambda: calls.append(1))
@@ -562,6 +571,7 @@ def test_reconcile_uses_target_python_exe_for_install(tmp_path, monkeypatch):
 
     cfg = tmp_path / "config.toml"
     cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
     target_py = "/data/plugins/venv/bin/python"
     monkeypatch.setattr(
         r, "resolve_target", lambda **k: r.Target("volume", target_py, None)
@@ -570,7 +580,11 @@ def test_reconcile_uses_target_python_exe_for_install(tmp_path, monkeypatch):
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
     seen_py = []
-    monkeypatch.setattr(r, "_install_namespace", lambda ns, py: seen_py.append(py) or 0)
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda ns, py, *, constraints=None: seen_py.append(py) or 0,
+    )
     r.reconcile(cfg, volume_root=tmp_path / "vol")
     assert seen_py == [target_py]
     assert sys.executable not in seen_py
@@ -582,6 +596,7 @@ def test_reconcile_uses_target_python_exe_for_uninstall(tmp_path, monkeypatch):
 
     cfg = tmp_path / "config.toml"
     cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
     target_py = "/data/plugins/venv/bin/python"
     monkeypatch.setattr(
         r, "resolve_target", lambda **k: r.Target("volume", target_py, None)
@@ -606,11 +621,12 @@ def test_reconcile_one_install_failure_does_not_block_others(tmp_path, monkeypat
 
     cfg = tmp_path / "config.toml"
     cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss", "baseball"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def fake_install(ns, py):
+    def fake_install(ns, py, *, constraints=None):
         return 1 if ns == "baseball" else 0
 
     monkeypatch.setattr(r, "_install_namespace", fake_install)
@@ -626,11 +642,12 @@ def test_reconcile_one_install_raise_does_not_block_others(tmp_path, monkeypatch
 
     cfg = tmp_path / "config.toml"
     cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"rss", "baseball"})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def fake_install(ns, py):
+    def fake_install(ns, py, *, constraints=None):
         if ns == "baseball":
             raise RuntimeError("pip hung")
         return 0
@@ -640,3 +657,194 @@ def test_reconcile_one_install_raise_does_not_block_others(tmp_path, monkeypatch
     by_ns = {a.namespace: a.action for a in actions}
     assert by_ns.get("rss") == "installed"
     assert by_ns.get("baseball") == "failed"
+
+
+# ── finding #1: missing manifest must skip the whole reconcile ─────────────────
+
+
+def test_reconcile_missing_manifest_uninstalls_nothing(tmp_path, monkeypatch):
+    """A missing manifest means 'not opted in' — it must NOT be read as 'declare
+    nothing' and pip-uninstall every installed plugin. (The log said 'skipping'
+    but there was no return.)"""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")  # no requirements-plugins.txt beside it
+    assert not (tmp_path / "requirements-plugins.txt").exists()
+
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(
+        r,
+        "installed_plugin_dists",
+        lambda: {"rss": "led-ticker-rss", "old": "led-ticker-old"},
+    )
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+
+    def boom(*a, **k):
+        raise AssertionError("missing manifest must not install/uninstall anything")
+
+    monkeypatch.setattr(r, "_uninstall_dist", boom)
+    monkeypatch.setattr(r, "_install_namespace", boom)
+
+    actions = r.reconcile(cfg)
+    assert actions == []
+
+
+# ── finding #2: git-source line for a pypi-default catalog plugin ──────────────
+
+
+def test_declared_namespaces_git_source_resolves_to_catalog_namespace(tmp_path):
+    """A `--source git` manifest line for a plugin whose catalog default is pypi
+    must still resolve to the catalog namespace (no churn / wrong uninstall)."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    manifest = tmp_path / "requirements-plugins.txt"
+    git_line = (
+        "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        "@pool-v0.1.0#subdirectory=plugins/pool"
+    )
+    manifest.write_text(git_line + "\n")
+    assert r._declared_namespaces(cfg) == {"pool"}
+
+    # unpinned (@main) form resolves too
+    manifest.write_text(
+        "git+https://github.com/JamesAwesome/led-ticker-plugins.git"
+        "@main#subdirectory=plugins/pool\n"
+    )
+    assert r._declared_namespaces(cfg) == {"pool"}
+
+
+# ── finding #3: env freeze happens once per pass, not once per install ─────────
+
+
+def test_reconcile_freezes_env_once_per_pass(tmp_path, monkeypatch):
+    """Installing N plugins in one pass must run `pip list --format=freeze` once,
+    not N times (the redundant freezes were on the dark-panel first-boot path)."""
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(
+        r, "_declared_namespaces", lambda p: {"rss", "baseball", "crypto"}
+    )
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+
+    freeze_calls = {"n": 0}
+
+    def fake_freeze(python_exe=sys.executable):
+        freeze_calls["n"] += 1
+        return ("/tmp/constraints-fake.txt", 0)
+
+    monkeypatch.setattr(pc, "_freeze_to_constraints", fake_freeze)
+
+    constraints_seen: list = []
+
+    def fake_pip_install(requirement, *, python_exe=sys.executable, constraints=None):
+        constraints_seen.append(constraints)
+        return 0
+
+    monkeypatch.setattr(pc, "_pip_install", fake_pip_install)
+    # Avoid unlink of the fake path.
+    monkeypatch.setattr(r.Path, "unlink", lambda self, missing_ok=False: None)
+
+    actions = r.reconcile(cfg)
+    assert {a.action for a in actions} == {"installed"}
+    assert freeze_calls["n"] == 1  # ONE freeze for three installs
+    # All three installs reused the single pass-level constraints file.
+    assert constraints_seen == ["/tmp/constraints-fake.txt"] * 3
+
+
+# ── finding #5: never-raises covers ensure_volume_venv / scan failures ─────────
+
+
+def test_reconcile_never_raises_on_venv_creation_failure(tmp_path, monkeypatch):
+    """A disk-full / bad-perms volume makes ensure_volume_venv raise
+    CalledProcessError; reconcile must still return [] without raising."""
+    import led_ticker.plugin_reconcile as r
+
+    monkeypatch.setattr(
+        r, "resolve_target", lambda **k: r.Target("volume", "py", "/sp")
+    )
+
+    def boom(venv_dir):
+        raise subprocess.CalledProcessError(1, "venv")
+
+    monkeypatch.setattr(r, "ensure_volume_venv", boom)
+    assert r.reconcile(tmp_path / "config.toml") == []
+
+
+def test_reconcile_never_raises_on_installed_scan_failure(tmp_path, monkeypatch):
+    """installed_plugin_dists raising must be swallowed by the outer guard."""
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / "config.toml").write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-rss\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+
+    def boom():
+        raise RuntimeError("metadata exploded")
+
+    monkeypatch.setattr(r, "installed_plugin_dists", boom)
+    assert r.reconcile(tmp_path / "config.toml") == []
+
+
+# ── finding #6: multi-plugin uninstall failure isolation ──────────────────────
+
+
+def test_reconcile_one_uninstall_failure_does_not_block_others(tmp_path, monkeypatch):
+    """One plugin's uninstall failure (nonzero exit) must not stop the others."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")  # declares nothing
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
+    monkeypatch.setattr(
+        r,
+        "installed_plugin_dists",
+        lambda: {"rss": "led-ticker-rss", "old": "led-ticker-old"},
+    )
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+
+    def fake_uninstall(dist, py):
+        return 1 if dist == "led-ticker-rss" else 0
+
+    monkeypatch.setattr(r, "_uninstall_dist", fake_uninstall)
+    actions = r.reconcile(cfg)
+    by_ns = {a.namespace: a.action for a in actions}
+    assert by_ns.get("rss") == "failed"
+    assert by_ns.get("old") == "uninstalled"
+
+
+def test_reconcile_one_uninstall_raise_does_not_block_others(tmp_path, monkeypatch):
+    """A raising uninstall (e.g. pip TimeoutExpired) is isolated per-plugin."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
+    monkeypatch.setattr(
+        r,
+        "installed_plugin_dists",
+        lambda: {"rss": "led-ticker-rss", "old": "led-ticker-old"},
+    )
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+
+    def fake_uninstall(dist, py):
+        if dist == "led-ticker-rss":
+            raise RuntimeError("pip hung")
+        return 0
+
+    monkeypatch.setattr(r, "_uninstall_dist", fake_uninstall)
+    actions = r.reconcile(cfg)
+    by_ns = {a.namespace: a.action for a in actions}
+    assert by_ns.get("rss") == "failed"
+    assert by_ns.get("old") == "uninstalled"

@@ -12,6 +12,7 @@ from typing import Any
 
 ASSET_CAP = 500
 _ASSET_SUFFIXES = {".gif", ".png", ".jpg", ".jpeg", ".webp", ".bmp"}
+_FONT_SUFFIXES = {".bdf", ".ttf", ".otf", ".ttc"}
 
 
 def _user_fonts(config_dir: Path) -> list[str]:
@@ -19,7 +20,9 @@ def _user_fonts(config_dir: Path) -> list[str]:
         return sorted(
             p.name
             for p in (config_dir / "fonts").iterdir()
-            if p.is_file() and not p.name.startswith(".")
+            if p.is_file()
+            and not p.name.startswith(".")
+            and p.suffix.lower() in _FONT_SUFFIXES
         )
     except OSError:
         return []

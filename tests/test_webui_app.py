@@ -772,6 +772,23 @@ def test_index_html_has_config_validation_card():
     assert "config_validation" in html
 
 
+def test_inventory_dedups_plugin_emoji_across_surfaces():
+    """A plugin slug registered as BOTH a lowres and a hires emoji (e.g.
+    `pokeball.ball`) arrives on BOTH status.json surfaces (`emojis` +
+    `hires_emojis`); the inventory must list it once, not twice. Guard the
+    browser-side dedup in loadInventory()."""
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    start = html.index("async function loadInventory()")
+    body = html[start : start + 2500]
+    assert "pluginEmoji" in body, "loadInventory should collect plugin emoji"
+    # The collection must dedup (a Set) so a both-surfaces slug isn't doubled.
+    assert "Set" in body, "plugin emoji collection must dedup across surfaces"
+
+
 def test_error_and_warning_are_global_color_utilities():
     """`.error` (red) and `.warning` (amber) are used as global utility classes
     — plugin-emoji chips (`<code class="warning">` in #inv-emoji) and table error

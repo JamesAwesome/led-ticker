@@ -88,6 +88,12 @@ def test_referenced_namespaces_missing_file_is_empty(tmp_path):
     assert referenced_namespaces(tmp_path / "absent.toml") == set()
 
 
+def test_referenced_namespaces_malformed_toml_is_empty(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[[bad toml\n")
+    assert referenced_namespaces(cfg) == set()
+
+
 def test_blocked_when_config_references(monkeypatch):
     import led_ticker.plugin_reconcile as r
 

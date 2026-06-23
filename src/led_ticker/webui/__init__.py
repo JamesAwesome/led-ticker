@@ -12,14 +12,17 @@ must never import rgbmatrix (tripwire lands in tests/test_webui_purity.py).
 
 import asyncio
 import hashlib
+import hmac
 import json
 import logging
 import os
 import shutil
 import time
 import tomllib
+from collections.abc import Callable
 from importlib import resources
 from pathlib import Path
+from typing import Any
 
 from aiohttp import web
 
@@ -43,6 +46,25 @@ logger = logging.getLogger(__name__)
 
 STALE_FACTOR = 3.0  # stale when published_at is older than factor × min_interval
 MAX_VALIDATE_BODY = 1024 * 1024  # 1 MB (used by the /api/validate task)
+
+# Routes that are intentionally open (no auth required) even when a token is
+# configured. The store endpoint is public so the UI can render the plugin list
+# for unauthenticated visitors who want to see what is installed.
+_OPEN_PATHS = frozenset({"/api/store"})
+
+
+def _token_ok(provided: str | None, token: str) -> bool:
+    """Constant-time token check.
+
+    Returns True when the caller is authorized: either no token is configured
+    (open system) or the provided value matches in constant time.  Using
+    hmac.compare_digest avoids leaking the token via response-timing on a
+    char-by-char `==` comparison.  The open/no-token case is decided BEFORE the
+    compare so an open system never depends on the (empty) token bytes.
+    """
+    if not token:
+        return True
+    return hmac.compare_digest(provided or "", token)
 
 
 def _read_status(status_path: Path) -> dict:
@@ -89,6 +111,81 @@ def _read_status(status_path: Path) -> dict:
     return {"state": state, "age_seconds": round(age, 1), "status": status}
 
 
+def _fresh_inner_status(status_path: Path) -> dict:
+    """Inner status dict ONLY when the envelope is fresh ("ok"), else {}.
+
+    `_read_status` carries the parsed status under "status" for both "ok" AND
+    "stale" envelopes (stale = the file is present but the display process hasn't
+    republished within the staleness threshold — e.g. the process died leaving a
+    snapshot on disk). For the Store, an empty dict is what marks the display
+    offline (build_store: display_online = bool(status)). Forwarding a stale
+    inner status would report display_online=True and live "Active" badges for a
+    dead display. Gate on freshness so stale ⇒ offline, matching the spec.
+    """
+    envelope = _read_status(status_path)
+    return envelope.get("status", {}) if envelope.get("state") == "ok" else {}
+
+
+def _build_store(**kwargs: Any) -> dict[str, Any]:
+    """Call build_store from led_ticker.webui.store with lazy import.
+
+    Defined at module level so tests can monkeypatch it on this module.
+    The import is deferred to avoid pulling in rgbmatrix at webui import time.
+    """
+    from led_ticker.webui.store import build_store  # noqa: PLC0415
+
+    return build_store(**kwargs)
+
+
+def _load_catalog_lazy():
+    """Load the plugin catalog with lazy import (no rgbmatrix at import time).
+
+    Defined at module level so tests can monkeypatch it on this module.
+    """
+    from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
+
+    return load_catalog()
+
+
+async def _update_manifest_atomic(
+    manifest_path: Path,
+    transform: Callable[[str], str | None],
+    lock: asyncio.Lock,
+) -> None:
+    """Atomic read-modify-write of the manifest under a single locked section.
+
+    The ENTIRE read→compute→write cycle runs inside ``lock`` so two concurrent
+    authenticated requests (install/install, remove/remove, install/remove)
+    cannot interleave around an await and lose an update — mirroring
+    save_handler's whole-critical-section lock discipline.
+
+    ``transform`` receives the freshly-read manifest text (``""`` when absent)
+    and returns the new text to write, or ``None`` to skip the write entirely
+    (e.g. an idempotent install where the requirement is already declared — so
+    no spurious .bak is produced).
+
+    Write durability mirrors save_handler: .bak backup → tmp + os.replace.
+    """
+    async with lock:
+        current = (
+            manifest_path.read_text(encoding="utf-8") if manifest_path.exists() else ""
+        )
+        new_text = transform(current)
+        if new_text is None:
+            return
+        tmp = manifest_path.with_name(manifest_path.name + ".tmp")
+        try:
+            if manifest_path.exists():
+                bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+                shutil.copy2(manifest_path, bak)
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(new_text, encoding="utf-8")
+            os.replace(tmp, manifest_path)
+        except OSError:
+            tmp.unlink(missing_ok=True)
+            raise
+
+
 def build_webui_app(
     *, config_path: Path, status_path: Path, token: str = ""
 ) -> web.Application:
@@ -96,9 +193,9 @@ def build_webui_app(
 
     @web.middleware
     async def auth(request: web.Request, handler):
-        if token:
+        if token and request.path not in _OPEN_PATHS:
             provided = request.headers.get("X-Web-Token") or request.query.get("token")
-            if provided != token:
+            if not _token_ok(provided, token):
                 return web.json_response({"error": "unauthorized"}, status=401)
         return await handler(request)
 
@@ -141,8 +238,210 @@ def build_webui_app(
             },
         )
 
+    async def store_handler(request: web.Request) -> web.Response:
+        inner_status: dict = _fresh_inner_status(status_path)
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+        payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+        )
+        provided = request.headers.get("X-Web-Token") or request.query.get("token")
+        if not _token_ok(provided, token):
+            from led_ticker.webui.store import redact_anonymous  # noqa: PLC0415
+
+            payload = redact_anonymous(payload)
+        return web.json_response(payload)
+
+    manifest_lock = asyncio.Lock()
+
+    async def install_handler(request: web.Request) -> web.Response:
+        """POST /api/store/install — add a catalog plugin to the manifest.
+
+        Token-gated by the global auth middleware (install is NOT in _OPEN_PATHS).
+        Mirrors save_handler's "no token → 403 editing disabled" convention for
+        clarity (the middleware already blocks tokenless requests when a token is
+        configured, but a missing token means editing is administratively disabled).
+        """
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+
+        if (request.content_length or 0) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+
+        namespace = payload.get("namespace") if isinstance(payload, dict) else None
+        if not isinstance(namespace, str) or not namespace:
+            return web.json_response({"error": "missing namespace"}, status=400)
+
+        # Resolve namespace → CatalogEntry.  Catalog.get() is NAME-based, so
+        # build a namespace map the same way store.py does (O(N), N is small).
+        catalog = _load_catalog_lazy()
+        entry = next((e for e in catalog.entries if e.namespace == namespace), None)
+        if entry is None:
+            return web.json_response({"error": "unknown plugin"}, status=400)
+
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+
+        # Import helpers lazily to keep the module rgbmatrix-pure.
+        from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
+
+        req = entry.requirement()
+        req_key = _requirement_key(req)
+
+        def add_requirement(current: str) -> str | None:
+            # Runs INSIDE manifest_lock against the freshly-read manifest text.
+            # Returning None skips the write (idempotent: already declared → no
+            # spurious .bak).  Dedup logic mirrors _update_requirements.
+            lines = current.splitlines()
+            declared = any(
+                stripped
+                and not stripped.startswith("#")
+                and _requirement_key(stripped) == req_key
+                for stripped in (line.strip() for line in lines)
+            )
+            if declared:
+                return None  # idempotent: no write — and no stale line to drop,
+                # since any matching line would have set `declared` above.
+            # Not declared: every existing line is a keeper; append the fresh req.
+            return "\n".join([*lines, req]).rstrip("\n") + "\n"
+
+        try:
+            await _update_manifest_atomic(manifest_path, add_requirement, manifest_lock)
+        except OSError as e:
+            return web.json_response(
+                {"error": f"manifest write failed: {e}"}, status=500
+            )
+
+        # Return the rebuilt store entry for this namespace so the UI refreshes.
+        inner_status: dict = _fresh_inner_status(status_path)
+        store_payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+        )
+        plugin_entry = next(
+            (
+                p
+                for p in store_payload.get("plugins", [])
+                if p["namespace"] == namespace
+            ),
+            {"namespace": namespace},
+        )
+        return web.json_response(plugin_entry)
+
+    async def remove_handler(request: web.Request) -> web.Response:
+        """DELETE /api/store/remove — drop a catalog plugin from the manifest.
+
+        Token-gated by the global auth middleware (remove is NOT in _OPEN_PATHS).
+        Mirrors install_handler's "no token → 403 editing disabled" convention.
+        Guards against removing a plugin that the running config still references
+        (config-ref 409) so the panel can't be broken by a dangling type/transition.
+        """
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+
+        if (request.content_length or 0) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+
+        namespace = payload.get("namespace") if isinstance(payload, dict) else None
+        if not isinstance(namespace, str) or not namespace:
+            return web.json_response({"error": "missing namespace"}, status=400)
+
+        # Resolve namespace → CatalogEntry.
+        catalog = _load_catalog_lazy()
+        entry = next((e for e in catalog.entries if e.namespace == namespace), None)
+        if entry is None:
+            return web.json_response({"error": "unknown plugin"}, status=400)
+
+        # Import helpers lazily to keep the module rgbmatrix-pure.
+        from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
+
+        req = entry.requirement()
+        req_key = _requirement_key(req)
+
+        # Config-reference guard: refuse if the running config still uses THIS
+        # plugin OR any sibling namespace that shares the same pip package.
+        # Multiple catalog namespaces can map to one package (e.g. nyancat/
+        # pokeball/pacman/sailor_moon → led-ticker-flair); removing the manifest
+        # line drops the package for all of them, so removing one must not break
+        # a config that references a sibling.
+        from led_ticker.webui.store import config_references  # noqa: PLC0415
+
+        siblings = {
+            e.namespace
+            for e in catalog.entries
+            if _requirement_key(e.requirement()) == req_key
+        }
+        siblings.add(namespace)
+        config_refs = config_references(config_path)
+        refs = [r for ns in siblings for r in config_refs.get(ns, [])]
+        if refs:
+            return web.json_response({"error": "in_use", "in_use_by": refs}, status=409)
+
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+
+        def drop_requirement(current: str) -> str:
+            # Runs INSIDE manifest_lock against the freshly-read manifest text.
+            kept: list[str] = []
+            for line in current.splitlines():
+                stripped = line.strip()
+                if (
+                    stripped
+                    and not stripped.startswith("#")
+                    and _requirement_key(stripped) == req_key
+                ):
+                    continue  # drop this line
+                kept.append(line)
+            body = "\n".join(kept).rstrip("\n")
+            return body + "\n" if body else ""
+
+        try:
+            await _update_manifest_atomic(
+                manifest_path, drop_requirement, manifest_lock
+            )
+        except OSError as e:
+            return web.json_response(
+                {"error": f"manifest write failed: {e}"}, status=500
+            )
+
+        # Return the rebuilt store entry for this namespace so the UI refreshes.
+        # config_refs was already parsed above for the in-use guard; pass it so
+        # build_store doesn't re-parse config.toml a second time per DELETE.
+        inner_status: dict = _fresh_inner_status(status_path)
+        store_payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+            refs=config_refs,
+        )
+        plugin_entry = next(
+            (
+                p
+                for p in store_payload.get("plugins", [])
+                if p["namespace"] == namespace
+            ),
+            {"namespace": namespace},
+        )
+        return web.json_response(plugin_entry)
+
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
+    app.router.add_get("/api/store", store_handler)
+    app.router.add_post("/api/store/install", install_handler)
+    app.router.add_delete("/api/store/remove", remove_handler)
     _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)

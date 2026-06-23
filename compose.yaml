@@ -24,7 +24,7 @@ services:
     volumes:
       - ./config:/code/config:ro
       - ticker-status:/run/led-ticker   # shared with webui; display process writes status.json here
-      - ticker-plugins:/data/plugins   # installed plugins (runtime reconcile); reset = docker compose stop && docker volume rm ticker-plugins && docker compose up -d
+      - ticker-plugins:/data/plugins   # installed plugins (runtime reconcile); reset = docker compose down -v && docker compose up -d  (with webui: COMPOSE_PROFILES=webui docker compose down -v && COMPOSE_PROFILES=webui docker compose up -d)
     env_file:
       - path: ./.env
         required: false     # repo may not have .env if no API keys are needed
@@ -52,6 +52,13 @@ services:
       # plugin widget types (else false "plugin not loaded" warnings). It never
       # installs; only the display service mounts this :rw and reconciles.
       - ticker-plugins:/data/plugins:ro
+    env_file:
+      # The webui resolves its auth token from the environment, same as the
+      # display service — LED_TICKER_WEB_TOKEN (config editor + plugin Store)
+      # and LED_TICKER_BUSY_TOKEN. Without this the sidecar sees no token and
+      # reports "editing disabled" even when the token is set in .env.
+      - path: ./.env
+        required: false
 
 volumes:
   # tmpfs-backed: status.json is rewritten ~every 2s. Keeping it in RAM

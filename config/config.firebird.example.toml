@@ -2,9 +2,7 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-nyancat      nyancat.alternating
-#   led-ticker-pokeball     pokeball.alternating
-#   led-ticker-sailor_moon  sailor_moon.alternating
+#   led-ticker-flair  nyancat / pokeball / sailor_moon transitions
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────

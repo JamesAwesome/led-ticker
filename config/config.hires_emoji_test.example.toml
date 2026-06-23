@@ -3,7 +3,7 @@
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
 #   led-ticker-weather  weather.current
-#   led-ticker-pokeball :pokeball.ball: (emoji)
+#   led-ticker-flair    :pokeball.ball: (emoji)
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────

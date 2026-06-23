@@ -2,10 +2,7 @@
 # Requires these led-ticker plugins. Install via
 # config/requirements-plugins.txt (copy requirements-plugins.example.txt)
 # and rebuild before running:
-#   led-ticker-nyancat   nyancat.forward / .reverse / .alternating
-#   led-ticker-pacman    pacman.forward / .reverse / .alternating
-#   led-ticker-pokeball  pokeball.forward / .reverse / .alternating
-#   led-ticker-sailor_moon  sailor_moon.forward / .reverse / .alternating
+#   led-ticker-flair     nyancat / pokeball / pacman / sailor_moon transitions (forward / .reverse / .alternating)
 #   led-ticker-baseball  baseball.roll*
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.

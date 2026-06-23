@@ -238,8 +238,17 @@ async def test_root_serves_page(tmp_path):
             "no overlays installed",
             "plugin-reconcile-card",
             "Plugin install results",
+            # Store tab markers
+            'data-tab="store"',
+            'id="tab-store"',
+            "Only verified plugins are shown",
+            "store-auth-banner",
+            "store-offline-banner",
+            "store-pending-banner",
+            "store-list",
+            "/api/store",
         ):
-            assert marker in text
+            assert marker in text, f"missing marker: {marker!r}"
     finally:
         await client.close()
 
@@ -761,3 +770,1213 @@ def test_index_html_has_config_validation_card():
     assert 'id="config-validation-card"' in html
     assert 'id="config-validation-body"' in html
     assert "config_validation" in html
+
+
+def test_index_html_has_store_tab():
+    """The Store tab nav button and section are present in the page HTML."""
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    # Nav button
+    assert 'data-tab="store"' in html
+    # Tab section
+    assert 'id="tab-store"' in html
+    # Catalog-only note (key fragment)
+    assert "Only verified plugins are shown" in html
+    # Pending banner with restart command
+    assert "docker compose restart" in html
+    # Auth banner
+    assert "store-auth-banner" in html
+    # Offline banner
+    assert "store-offline-banner" in html
+    # Store list container
+    assert 'id="store-list"' in html
+    # Restart-command element (users copy the restart command from here)
+    assert 'id="store-restart-cmd"' in html
+    # JS function references
+    assert "loadStore" in html
+    assert "storeAction" in html
+    assert "/api/store/install" in html
+    assert "/api/store/remove" in html
+
+
+def test_index_html_has_pack_chip_rendering():
+    """The Store tab JS renders a pack chip for plugins with a non-empty pack field,
+    and uses pack-aware Install/Remove button labels with a confirm() for pack members.
+
+    NOTE: The confirm() dialog flow (user seeing the member list on click) is
+    interactive JS — verified manually by opening the Store tab with a flair member
+    installed or available and clicking Install/Remove; an automated JS runner is not
+    wired in this project.
+    """
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+
+    # storeChips accepts a `pack` argument and renders a chip for non-empty packs.
+    assert "function storeChips(provides, pack)" in html
+    # The chip template uses the pack variable.
+    assert "📦" in html
+    assert "pack)" in html  # "flair pack" template pattern is present
+
+    # renderStore reads p.pack and p.pack_members from the API payload.
+    assert "p.pack" in html
+    assert "p.pack_members" in html
+
+    # Install and Remove labels are pack-aware.
+    assert "Install ${esc(pack)} pack" in html
+    assert "Remove ${esc(pack)} pack" in html or "Remove" in html
+
+    # Pack members are forwarded as data attributes for the confirm() handler.
+    assert "data-pack-members" in html
+
+    # The confirm() dialog fires when pack is non-empty and there are members.
+    assert "confirm(" in html
+    # The confirm message names the pack (template: "Installs the {pack} pack: ...")
+    assert "${pack} pack" in html
+
+
+def test_index_html_has_homepage_repo_link():
+    """The Store row render includes a homepage repo link when homepage is non-empty.
+
+    The visual link (↗ repo) is a manual check — no JS runner is wired in
+    this project. This test asserts the static hook: the render template reads
+    p.homepage and emits an <a> tag with the escaped URL.
+    """
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+
+    # The row render reads p.homepage from the payload.
+    assert "p.homepage" in html
+    # It emits an anchor tag with the escaped URL.
+    assert 'href="${esc(p.homepage)}"' in html
+    # Opens in a new tab with safe rel attribute.
+    assert 'target="_blank"' in html
+    assert 'rel="noopener noreferrer"' in html
+    # Repo link label is present (manual: visible as "↗ repo" in the UI).
+    assert "↗ repo" in html
+
+
+# ---------------------------------------------------------------------------
+# GET /api/store — plugin store (Task 3)
+# ---------------------------------------------------------------------------
+
+
+def test_index_html_has_token_field():
+    """A token input field lets users enter the token in the UI (not just ?token=)."""
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    # The password input field is present and seeded/persisted via sessionStorage.
+    assert 'id="token-input"' in html
+    assert 'type="password"' in html
+    assert "sessionStorage" in html
+    assert "ledticker_token" in html
+    # Messages point users at the field, not the old "?token=" URL instruction.
+    assert "enter your token in the field above" in html
+
+
+def test_token_ok_constant_time_compare():
+    """_token_ok: open system always passes; otherwise constant-time match."""
+    from led_ticker.webui import _token_ok
+
+    # No token configured → open system, any (or no) provided value passes.
+    assert _token_ok(None, "") is True
+    assert _token_ok("anything", "") is True
+    # Token configured → exact match required; None/empty/wrong all fail.
+    assert _token_ok("s3cret", "s3cret") is True
+    assert _token_ok("wrong", "s3cret") is False
+    assert _token_ok(None, "s3cret") is False
+    assert _token_ok("", "s3cret") is False
+
+
+async def test_store_returns_expected_shape(tmp_path, monkeypatch):
+    """GET /api/store → 200 with plugins list and metadata keys."""
+    import led_ticker.webui as webui_mod
+
+    fake_payload = {
+        "display_online": False,
+        "pending_count": 0,
+        "auth_required": False,
+        "plugins": [{"namespace": "rss.feed", "state": "available"}],
+    }
+
+    def fake_build_store(**kwargs):
+        return fake_payload
+
+    monkeypatch.setattr(webui_mod, "_build_store", fake_build_store)
+
+    client = await _client(tmp_path)
+    try:
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        assert "plugins" in body
+        assert isinstance(body["plugins"], list)
+        assert "display_online" in body
+        assert "pending_count" in body
+        assert "auth_required" in body
+        assert body["plugins"][0]["namespace"] == "rss.feed"
+    finally:
+        await client.close()
+
+
+async def test_store_open_without_token(tmp_path, monkeypatch):
+    """GET /api/store does not require auth even when a token is configured."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kwargs: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        # No token header — must still return 200 (open route)
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["auth_required"] is True  # token IS configured
+    finally:
+        await client.close()
+
+
+async def test_store_fresh_status_is_online(tmp_path):
+    """A fresh status.json → display_online True (real _read_status→build_store).
+
+    Does NOT monkeypatch _build_store, so the actual _fresh_inner_status gate is
+    exercised end-to-end.
+    """
+    status = _fresh_status(plugins=[{"namespace": "rss"}])
+    client = await _client(tmp_path, status=status)
+    try:
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["display_online"] is True
+    finally:
+        await client.close()
+
+
+async def test_store_stale_status_is_offline(tmp_path):
+    """A stale status.json → display_online False (stale ⇒ offline, per spec).
+
+    Regression for the bug where _read_status carries the inner status under
+    "status" for BOTH ok and stale envelopes, so a dead display that left a
+    snapshot on disk was reported online with live "Active" badges. The
+    _fresh_inner_status gate must drop a stale inner status to {}.
+    """
+    stale = _fresh_status(
+        published_at=time.time() - 3600,
+        min_interval=2.0,
+        plugins=[{"namespace": "rss"}],
+    )
+    client = await _client(tmp_path, status=stale)
+    try:
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["display_online"] is False
+        # No plugin should report a live "active" state from a stale snapshot.
+        assert all(p["state"] != "active" for p in body["plugins"])
+    finally:
+        await client.close()
+
+
+# POST /api/store/install — plugin store install (Task 4)
+# ---------------------------------------------------------------------------
+
+
+async def test_install_known_namespace_writes_manifest(tmp_path, monkeypatch):
+    """POST /api/store/install with a known namespace → 200 + manifest updated."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    # Minimal catalog with one entry whose namespace we'll install.
+    fake_entry = CatalogEntry(
+        name="rss",
+        namespace="rss.feed",
+        summary="RSS/Atom feed headlines.",
+        homepage="",
+        provides=PluginProvides(widgets=("rss.feed",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="main",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    fake_catalog = Catalog(entries=(fake_entry,))
+
+    # Patch _build_store so the return value is controlled.
+    def fake_build_store(**kwargs):
+        return {
+            "display_online": False,
+            "pending_count": 1,
+            "auth_required": True,
+            "plugins": [
+                {
+                    "namespace": "rss.feed",
+                    "name": "rss",
+                    "summary": "RSS/Atom feed headlines.",
+                    "provides": {"widgets": ["rss.feed"]},
+                    "source": "git",
+                    "state": "restart_to_activate",
+                    "removable": True,
+                    "in_use_by": [],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(webui_mod, "_build_store", fake_build_store)
+
+    # Patch _load_catalog_lazy so we control catalog resolution.
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    client = await _client(tmp_path, token="s3cret")
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        # Response carries the rebuilt store entry for that namespace.
+        assert body["namespace"] == "rss.feed"
+        # Manifest must now contain the catalog requirement line.
+        assert manifest_path.exists(), "manifest was not created"
+        manifest_text = manifest_path.read_text()
+        assert "led-ticker-plugins" in manifest_text or "rss" in manifest_text
+        req = fake_entry.requirement()
+        assert req in manifest_text, f"expected {req!r} in manifest"
+        # .bak file must NOT exist (no prior manifest to back up).
+        bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+        assert not bak.exists()
+    finally:
+        await client.close()
+
+
+async def test_install_bak_created_when_manifest_exists(tmp_path, monkeypatch):
+    """When the manifest already exists, install creates a .bak before writing."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    fake_entry = CatalogEntry(
+        name="rss",
+        namespace="rss.feed",
+        summary="RSS feed.",
+        homepage="",
+        provides=PluginProvides(widgets=("rss.feed",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="main",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    fake_catalog = Catalog(entries=(fake_entry,))
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 1,
+            "auth_required": True,
+            "plugins": [
+                {
+                    "namespace": "rss.feed",
+                    "name": "rss",
+                    "summary": "",
+                    "provides": {},
+                    "source": "git",
+                    "state": "restart_to_activate",
+                    "removable": True,
+                    "in_use_by": [],
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text("# existing manifest\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        # .bak must exist with the prior content.
+        bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+        assert bak.exists(), ".bak was not created"
+        assert bak.read_text() == "# existing manifest\n"
+        # requirement line in manifest.
+        assert fake_entry.requirement() in manifest_path.read_text()
+    finally:
+        await client.close()
+
+
+async def test_install_without_token_rejected(tmp_path, monkeypatch):
+    """POST /api/store/install without token (token configured) → 401."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        # No auth header at all.
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+        )
+        assert resp.status in (401, 403)
+    finally:
+        await client.close()
+
+
+async def test_install_unknown_namespace_returns_400(tmp_path, monkeypatch):
+    """POST /api/store/install with a namespace not in the catalog → 400."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import Catalog
+
+    # Empty catalog — no known namespaces.
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=()))
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "notreal.plugin"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 400
+        body = await resp.json()
+        assert body.get("error") == "unknown plugin"
+    finally:
+        await client.close()
+
+
+async def test_install_idempotent_when_already_declared(tmp_path, monkeypatch):
+    """If requirement already in manifest, install is a no-op → 200, no dup."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    fake_entry = CatalogEntry(
+        name="rss",
+        namespace="rss.feed",
+        summary="RSS feed.",
+        homepage="",
+        provides=PluginProvides(widgets=("rss.feed",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="main",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    fake_catalog = Catalog(entries=(fake_entry,))
+    req = fake_entry.requirement()
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [
+                {
+                    "namespace": "rss.feed",
+                    "name": "rss",
+                    "summary": "",
+                    "provides": {},
+                    "source": "git",
+                    "state": "active",
+                    "removable": True,
+                    "in_use_by": [],
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        # Manifest must not have duplicate lines for the same plugin.
+        lines = [
+            ln.strip()
+            for ln in manifest_path.read_text().splitlines()
+            if ln.strip() and not ln.strip().startswith("#")
+        ]
+        assert lines.count(req) == 1, "duplicate requirement line written"
+        # Idempotent path must not touch the manifest at all: no .bak written.
+        bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+        assert not bak.exists(), "idempotent install wrote a .bak (unnecessary write)"
+        # Manifest content is byte-for-byte unchanged.
+        assert manifest_path.read_text() == req + "\n", (
+            "manifest content changed on idempotent install"
+        )
+    finally:
+        await client.close()
+
+
+# DELETE /api/store/remove — plugin store remove (Task 5)
+# ---------------------------------------------------------------------------
+
+
+def _fake_rss_entry():
+    """Return a minimal CatalogEntry for the rss plugin (test fixture).
+
+    Namespace is "rss" (single-segment, matching the real catalog).  The widget
+    type "rss.feed" maps back to namespace "rss" via config_references' split-on-dot
+    logic (ns_source.split(".")[0]).
+    """
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    entry = CatalogEntry(
+        name="rss",
+        namespace="rss",
+        summary="RSS/Atom feed headlines.",
+        homepage="",
+        provides=PluginProvides(widgets=("rss.feed",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="main",
+                subdirectory="plugins/rss",
+            ),
+        ),
+    )
+    return entry, Catalog(entries=(entry,))
+
+
+async def test_remove_known_namespace_removes_manifest_line(tmp_path, monkeypatch):
+    """DELETE /api/store/remove with a declared namespace (not in config) →
+    200, manifest line removed, response carries the updated store entry."""
+    import led_ticker.webui as webui_mod
+
+    fake_entry, fake_catalog = _fake_rss_entry()
+    req = fake_entry.requirement()
+
+    def fake_build_store(**kwargs):
+        return {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [
+                {
+                    "namespace": "rss",
+                    "name": "rss",
+                    "summary": "RSS/Atom feed headlines.",
+                    "provides": {"widgets": ["rss.feed"]},
+                    "source": "git",
+                    "state": "available",
+                    "removable": False,
+                    "in_use_by": [],
+                }
+            ],
+        }
+
+    monkeypatch.setattr(webui_mod, "_build_store", fake_build_store)
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    # Write a manifest containing the rss requirement.
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["namespace"] == "rss"
+        # Manifest must no longer contain the requirement line.
+        manifest_text = manifest_path.read_text()
+        assert req not in manifest_text
+    finally:
+        await client.close()
+
+
+async def test_remove_in_use_returns_409(tmp_path, monkeypatch):
+    """DELETE /api/store/remove when config references the plugin → 409 with
+    in_use_by listing {section, type}; manifest unchanged."""
+    import led_ticker.webui as webui_mod
+
+    fake_entry, fake_catalog = _fake_rss_entry()
+    req = fake_entry.requirement()
+
+    def fake_build_store(**kwargs):
+        return {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        }
+
+    # config_references will return refs for rss.feed because the config TOML
+    # contains a widget with type = "rss.feed".
+    config_text = '[display]\nrows = 16\ncols = 32\n\n[[section]]\ntype = "rss.feed"\n'
+
+    monkeypatch.setattr(webui_mod, "_build_store", fake_build_store)
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    client = await _client(tmp_path, token="s3cret", config_text=config_text)
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 409
+        body = await resp.json()
+        assert body.get("error") == "in_use"
+        assert "in_use_by" in body
+        refs = body["in_use_by"]
+        assert isinstance(refs, list) and len(refs) > 0
+        assert any(r.get("type") == "rss.feed" for r in refs)
+        # Manifest must be UNCHANGED.
+        assert manifest_path.read_text() == req + "\n"
+    finally:
+        await client.close()
+
+
+async def test_remove_without_token_rejected(tmp_path, monkeypatch):
+    """DELETE /api/store/remove without token (token configured) → 401/403."""
+    import led_ticker.webui as webui_mod
+
+    _, fake_catalog = _fake_rss_entry()
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+        )
+        assert resp.status in (401, 403)
+    finally:
+        await client.close()
+
+
+async def test_remove_unknown_namespace_returns_400(tmp_path, monkeypatch):
+    """DELETE /api/store/remove with a namespace not in the catalog → 400."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import Catalog
+
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=()))
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "notreal.plugin"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 400
+        body = await resp.json()
+        assert body.get("error") == "unknown plugin"
+    finally:
+        await client.close()
+
+
+async def test_install_oversize_body_is_413(tmp_path):
+    """POST /api/store/install with an oversized body → 413 before JSON parse."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            data="x" * (1024 * 1024 + 1),
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 413
+    finally:
+        await client.close()
+
+
+async def test_remove_oversize_body_is_413(tmp_path):
+    """DELETE /api/store/remove with an oversized body → 413 before JSON parse."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            data="x" * (1024 * 1024 + 1),
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 413
+    finally:
+        await client.close()
+
+
+async def test_install_no_token_configured_returns_403(tmp_path):
+    """token="" (editing administratively disabled) → handler-level 403 even WITH
+    an auth header.  Exercises the handler guard, not the middleware 401 path
+    (mirrors test_put_config_rejects_without_token)."""
+    client = await _client(tmp_path, token="")
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss.feed"},
+            headers={"X-Web-Token": "anything"},
+        )
+        assert resp.status == 403
+        body = await resp.json()
+        assert "editing disabled" in body["error"]
+        # No manifest written: the guard short-circuits before any write.
+        assert not manifest_path.exists()
+    finally:
+        await client.close()
+
+
+async def test_remove_no_token_configured_returns_403(tmp_path):
+    """token="" (editing administratively disabled) → handler-level 403 even WITH
+    an auth header.  Exercises the handler guard, not the middleware 401 path."""
+    client = await _client(tmp_path, token="")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "anything"},
+        )
+        assert resp.status == 403
+        body = await resp.json()
+        assert "editing disabled" in body["error"]
+    finally:
+        await client.close()
+
+
+async def test_install_missing_namespace_is_400(tmp_path):
+    """POST /api/store/install with an empty/absent namespace → 400 (not 500)."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        for body in ({}, {"namespace": ""}, {"namespace": 7}):
+            resp = await client.post(
+                "/api/store/install",
+                json=body,
+                headers={"X-Web-Token": "s3cret"},
+            )
+            assert resp.status == 400, body
+            assert (await resp.json())["error"] == "missing namespace"
+    finally:
+        await client.close()
+
+
+async def test_remove_missing_namespace_is_400(tmp_path):
+    """DELETE /api/store/remove with an empty/absent namespace → 400 (not 500)."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        for body in ({}, {"namespace": ""}, {"namespace": 7}):
+            resp = await client.delete(
+                "/api/store/remove",
+                json=body,
+                headers={"X-Web-Token": "s3cret"},
+            )
+            assert resp.status == 400, body
+            assert (await resp.json())["error"] == "missing namespace"
+    finally:
+        await client.close()
+
+
+async def test_install_bad_json_body_is_400(tmp_path):
+    """POST /api/store/install with a malformed JSON body → 400 (handler ValueError
+    branch), not 500.  Token configured + supplied so the guard passes."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            data="not json",
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 400
+        body = await resp.json()
+        assert body["error"] == "body must be JSON"
+    finally:
+        await client.close()
+
+
+async def test_remove_bad_json_body_is_400(tmp_path):
+    """DELETE /api/store/remove with a malformed JSON body → 400 (handler
+    ValueError branch), not 500.  Token configured + supplied so the guard passes."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            data="not json",
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 400
+        body = await resp.json()
+        assert body["error"] == "body must be JSON"
+    finally:
+        await client.close()
+
+
+async def test_remove_bak_created(tmp_path, monkeypatch):
+    """remove uses the same atomic .bak path as install: prior manifest backed up."""
+    import led_ticker.webui as webui_mod
+
+    fake_entry, fake_catalog = _fake_rss_entry()
+    req = fake_entry.requirement()
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [{"namespace": "rss", "state": "available"}],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        bak = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+        assert bak.exists(), ".bak not created by remove"
+        assert bak.read_text() == req + "\n", "prior manifest content not preserved"
+    finally:
+        await client.close()
+
+
+async def test_remove_write_failure_is_500(tmp_path, monkeypatch):
+    """os.replace raising during remove → 500, no leftover .tmp, manifest intact."""
+    import led_ticker.webui as webui_mod
+
+    fake_entry, fake_catalog = _fake_rss_entry()
+    req = fake_entry.requirement()
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(req + "\n")
+
+    def boom(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(webui_mod.os, "replace", boom)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 500
+        body = await resp.json()
+        assert "manifest write failed" in body["error"]
+        assert not (tmp_path / "requirements-plugins.txt.tmp").exists()
+        assert manifest_path.read_text() == req + "\n", "manifest changed on failure"
+    finally:
+        await client.close()
+
+
+async def test_install_write_failure_is_500(tmp_path, monkeypatch):
+    """os.replace raising during install → 500, no leftover .tmp, manifest intact."""
+    import led_ticker.webui as webui_mod
+
+    _, fake_catalog = _fake_rss_entry()
+
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text("# existing\n")
+
+    def boom(src, dst):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(webui_mod.os, "replace", boom)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/install",
+            json={"namespace": "rss"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 500
+        body = await resp.json()
+        assert "manifest write failed" in body["error"]
+        assert not (tmp_path / "requirements-plugins.txt.tmp").exists()
+        assert manifest_path.read_text() == "# existing\n", (
+            "manifest changed on failure"
+        )
+    finally:
+        await client.close()
+
+
+async def test_remove_shared_package_sibling_in_config_returns_409(
+    tmp_path, monkeypatch
+):
+    """Removing pokeball when config uses nyancat.forward must 409: both ship as
+    led-ticker-flair, so dropping the line would orphan the in-use nyancat
+    transition. The guard must be requirement-key-aware, not namespace-exact."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    def _flair(ns, transitions):
+        return CatalogEntry(
+            name=ns,
+            namespace=ns,
+            summary="",
+            homepage="",
+            provides=PluginProvides(transitions=tuple(transitions)),
+            sources=(CatalogSource(type="pypi", package="led-ticker-flair"),),
+        )
+
+    nyancat = _flair("nyancat", ["nyancat.forward"])
+    pokeball = _flair("pokeball", ["pokeball.forward"])
+    fake_catalog = Catalog(entries=(nyancat, pokeball))
+
+    monkeypatch.setattr(webui_mod, "_load_catalog_lazy", lambda: fake_catalog)
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "display_online": False,
+            "pending_count": 0,
+            "auth_required": True,
+            "plugins": [],
+        },
+    )
+
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text("led-ticker-flair\n")
+    config_text = (
+        "[display]\nrows = 16\ncols = 32\n\n"
+        '[[section]]\nmode = "swap"\ntransition = "nyancat.forward"\n'
+    )
+
+    client = await _client(tmp_path, token="s3cret", config_text=config_text)
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "pokeball"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 409, (
+            "removing a flair sibling while nyancat is in use must 409"
+        )
+        body = await resp.json()
+        assert body.get("error") == "in_use"
+        # The write must be skipped entirely — manifest untouched.
+        assert manifest_path.read_text() == "led-ticker-flair\n", (
+            "manifest must be unchanged when the 409 guard fires"
+        )
+    finally:
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/store — anonymous redaction (defense-in-depth)
+# ---------------------------------------------------------------------------
+
+_RICH_FAKE_PAYLOAD = {
+    "display_online": True,
+    "pending_count": 1,
+    "auth_required": True,
+    "plugins": [
+        {
+            "namespace": "rss",
+            "name": "RSS Feed",
+            "summary": "RSS headlines",
+            "provides": {"widgets": ["rss.feed"]},
+            "source": "git",
+            "state": "active",
+            "removable": True,
+            "in_use_by": [{"section": "Morning", "type": "rss.feed"}],
+        },
+        {
+            "namespace": "crypto",
+            "name": "Crypto",
+            "summary": "CoinGecko ticker",
+            "provides": {"widgets": ["crypto.coingecko"]},
+            "source": "git",
+            "state": "available",
+            "removable": False,
+            "in_use_by": [],
+        },
+        {
+            # Off-catalog, host pip-installed namespace. redact_anonymous must
+            # DROP this entirely for unauthenticated callers (deployment state).
+            "namespace": "mycorp.custom",
+            "name": "mycorp.custom",
+            "summary": "",
+            "provides": {},
+            "source": "",
+            "state": "externally_installed",
+            "removable": False,
+            "in_use_by": [{"section": "Custom", "type": "mycorp.widget"}],
+        },
+    ],
+}
+
+
+async def test_store_token_configured_no_token_header_redacts(tmp_path, monkeypatch):
+    """Token configured but no token supplied → response is redacted.
+
+    Specifically: in_use_by empty, state coarsened, removable False,
+    pending_count 0.
+    """
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        # No auth header — store is still open (in _OPEN_PATHS).
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        # No in_use_by entries must leak.
+        for plugin in body["plugins"]:
+            assert plugin["in_use_by"] == [], (
+                f"in_use_by leaked for {plugin['namespace']}"
+            )
+        # States coarsened: active → installed, available → available.
+        ns_state = {p["namespace"]: p["state"] for p in body["plugins"]}
+        assert ns_state["rss"] == "installed"
+        assert ns_state["crypto"] == "available"
+        # pending_count zeroed.
+        assert body["pending_count"] == 0
+        # removable always False.
+        assert all(not p["removable"] for p in body["plugins"])
+        # Public catalog fields intact.
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert rss["name"] == "RSS Feed"
+        assert rss["summary"] == "RSS headlines"
+        # externally_installed namespace must NOT leak end-to-end through the
+        # handler (anon-drop fires in the route, not just the unit).
+        assert "mycorp.custom" not in {p["namespace"] for p in body["plugins"]}
+        # display_online is dropped for anonymous callers (deployment state).
+        assert "display_online" not in body
+    finally:
+        await client.close()
+
+
+async def test_store_token_configured_correct_token_gives_full_payload(
+    tmp_path, monkeypatch
+):
+    """Token configured + correct token supplied → full unredacted payload."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.get("/api/store", headers={"X-Web-Token": "s3cret"})
+        assert resp.status == 200
+        body = await resp.json()
+        # Full in_use_by present.
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert len(rss["in_use_by"]) == 1
+        assert rss["in_use_by"][0]["section"] == "Morning"
+        # Granular state preserved.
+        assert rss["state"] == "active"
+        assert rss["removable"] is True
+        # pending_count unredacted.
+        assert body["pending_count"] == 1
+    finally:
+        await client.close()
+
+
+async def test_store_no_token_configured_gives_full_payload(tmp_path, monkeypatch):
+    """No token configured → full payload (no token = open system, nothing to hide)."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    # token="" means no token configured.
+    client = await _client(tmp_path, token="")
+    try:
+        resp = await client.get("/api/store")
+        assert resp.status == 200
+        body = await resp.json()
+        # Full in_use_by present.
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert len(rss["in_use_by"]) == 1
+        assert rss["state"] == "active"
+        assert rss["removable"] is True
+        assert body["pending_count"] == 1
+    finally:
+        await client.close()
+
+
+async def test_store_wrong_token_gives_redacted(tmp_path, monkeypatch):
+    """Wrong token → still 200 (open route) but payload is redacted."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.get("/api/store", headers={"X-Web-Token": "wrongtoken"})
+        assert resp.status == 200
+        body = await resp.json()
+        for plugin in body["plugins"]:
+            assert plugin["in_use_by"] == []
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert rss["state"] == "installed"
+        assert rss["removable"] is False
+        assert body["pending_count"] == 0
+        # Wrong token is anonymous: externally_installed namespace dropped.
+        assert "mycorp.custom" not in {p["namespace"] for p in body["plugins"]}
+        assert "display_online" not in body
+    finally:
+        await client.close()
+
+
+async def test_store_correct_token_via_query_param_gives_full(tmp_path, monkeypatch):
+    """Correct token via ?token= query param → full payload (mirrors auth)."""
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(webui_mod, "_build_store", lambda **kw: _RICH_FAKE_PAYLOAD)
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.get("/api/store", params={"token": "s3cret"})
+        assert resp.status == 200
+        body = await resp.json()
+        rss = next(p for p in body["plugins"] if p["namespace"] == "rss")
+        assert rss["state"] == "active"
+        assert len(rss["in_use_by"]) == 1
+    finally:
+        await client.close()

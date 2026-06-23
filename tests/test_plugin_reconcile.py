@@ -1,6 +1,12 @@
+import subprocess
 import sys
 
-from led_ticker.plugin_reconcile import PluginAction, compute_diff, resolve_target
+from led_ticker.plugin_reconcile import (
+    PluginAction,
+    compute_diff,
+    ensure_volume_venv,
+    resolve_target,
+)
 
 
 def test_compute_diff_install_and_uninstall():
@@ -34,3 +40,31 @@ def test_resolve_target_volume_when_present(tmp_path):
     expected_exe = str(tmp_path / "venv" / "bin" / "python")
     assert t.python_exe == expected_exe
     assert t.site_packages and t.site_packages.endswith("site-packages")
+
+
+def test_ensure_creates_venv_when_missing(tmp_path):
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        (tmp_path / "venv").mkdir(exist_ok=True)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    ensure_volume_venv(tmp_path / "venv", runner=fake_run)
+    assert any("--system-site-packages" in c for c in calls)
+    assert (tmp_path / "venv" / ".python-version").exists()
+
+
+def test_ensure_noop_when_stamp_matches(tmp_path):
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    (venv / ".python-version").write_text(py_version)
+    calls = []
+
+    def runner(c, **k):
+        calls.append(c)
+        return subprocess.CompletedProcess(c, 0)
+
+    ensure_volume_venv(venv, runner=runner)
+    assert calls == []  # no recreate

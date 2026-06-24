@@ -1049,17 +1049,22 @@ def build_frame_from_config(display) -> LedFrame:
             led_rgb_sequence=display.led_rgb_sequence,
         )
     else:
-        # Headless (and future software backends): size from rows*chain x
-        # parallel*cols-equivalent; reuse the rgbmatrix geometry convention.
+        # Any non-rgbmatrix backend (headless today; future software /
+        # `api.backend()`-registered backends). Until `api.backend()` lands,
+        # the convention for a non-rgbmatrix backend constructor is the
+        # headless-style signature: `(width, height, pixel_mapper_config=…)`.
+        # Construct the RESOLVED class generically rather than hardcoding
+        # HeadlessBackend so a future registered backend isn't mis-built.
         from led_ticker.backends.headless import HeadlessBackend  # noqa: PLC0415
 
-        logging.warning(
-            "headless backend selected — no hardware output (dev/CI/preview "
-            'mode). Set [display] backend = "rgbmatrix" to drive a panel.'
-        )
+        if backend_cls is HeadlessBackend:
+            logging.warning(
+                "headless backend selected — no hardware output (dev/CI/preview "
+                'mode). Set [display] backend = "rgbmatrix" to drive a panel.'
+            )
         width = display.cols * display.chain_length
         height = display.rows * display.parallel
-        backend = HeadlessBackend(
+        backend = backend_cls(
             width, height, pixel_mapper_config=display.pixel_mapper_config
         )
     return LedFrame(backend=backend)

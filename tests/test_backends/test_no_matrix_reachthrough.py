@@ -19,7 +19,10 @@ def test_no_matrix_reachthrough_outside_backends():
         text = path.read_text()
         for i, line in enumerate(text.splitlines(), 1):
             # Match `.matrix.` or `.matrix =` (attribute reach-through),
-            # not the word in comments/strings like "RGBMatrix".
-            if re.search(r"\b\w+\.matrix\b", line) and "self.matrix" not in line:
+            # not the word in comments/strings like "RGBMatrix". The
+            # backends/ path-skip above already exempts legitimate internal
+            # matrix use, so no per-line exclusion is needed (and a comment-
+            # based one would silently mask real offenders).
+            if re.search(r"\b\w+\.matrix\b", line):
                 offenders.append(f"{rel}:{i}: {line.strip()}")
     assert not offenders, "reach-through to `.matrix` found:\n" + "\n".join(offenders)

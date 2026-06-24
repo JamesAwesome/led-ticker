@@ -62,12 +62,15 @@ class RgbMatrixBackend:
             self._matrix.brightness = value
 
     def setup(self) -> None:
-        options = build_options(self)
         if RGBMatrix is None:
+            # Guard FIRST: build_options() calls RGBMatrixOptions(), which is
+            # also None off-hardware — so the actionable error must fire before
+            # we touch it, or the user gets an opaque TypeError instead.
             raise RuntimeError(
                 "rgbmatrix hardware library not installed. Run on a Raspberry "
                 'Pi, or set [display] backend = "headless" for dev/CI/preview.'
             )
+        options = build_options(self)
         # Constructing RGBMatrix drops root -> daemon (constraint #13).
         self._matrix = RGBMatrix(options=options)
         self.framerate_fraction = (
@@ -79,8 +82,10 @@ class RgbMatrixBackend:
     def create_canvas(self) -> Canvas:
         return self._matrix.CreateFrameCanvas()
 
-    def swap(self, canvas: Canvas, framerate_fraction: int = 1) -> Canvas:
-        return self._matrix.SwapOnVSync(canvas, framerate_fraction)
+    def swap(self, canvas: Canvas) -> Canvas:
+        # framerate_fraction is this backend's own field (computed in setup());
+        # it must still reach SwapOnVSync to preserve the tearing/refresh cap.
+        return self._matrix.SwapOnVSync(canvas, self.framerate_fraction)
 
 
 def build_options(backend: RgbMatrixBackend) -> RGBMatrixOptions:

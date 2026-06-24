@@ -76,11 +76,10 @@ class LedFrame:
         for hook in self.overlay_hooks:
             hook(canvas)
         status_board.record_swap()
-        ff = self.backend.framerate_fraction
         tee = self._preview_tee
         if tee is not None and canvas is tee:
-            new_hw = self.backend.swap(tee._hw, ff)
+            new_hw = self.backend.swap(tee._hw)
             tee.maybe_capture()
             tee._hw = new_hw
             return tee
-        return self.backend.swap(canvas, ff)
+        return self.backend.swap(canvas)

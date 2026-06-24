@@ -78,7 +78,6 @@ class HeadlessBackend:
         self._width = width
         self._height = height
         self.brightness = 100
-        self.framerate_fraction = 1
         self._back_buffer: HeadlessCanvas | None = None
 
     def setup(self) -> None:
@@ -88,9 +87,7 @@ class HeadlessBackend:
     def create_canvas(self) -> HeadlessCanvas:
         return HeadlessCanvas(width=self._width, height=self._height)
 
-    def swap(
-        self, canvas: HeadlessCanvas, framerate_fraction: int = 1
-    ) -> HeadlessCanvas:
+    def swap(self, canvas: HeadlessCanvas) -> HeadlessCanvas:
         if self._back_buffer is None:
             self._back_buffer = HeadlessCanvas(width=self._width, height=self._height)
         old_back = self._back_buffer

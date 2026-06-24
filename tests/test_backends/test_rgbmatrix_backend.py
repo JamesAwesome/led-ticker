@@ -45,8 +45,46 @@ def test_swap_returns_different_object_through_stub():
     b = RgbMatrixBackend(led_rows=16, led_cols=32, led_chain_length=5)
     b.setup()
     front = b.create_canvas()
-    back = b.swap(front, b.framerate_fraction)
+    back = b.swap(front)
     assert back is not front
+
+
+def test_swap_applies_own_framerate_fraction_to_matrix():
+    """swap() reads the backend's OWN framerate_fraction (no protocol arg) and
+    passes it to SwapOnVSync — the rgbmatrix tearing/refresh-cap behaviour must
+    survive dropping the param from the protocol."""
+    b = RgbMatrixBackend(led_limit_refresh_rate_hz=60)  # => fraction 3
+    b.setup()
+    assert b.framerate_fraction == 3
+    captured = []
+    real_swap = b._matrix.SwapOnVSync
+
+    def recording_swap(canvas, framerate_fraction=1):
+        captured.append(framerate_fraction)
+        return real_swap(canvas, framerate_fraction)
+
+    b._matrix.SwapOnVSync = recording_swap
+    b.swap(b.create_canvas())
+    assert captured == [3]
+
+
+def test_brightness_setter_forwards_to_matrix_after_setup():
+    b = RgbMatrixBackend(led_rows=16, led_cols=32)
+    b.setup()
+    b.brightness = 42
+    assert b._matrix.brightness == 42
+    assert b.brightness == 42
+
+
+def test_setup_raises_actionable_error_when_rgbmatrix_unavailable(monkeypatch):
+    import led_ticker.backends.rgbmatrix as mod
+
+    monkeypatch.setattr(mod, "RGBMatrix", None)
+    b = RgbMatrixBackend()
+    import pytest
+
+    with pytest.raises(RuntimeError, match="headless"):
+        b.setup()
 
 
 def test_build_options_maps_all_fields():

@@ -23,10 +23,12 @@ KNOWN STUB-vs-REAL DIVERGENCES (with rationale):
     lib's stderr Hz output is not simulated. The startup explainer log
     (`app.build_frame_from_config` when `show_refresh_rate=true`) makes the
     behaviour visible to users either way.
-  - `RGBMatrix.SwapOnVSync` returns the SAME canvas object in this
-    stub by default. Test fixtures that need to verify capture-the-
-    return semantics use `swapping_frame` (`tests/conftest.py`) which
-    rotates between two canvas objects so dropped-capture bugs surface.
+  - `RGBMatrix.SwapOnVSync` rotates between two canvas objects (like
+    HeadlessBackend), returning the previous back buffer each call, so
+    dropped-capture bugs (constraints #1/#8) surface here. Test fixtures
+    that need a deterministic capture-the-return check can still use
+    `swapping_frame` (`tests/conftest.py`), and `mock_frame` returns the
+    SAME object for tests that don't care about capture-correctness.
 """
 
 from rgbmatrix import graphics  # noqa: F401
@@ -49,9 +51,11 @@ def _get_stub_canvas_cls():
     return HeadlessCanvas
 
 
-# Public alias kept for any ``from rgbmatrix import _StubCanvas`` callers.
+# Public factory proxy kept for any ``from rgbmatrix import _StubCanvas``
+# callers. NOT an alias/subclass: instantiating it returns a HeadlessCanvas, so
+# ``isinstance(x, _StubCanvas)`` is False — check ``isinstance(x, HeadlessCanvas)``.
 class _StubCanvas:  # noqa: N801
-    """Thin proxy: resolves to HeadlessCanvas on first instantiation."""
+    """Factory proxy: ``_StubCanvas(...)`` returns a HeadlessCanvas instance."""
 
     def __new__(cls, width=160, height=16):
         return _get_stub_canvas_cls()(width=width, height=height)
@@ -88,6 +92,10 @@ class RGBMatrix:
 
     def __init__(self, options=None):
         self._options = options
+        # The real C lib applies options.brightness to the live matrix; mirror
+        # that so the backend's brightness getter (reads self._matrix.brightness
+        # after setup) reflects the configured value.
+        self.brightness = getattr(options, "brightness", 100) if options else 100
         cols = getattr(options, "cols", 64) if options else 64
         chain = getattr(options, "chain_length", 1) if options else 1
         rows = getattr(options, "rows", 32) if options else 32

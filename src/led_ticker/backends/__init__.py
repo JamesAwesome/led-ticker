@@ -25,7 +25,9 @@ class Backend(Protocol):
     """The rendering-backend contract. See module docstring + CLAUDE.md."""
 
     brightness: int  # settable; live brightness scheduling. The only mutable attr.
-    framerate_fraction: int  # presentation hint; rgbmatrix-specific, 1 elsewhere.
+    # `brightness` is BUFFERED before `setup()` (the matrix doesn't exist yet)
+    # and applied/live after `setup()`: the getter then reflects the matrix's
+    # value and the setter forwards to it. The conformance kit checks both.
 
     def setup(self) -> None:
         """Build the underlying matrix and perform all privileged work.
@@ -37,9 +39,11 @@ class Backend(Protocol):
         """Return a fresh back-buffer canvas."""
         ...
 
-    def swap(self, canvas: Canvas, framerate_fraction: int = 1) -> Canvas:
+    def swap(self, canvas: Canvas) -> Canvas:
         """Present `canvas`; return the NEW back-buffer to draw into next.
-        MUST return a different object than it was handed (constraints #1/#8)."""
+        MUST return a different object than it was handed (constraints #1/#8).
+        Any presentation hint (e.g. rgbmatrix's framerate_fraction) is an
+        internal backend detail read inside the backend, not a protocol arg."""
         ...
 
 

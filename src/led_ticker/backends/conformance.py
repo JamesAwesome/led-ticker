@@ -9,6 +9,7 @@ every backend must pass. External backend authors run:
 `backend_factory` must return a FRESH, un-setup backend each call.
 """
 
+import contextlib
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -26,7 +27,7 @@ def _check_swap_returns_new_buffer(factory: Callable[[], Backend]) -> None:
     b = factory()
     b.setup()
     front = b.create_canvas()
-    back = b.swap(front, getattr(b, "framerate_fraction", 1))
+    back = b.swap(front)
     assert back is not front, (
         "swap() must return a DIFFERENT canvas (constraints #1/#8)"
     )
@@ -91,15 +92,33 @@ def _check_wrappability(factory: Callable[[], Backend]) -> None:
         frame_path.unlink(missing_ok=True)
 
 
-def _check_not_ready_guard(factory: Callable[[], Backend]) -> None:
-    # Backends that build state in setup() should not silently work before it.
-    # LedFrame enforces this; backends that raise BackendNotReadyError or
-    # AttributeError before setup() are both acceptable. We only assert that a
-    # backend which DID set up works — the LedFrame-level guard is tested
-    # separately (test_led_frame_backend.py).
+def _check_setup_ordering(factory: Callable[[], Backend]) -> None:
+    # Backends may legitimately allow create_canvas() before setup() (e.g.
+    # HeadlessBackend has nothing to build); the ORDERING guarantee lives at
+    # the LedFrame level (tested in test_led_frame_backend.py), not here. So a
+    # pre-setup create_canvas() may either raise OR return a usable canvas.
+    # What every backend MUST guarantee is that create_canvas() works AFTER
+    # setup(). Attempt the pre-setup call permissively, then assert post-setup.
     b = factory()
+    # Raising before setup() is an acceptable backend choice; so is returning a
+    # usable canvas (HeadlessBackend does). Either way, suppress and move on —
+    # the post-setup assertion below is the real contract.
+    with contextlib.suppress(Exception):
+        b.create_canvas()
     b.setup()
     assert b.create_canvas() is not None
+
+
+def _check_brightness_contract(factory: Callable[[], Backend]) -> None:
+    # Brightness is buffered before setup() and applied/live after. Set it
+    # before setup(), confirm the value survives setup(); set it after, confirm
+    # the getter reflects it.
+    b = factory()
+    b.brightness = 37
+    b.setup()
+    assert b.brightness == 37, "brightness set before setup() must survive setup()"
+    b.brightness = 88
+    assert b.brightness == 88, "brightness set after setup() must be readable"
 
 
 _CHECKS = [
@@ -108,7 +127,8 @@ _CHECKS = [
     _check_canvas_contract,
     _check_no_getpixel_required,
     _check_wrappability,
-    _check_not_ready_guard,
+    _check_setup_ordering,
+    _check_brightness_contract,
 ]
 
 

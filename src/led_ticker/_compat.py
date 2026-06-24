@@ -1,13 +1,14 @@
 """Compatibility shim for rgbmatrix.
 
 Attempts to import the real rgbmatrix C library (available on Raspberry Pi).
-Falls back to a bundled pure-Python stub of `graphics.*` (Color, Font,
-DrawText) when it isn't installed, so `led-ticker validate` and other
-non-drawing operations work on any machine without PYTHONPATH tricks.
+When it isn't installed, only `graphics.*` (Color, Font, DrawText) falls back
+to the bundled pure-Python `_rgbmatrix_stub` so `led-ticker validate` and other
+non-drawing operations work on any machine.
 
-`RGBMatrix` and `RGBMatrixOptions` are NOT stubbed — display construction
-goes through `RgbMatrixBackend.setup()`, which raises a clear error if the
-library is not installed.
+`RGBMatrix` and `RGBMatrixOptions` are NOT stubbed — off-hardware they are
+`None`. Display construction goes through `RgbMatrixBackend.setup()`, which
+checks for `None` and raises a clear "use [display] backend = \"headless\""
+error if the library is not installed.
 """
 
 from typing import Any

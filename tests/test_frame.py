@@ -79,23 +79,24 @@ def test_framerate_fraction_rounds():
     assert frame.backend.framerate_fraction == 1
 
 
-def test_swap_passes_fraction_to_backend():
-    """frame.swap() must forward framerate_fraction to the backend swap."""
+def test_frame_swap_calls_backend_swap_without_fraction_arg():
+    """framerate_fraction is no longer part of the Backend protocol; frame.swap
+    calls backend.swap(canvas) with no fraction arg (the rgbmatrix backend
+    applies its own fraction internally — see the rgbmatrix backend test)."""
     backend = HeadlessBackend(32, 16)
-    backend.framerate_fraction = 5
     frame = LedFrame(backend=backend)
     frame.setup()
-    swaps = []
+    received = []
     original_swap = backend.swap
 
-    def capturing_swap(canvas, ff=1):
-        swaps.append(ff)
-        return original_swap(canvas, ff)
+    def capturing_swap(canvas):
+        received.append(canvas)
+        return original_swap(canvas)
 
     backend.swap = capturing_swap
     canvas = frame.get_clean_canvas()
     frame.swap(canvas)
-    assert swaps == [5]
+    assert len(received) == 1
 
 
 def test_swap_returns_new_canvas():
@@ -119,9 +120,9 @@ def test_swap_runs_hooks_before_swap_with_canvas():
     backend = HeadlessBackend(32, 16)
     original_swap = backend.swap
 
-    def recording_swap(canvas, ff=1):
+    def recording_swap(canvas):
         order.append("swap")
-        return original_swap(canvas, ff)
+        return original_swap(canvas)
 
     backend.swap = recording_swap
     frame = LedFrame(backend=backend)

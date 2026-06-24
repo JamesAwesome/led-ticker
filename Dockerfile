@@ -70,6 +70,7 @@ COPY . /code/
 ARG BUILD_REF=
 ENV LED_TICKER_BUILD_REF=$BUILD_REF
 RUN BR="$BUILD_REF"; \
+    [ "$BR" = "unknown" ] && BR=""; \
     if [ -z "$BR" ] && [ -f /code/.git/HEAD ]; then \
       HEAD="$(cat /code/.git/HEAD)"; \
       case "$HEAD" in \

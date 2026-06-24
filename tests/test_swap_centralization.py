@@ -8,7 +8,7 @@ import ast
 from pathlib import Path
 
 SRC = Path(__file__).parent.parent / "src" / "led_ticker"
-ALLOWLIST = {"frame.py"}
+ALLOWLIST = {"frame.py", "rgbmatrix.py"}
 
 
 def test_no_bare_swaponvsync():

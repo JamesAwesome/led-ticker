@@ -6,6 +6,8 @@ the privilege-drop point (root -> daemon). Behavior is byte-identical to the
 pre-refactor LedFrame path.
 """
 
+from typing import Any
+
 import attrs
 
 from led_ticker._compat import RGBMatrix, RGBMatrixOptions
@@ -42,7 +44,10 @@ class RgbMatrixBackend:
     led_rp1_pio: int = 0
     led_limit_refresh_rate_hz: int = 0
     framerate_fraction: int = attrs.field(init=False, default=1)
-    _matrix: object = attrs.field(init=False, default=None)
+    # Any (not object): the rgbmatrix C extension ships no type stubs, so the
+    # matrix is untyped at rest — matches `_types.RGBMatrix = Any`. Lets pyright
+    # accept .brightness/.CreateFrameCanvas/.SwapOnVSync access below.
+    _matrix: Any = attrs.field(init=False, default=None)
 
     @property
     def brightness(self) -> int:

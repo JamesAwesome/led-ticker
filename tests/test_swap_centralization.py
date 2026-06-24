@@ -1,7 +1,9 @@
-"""AST tripwire: frame.py is the only permitted SwapOnVSync caller.
+"""AST tripwire: frame.py and backends/rgbmatrix.py are the only permitted
+SwapOnVSync callers.
 
-All other code must go through LedFrame.swap() so framerate_fraction
-is always forwarded and future overlay_hooks have a single injection point.
+All other code must go through LedFrame.swap() or RgbMatrixBackend.swap()
+so framerate_fraction is always forwarded and future overlay_hooks have
+a single injection point.
 """
 
 import ast

@@ -331,7 +331,9 @@ async def test_detect_transient_returns_none_no_record(monkeypatch, _patched_rel
 
 
 def test_reload_detected_per_section_not_only_per_cycle():
-    src = Path(run_mod.__file__).read_text()
+    import inspect
+
+    src = inspect.getsource(run_mod)
     # Count only CALL sites: the two real calls use `await`; the function
     # definition is `async def _detect_and_apply_reload(` and is excluded.
     # Loose `_detect_and_apply_reload(` would also match the definition, so a

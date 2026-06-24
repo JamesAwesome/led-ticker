@@ -1053,6 +1053,10 @@ def build_frame_from_config(display) -> LedFrame:
         # parallel*cols-equivalent; reuse the rgbmatrix geometry convention.
         from led_ticker.backends.headless import HeadlessBackend  # noqa: PLC0415
 
+        logging.warning(
+            "headless backend selected — no hardware output (dev/CI/preview "
+            'mode). Set [display] backend = "rgbmatrix" to drive a panel.'
+        )
         width = display.cols * display.chain_length
         height = display.rows * display.parallel
         backend = HeadlessBackend(

@@ -8,7 +8,7 @@ pre-refactor LedFrame path.
 
 import attrs
 
-from led_ticker._compat import RGBMatrix, RGBMatrixOptions, require_matrix
+from led_ticker._compat import RGBMatrix, RGBMatrixOptions
 from led_ticker._types import Canvas
 from led_ticker.backends import register_backend
 
@@ -58,9 +58,13 @@ class RgbMatrixBackend:
 
     def setup(self) -> None:
         options = build_options(self)
-        matrix_cls = require_matrix() if RGBMatrix is None else RGBMatrix
+        if RGBMatrix is None:
+            raise RuntimeError(
+                "rgbmatrix hardware library not installed. Run on a Raspberry "
+                'Pi, or set [display] backend = "headless" for dev/CI/preview.'
+            )
         # Constructing RGBMatrix drops root -> daemon (constraint #13).
-        self._matrix = matrix_cls(options=options)
+        self._matrix = RGBMatrix(options=options)
         self.framerate_fraction = (
             max(1, round(self.led_limit_refresh_rate_hz / _ENGINE_FPS))
             if self.led_limit_refresh_rate_hz

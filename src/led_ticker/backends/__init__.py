@@ -70,3 +70,10 @@ def get_backend_class(name: str) -> type:
         raise ValueError(
             f"unknown backend {name!r}; known backends: {known_backends()}"
         ) from None
+
+
+# Import implementations to trigger @register_backend decorators.
+# These are intentionally lazy (inside the __init__ boundary) so that the
+# test stub (tests/stubs) can override before this module is imported.
+from led_ticker.backends.headless import HeadlessBackend  # noqa: F401, E402
+from led_ticker.backends.rgbmatrix import RgbMatrixBackend  # noqa: F401, E402

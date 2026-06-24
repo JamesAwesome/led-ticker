@@ -14,7 +14,7 @@ hooks:  ## Install pre-commit hooks
 # --- Testing ---
 
 test:  ## Run pytest with coverage (no Docker needed)
-	PYTHONPATH=tests/stubs uv run pytest -s --cov=src/ --cov-report=term-missing
+	uv run pytest -s --cov=src/ --cov-report=term-missing
 
 # --- Quality ---
 

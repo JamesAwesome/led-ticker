@@ -73,6 +73,7 @@ packages = ["src/led_ticker"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "tools/render_demo", "tools/gif_plan"]
+pythonpath = ["tests/stubs"]
 asyncio_mode = "auto"
 markers = [
     "slow: marks tests as slow (spawns a subprocess; requires uv in PATH)",

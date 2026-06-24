@@ -32,6 +32,31 @@ KNOWN STUB-vs-REAL DIVERGENCES (with rationale):
 from rgbmatrix import graphics  # noqa: F401
 
 
+def _get_stub_canvas_cls():
+    """Lazy import to break the circular-init chain.
+
+    tests/stubs/rgbmatrix is loaded early during pytest collection.
+    A top-level ``from led_ticker.backends.headless import …`` triggers
+    ``led_ticker.backends.__init__``, which in turn imports
+    ``led_ticker.backends.rgbmatrix``, which imports ``led_ticker._compat``,
+    which does ``from rgbmatrix import …`` — but *this* module is still
+    mid-load, so Python returns the partially-initialized stub and
+    ``RGBMatrixOptions`` comes back as ``None``.  Deferring the import to
+    first call (after the stub is fully initialised) breaks that cycle.
+    """
+    from led_ticker.backends.headless import HeadlessCanvas  # noqa: PLC0415
+
+    return HeadlessCanvas
+
+
+# Public alias kept for any ``from rgbmatrix import _StubCanvas`` callers.
+class _StubCanvas:  # noqa: N801
+    """Thin proxy: resolves to HeadlessCanvas on first instantiation."""
+
+    def __new__(cls, width=160, height=16):
+        return _get_stub_canvas_cls()(width=width, height=height)
+
+
 class RGBMatrixOptions:
     """Stub for rgbmatrix.RGBMatrixOptions."""
 
@@ -56,62 +81,6 @@ class RGBMatrixOptions:
         # here so tests exercise the rp1_pio code path.
         self.rp1_pio = 0
         self.limit_refresh_rate_hz = 0
-
-
-class _StubCanvas:
-    """Stub canvas with pixel storage for testing."""
-
-    def __init__(self, width=160, height=16):
-        self.width = width
-        self.height = height
-        self._pixels = {}  # (x, y) -> (r, g, b)
-
-    def Clear(self):
-        self._pixels.clear()
-
-    def Fill(self, r, g, b):
-        for y in range(self.height):
-            for x in range(self.width):
-                self._pixels[(x, y)] = (r, g, b)
-
-    def SetPixel(self, x, y, r, g, b):
-        if 0 <= x < self.width and 0 <= y < self.height:
-            self._pixels[(x, y)] = (r, g, b)
-
-    def SubFill(self, x, y, width, height, red, green, blue):
-        for dy in range(height):
-            for dx in range(width):
-                self.SetPixel(x + dx, y + dy, red, green, blue)
-
-    def SetImage(self, image, offset_x=0, offset_y=0):
-        """Stub for the real rgbmatrix's `canvas.SetImage(pil_image, x, y)`.
-
-        The real C implementation pushes RGB bytes directly into the
-        framebuffer in one call. Here we walk the PIL image and call
-        SetPixel for each pixel so existing get_pixel-based assertions
-        still see the painted result. Performance doesn't matter in
-        tests; the stub's job is fidelity.
-        """
-        pixels = image.load()
-        w, h = image.size
-        for y in range(h):
-            for x in range(w):
-                px = pixels[x, y]
-                # PIL returns (r,g,b) or (r,g,b,a); flatten alpha onto black
-                if len(px) == 4 and px[3] == 0:
-                    r, g, b = 0, 0, 0
-                else:
-                    r, g, b = px[0], px[1], px[2]
-                self.SetPixel(offset_x + x, offset_y + y, r, g, b)
-
-    # Test-only helpers
-    def get_pixel(self, x, y):
-        """Get pixel color at (x, y). Returns (0, 0, 0) if unset."""
-        return self._pixels.get((x, y), (0, 0, 0))
-
-    def count_nonzero(self):
-        """Count pixels that are not black."""
-        return sum(1 for v in self._pixels.values() if v != (0, 0, 0))
 
 
 class RGBMatrix:

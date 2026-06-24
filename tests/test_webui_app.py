@@ -2401,7 +2401,7 @@ def test_header_renders_build_stamp_with_drift():
     import led_ticker.webui as webui_pkg
 
     html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
-    assert 'id="build-stamp"' in html          # the header element
-    assert "renderBuildStamp" in html          # the render fn
-    assert "webui_build" in html               # reads the webui ref for drift
-    assert "⚠" in html                     # the drift warning glyph
+    assert 'id="build-stamp"' in html  # the header element
+    assert "renderBuildStamp" in html  # the render fn
+    assert "webui_build" in html  # reads the webui ref for drift
+    assert "⚠" in html  # the drift warning glyph

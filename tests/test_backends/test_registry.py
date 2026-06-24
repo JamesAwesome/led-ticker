@@ -11,10 +11,14 @@ from led_ticker.backends import (
 
 
 @pytest.fixture(autouse=True)
-def _clear_registry():
-    """Clear the registry before each test to ensure isolation."""
+def _isolate_registry():
+    """Snapshot/restore the registry so a test that registers a dummy backend
+    doesn't leak into — or clobber — real backend registrations made at import
+    time by other modules."""
+    saved = dict(_REGISTRY)
     yield
     _REGISTRY.clear()
+    _REGISTRY.update(saved)
 
 
 def test_register_and_get():

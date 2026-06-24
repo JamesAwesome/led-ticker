@@ -55,9 +55,9 @@ src/led_ticker/
     headless.py        # HeadlessBackend + HeadlessCanvas (software, no hardware)
     conformance.py     # Importable backend-conformance suite (run_backend_conformance)
   scaled_canvas.py     # ScaledCanvas wrapper + unwrap_to_real
-  text_render.py       # Pure-Python BDF rasterizer. Used when scale > 1
-                       #   (graphics.DrawText cannot scale) AND at scale=1
-                       #   behind USE_RASTERIZER_AT_SCALE1.
+  text_render.py       # Pure-Python BDF rasterizer (SetPixel-based) for ALL
+                       #   scales. C graphics.DrawText removed after smallsign
+                       #   hardware validation (rasterizer byte-identical).
   validate.py          # Static config validator (`led-ticker validate`)
   widget.py            # Widget/AsyncWidget protocols + run_monitor_loop()
   drawing.py           # Shared drawing helpers (get_text_width, compute_baseline)

@@ -1,33 +1,23 @@
 """Unified text-drawing helper that picks the right rendering path.
 
-For a real `RGBMatrix` canvas (existing sign), forwards to `graphics.DrawText`
-unchanged. For a `ScaledCanvas` (bigsign at scale > 1), uses the pure-Python
-BDF rasterizer. For a `HiresFont`, uses the per-glyph hi-res renderer
-that paints to the unwrapped real canvas at native physical resolution.
+All BDF text (scale=1 and scale>1) uses the pure-Python rasterizer (SetPixel-
+based). The rasterizer paints through a PreviewTee directly (tee.SetPixel
+forwards to hardware AND mirrors into the shadow). For a `HiresFont`, uses
+the per-glyph hi-res renderer that paints to the unwrapped real canvas at
+native physical resolution.
+
+The legacy C `graphics.DrawText` path was removed after smallsign hardware
+validation confirmed byte-identical output from the rasterizer on all bundled
+BDF fonts.
 """
 
 from collections.abc import Callable
 from typing import Any
 
-from led_ticker._compat import require_graphics
 from led_ticker.drawing import rasterize_bdf
 from led_ticker.fonts import get_bdf_for
 from led_ticker.fonts.hires_loader import HiresFont
-from led_ticker.preview import PreviewTee
 from led_ticker.scaled_canvas import is_scaled, unwrap_to_real
-
-_graphics = require_graphics()
-
-# When True, scale=1 BDF text goes through the pure-Python rasterizer
-# (SetPixel-based) instead of the C `graphics.DrawText` path. The rasterizer
-# paints through a PreviewTee directly (tee.SetPixel both forwards to hardware
-# AND mirrors into the shadow), so `mirror_bdf_text` is unused on this path.
-#
-# Flip to False to restore the legacy C DrawText path (retained until a
-# one-time hardware C-vs-rasterizer pixel-diff on the real smallsign signs
-# off that the two paths produce byte-identical output on all bundled BDF
-# fonts).
-USE_RASTERIZER_AT_SCALE1: bool = True
 
 
 def draw_text(canvas: Any, font: Any, x: int, y: int, color: Any, text: str) -> int:
@@ -37,24 +27,8 @@ def draw_text(canvas: Any, font: Any, x: int, y: int, color: Any, text: str) -> 
     if is_scaled(canvas):
         bdf = get_bdf_for(font)
         return canvas.draw_bdf_text(bdf, x, y, color, text)
-    if USE_RASTERIZER_AT_SCALE1:
-        # One text path for every backend: rasterize via the shipped BDF
-        # renderer (SetPixel-based). Paints through a PreviewTee directly
-        # (tee.SetPixel forwards to hw AND mirrors into the shadow), so the
-        # old C+mirror_bdf_text branch is unused on this path.
-        bdf = get_bdf_for(font)
-        return rasterize_bdf(canvas.SetPixel, bdf, x, y, color, text)
-    # Legacy C path (retained until hardware sign-off; flip USE_RASTERIZER_AT_SCALE1
-    # to False to restore). PreviewTee branch + bare-canvas branch both reachable.
-    if isinstance(canvas, PreviewTee):
-        # scale=1 with the preview tee installed: the C library draws on the
-        # hardware canvas (it type-checks for a real Canvas — constraint #2),
-        # and the tee mirrors the same glyphs into the shadow.
-        advance = _graphics.DrawText(canvas._hw, font, x, y, color, text)
-        if canvas.mirror:
-            canvas.mirror_bdf_text(get_bdf_for(font), x, y, color, text)
-        return advance
-    return _graphics.DrawText(canvas, font, x, y, color, text)
+    bdf = get_bdf_for(font)
+    return rasterize_bdf(canvas.SetPixel, bdf, x, y, color, text)
 
 
 def _draw_hires_text(

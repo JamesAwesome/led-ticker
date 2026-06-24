@@ -1,6 +1,10 @@
 import asyncio
 import importlib
+from pathlib import Path
 from types import SimpleNamespace
+from types import SimpleNamespace as _SN
+
+import pytest
 
 import led_ticker.app.run as _run_mod_alias  # noqa: F401 — side-effect: registers module in sys.modules
 
@@ -91,11 +95,15 @@ def test_run_wires_the_reload_sequence():
 
     src = inspect.getsource(run_mod.run)
     assert "ConfigWatcher(" in src  # watcher created
-    assert "load_and_validate(" in src  # validate gate
-    assert "_apply_reload(" in src  # the swap
-    assert "record_reload(" in src  # status surfacing
+    # The detect-and-apply logic lives in _detect_and_apply_reload (not inlined):
+    assert "_detect_and_apply_reload(" in src  # reload gate delegated to helper
     assert "_build_widget_guarded(" in src  # cache-miss build goes through the guard
     assert "_build_title_guarded(" in src  # title build goes through the guard
+    # The helper itself must contain the reload primitives:
+    helper_src = inspect.getsource(run_mod._detect_and_apply_reload)
+    assert "load_and_validate(" in helper_src  # validate gate
+    assert "_apply_reload(" in helper_src  # the swap
+    assert "record_reload(" in helper_src  # status surfacing
 
 
 def test_run_guards_inter_section_transition():
@@ -193,3 +201,148 @@ async def test_build_widget_guarded_cancels_sink_tasks_on_build_error(monkeypatc
     await asyncio.sleep(0)  # let cancellation propagate
     assert len(captured_tasks) == 1
     assert captured_tasks[0].cancelled() or captured_tasks[0].cancelling()
+
+
+# ---------------------------------------------------------------------------
+# _detect_and_apply_reload helper tests
+# ---------------------------------------------------------------------------
+
+
+def _new_config():
+    # Minimal stand-in: the helper only reads .between_sections, .sections,
+    # and optionally ._coerce_warnings.
+    return _SN(between_sections=None, sections=[], _coerce_warnings=[])
+
+
+class _Watcher:
+    def __init__(self, changed):
+        self._changed = changed
+
+    def changed(self):
+        return self._changed
+
+
+@pytest.fixture
+def _patched_reload(monkeypatch):
+    calls = {"record": []}
+    monkeypatch.setattr(
+        run_mod, "_build_trans_obj_guarded", lambda cfg: "TRANS", raising=True
+    )
+
+    async def _fake_apply(*a, **k):
+        return ("SCHED", [])  # (schedule_task, restart_required)
+
+    monkeypatch.setattr(run_mod._reload, "_apply_reload", _fake_apply, raising=True)
+
+    def _rec(*, ok, ts, error="", restart_required=None):
+        calls["record"].append(
+            {"ok": ok, "error": error, "restart_required": restart_required}
+        )
+
+    monkeypatch.setattr(run_mod.status_board, "record_reload", _rec, raising=True)
+    return calls
+
+
+async def test_detect_no_change_returns_none(_patched_reload):
+    async def _lv(p):  # not reached when watcher reports no change
+        raise AssertionError("load_and_validate should not run")
+
+    res = await run_mod._detect_and_apply_reload(
+        watcher=_Watcher(False),
+        config_path=None,
+        config=_new_config(),
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=None,
+        schedule_task=None,
+        led_frame=None,
+    )
+    assert res is None
+    assert _patched_reload["record"] == []
+
+
+async def test_detect_applies_valid_reload(monkeypatch, _patched_reload):
+    new_cfg = _new_config()
+
+    async def _lv(p):
+        return (new_cfg, [], False)  # (config, errors, transient)
+
+    monkeypatch.setattr(run_mod._reload, "load_and_validate", _lv, raising=True)
+    res = await run_mod._detect_and_apply_reload(
+        watcher=_Watcher(True),
+        config_path=None,
+        config=_new_config(),
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=None,
+        schedule_task=None,
+        led_frame=None,
+    )
+    assert res is not None
+    assert res.config is new_cfg
+    assert res.default_section_trans == "TRANS"
+    assert res.schedule_task == "SCHED"
+    assert _patched_reload["record"][-1]["ok"] is True
+
+
+async def test_detect_rejected_reload_returns_none_records_failure(
+    monkeypatch, _patched_reload
+):
+    async def _lv(p):
+        return (None, ["boom"], False)
+
+    monkeypatch.setattr(run_mod._reload, "load_and_validate", _lv, raising=True)
+    res = await run_mod._detect_and_apply_reload(
+        watcher=_Watcher(True),
+        config_path=None,
+        config=_new_config(),
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=None,
+        schedule_task=None,
+        led_frame=None,
+    )
+    assert res is None
+    assert _patched_reload["record"][-1]["ok"] is False
+    assert _patched_reload["record"][-1]["error"] == "boom"
+
+
+async def test_detect_transient_returns_none_no_record(monkeypatch, _patched_reload):
+    async def _lv(p):
+        return (None, [], True)  # mid-write
+
+    monkeypatch.setattr(run_mod._reload, "load_and_validate", _lv, raising=True)
+    res = await run_mod._detect_and_apply_reload(
+        watcher=_Watcher(True),
+        config_path=None,
+        config=_new_config(),
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=None,
+        schedule_task=None,
+        led_frame=None,
+    )
+    assert res is None
+    assert _patched_reload["record"] == []
+
+
+# ---------------------------------------------------------------------------
+# Source-scan tripwire: reload must be detected per-section, not once per cycle
+# ---------------------------------------------------------------------------
+
+
+def test_reload_detected_per_section_not_only_per_cycle():
+    src = Path(run_mod.__file__).read_text()
+    # Helper must be called at the cycle top AND inside the per-section loop.
+    assert src.count("_detect_and_apply_reload(") >= 2, (
+        "reload helper must be invoked both per-cycle and per-section"
+    )
+    marker = "for section_index, section in enumerate(config.sections):"
+    assert marker in src
+    section_region = src[src.index(marker) :]
+    assert "_detect_and_apply_reload(" in section_region, (
+        "per-section reload check is missing — the bug was: reload only "
+        "detected once per full playlist cycle"
+    )
+    # The per-section reload must break to restart the cycle on the new config.
+    assert "break" in section_region[: section_region.index("record_section")]

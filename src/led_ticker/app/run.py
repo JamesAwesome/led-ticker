@@ -10,6 +10,7 @@ import contextlib
 import logging
 import sys
 import time
+import typing
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -249,6 +250,67 @@ def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
             exc,
         )
         return None
+
+
+class _ReloadResult(typing.NamedTuple):
+    config: Any
+    default_section_trans: Any
+    schedule_task: Any
+
+
+async def _detect_and_apply_reload(
+    *,
+    watcher: Any,
+    config_path: Any,
+    config: Any,
+    widget_cache: dict,
+    widget_tasks: dict,
+    render_breaker: Any,
+    schedule_task: Any,
+    led_frame: Any,
+) -> _ReloadResult | None:
+    """Check the watcher; if the config changed and validates, apply it.
+
+    Returns a _ReloadResult (new config + rebuilt section-default transition +
+    new schedule task) when a reload was applied, else None for: no change,
+    transient mid-write, or a rejected (invalid) config. Records reload status
+    as a side effect — moved verbatim from the old inline run-loop block so the
+    detection cadence (now per-section) is the only behavior change."""
+    if not watcher.changed():
+        return None
+    new_config, errors, transient = await _reload.load_and_validate(config_path)
+    if transient:
+        return None  # file mid-write; retry next cycle, no record
+    ts = datetime.now().isoformat()
+    if new_config is None:
+        logging.error("config reload rejected: %s", "; ".join(errors))
+        status_board.record_reload(ok=False, ts=ts, error="; ".join(errors))
+        return None
+    schedule_task, restart_required = await _reload._apply_reload(
+        new_config,
+        old_config=config,
+        widget_cache=widget_cache,
+        widget_tasks=widget_tasks,
+        render_breaker=render_breaker,
+        schedule_task=schedule_task,
+        respawn_schedule=lambda ot, cfg: _respawn_schedule(ot, cfg, led_frame),
+    )
+    default_section_trans = _build_trans_obj_guarded(new_config.between_sections)
+    for w in getattr(new_config, "_coerce_warnings", []):
+        logging.warning("config coerce: %s", w.message)
+    if restart_required:
+        logging.warning(
+            "config reloaded (partial); restart required for: %s",
+            ", ".join(restart_required),
+        )
+    else:
+        logging.info("config reloaded")
+    status_board.record_reload(ok=True, ts=ts, restart_required=restart_required)
+    return _ReloadResult(
+        config=new_config,
+        default_section_trans=default_section_trans,
+        schedule_task=schedule_task,
+    )
 
 
 def _serialize_issues(issues: list[Any]) -> list[dict[str, Any]]:
@@ -682,54 +744,41 @@ async def run(config_path: Path) -> None:
                             " — exiting for supervisor restart"
                         )
                         sys.exit(0)
-                    if watcher.changed():
-                        new_config, errors, transient = await _reload.load_and_validate(
-                            config_path
-                        )
-                        if transient:
-                            pass  # file mid-write; retry next cycle, no record
-                        elif new_config is None:
-                            ts = datetime.now().isoformat()
-                            logging.error(
-                                "config reload rejected: %s", "; ".join(errors)
-                            )
-                            status_board.record_reload(
-                                ok=False, ts=ts, error="; ".join(errors)
-                            )
-                        else:
-                            ts = datetime.now().isoformat()
-                            (
-                                schedule_task,
-                                restart_required,
-                            ) = await _reload._apply_reload(
-                                new_config,
-                                old_config=config,
-                                widget_cache=widget_cache,
-                                widget_tasks=widget_tasks,
-                                render_breaker=render_breaker,
-                                schedule_task=schedule_task,
-                                respawn_schedule=lambda ot, cfg: _respawn_schedule(
-                                    ot, cfg, led_frame
-                                ),
-                            )
-                            default_section_trans = _build_trans_obj_guarded(
-                                new_config.between_sections
-                            )
-                            for w in getattr(new_config, "_coerce_warnings", []):
-                                logging.warning("config coerce: %s", w.message)
-                            config = new_config  # the swap
-                            if restart_required:
-                                logging.warning(
-                                    "config reloaded (partial); restart required "
-                                    "for: %s",
-                                    ", ".join(restart_required),
-                                )
-                            else:
-                                logging.info("config reloaded")
-                            status_board.record_reload(
-                                ok=True, ts=ts, restart_required=restart_required
-                            )
+                    _reload_res = await _detect_and_apply_reload(
+                        watcher=watcher,
+                        config_path=config_path,
+                        config=config,
+                        widget_cache=widget_cache,
+                        widget_tasks=widget_tasks,
+                        render_breaker=render_breaker,
+                        schedule_task=schedule_task,
+                        led_frame=led_frame,
+                    )
+                    if _reload_res is not None:
+                        config = _reload_res.config
+                        default_section_trans = _reload_res.default_section_trans
+                        schedule_task = _reload_res.schedule_task
                     for section_index, section in enumerate(config.sections):
+                        # Per-section reload check: caps reload latency at one
+                        # section instead of one full playlist cycle, so a save
+                        # lands inside the web UI's confirmation window. Applied
+                        # at the section seam (never mid-scroll). On a reload we
+                        # break to restart the cycle against the new sections.
+                        _reload_res = await _detect_and_apply_reload(
+                            watcher=watcher,
+                            config_path=config_path,
+                            config=config,
+                            widget_cache=widget_cache,
+                            widget_tasks=widget_tasks,
+                            render_breaker=render_breaker,
+                            schedule_task=schedule_task,
+                            led_frame=led_frame,
+                        )
+                        if _reload_res is not None:
+                            config = _reload_res.config
+                            default_section_trans = _reload_res.default_section_trans
+                            schedule_task = _reload_res.schedule_task
+                            break
                         # Per-section restart check: caps latency at one
                         # section even for run modes where the per-tick
                         # ticker hook can't fire (e.g. an empty section that

@@ -60,3 +60,37 @@ async def test_text_non_ascii_content_is_validated(tmp_path):
     from_path = await validate_config(p)
     from_text = await validate_config_text(accented)
     assert from_text.valid == from_path.valid is True
+
+
+async def test_config_dir_anchors_user_font(tmp_path):
+    # A hires font that exists ONLY in the real config dir's fonts/ folder.
+    # Without config_dir the text path anchors to a throwaway temp dir and the
+    # font reads as "unknown" (rule 24). With config_dir it must resolve clean.
+    fonts = tmp_path / "fonts"
+    fonts.mkdir()
+    # Reuse a bundled hires OTF as a stand-in "user font" named beloved-sans.
+    import shutil
+    from importlib import resources
+
+    bundled = resources.files("led_ticker.fonts") / "hires" / "Inter-Regular.otf"
+    with resources.as_file(bundled) as src:
+        shutil.copy(src, fonts / "beloved-sans.otf")
+    toml = GOOD.replace(
+        'text = "hello"',
+        'text = "hello"\nfont = "beloved-sans"\nfont_size = 16',
+    )
+    result = await validate_config_text(toml, config_dir=tmp_path)
+    assert not any(w.rule == 24 for w in result.warnings), [
+        (w.rule, w.message) for w in result.warnings
+    ]
+
+
+async def test_no_config_dir_keeps_temp_anchoring(tmp_path):
+    # Back-compat: with NO config_dir, the same font is unknown (rule 24),
+    # because the text path still anchors to the throwaway temp dir.
+    toml = GOOD.replace(
+        'text = "hello"',
+        'text = "hello"\nfont = "beloved-sans"\nfont_size = 16',
+    )
+    result = await validate_config_text(toml)
+    assert any(w.rule == 24 for w in result.warnings)

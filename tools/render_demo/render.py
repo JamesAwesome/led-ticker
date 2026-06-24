@@ -119,7 +119,7 @@ async def _drive_engine(
     # fonts/).  Patch run_mod's binding too so both call sites are
     # suppressed.
     if original_cfg_path is not None:
-        original_configure(original_cfg_path)
+        original_configure(original_cfg_path.parent)
         app_mod._configure_user_font_dir = lambda _path: None  # type: ignore[method-assign]
         run_mod._configure_user_font_dir = lambda _path: None  # type: ignore[assignment]
 

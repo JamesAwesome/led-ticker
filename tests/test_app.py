@@ -751,7 +751,7 @@ class TestConfigureUserFontDir:
         config_path = tmp_path / "config.toml"
         config_path.write_text("# minimal\n")
 
-        _configure_user_font_dir(config_path)
+        _configure_user_font_dir(config_path.parent)
 
         assert (tmp_path / "fonts").resolve() == hires_loader.USER_FONT_DIR
 
@@ -778,7 +778,7 @@ class TestConfigureUserFontDir:
         # Sanity: lookup fails before the override.
         assert hl._find_font_path("beloved-sans") is None
 
-        _configure_user_font_dir(config_path)
+        _configure_user_font_dir(config_path.parent)
 
         found = hl._find_font_path("beloved-sans")
         assert found == fake_font.resolve()
@@ -800,7 +800,7 @@ class TestConfigureUserFontDir:
         # re-hits _find_font_path rather than returning the cached None.
         config_path = tmp_path / "config.toml"
         config_path.write_text("# minimal\n")
-        _configure_user_font_dir(config_path)
+        _configure_user_font_dir(config_path.parent)
         assert load_hires_font.cache_info().currsize == 0
 
 

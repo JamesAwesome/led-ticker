@@ -1855,7 +1855,9 @@ def apply_migrations(path: Path, result: ValidationResult) -> int:
     return applied
 
 
-async def validate_config(path: Path, *, strict: bool = False) -> ValidationResult:
+async def validate_config(
+    path: Path, *, strict: bool = False, config_dir: Path | None = None
+) -> ValidationResult:
     """Validate a TOML config file. Raises FileNotFoundError if path does not exist.
 
     When ``strict=True``:
@@ -1864,6 +1866,11 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     - All accumulated warnings are promoted to errors before returning.
       ``ValidationResult.warnings`` will be empty; callers check ``result.valid``
       as usual.
+
+    ``config_dir`` overrides the directory used to resolve relative paths
+    (fonts, assets, plugin checks). Defaults to ``path.parent`` — pass it when
+    the TOML was materialized to a throwaway temp file (the web UI's text
+    validate) so resolution anchors to the real config directory.
     """
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
@@ -1950,9 +1957,10 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     # "unknown font" failures are downgraded to warnings (rule 24): the
     # font may live on the deploy target but not the laptop drafting
     # the config. Type / required-field errors stay hard.
-    _configure_user_font_dir(path)
+    effective_config_dir = config_dir if config_dir is not None else path.parent
+    _configure_user_font_dir(effective_config_dir)
     build_errors, build_warnings, migration_errors = await _run_build_checks(
-        config.sections, path.parent
+        config.sections, effective_config_dir
     )
     for location, msg, fix, fix_key, fix_replacement_key in migration_errors:
         errors.append(
@@ -2049,12 +2057,12 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
         warnings.extend(_check_soft(config))
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
-        warnings.extend(_check_plugin_validation_warnings(config, path.parent))
+        warnings.extend(_check_plugin_validation_warnings(config, effective_config_dir))
 
     # Phase 2 (strict only): asset path existence check.
     # Not in normal mode — asset files may only exist on the deploy target.
     if strict:
-        errors.extend(_check_asset_paths(config, path.parent))
+        errors.extend(_check_asset_paths(config, effective_config_dir))
 
     # Schedule validation: timezone, HH:MM times, brightness range, day names,
     # start==end, enabled-with-no-windows (warning), fully-shadowed windows (warning).
@@ -2079,12 +2087,17 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
     return ValidationResult(path=path, errors=errors, warnings=warnings, notes=notes)
 
 
-async def validate_config_text(text: str, *, strict: bool = False) -> ValidationResult:
+async def validate_config_text(
+    text: str, *, strict: bool = False, config_dir: Path | None = None
+) -> ValidationResult:
     """Validate TOML config content from a string.
 
     Same engine as validate_config — the text is materialized to a temp file
     so every path-relative check behaves identically. Used by the web UI's
     POST /api/validate; also handy for tests.
+
+    Pass ``config_dir`` to anchor relative-path resolution (fonts/assets) at
+    the real config directory rather than the temp dir.
 
     Broken TOML is returned as an invalid ValidationResult (not raised),
     matching validate_config's behaviour — callers check result.valid.
@@ -2092,7 +2105,7 @@ async def validate_config_text(text: str, *, strict: bool = False) -> Validation
     with tempfile.TemporaryDirectory(prefix="led-ticker-validate-") as td:
         p = Path(td) / "config.toml"
         p.write_text(text, encoding="utf-8")
-        return await validate_config(p, strict=strict)
+        return await validate_config(p, strict=strict, config_dir=config_dir)
 
 
 def _issue_to_dict(issue: ValidationIssue) -> dict[str, Any]:

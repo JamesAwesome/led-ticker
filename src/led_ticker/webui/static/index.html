@@ -648,6 +648,12 @@ $("config-validate").onclick = async () => {
   }
 };
 
+// Reload confirmation polling. The display detects config changes at section
+// boundaries (one section's duration), so the confirmation must outlast a slow
+// playlist — poll patiently rather than timing out to a scary "unknown".
+const RELOAD_POLL_INTERVAL_MS = 2000;
+const RELOAD_POLL_ATTEMPTS = 90; // ~180s cap
+
 $("config-save").onclick = async () => {
   const toml = $("config-editor").value;
   const status = $("config-status");
@@ -673,7 +679,7 @@ $("config-save").onclick = async () => {
       const j = await r.json();
       configBaseHash = j.hash || configBaseHash;
       status.textContent = "saved — applying…";
-      setTimeout(() => pollReloadOutcome(priorReloadAt, 3), 1500);
+      setTimeout(() => pollReloadOutcome(priorReloadAt, RELOAD_POLL_ATTEMPTS), RELOAD_POLL_INTERVAL_MS);
     } else if (r.status === 409) {
       status.textContent = "changed on disk — reload before saving";
     } else if (r.status === 403) {
@@ -715,8 +721,8 @@ async function pollReloadOutcome(priorAt, attemptsLeft) {
     // one we captured before saving (stale → would falsely read "applied live").
     if (!lr.at || lr.at === priorAt) {
       if (attemptsLeft > 0) {
-        status.textContent = "saved — waiting for reload…";
-        setTimeout(() => pollReloadOutcome(priorAt, attemptsLeft - 1), 1500);
+        status.textContent = "saved — applying at next section…";
+        setTimeout(() => pollReloadOutcome(priorAt, attemptsLeft - 1), RELOAD_POLL_INTERVAL_MS);
       } else {
         status.textContent = "saved (reload status unknown — check the sign)";
       }

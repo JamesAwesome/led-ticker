@@ -1070,14 +1070,14 @@ def build_frame_from_config(display) -> LedFrame:
     return LedFrame(backend=backend)
 
 
-def _configure_user_font_dir(config_path: Path) -> None:
+def _configure_user_font_dir(config_dir: Path) -> None:
     """Anchor user-supplied hi-res fonts to ``<config_dir>/fonts/``.
 
     The module-level default in ``hires_loader`` resolves relative to
     the package install path, which is fine in the dev tree but points
     at the wrong place under ``pip install`` / Docker (the package
     lives in site-packages, not next to the user's config). Override
-    here at startup based on where ``config.toml`` actually lives, and
+    here at startup based on the config directory, and
     invalidate the load cache so any earlier lookups don't stick.
 
     SCOPE: Only effective for callers that go through ``app.run()``.
@@ -1089,7 +1089,7 @@ def _configure_user_font_dir(config_path: Path) -> None:
     """
     from led_ticker.fonts import hires_loader
 
-    hires_loader.USER_FONT_DIR = (config_path.parent / "fonts").resolve()
+    hires_loader.USER_FONT_DIR = (config_dir / "fonts").resolve()
     hires_loader.load_hires_font.cache_clear()
 
 

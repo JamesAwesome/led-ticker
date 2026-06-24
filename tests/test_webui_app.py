@@ -208,6 +208,36 @@ async def test_validate_response_does_not_leak_temp_path(tmp_path):
         await client.close()
 
 
+async def test_validate_resolves_user_font_in_config_dir(tmp_path):
+    import shutil
+    from importlib import resources
+
+    fonts = tmp_path / "fonts"
+    fonts.mkdir()
+    bundled = resources.files("led_ticker.fonts") / "hires" / "Inter-Regular.otf"
+    with resources.as_file(bundled) as srcf:
+        shutil.copy(srcf, fonts / "beloved-sans.otf")
+
+    # Build the client exactly like test_validate_good_toml does, with the
+    # config.toml living in tmp_path so config_path.parent == tmp_path.
+    client = await _client(tmp_path)
+
+    toml = (
+        "[display]\nrows = 32\ncols = 64\nchain_length = 8\ndefault_scale = 1\n\n"
+        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n\n'
+        '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+        'font = "beloved-sans"\nfont_size = 16\n'
+    )
+    try:
+        resp = await client.post("/api/validate", data=toml)
+        body = await resp.json()
+        assert resp.status == 200
+        rule_24 = [w for w in body.get("warnings", []) if w.get("rule") == 24]
+        assert rule_24 == [], rule_24
+    finally:
+        await client.close()
+
+
 async def test_auth_gates_unknown_routes_and_new_routes(tmp_path):
     # Auth runs BEFORE routing: unknown paths must 401 (not 404) when a
     # token is configured — no route-existence oracle.
@@ -709,11 +739,11 @@ async def test_put_config_host_edit_mid_handler_is_409(tmp_path):
 
     real_validate = webui_mod.validate_config_text
 
-    async def validate_then_host_edit(text):
+    async def validate_then_host_edit(text, **kwargs):
         # Simulate a host edit landing mid-handler: mutate the file on disk
         # after the conflict-check passed but before os.replace.
         config_path.write_text(original + "\n# host edit\n")
-        return await real_validate(text)
+        return await real_validate(text, **kwargs)
 
     monkeypatch_done = False
     try:
@@ -2405,3 +2435,19 @@ def test_header_renders_build_stamp_with_drift():
     assert "renderBuildStamp" in html  # the render fn
     assert "webui_build" in html  # reads the webui ref for drift
     assert "⚠" in html  # the drift warning glyph
+
+
+def test_reload_poll_is_patient():
+    from pathlib import Path
+
+    from led_ticker import webui
+
+    html = (Path(webui.__file__).parent / "static" / "index.html").read_text()
+    # Patient poll: ~180s cap at a 2s interval.
+    assert "RELOAD_POLL_ATTEMPTS = 90" in html
+    assert "RELOAD_POLL_INTERVAL_MS = 2000" in html
+    # Honest wait message while the next section seam is reached.
+    assert "saved — applying at next section…" in html
+    # The old impatient 6s budget (3 attempts) and stale message are gone.
+    assert "pollReloadOutcome(priorReloadAt, 3)" not in html
+    assert "saved — waiting for reload…" not in html

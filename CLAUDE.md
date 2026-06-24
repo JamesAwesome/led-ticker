@@ -47,10 +47,17 @@ src/led_ticker/
   app.py               # Thin shim — re-exports app/ entry points
   config.py            # TOML config loader (stdlib tomllib)
   ticker.py            # Display orchestrator (scroll/swap/forever_scroll modes)
-  frame.py             # LedFrame hardware wrapper
+  frame.py             # LedFrame: backend-agnostic render mechanism (holds a
+                       #   Backend; overlay hooks, status-board, preview tee)
+  backends/
+    __init__.py        # Backend protocol + register_backend/get_backend_class registry
+    rgbmatrix.py       # RgbMatrixBackend (production; builds RGBMatrix in setup())
+    headless.py        # HeadlessBackend + HeadlessCanvas (software, no hardware)
+    conformance.py     # Importable backend-conformance suite (run_backend_conformance)
   scaled_canvas.py     # ScaledCanvas wrapper + unwrap_to_real
-  text_render.py       # Pure-Python BDF rasterizer (needed when scale > 1
-                       #   because graphics.DrawText cannot scale)
+  text_render.py       # Pure-Python BDF rasterizer (SetPixel-based) for ALL
+                       #   scales. C graphics.DrawText removed after smallsign
+                       #   hardware validation (rasterizer byte-identical).
   validate.py          # Static config validator (`led-ticker validate`)
   widget.py            # Widget/AsyncWidget protocols + run_monitor_loop()
   drawing.py           # Shared drawing helpers (get_text_width, compute_baseline)
@@ -147,7 +154,7 @@ Each bullet is a rule that must hold when modifying the named area. Full prose f
 
 These constraints were learned through extensive real-hardware testing. They are the contract for any code that touches the render path. Do not relax them.
 
-1. **SwapOnVSync return value MUST be captured**: `canvas = frame.matrix.SwapOnVSync(canvas)`. The return value is the previous front buffer which becomes the new back buffer. If discarded, you draw to the actively-displayed buffer, causing tearing and corruption. EVERY call site must capture this.
+1. **SwapOnVSync return value MUST be captured**: `canvas = frame.swap(canvas)`. The return value is the previous front buffer which becomes the new back buffer. If discarded, you draw to the actively-displayed buffer, causing tearing and corruption. EVERY call site must capture this.
 
 2. **DrawText rejects non-Canvas objects**: The real rgbmatrix `graphics.DrawText` is a C function that type-checks for `rgbmatrix.core.Canvas`. Python objects like ShadowCanvas will get `TypeError`. Never call `widget.draw()` on anything other than a real canvas or the test stub canvas.
 
@@ -165,13 +172,13 @@ These constraints were learned through extensive real-hardware testing. They are
 
 9. **ScaledCanvas wraps the real canvas**: In bigsign mode (`default_scale > 1`) the canvas widgets receive is a `ScaledCanvas`. `_swap` mutates `.real` in place so wrapper identity is preserved across frames; transitions that re-wrap (`run_transition` at `incoming_scale != current`) must do so explicitly and not rely on the wrapper survival path.
 
-10. **`play()`-style widgets must rebind their text/secondary canvases after every swap**: A widget that owns its swap loop (e.g. `GifPlayer.play()`, `StillImage.play()`) typically holds two canvas references: one for the image (real canvas, native pixels) and one for text (a temporary ScaledCanvas wrapper or the same real canvas at scale=1). After `canvas = frame.matrix.SwapOnVSync(canvas)`, the secondary reference is now stale — pointing at the old front buffer that's currently displaying. ScaledCanvas wrappers re-anchor via `wrapper.real = canvas`; raw-canvas references must be reassigned (`text_canvas = canvas`). Skip this rebind and you paint to the displayed buffer every other tick — visible as a "pulsing" flicker on the panel. Both widgets share `_BaseImageWidget._play_with_text` so the rebind lives in one place. The two-row equivalent in `_play_with_two_row_text` follows the same pattern. Tripwires: `test_play_no_wrap_text_canvas_follows_back_buffer` (single-row gif), `test_play_two_row_no_wrap_text_canvas_follows_back_buffer` (two-row gif), and `test_text_canvas_follows_back_buffer` (still).
+10. **`play()`-style widgets must rebind their text/secondary canvases after every swap**: A widget that owns its swap loop (e.g. `GifPlayer.play()`, `StillImage.play()`) typically holds two canvas references: one for the image (real canvas, native pixels) and one for text (a temporary ScaledCanvas wrapper or the same real canvas at scale=1). After `canvas = frame.swap(canvas)`, the secondary reference is now stale — pointing at the old front buffer that's currently displaying. ScaledCanvas wrappers re-anchor via `wrapper.real = canvas`; raw-canvas references must be reassigned (`text_canvas = canvas`). Skip this rebind and you paint to the displayed buffer every other tick — visible as a "pulsing" flicker on the panel. Both widgets share `_BaseImageWidget._play_with_text` so the rebind lives in one place. The two-row equivalent in `_play_with_two_row_text` follows the same pattern. Tripwires: `test_play_no_wrap_text_canvas_follows_back_buffer` (single-row gif), `test_play_two_row_no_wrap_text_canvas_follows_back_buffer` (two-row gif), and `test_text_canvas_follows_back_buffer` (still).
 
 11. **Per-pixel scatter (Dissolve) must run at physical resolution on ScaledCanvas**: A SetPixel-based scatter operating on the wrapper's logical canvas at scale=4 has only 1024 logical pixels — at peak (`t=0.5`, `count=total`) every logical pixel blacks out, every 4×4 block on the real canvas blacks out, and the panel goes 100% black for one frame. That's a fade-through-black, not a dissolve. Unwrap via `unwrap_to_real(canvas)` and call `real.SetPixel` so the scatter has 16× more grain (16,384 pixels on the bigsign). Tripwire: `test_scatter_uses_physical_resolution_through_scaled_canvas` in `tests/test_transitions.py`.
 
 12. **Every per-tick redraw loop must call `advance_frame()` per tick**: Frame-aware widgets (the `FrameAwareBase` mixin) track `_frame_count`, which `ColorProvider.color_for(frame, ...)` reads to animate Rainbow / ColorCycle. Any loop that calls `widget.draw(...)` at frame cadence must call `_advance_frame_if_supported(widget)` before the draw — otherwise the provider sees a stuck `_frame_count` and Rainbow renders as a static gradient that scrolls but doesn't sweep. Applies to: (a) the shared engine in `ticker.py` — `_swap_and_scroll` (held + scroll branches), `_scroll_and_delay` (scroll-in + post-scroll hold), `_scroll_one_by_one`, `_scroll_side_by_side` (advance every UNIQUE buffered widget per outer tick — dedup by `id()`); (b) `play()`-style widgets that own their render loop — `GifPlayer.play()` / `StillImage.play()` via `_BaseImageWidget._play_with_text` / `_play_with_two_row_text`. Static-text fast paths bypass via the provider's `frame_invariant` flag — `_ConstantColor`, `Random`, and `Gradient` are `frame_invariant=True` and skip the per-tick loop; Rainbow / ColorCycle are `False` (forced through the loop). New providers default to `False` (conservative). **Transition compositors are exempt** — `run_transition` calls `pause_frame()` so the widget's counter doesn't drift while being re-rendered for compositing. `_scroll_between` is dispatched directly (not through `run_transition`) and explicitly calls `outgoing.pause_frame()` / `incoming.pause_frame()` at entry, `resume_frame()` in `finally`. Enforcement: `tests/test_engine_redraw_contract.py` AST-scans `ticker.py` and asserts every loop body containing `widget.draw(...)` also calls `_advance_frame_if_supported(...)`, with an `ALLOW_LIST` for transition compositors that pause instead. Single-sleep holds (`await asyncio.sleep(hold_time)` after a final draw) are NOT caught by AST; each such site needs its own per-function tripwire. Tripwires: `TestScrollOneByOne` / `TestScrollSideBySide` / `TestScrollAndDelay` / `TestSwapAndScrollEngineTick` (`tests/test_ticker_display.py`); `TestPlayLoopAdvancesFrame` (`tests/test_widgets/test_image_base.py`).
 
-13. **The process is NOT root after frame construction**: the rgbmatrix library drops privileges (root → `daemon`, its default) inside `RGBMatrix()`, i.e. during `build_frame_from_config`. Any file the display process creates after that point is created as `daemon` — a root-owned 755 directory (e.g. a Docker named-volume mountpoint) is NOT writable then. Anything that needs root (mkdir/chmod/chown, privileged ports) must run BEFORE the frame is built. First consumer: the web-status `StatusBoard.prepare_dir()` (opens `/run/led-ticker` to 0o777 pre-drop; no sticky bit, so the post-drop user can `os.replace` over root's first snapshot). Discovered in hardware validation (longboi, 2026-06-11); unit tests cannot catch this class — the test stub doesn't setuid. Tripwires: `test_setup_runs_before_frame_build`, `test_prepare_dir_creates_and_opens_permissions` (`tests/test_status_instrumentation.py`, `tests/test_status_board.py`).
+13. **The process is NOT root after frame construction**: the rgbmatrix library drops privileges (root → `daemon`, its default) inside `RgbMatrixBackend.setup()` (called explicitly via `led_frame.setup()` AFTER `build_frame_from_config` returns), when it constructs `RGBMatrix`. Any file the display process creates after that point is created as `daemon` — a root-owned 755 directory (e.g. a Docker named-volume mountpoint) is NOT writable then. Anything that needs root (mkdir/chmod/chown, privileged ports) must run BEFORE the frame is built. First consumer: the web-status `StatusBoard.prepare_dir()` (opens `/run/led-ticker` to 0o777 pre-drop; no sticky bit, so the post-drop user can `os.replace` over root's first snapshot). Discovered in hardware validation (longboi, 2026-06-11); unit tests cannot catch this class — the test stub doesn't setuid. Tripwires: `test_setup_runs_before_frame_build`, `test_prepare_dir_creates_and_opens_permissions` (`tests/test_status_instrumentation.py`, `tests/test_status_board.py`).
 
 ### Display Flow
 
@@ -181,7 +188,7 @@ These constraints were learned through extensive real-hardware testing. They are
 4. In swap mode: each widget is held (scrolled if overflowing), then transition runs
 5. `run_transition()` returns the current back-buffer canvas — caller MUST capture it
 6. Between sections: a section-to-section transition runs
-7. Canvas pushed to hardware via `canvas = frame.matrix.SwapOnVSync(canvas)`
+7. Canvas pushed to hardware via `canvas = frame.swap(canvas)`
 
 ### Transition System
 
@@ -270,8 +277,8 @@ These plugins import a few core symbols through the public surface that have no 
 
 1438+ tests, ~95% coverage, runs in ~2 minutes with no Docker.
 
-- `make test` sets `PYTHONPATH=tests/stubs` automatically
-- Test stubs simulate double-buffering: the real-stub `RGBMatrix.SwapOnVSync` returns a DIFFERENT canvas object each call so dropped-capture bugs surface
+- The `tests/stubs` dir is on pytest's import path via `pyproject.toml` `[tool.pytest.ini_options] pythonpath` — `make test` no longer sets the `PYTHONPATH` env var
+- Test stubs simulate double-buffering: the stub `RGBMatrix.SwapOnVSync` returns a DIFFERENT canvas object each call (like HeadlessBackend) so dropped-capture bugs surface
 - Stub `DrawText` writes actual pixels for pixel-level test assertions
 
 **Tripwire fixtures in `tests/conftest.py`:**

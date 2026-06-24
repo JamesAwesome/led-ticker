@@ -162,10 +162,9 @@ def test_capture_leaves_no_tmp_behind(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == ["preview.bin"]
 
 
-def test_draw_text_funnel_forwards_to_hw_and_mirrors(tmp_path):
-    """scale=1 path: C DrawText hits the hardware canvas; the shadow gets the
-    pure-Python rasterization of the same glyphs. Parity standard: the stub's
-    DrawText writes pixels, so shadow == stub _pixels for the text region."""
+def test_draw_text_via_rasterizer_mirrors_into_shadow(tmp_path):
+    """scale=1 path: rasterize_bdf calls tee.SetPixel which forwards to hw
+    AND mirrors into the shadow. hw pixels == shadow pixels (full-region equality)."""
     from led_ticker._compat import require_graphics
     from led_ticker.text_render import draw_text
 
@@ -180,7 +179,7 @@ def test_draw_text_funnel_forwards_to_hw_and_mirrors(tmp_path):
     advance = draw_text(tee, font, 1, 8, color, "Hi!")
     assert advance > 0
 
-    # Every pixel the stub DrawText lit on the hw canvas is lit identically
+    # Every pixel the rasterizer lit on the hw canvas is lit identically
     # in the shadow, and vice versa (full-region equality).
     lit_hw = {
         (x, y): rgb for (x, y), rgb in tee._hw._pixels.items() if rgb != (0, 0, 0)
@@ -195,7 +194,8 @@ def test_draw_text_funnel_forwards_to_hw_and_mirrors(tmp_path):
     assert lit_shadow == lit_hw
 
 
-def test_draw_text_funnel_mirror_off_is_pure_forward(tmp_path):
+def test_draw_text_mirror_off_does_not_write_shadow(tmp_path):
+    """mirror=False: SetPixel forwards to hw only; shadow stays blank."""
     from led_ticker._compat import require_graphics
     from led_ticker.text_render import draw_text
 
@@ -207,7 +207,8 @@ def test_draw_text_funnel_mirror_off_is_pure_forward(tmp_path):
     assert bytes(tee._shadow) == bytes(64 * 16 * 3)
 
 
-def test_mirror_text_failure_self_disables_but_returns_advance(tmp_path):
+def test_draw_text_shadow_failure_self_disables_but_returns_advance(tmp_path):
+    """Sabotaged _shadow: mirroring disabled after failure; advance still returned."""
     from led_ticker._compat import require_graphics
     from led_ticker.text_render import draw_text
 
@@ -218,7 +219,7 @@ def test_mirror_text_failure_self_disables_but_returns_advance(tmp_path):
     tee.set_watched(True)
     tee._shadow = None  # sabotage
     advance = draw_text(tee, font, 1, 8, graphics.Color(1, 1, 1), "x")
-    assert advance > 0  # the C/hw draw still returned its width
+    assert advance > 0
     assert tee.mirror is False
 
 
@@ -407,18 +408,17 @@ def test_getattr_net_rejects_dunders_no_copy_recursion(tmp_path):
 
 
 def test_tee_composes_with_recording_matrix(tmp_path):
-    """RecordingMatrix wrapping LedFrame.matrix intercepts the hardware swap
-    that PreviewTee routes through the real canvas.
+    """RecordingMatrix wrapping the backend's inner matrix intercepts the
+    hardware swap that PreviewTee routes through the real canvas.
 
     Layout:
-      LedFrame.matrix = RecordingMatrix(real_matrix)
+      frame.backend._matrix = RecordingMatrix(real_matrix)
       PreviewTee(hw=<stub canvas>, ...) installed on the frame
 
-    When frame.swap(tee) fires, frame.py does:
-        new_hw = self.matrix.SwapOnVSync(tee._hw, ...)
-    RecordingMatrix.SwapOnVSync snapshots tee._hw and appends to .frames
-    before forwarding to the real matrix.  After one draw+swap cycle
-    frame.matrix.frames must have exactly one entry.
+    When frame.swap(tee) fires, frame.py delegates to the backend which
+    calls _matrix.SwapOnVSync. RecordingMatrix snapshots tee._hw and
+    appends to .frames before forwarding to the real matrix. After one
+    draw+swap cycle recording_matrix.frames must have exactly one entry.
     """
     import sys
     from pathlib import Path
@@ -429,31 +429,37 @@ def test_tee_composes_with_recording_matrix(tmp_path):
 
     from tools.render_demo.recording import RecordingMatrix
 
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
     from led_ticker.frame import LedFrame
     from led_ticker.preview import PreviewTee
 
-    frame = LedFrame()
+    frame = LedFrame(backend=RgbMatrixBackend())
+    frame.setup()
 
     # Install the preview tee.
+    width = frame.backend.led_cols
+    height = frame.backend.led_rows
     tee = PreviewTee(
-        hw=frame.matrix.CreateFrameCanvas(),
-        width=frame.led_cols,
-        height=frame.led_rows,
+        hw=frame.create_canvas(),
+        width=width,
+        height=height,
         frame_path=tmp_path / "preview.bin",
     )
     tee.set_watched(True)
     frame.install_preview(tee)
 
-    # Wrap the matrix in a RecordingMatrix so SwapOnVSync calls are captured.
-    frame.matrix = RecordingMatrix(frame.matrix)
+    # Wrap the backend's inner matrix with RecordingMatrix so SwapOnVSync
+    # calls are captured; backend.swap() delegates to _matrix.SwapOnVSync.
+    recording = RecordingMatrix(frame.backend._matrix)
+    frame.backend._matrix = recording
 
     # Draw something and swap — one full render cycle.
     canvas = frame.get_clean_canvas()
     canvas.SetPixel(0, 0, 255, 128, 64)
     frame.swap(canvas)
 
-    assert len(frame.matrix.frames) == 1, (
-        f"Expected 1 recorded frame after one swap, got {len(frame.matrix.frames)}"
+    assert len(recording.frames) == 1, (
+        f"Expected 1 recorded frame after one swap, got {len(recording.frames)}"
     )
 
 

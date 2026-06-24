@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import unittest.mock as mock_mod
-
 import pytest
 from rgbmatrix import RGBMatrix, RGBMatrixOptions, graphics
 
@@ -21,7 +19,22 @@ def _real_canvas(real_w: int = 160, real_h: int = 16):
     return matrix.CreateFrameCanvas()
 
 
-def test_draw_text_on_real_canvas_uses_graphics_drawtext():
+def test_scale1_text_renders_via_rasterizer():
+    """draw_text on a HeadlessCanvas at scale=1 paints pixels via the BDF
+    rasterizer (SetPixel-based). The C graphics.DrawText path was removed
+    after smallsign hardware validation."""
+    from led_ticker._compat import require_graphics
+    from led_ticker.backends.headless import HeadlessCanvas
+    from led_ticker.text_render import draw_text
+
+    canvas = HeadlessCanvas(width=64, height=16)
+    color = require_graphics().Color(255, 255, 255)
+    advance = draw_text(canvas, FONT_SMALL, 0, 12, color, "Hi")
+    assert advance > 0
+    assert canvas.count_nonzero() > 0  # pixels actually painted at scale=1
+
+
+def test_draw_text_on_real_canvas_returns_advance():
     real = _real_canvas()
     color = graphics.Color(255, 0, 0)
     advance = draw_text(real, FONT_SMALL, 0, 8, color, "A")
@@ -36,20 +49,22 @@ def test_draw_text_on_scaled_canvas_uses_bdf_path():
 
 
 class TestDrawTextDispatch:
-    def test_bdf_font_with_mock_canvas_uses_graphics_DrawText(self):
-        """Real C canvas (Mock proxy) goes through graphics.DrawText."""
+    def test_bdf_font_uses_rasterizer_not_graphics_DrawText(self):
+        """scale=1 BDF path goes through the pure-Python rasterizer (SetPixel).
+        The C graphics.DrawText path was removed after smallsign hardware validation."""
+        from led_ticker.backends.headless import HeadlessCanvas
         from led_ticker.fonts import FONT_DEFAULT
         from led_ticker.text_render import draw_text
 
-        canvas = mock_mod.MagicMock()
-        with mock_mod.patch("led_ticker.text_render._graphics") as gfx:
-            gfx.DrawText.return_value = 42
-            result = draw_text(canvas, FONT_DEFAULT, 0, 12, "color", "hi")
-            gfx.DrawText.assert_called_once()
-            assert result == 42
+        canvas = HeadlessCanvas(width=64, height=16)
+        result = draw_text(
+            canvas, FONT_DEFAULT, 0, 12, graphics.Color(255, 255, 255), "hi"
+        )
+        assert result > 0
+        assert canvas.count_nonzero() > 0
 
     def test_hires_font_dispatches_to_hires_path(self):
-        """HiresFont triggers _draw_hires_text, NOT graphics.DrawText."""
+        """HiresFont triggers _draw_hires_text at native physical resolution."""
         from rgbmatrix import RGBMatrix, RGBMatrixOptions
         from rgbmatrix.graphics import Color
 
@@ -67,9 +82,7 @@ class TestDrawTextDispatch:
         real = RGBMatrix(options=opts).CreateFrameCanvas()
         wrapped = ScaledCanvas(real, scale=4, content_height=16)
 
-        with mock_mod.patch("led_ticker.text_render._graphics") as gfx:
-            draw_text(wrapped, font, 0, 12, Color(255, 255, 255), "Hi")
-            gfx.DrawText.assert_not_called()
+        draw_text(wrapped, font, 0, 12, Color(255, 255, 255), "Hi")
 
         # The hires path paints to the REAL canvas at native pixels.
         # Lit pixel count should be > 0 (we drew "Hi" at 24px).

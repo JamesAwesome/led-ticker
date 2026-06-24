@@ -23,13 +23,42 @@ KNOWN STUB-vs-REAL DIVERGENCES (with rationale):
     lib's stderr Hz output is not simulated. The startup explainer log
     (`app.build_frame_from_config` when `show_refresh_rate=true`) makes the
     behaviour visible to users either way.
-  - `RGBMatrix.SwapOnVSync` returns the SAME canvas object in this
-    stub by default. Test fixtures that need to verify capture-the-
-    return semantics use `swapping_frame` (`tests/conftest.py`) which
-    rotates between two canvas objects so dropped-capture bugs surface.
+  - `RGBMatrix.SwapOnVSync` rotates between two canvas objects (like
+    HeadlessBackend), returning the previous back buffer each call, so
+    dropped-capture bugs (constraints #1/#8) surface here. Test fixtures
+    that need a deterministic capture-the-return check can still use
+    `swapping_frame` (`tests/conftest.py`), and `mock_frame` returns the
+    SAME object for tests that don't care about capture-correctness.
 """
 
 from rgbmatrix import graphics  # noqa: F401
+
+
+def _get_stub_canvas_cls():
+    """Lazy import to break the circular-init chain.
+
+    tests/stubs/rgbmatrix is loaded early during pytest collection.
+    A top-level ``from led_ticker.backends.headless import …`` triggers
+    ``led_ticker.backends.__init__``, which in turn imports
+    ``led_ticker.backends.rgbmatrix``, which imports ``led_ticker._compat``,
+    which does ``from rgbmatrix import …`` — but *this* module is still
+    mid-load, so Python returns the partially-initialized stub and
+    ``RGBMatrixOptions`` comes back as ``None``.  Deferring the import to
+    first call (after the stub is fully initialised) breaks that cycle.
+    """
+    from led_ticker.backends.headless import HeadlessCanvas  # noqa: PLC0415
+
+    return HeadlessCanvas
+
+
+# Public factory proxy kept for any ``from rgbmatrix import _StubCanvas``
+# callers. NOT an alias/subclass: instantiating it returns a HeadlessCanvas, so
+# ``isinstance(x, _StubCanvas)`` is False — check ``isinstance(x, HeadlessCanvas)``.
+class _StubCanvas:  # noqa: N801
+    """Factory proxy: ``_StubCanvas(...)`` returns a HeadlessCanvas instance."""
+
+    def __new__(cls, width=160, height=16):
+        return _get_stub_canvas_cls()(width=width, height=height)
 
 
 class RGBMatrixOptions:
@@ -58,67 +87,15 @@ class RGBMatrixOptions:
         self.limit_refresh_rate_hz = 0
 
 
-class _StubCanvas:
-    """Stub canvas with pixel storage for testing."""
-
-    def __init__(self, width=160, height=16):
-        self.width = width
-        self.height = height
-        self._pixels = {}  # (x, y) -> (r, g, b)
-
-    def Clear(self):
-        self._pixels.clear()
-
-    def Fill(self, r, g, b):
-        for y in range(self.height):
-            for x in range(self.width):
-                self._pixels[(x, y)] = (r, g, b)
-
-    def SetPixel(self, x, y, r, g, b):
-        if 0 <= x < self.width and 0 <= y < self.height:
-            self._pixels[(x, y)] = (r, g, b)
-
-    def SubFill(self, x, y, width, height, red, green, blue):
-        for dy in range(height):
-            for dx in range(width):
-                self.SetPixel(x + dx, y + dy, red, green, blue)
-
-    def SetImage(self, image, offset_x=0, offset_y=0):
-        """Stub for the real rgbmatrix's `canvas.SetImage(pil_image, x, y)`.
-
-        The real C implementation pushes RGB bytes directly into the
-        framebuffer in one call. Here we walk the PIL image and call
-        SetPixel for each pixel so existing get_pixel-based assertions
-        still see the painted result. Performance doesn't matter in
-        tests; the stub's job is fidelity.
-        """
-        pixels = image.load()
-        w, h = image.size
-        for y in range(h):
-            for x in range(w):
-                px = pixels[x, y]
-                # PIL returns (r,g,b) or (r,g,b,a); flatten alpha onto black
-                if len(px) == 4 and px[3] == 0:
-                    r, g, b = 0, 0, 0
-                else:
-                    r, g, b = px[0], px[1], px[2]
-                self.SetPixel(offset_x + x, offset_y + y, r, g, b)
-
-    # Test-only helpers
-    def get_pixel(self, x, y):
-        """Get pixel color at (x, y). Returns (0, 0, 0) if unset."""
-        return self._pixels.get((x, y), (0, 0, 0))
-
-    def count_nonzero(self):
-        """Count pixels that are not black."""
-        return sum(1 for v in self._pixels.values() if v != (0, 0, 0))
-
-
 class RGBMatrix:
     """Stub for rgbmatrix.RGBMatrix."""
 
     def __init__(self, options=None):
         self._options = options
+        # The real C lib applies options.brightness to the live matrix; mirror
+        # that so the backend's brightness getter (reads self._matrix.brightness
+        # after setup) reflects the configured value.
+        self.brightness = getattr(options, "brightness", 100) if options else 100
         cols = getattr(options, "cols", 64) if options else 64
         chain = getattr(options, "chain_length", 1) if options else 1
         rows = getattr(options, "rows", 32) if options else 32

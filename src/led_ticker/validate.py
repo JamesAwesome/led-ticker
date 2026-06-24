@@ -1905,6 +1905,30 @@ async def validate_config(
         )
         return ValidationResult(path=path, errors=errors, warnings=warnings)
 
+    # Phase 1b: [display] backend — must name a registered backend.
+    # `from led_ticker.backends import known_backends` triggers the package
+    # __init__, which eagerly imports both built-in backends and self-registers
+    # them — no separate import statements needed.
+    from led_ticker.backends import known_backends  # noqa: PLC0415
+
+    _backend = getattr(config.display, "backend", "rgbmatrix")
+    if _backend not in known_backends():
+        errors.append(
+            ValidationIssue(
+                rule=None,
+                location="display.backend",
+                severity="error",
+                message=(
+                    f"[display] backend = {_backend!r} is unknown; "
+                    f"valid backends: {known_backends()}"
+                ),
+                fix=(
+                    "Set backend to one of the listed values, or omit it "
+                    'to use the default ("rgbmatrix").'
+                ),
+            )
+        )
+
     # Phase 1b: Static dict checks (rules enforced in widget constructors)
     errors.extend(_check_static(config))
 

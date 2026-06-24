@@ -1595,9 +1595,9 @@ class TestRunTransitionCrossScale:
         frame.swap.side_effect = lambda c: type(real_bigsign_canvas)(
             width=c.width, height=c.height
         )
-        # CreateFrameCanvas must return a fresh real canvas (not a ScaledCanvas)
+        # create_canvas must return a fresh real canvas (not a ScaledCanvas)
         # — run_transition wraps it itself.
-        frame.matrix.CreateFrameCanvas.side_effect = lambda: type(real_bigsign_canvas)(
+        frame.create_canvas.side_effect = lambda: type(real_bigsign_canvas)(
             width=real_bigsign_canvas.width, height=real_bigsign_canvas.height
         )
         return frame
@@ -1625,7 +1625,7 @@ class TestRunTransitionCrossScale:
         assert isinstance(result, ScaledCanvas)
         assert result.scale == 4
         # And exactly one fresh canvas was allocated for the new wrapper
-        assert bigsign_frame.matrix.CreateFrameCanvas.call_count == 1
+        assert bigsign_frame.create_canvas.call_count == 1
 
     async def test_same_scale_skips_wrapper_switch(
         self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
@@ -1647,7 +1647,7 @@ class TestRunTransitionCrossScale:
             incoming_scale=4,  # same as current
         )
         # No re-wrap needed
-        assert bigsign_frame.matrix.CreateFrameCanvas.call_count == 0
+        assert bigsign_frame.create_canvas.call_count == 0
         # Result is the SAME wrapper (real canvas may have been swapped in-place)
         assert result is wrapper
 
@@ -1670,7 +1670,7 @@ class TestRunTransitionCrossScale:
             scroll_speed=0.05,
             # incoming_scale=None → no switch
         )
-        assert bigsign_frame.matrix.CreateFrameCanvas.call_count == 0
+        assert bigsign_frame.create_canvas.call_count == 0
 
     async def test_incoming_content_height_threaded_into_wrapper(
         self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep

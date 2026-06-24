@@ -80,11 +80,13 @@ def test_size_clamps_to_canvas_bounds():
 async def test_registered_hook_paints_dot_through_frame_swap(tmp_path):
     """End-to-end: a BusyLight.paint hook on a real LedFrame lights the
     corner when busy and clears it when not, through frame.swap()."""
+    from led_ticker.backends.headless import HeadlessBackend
     from led_ticker.frame import LedFrame
 
     f = tmp_path / ".busy"
     busy = BusyLight(file_path=str(f), corner="top_right", color=(255, 0, 0), size=4)
-    frame = LedFrame(led_cols=64, led_rows=32)
+    frame = LedFrame(backend=HeadlessBackend(64, 32))
+    frame.setup()
     frame.overlay_hooks.append(busy.paint)
 
     canvas = frame.get_clean_canvas()

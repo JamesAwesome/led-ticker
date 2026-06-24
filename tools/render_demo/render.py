@@ -82,8 +82,8 @@ async def _drive_engine(
     """
     import importlib  # noqa: PLC0415
 
+    import led_ticker.backends.rgbmatrix as rgbmatrix_backend_mod  # noqa: PLC0415
     from led_ticker import app as app_mod
-    from led_ticker import frame as frame_mod
 
     # ``from led_ticker.app import run as run_mod`` resolves to the *function*
     # not the module (led_ticker.app.__init__ re-exports ``run`` as a function).
@@ -92,7 +92,12 @@ async def _drive_engine(
     # ``from led_ticker.app.factories import _configure_user_font_dir``).
     run_mod = importlib.import_module("led_ticker.app.run")
 
-    original_rgbmatrix = frame_mod.RGBMatrix
+    # After the backend refactor, RGBMatrix is constructed in
+    # RgbMatrixBackend.setup() inside led_ticker.backends.rgbmatrix. Patch
+    # the module-level RGBMatrix binding there so the RecordingMatrix wrapper
+    # is installed at matrix construction time (same lifecycle position as
+    # before the refactor, just in the new module).
+    original_rgbmatrix = rgbmatrix_backend_mod.RGBMatrix
     original_configure = app_mod._configure_user_font_dir
     original_run_configure = run_mod._configure_user_font_dir
 
@@ -118,7 +123,7 @@ async def _drive_engine(
         app_mod._configure_user_font_dir = lambda _path: None  # type: ignore[method-assign]
         run_mod._configure_user_font_dir = lambda _path: None  # type: ignore[assignment]
 
-    frame_mod.RGBMatrix = patched_rgbmatrix
+    rgbmatrix_backend_mod.RGBMatrix = patched_rgbmatrix
     try:
         task = asyncio.create_task(app_mod.run(rewritten_cfg_path))
         with contextlib.suppress(TimeoutError):
@@ -127,7 +132,7 @@ async def _drive_engine(
         with contextlib.suppress(asyncio.CancelledError):
             await task
     finally:
-        frame_mod.RGBMatrix = original_rgbmatrix
+        rgbmatrix_backend_mod.RGBMatrix = original_rgbmatrix
         app_mod._configure_user_font_dir = original_configure
         run_mod._configure_user_font_dir = original_run_configure
     return time.monotonic()

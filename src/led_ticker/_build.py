@@ -51,6 +51,6 @@ def _git_ref() -> str | None:
         if branch.returncode != 0 or sha.returncode != 0:
             return None  # not a git checkout
         dirty = _git("diff", "--quiet", "HEAD").returncode != 0
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None  # git not installed / timed out
     return f"{branch.stdout.strip()}@{sha.stdout.strip()}{'+dirty' if dirty else ''}"

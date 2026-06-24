@@ -260,7 +260,7 @@ async def run_transition(
         # Switch immediately: create incoming canvas before the loop starts.
         assert incoming_scale is not None  # guaranteed by needs_switch
         incoming_canvas = _maybe_wrap(
-            frame.matrix.CreateFrameCanvas(),
+            frame.create_canvas(),
             incoming_scale,
             incoming_content_height,
         )
@@ -305,7 +305,7 @@ async def run_transition(
                 and incoming_canvas is None
             ):
                 incoming_canvas = _maybe_wrap(
-                    frame.matrix.CreateFrameCanvas(),
+                    frame.create_canvas(),
                     incoming_scale,
                     incoming_content_height,
                 )

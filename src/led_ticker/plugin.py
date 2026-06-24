@@ -36,6 +36,9 @@ from typing import Any, TypeVar
 from led_ticker import colors
 from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font, PixelData
 from led_ticker.animations import Animation, AnimationFrame
+from led_ticker.backends import Backend, BackendNotReadyError, register_backend
+from led_ticker.backends.conformance import run_backend_conformance
+from led_ticker.backends.headless import HeadlessBackend
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import (
     ColorProvider,
@@ -96,6 +99,8 @@ __all__ = [
     "PluginAPI",
     "Animation",
     "AnimationFrame",
+    "Backend",
+    "BackendNotReadyError",
     "BorderEffect",
     "BorderEffectBase",
     "Canvas",
@@ -113,6 +118,7 @@ __all__ = [
     "FONT_SMALL",
     "Font",
     "FrameAwareBase",
+    "HeadlessBackend",
     "HiResEmoji",
     "HiresFont",
     "HiresSpec",
@@ -144,8 +150,10 @@ __all__ = [
     "measure_width",
     "paint_hires",
     "resolve_band_heights",
+    "register_backend",
     "render_hires_frame",
     "resolve_font",
+    "run_backend_conformance",
     "run_monitor_loop",
     "safe_scale",
     "snap_reset",
@@ -168,8 +176,10 @@ class StartupContext:
 
     Fields are typed ``Any`` to keep the public ``plugin`` module free of heavy
     internal imports (matching ``Canvas``/``Color``). Real types:
-    ``frame`` is the ``LedFrame`` (has ``overlay_hooks``, ``matrix``,
-    ``get_clean_canvas()``, ``swap()``); ``session`` is the shared
+    ``frame`` is the ``LedFrame`` (has ``overlay_hooks``,
+    ``get_clean_canvas()``, ``swap()``, ``create_canvas()``, ``brightness``;
+    the backend owns the matrix now, so there is no ``matrix`` attribute);
+    ``session`` is the shared
     ``aiohttp.ClientSession``; ``config`` is the parsed app config.
 
     To add an overlay that reacts to startup state, register a paint function

@@ -101,8 +101,9 @@ def DrawText(
     """Mirror `graphics.DrawText` — return the advance width and, when given
     a real canvas + RGB color, paint each lit BDF pixel with SetPixel.
 
-    Same logic as `ScaledCanvas.draw_bdf_text` but at scale=1: x is the
-    left edge, y is the baseline, glyphs draw above the baseline.
+    Delegates glyph rasterization to `drawing.rasterize_bdf` so the loop
+    lives in exactly one place (shared with the scale=1 rasterizer path in
+    `text_render.draw_text`).
     """
     width = sum(font.CharacterWidth(ord(c)) for c in text)
     if (
@@ -113,20 +114,7 @@ def DrawText(
     ):
         return width
 
-    r, g, b = color.red, color.green, color.blue
-    set_pixel = canvas.SetPixel
-    glyphs = font._bdf.glyphs
-    fallback_width = font._bdf.bbx_width
-    cx = int(x)
-    base_y = int(y)
-    for ch in text:
-        glyph = glyphs.get(ch)
-        if glyph is None:
-            cx += fallback_width
-            continue
-        top_y = base_y - glyph.bbx_height - glyph.bbx_yoff
-        base_x = cx + glyph.bbx_xoff
-        for col, row in glyph.lit_pixels:
-            set_pixel(base_x + col, top_y + row, r, g, b)
-        cx += glyph.advance_width
+    from led_ticker.drawing import rasterize_bdf
+
+    rasterize_bdf(canvas.SetPixel, font._bdf, x, y, color, text)
     return width

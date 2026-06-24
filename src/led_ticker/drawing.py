@@ -1,6 +1,7 @@
 """Shared drawing helpers for LED canvas rendering."""
 
 import math
+from collections.abc import Callable
 from typing import Any
 
 import attrs
@@ -212,3 +213,47 @@ def compute_cursor(
         cursor_pos += center_pos
 
     return cursor_pos, end_padding
+
+
+def rasterize_bdf(
+    set_pixel: Callable[[int, int, int, int, int], None],
+    bdf: Any,
+    x: int,
+    y: int,
+    color: Any,
+    text: str,
+) -> int:
+    """Rasterize BDF glyphs at scale=1 via a ``set_pixel`` callable.
+
+    Canvas-agnostic: accepts any ``set_pixel(x, y, r, g, b)`` callable
+    so both the hardware stub and the scale=1 ``draw_text`` path can share
+    this loop without duplication.
+
+    Coordinate convention (matches ``graphics.DrawText`` and
+    ``ScaledCanvas.draw_bdf_text``):
+    - ``x``/``y`` are the left edge / baseline in canvas pixels.
+    - Glyphs render ABOVE the baseline.
+    - Missing glyphs advance by ``bdf.bbx_width`` (same as the stub).
+
+    Returns the total advance width (sum of per-glyph ``advance_width``).
+    """
+    if isinstance(color, tuple):
+        r, g, b = color
+    else:
+        r, g, b = color.red, color.green, color.blue
+
+    glyphs = bdf.glyphs
+    fallback_width = bdf.bbx_width
+    cx = int(x)
+    base_y = int(y)
+    for ch in text:
+        glyph = glyphs.get(ch)
+        if glyph is None:
+            cx += fallback_width
+            continue
+        top_y = base_y - glyph.bbx_height - glyph.bbx_yoff
+        base_x = cx + glyph.bbx_xoff
+        for col, row in glyph.lit_pixels:
+            set_pixel(base_x + col, top_y + row, r, g, b)
+        cx += glyph.advance_width
+    return cx - int(x)

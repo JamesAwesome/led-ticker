@@ -208,6 +208,36 @@ async def test_validate_response_does_not_leak_temp_path(tmp_path):
         await client.close()
 
 
+async def test_validate_resolves_user_font_in_config_dir(tmp_path):
+    import shutil
+    from importlib import resources
+
+    fonts = tmp_path / "fonts"
+    fonts.mkdir()
+    bundled = resources.files("led_ticker.fonts") / "hires" / "Inter-Regular.otf"
+    with resources.as_file(bundled) as srcf:
+        shutil.copy(srcf, fonts / "beloved-sans.otf")
+
+    # Build the client exactly like test_validate_good_toml does, with the
+    # config.toml living in tmp_path so config_path.parent == tmp_path.
+    client = await _client(tmp_path)
+
+    toml = (
+        "[display]\nrows = 32\ncols = 64\nchain_length = 8\ndefault_scale = 1\n\n"
+        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n\n'
+        '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+        'font = "beloved-sans"\nfont_size = 16\n'
+    )
+    try:
+        resp = await client.post("/api/validate", data=toml)
+        body = await resp.json()
+        assert resp.status == 200
+        rule_24 = [w for w in body.get("warnings", []) if w.get("rule") == 24]
+        assert rule_24 == [], rule_24
+    finally:
+        await client.close()
+
+
 async def test_auth_gates_unknown_routes_and_new_routes(tmp_path):
     # Auth runs BEFORE routing: unknown paths must 401 (not 404) when a
     # token is configured — no route-existence oracle.
@@ -2401,7 +2431,7 @@ def test_header_renders_build_stamp_with_drift():
     import led_ticker.webui as webui_pkg
 
     html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
-    assert 'id="build-stamp"' in html          # the header element
-    assert "renderBuildStamp" in html          # the render fn
-    assert "webui_build" in html               # reads the webui ref for drift
-    assert "⚠" in html                     # the drift warning glyph
+    assert 'id="build-stamp"' in html  # the header element
+    assert "renderBuildStamp" in html  # the render fn
+    assert "webui_build" in html  # reads the webui ref for drift
+    assert "⚠" in html  # the drift warning glyph

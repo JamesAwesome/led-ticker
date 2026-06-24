@@ -577,7 +577,7 @@ async def run(config_path: Path) -> None:
     # lets users who skip pre-flight still see the fixes.
     for w in config._coerce_warnings:
         logging.warning("config coerce: %s", w.message)
-    _configure_user_font_dir(config_path)
+    _configure_user_font_dir(config_path.parent)
 
     # Status board setup must precede frame construction: RGBMatrix() drops
     # root privileges (default drop_privileges in the rgbmatrix library), and

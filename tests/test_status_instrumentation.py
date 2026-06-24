@@ -176,23 +176,52 @@ def test_setup_status_board_returns_none_when_web_absent(tmp_path):
 
 
 def test_setup_runs_before_frame_build():
-    """Tripwire: the status dir must be prepared while still root.
+    """Tripwire: privilege drop happens in backend.setup(), not build_frame_from_config.
 
-    rgbmatrix drops privileges (root -> daemon) inside RGBMatrix(), i.e.
-    during build_frame_from_config. _setup_status_board (which mkdirs and
-    chmods the status dir) must therefore run BEFORE the frame is built,
-    or every post-startup publish fails EACCES on the root-owned dir —
-    the longboi hardware-validation failure of 2026-06-11.
+
+
+    The RgbMatrixBackend constructs RGBMatrix() inside led_frame.setup()
+    (one step after build_frame_from_config in run.py), which is where
+    rgbmatrix drops root -> daemon. All pre-drop work — status-board setup,
+    startup validation — must therefore precede led_frame.setup(), not merely
+    build_frame_from_config.
+
+    Additionally, led_frame.setup() must precede _setup_preview (which
+    requires a live backend to size the preview canvas from the real matrix)
+    and the brightness scheduler spawn (_respawn_schedule / _schedule start).
+
+    Ordering asserted (all source-index checks against run()):
+      _setup_status_board   <  led_frame.setup(
+      _run_startup_validation  <  led_frame.setup(
+      led_frame.setup(      <  _setup_preview(
+      led_frame.setup(      <  _respawn_schedule(
     """
     from led_ticker.app.run import run
 
     src = inspect.getsource(run)
-    setup_at = src.index("_setup_status_board(")
-    frame_at = src.index("build_frame_from_config(")
-    assert setup_at < frame_at, (
-        "_setup_status_board must precede build_frame_from_config — the "
-        "matrix library drops root during frame construction and the "
-        "status dir must be prepared (mkdir + chmod) before that."
+    setup_board_at = src.index("_setup_status_board(")
+    validation_at = src.index("_run_startup_validation(")
+    frame_setup_at = src.index("led_frame.setup(")
+    preview_at = src.index("_setup_preview(")
+    respawn_at = src.index("_respawn_schedule(")
+
+    assert setup_board_at < frame_setup_at, (
+        "_setup_status_board must precede led_frame.setup() — the backend "
+        "constructs RGBMatrix() inside setup(), dropping root, and "
+        "prepare_dir needs root to open the status directory."
+    )
+    assert validation_at < frame_setup_at, (
+        "_run_startup_validation must precede led_frame.setup() — startup "
+        "validation runs pre-drop so validator errors are visible before "
+        "privileges are surrendered."
+    )
+    assert frame_setup_at < preview_at, (
+        "led_frame.setup() must precede _setup_preview() — preview setup "
+        "calls led_frame.create_canvas(), which requires a live backend."
+    )
+    assert frame_setup_at < respawn_at, (
+        "led_frame.setup() must precede _respawn_schedule() — the scheduler "
+        "sets led_frame.brightness, which requires a live backend."
     )
 
 

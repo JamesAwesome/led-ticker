@@ -73,7 +73,8 @@ def get_backend_class(name: str) -> type:
 
 
 # Import implementations to trigger @register_backend decorators.
-# These are intentionally lazy (inside the __init__ boundary) so that the
-# test stub (tests/stubs) can override before this module is imported.
+# These run eagerly at package import time: any `import led_ticker.backends`
+# (or `from led_ticker.backends import ...`) registers both built-in backends
+# before the caller reaches the registry.
 from led_ticker.backends.headless import HeadlessBackend  # noqa: F401, E402
 from led_ticker.backends.rgbmatrix import RgbMatrixBackend  # noqa: F401, E402

@@ -1899,11 +1899,9 @@ async def validate_config(path: Path, *, strict: bool = False) -> ValidationResu
         return ValidationResult(path=path, errors=errors, warnings=warnings)
 
     # Phase 1b: [display] backend — must name a registered backend.
-    # Import both built-in backend modules so they self-register before the
-    # known_backends() call; without this the registry is empty in fresh
-    # processes (backends register on import, not at package import time).
-    import led_ticker.backends.headless  # noqa: F401, PLC0415
-    import led_ticker.backends.rgbmatrix  # noqa: F401, PLC0415
+    # `from led_ticker.backends import known_backends` triggers the package
+    # __init__, which eagerly imports both built-in backends and self-registers
+    # them — no separate import statements needed.
     from led_ticker.backends import known_backends  # noqa: PLC0415
 
     _backend = getattr(config.display, "backend", "rgbmatrix")

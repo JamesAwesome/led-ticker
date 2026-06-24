@@ -77,7 +77,7 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 # Validated to run on both the Pi 4 sign and the Pi 5 bigsign.
 
 # branch@shortsha(+dirty) — baked into the image as LED_TICKER_BUILD_REF.
-BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --quiet 2>/dev/null || echo +dirty)
+BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo +dirty)
 
 build-docker:  ## Build the production Docker image (Pi 4 + Pi 5)
 	docker build -t led-ticker --build-arg BUILD_REF="$(BUILD_REF)" .

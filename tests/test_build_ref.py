@@ -17,6 +17,21 @@ def test_git_fallback_when_env_unset(monkeypatch):
     assert build_ref() == "feat/y@def5678"
 
 
+def test_literal_unknown_env_falls_through(monkeypatch):
+    # A bare `docker compose build` bakes the literal "unknown" — it must NOT
+    # short-circuit; fall through to the next tier (package version here).
+    monkeypatch.setenv("LED_TICKER_BUILD_REF", "unknown")
+    monkeypatch.setattr(_build, "_git_ref", lambda: None)
+    monkeypatch.setattr(_build, "_package_version", lambda: "v2.1.0")
+    assert build_ref() == "v2.1.0"
+
+
+def test_empty_env_falls_through(monkeypatch):
+    monkeypatch.setenv("LED_TICKER_BUILD_REF", "  ")
+    monkeypatch.setattr(_build, "_git_ref", lambda: "main@cafe123")
+    assert build_ref() == "main@cafe123"
+
+
 def test_package_version_when_no_env_no_git(monkeypatch):
     # PyPI install with no checkout: fall back to the release version.
     monkeypatch.delenv("LED_TICKER_BUILD_REF", raising=False)

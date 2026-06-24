@@ -22,12 +22,13 @@ from pathlib import Path
 
 
 def build_ref() -> str:
-    return (
-        os.environ.get("LED_TICKER_BUILD_REF")
-        or _git_ref()
-        or _package_version()
-        or "unknown"
-    )
+    # A bare `docker compose build` (no BUILD_REF arg) bakes the literal
+    # "unknown" into the env — treat that, and an empty value, as not-set so we
+    # still fall through to the git / package-version tiers.
+    env = os.environ.get("LED_TICKER_BUILD_REF", "").strip()
+    if env and env != "unknown":
+        return env
+    return _git_ref() or _package_version() or "unknown"
 
 
 @functools.cache

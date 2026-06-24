@@ -35,7 +35,9 @@ def test_unknown_backend_lists_known():
         get_backend_class("does_not_exist")
     assert "does_not_exist" in str(exc.value)
     # Message enumerates valid names so the user can self-correct.
-    assert "rgbmatrix" in str(exc.value) or known_backends() == []
+    # If any backends are known, at least one should appear in the message.
+    if known_backends():
+        assert any(name in str(exc.value) for name in known_backends())
 
 
 def test_backend_protocol_is_runtime_checkable():

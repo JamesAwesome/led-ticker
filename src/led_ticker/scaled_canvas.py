@@ -95,6 +95,17 @@ class ScaledCanvas:
             x * s, y * s + self.y_offset_real, width * s, height * s, r, g, b
         )
 
+    def SetImage(self, image: object, offset_x: int = 0, offset_y: int = 0) -> None:
+        """Forward SetImage to the underlying real canvas.
+
+        Image widgets call this on the unwrapped real canvas (via
+        unwrap_to_real) so the image lands at native pixel resolution. The
+        forwarding method here satisfies the CanvasLike protocol so
+        ScaledCanvas can be used wherever a CanvasLike is expected without
+        needing to unwrap first.
+        """
+        self.real.SetImage(image, offset_x, offset_y)
+
     def rebind_innermost(self, new_real: Any) -> None:
         """Rewire the innermost `.real` to `new_real`, leaving outer wrappers intact.
 

@@ -846,6 +846,7 @@ In `src/led_ticker/app/factories.py`, change the `return LedFrame(led_*=...)` (l
             led_pwm_bits=display.pwm_bits,
             led_pwm_lsb_nanoseconds=display.pwm_lsb_nanoseconds,
             led_pwm_dither_bits=display.pwm_dither_bits,
+            led_rgb_sequence=display.led_rgb_sequence,
             led_show_refresh_rate=display.show_refresh_rate,
             led_disable_hardware_pulsing=display.disable_hardware_pulsing,
             led_rp1_pio=display.rp1_pio,

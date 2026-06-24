@@ -16,9 +16,7 @@ from led_ticker.schedule import Scheduler  # noqa: E402
 
 def _frame():
     # Minimal duck-type for _schedule_ticker / _supervised_schedule: exposes a
-    # settable `brightness` property (led_frame.brightness = level).  The
-    # `matrix` sub-namespace is kept for the few tests that assert on it
-    # directly (they still check the right value via frame.brightness now).
+    # settable `brightness` property (led_frame.brightness = level).
     return SimpleNamespace(brightness=100)
 
 

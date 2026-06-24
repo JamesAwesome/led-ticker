@@ -37,6 +37,15 @@ def test_build_frame_passes_pixel_mapper_and_parallel():
     assert frame.backend.led_cols == 64
 
 
+def test_build_frame_forwards_led_rgb_sequence():
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
+
+    display = DisplayConfig(led_rgb_sequence="BGR")
+    frame = build_frame_from_config(display)
+    assert isinstance(frame.backend, RgbMatrixBackend)
+    assert frame.backend.led_rgb_sequence == "BGR"
+
+
 def test_build_frame_existing_sign_defaults():
     from led_ticker.backends.rgbmatrix import RgbMatrixBackend
 

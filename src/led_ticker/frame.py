@@ -1,4 +1,4 @@
-"""LED matrix frame wrapper."""
+"""LED matrix frame wrapper — backend-agnostic render mechanism."""
 
 from collections.abc import Callable
 from typing import Any
@@ -6,141 +6,81 @@ from typing import Any
 import attrs
 
 from led_ticker import status_board
-from led_ticker._compat import RGBMatrix, RGBMatrixOptions
 from led_ticker._types import Canvas
-from led_ticker._types import RGBMatrix as RGBMatrixType
-
-_ENGINE_FPS: int = 20  # must stay in sync with ENGINE_TICK_MS = 50 in ticker.py
+from led_ticker.backends import Backend, BackendNotReadyError
 
 
 @attrs.define
 class LedFrame:
-    """Hardware abstraction for an LED rgbmatrix panel."""
+    """Backend-agnostic frame: overlay hooks, status-board swap recording, the
+    preview tee, and framerate live here. The backend owns the matrix
+    lifecycle. Nothing outside LedFrame touches the backend directly."""
 
-    led_rows: int = 16
-    led_cols: int = 32
-    led_chain_length: int = 1
-    led_parallel: int = 1
-    led_pwm_bits: int = 11
-    led_pwm_dither_bits: int = 0
-    led_brightness: int = 100
-    led_hardware_mapping: str = "adafruit-hat"
-    led_scan_mode: int = 0
-    led_pwm_lsb_nanoseconds: int = 130
-    led_show_refresh_rate: bool = False
-    led_gpio_slowdown: int = 1
-    led_disable_hardware_pulsing: bool = False
-    led_rgb_sequence: str = "RGB"
-    led_pixel_mapper_config: str = ""
-    led_row_address_type: int = 0
-    led_multiplexing: int = 0
-    led_panel_type: str = ""
-    # Pi 5 only: 0 = RP1 RIO backend (library default — fast refresh,
-    # more CPU), 1 = force the RP1 PIO backend (lower CPU, slower
-    # refresh). Ignored on Pi 4.
-    led_rp1_pio: int = 0
-    # Cap hardware refresh rate in Hz (0 = unlimited). Useful for making
-    # SwapOnVSync timing more predictable relative to the scan cycle on
-    # long chains where the uncapped rate causes visible motion artifacts.
-    led_limit_refresh_rate_hz: int = 0
+    backend: Backend
     overlay_hooks: list[Callable[[Canvas], None]] = attrs.field(factory=list)
     _preview_tee: Any = attrs.field(init=False, default=None)
-    _framerate_fraction: int = attrs.field(init=False)
-    matrix: RGBMatrixType = attrs.field(init=False)
+    _ready: bool = attrs.field(init=False, default=False)
 
-    def __attrs_post_init__(self) -> None:
-        options = RGBMatrixOptions()
+    def setup(self) -> None:
+        """Build the backend's matrix (privilege-drop boundary, constraint
+        #13) and mark the frame ready. Call exactly once, after all pre-drop
+        privileged work (prepare_dir, validation) and before any consumer that
+        needs a live backend (preview tee, brightness scheduler)."""
+        self.backend.setup()
+        self._ready = True
 
-        if self.led_hardware_mapping is not None:
-            options.hardware_mapping = self.led_hardware_mapping
+    def _require_ready(self) -> None:
+        if not self._ready:
+            raise BackendNotReadyError(
+                "backend not set up — call LedFrame.setup() before drawing"
+            )
 
-        options.rows = self.led_rows
-        options.cols = self.led_cols
-        options.chain_length = self.led_chain_length
-        options.parallel = self.led_parallel
-        options.row_address_type = self.led_row_address_type
-        options.multiplexing = self.led_multiplexing
-        options.pwm_bits = self.led_pwm_bits
-        options.brightness = self.led_brightness
-        options.pwm_lsb_nanoseconds = self.led_pwm_lsb_nanoseconds
-        if self.led_pwm_dither_bits and hasattr(options, "pwm_dither_bits"):
-            options.pwm_dither_bits = self.led_pwm_dither_bits  # type: ignore[attr-defined]
-        options.led_rgb_sequence = self.led_rgb_sequence
-        options.pixel_mapper_config = self.led_pixel_mapper_config
-        options.panel_type = self.led_panel_type
+    @property
+    def brightness(self) -> int:
+        self._require_ready()
+        return self.backend.brightness
 
-        if self.led_show_refresh_rate:
-            options.show_refresh_rate = 1
-
-        if self.led_gpio_slowdown is not None:
-            options.gpio_slowdown = self.led_gpio_slowdown
-
-        if self.led_disable_hardware_pulsing:
-            options.disable_hardware_pulsing = True
-
-        # rp1_pio is exposed by rgbmatrix builds from June 2026 onward
-        # (upstream renamed rp1_rio and flipped the default backend to
-        # RIO); tolerate older builds where the binding doesn't have it.
-        if self.led_rp1_pio and hasattr(options, "rp1_pio"):
-            options.rp1_pio = self.led_rp1_pio
-
-        if self.led_limit_refresh_rate_hz and hasattr(options, "limit_refresh_rate_hz"):
-            options.limit_refresh_rate_hz = self.led_limit_refresh_rate_hz
-
-        self.matrix = RGBMatrix(options=options)
-        self._framerate_fraction = (
-            max(1, round(self.led_limit_refresh_rate_hz / _ENGINE_FPS))
-            if self.led_limit_refresh_rate_hz
-            else 1
-        )
+    @brightness.setter
+    def brightness(self, value: int) -> None:
+        self._require_ready()
+        self.backend.brightness = value
 
     def install_preview(self, tee: Any) -> None:
-        """Install the (single, process-lifetime) preview tee. From here on
-        get_clean_canvas/swap hand out and rebind the tee instead of raw
-        hardware canvases; widgets never see the difference."""
+        """Install the (single, process-lifetime) preview tee."""
         self._preview_tee = tee
 
+    def create_canvas(self) -> Canvas:
+        """Raw back-buffer canvas (no Clear, no tee). Used by the preview-tee
+        setup and cross-scale transitions."""
+        self._require_ready()
+        return self.backend.create_canvas()
+
     def get_clean_canvas(self) -> Canvas:
-        """Get a clean canvas ready for rendering."""
-        canvas = self.matrix.CreateFrameCanvas()
+        """A cleared canvas ready for rendering (tee-aware)."""
+        self._require_ready()
+        canvas = self.backend.create_canvas()
         canvas.Clear()
         tee = self._preview_tee
         if tee is not None:
             tee._hw = canvas
-            # Mirror the Clear we just did on the raw canvas so the shadow
-            # matches (and counts as the completeness-establishing clear).
             if tee.mirror:
                 tee.Clear()
             return tee
         return canvas
 
     def swap(self, canvas: Canvas) -> Canvas:
-        """Swap the back-buffer to the display.
-
-        Single centralized swap point. Each registered overlay hook paints
-        on the real canvas (physical pixels) immediately before the hardware
-        swap, so overlays composite over every render path (engine,
-        transitions, play()-style widgets) that routes through here. The
-        framerate_fraction argument pins SwapOnVSync to a fixed scan-cycle
-        position, eliminating seam tearing on long chains.
-
-        Hooks must be paint-only and not raise: an exception here skips the
-        swap and freezes the panel (no per-hook try/except by design — see
-        the Overlay-hooks invariant in CLAUDE.md).
-        """
+        """Single centralized swap point. Overlay hooks paint on the real
+        canvas before the backend swap; status_board records liveness. Hooks
+        must be paint-only and not raise (see CLAUDE.md overlay invariant)."""
+        self._require_ready()
         for hook in self.overlay_hooks:
             hook(canvas)
-        # Liveness breadcrumb for the web status UI: an int increment
-        # (no-op without an active board, no I/O, cannot raise) — the one
-        # deliberate exception to LedFrame staying mechanism-only, because
-        # this is the single point every render path crosses.
         status_board.record_swap()
+        ff = self.backend.framerate_fraction
         tee = self._preview_tee
         if tee is not None and canvas is tee:
-            new_hw = self.matrix.SwapOnVSync(tee._hw, self._framerate_fraction)
-            # Shadow == the frame just sent to the panel; capture before the
-            # next tick starts drawing over it.
+            new_hw = self.backend.swap(tee._hw, ff)
             tee.maybe_capture()
             tee._hw = new_hw
             return tee
-        return self.matrix.SwapOnVSync(canvas, self._framerate_fraction)
+        return self.backend.swap(canvas, ff)

@@ -95,7 +95,7 @@ async def _schedule_ticker(
             level = (
                 o if o is not None else scheduler.brightness_for(datetime.now(tz), base)
             )
-            led_frame.matrix.brightness = level
+            led_frame.brightness = level
             if level != last:
                 logging.info("schedule: brightness -> %d", level)
                 last = level
@@ -139,7 +139,7 @@ async def _supervised_schedule(
             exc_info=True,
         )
         try:
-            led_frame.matrix.brightness = base
+            led_frame.brightness = base
         except Exception:
             logging.exception("schedule: failed to reset brightness to base")
 
@@ -162,7 +162,7 @@ async def _respawn_schedule(old_task: Any, config: Any, led_frame: Any) -> Any:
                 config.display.brightness,
             )
         )
-    led_frame.matrix.brightness = config.display.brightness
+    led_frame.brightness = config.display.brightness
     return None
 
 
@@ -445,7 +445,7 @@ def _setup_preview(config: Any, led_frame: Any) -> Any:
     # (e.g. the bigsign's Remap) reshapes the real canvas, and a wrong tee
     # height makes ScaledCanvas's panel-height check raise at the first wrap
     # — the panel down because of preview machinery (review-team finding).
-    hw = led_frame.matrix.CreateFrameCanvas()
+    hw = led_frame.create_canvas()
     tee = PreviewTee(
         hw=hw,
         width=hw.width,
@@ -597,6 +597,11 @@ async def run(config_path: Path) -> None:
         # names flag.
         await _run_startup_validation(config_path)
         led_frame = build_frame_from_config(config.display)
+        # Privilege-drop boundary (constraint #13): the rgbmatrix backend
+        # constructs RGBMatrix here, dropping root -> daemon. All pre-drop work
+        # (plugin reconcile, prepare_dir, validation) has already run above;
+        # everything below needs a live backend.
+        led_frame.setup()
         from led_ticker.render_breaker import RenderBreaker  # noqa: PLC0415
 
         render_breaker = RenderBreaker()

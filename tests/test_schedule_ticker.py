@@ -15,7 +15,11 @@ from led_ticker.schedule import Scheduler  # noqa: E402
 
 
 def _frame():
-    return SimpleNamespace(matrix=SimpleNamespace(brightness=100))
+    # Minimal duck-type for _schedule_ticker / _supervised_schedule: exposes a
+    # settable `brightness` property (led_frame.brightness = level).  The
+    # `matrix` sub-namespace is kept for the few tests that assert on it
+    # directly (they still check the right value via frame.brightness now).
+    return SimpleNamespace(brightness=100)
 
 
 def _sched(*windows):
@@ -44,7 +48,7 @@ def test_ticker_applies_brightness_immediately(monkeypatch):
         await run_mod._schedule_ticker(frame, sched, None, 100, interval=10_000)
 
     asyncio.run(_run_once(go))
-    assert frame.matrix.brightness == 42  # applied on frame 1, no sleep needed
+    assert frame.brightness == 42  # applied on frame 1, no sleep needed
 
 
 def test_override_provider_wins(monkeypatch):
@@ -57,7 +61,7 @@ def test_override_provider_wins(monkeypatch):
         )
 
     asyncio.run(_run_once(go))
-    assert frame.matrix.brightness == 7  # override beats the schedule
+    assert frame.brightness == 7  # override beats the schedule
 
 
 def test_logs_only_on_change(monkeypatch, caplog):
@@ -92,7 +96,7 @@ def test_logs_suppressed_across_repeated_same_value_ticks(caplog):
         asyncio.run(go())
     changes = [r for r in caplog.records if "brightness ->" in r.message]
     assert len(changes) == 1  # logged once despite many same-value ticks
-    assert frame.matrix.brightness == 42
+    assert frame.brightness == 42
 
 
 def test_transient_exception_does_not_kill_ticker():
@@ -125,12 +129,12 @@ def test_transient_exception_does_not_kill_ticker():
 
     asyncio.run(go())
     assert boom.calls >= 2  # kept ticking despite raises
-    assert frame.matrix.brightness == 100  # never written (stayed at construct value)
+    assert frame.brightness == 100  # never written (stayed at construct value)
 
 
 def test_supervised_resets_to_base_on_fatal(monkeypatch, caplog):
     frame = _frame()
-    frame.matrix.brightness = 0  # simulate stuck-dark before the crash
+    frame.brightness = 0  # simulate stuck-dark before the crash
 
     class Fatal:
         def brightness_for(self, now, base):
@@ -146,7 +150,7 @@ def test_supervised_resets_to_base_on_fatal(monkeypatch, caplog):
     monkeypatch.setattr(run_mod, "_schedule_ticker", boom)
     with caplog.at_level(logging.WARNING):
         asyncio.run(run_mod._supervised_schedule(frame, Fatal(), None, 55))
-    assert frame.matrix.brightness == 55  # reset to base
+    assert frame.brightness == 55  # reset to base
     assert any("schedul" in r.message.lower() for r in caplog.records)
 
 
@@ -168,7 +172,7 @@ def test_invalid_timezone_string_does_not_crash_supervised(caplog):
     with caplog.at_level(logging.WARNING):
         asyncio.run(go())
 
-    assert frame.matrix.brightness == 42
+    assert frame.brightness == 42
     assert any(
         "timezone" in r.message.lower() or "Not/AZone" in r.message
         for r in caplog.records
@@ -176,16 +180,16 @@ def test_invalid_timezone_string_does_not_crash_supervised(caplog):
 
 
 def test_base_matches_frame_brightness_source():
-    # The wiring passes config.display.brightness as base AND as led_brightness.
-    # Guard against a future edit that diverges them.
+    # The wiring passes config.display.brightness as base AND as brightness=
+    # in the RgbMatrixBackend kwargs. Guard against a future edit that diverges them.
     # Since startup now goes through _respawn_schedule (single spawn site), the
     # brightness reference lives there rather than inline in run().
     import inspect
 
     respawn_src = inspect.getsource(run_mod._respawn_schedule)
     assert "config.display.brightness" in respawn_src  # used as base in the spawn
-    # build_frame_from_config maps display.brightness -> LedFrame(led_brightness=)
+    # build_frame_from_config maps display.brightness -> RgbMatrixBackend(brightness=)
     from led_ticker.app import factories
 
     fsrc = inspect.getsource(factories)
-    assert "led_brightness=display.brightness" in fsrc
+    assert "brightness=display.brightness" in fsrc

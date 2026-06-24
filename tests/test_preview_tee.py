@@ -407,18 +407,17 @@ def test_getattr_net_rejects_dunders_no_copy_recursion(tmp_path):
 
 
 def test_tee_composes_with_recording_matrix(tmp_path):
-    """RecordingMatrix wrapping LedFrame.matrix intercepts the hardware swap
-    that PreviewTee routes through the real canvas.
+    """RecordingMatrix wrapping the backend's inner matrix intercepts the
+    hardware swap that PreviewTee routes through the real canvas.
 
     Layout:
-      LedFrame.matrix = RecordingMatrix(real_matrix)
+      frame.backend._matrix = RecordingMatrix(real_matrix)
       PreviewTee(hw=<stub canvas>, ...) installed on the frame
 
-    When frame.swap(tee) fires, frame.py does:
-        new_hw = self.matrix.SwapOnVSync(tee._hw, ...)
-    RecordingMatrix.SwapOnVSync snapshots tee._hw and appends to .frames
-    before forwarding to the real matrix.  After one draw+swap cycle
-    frame.matrix.frames must have exactly one entry.
+    When frame.swap(tee) fires, frame.py delegates to the backend which
+    calls _matrix.SwapOnVSync. RecordingMatrix snapshots tee._hw and
+    appends to .frames before forwarding to the real matrix. After one
+    draw+swap cycle recording_matrix.frames must have exactly one entry.
     """
     import sys
     from pathlib import Path
@@ -429,31 +428,37 @@ def test_tee_composes_with_recording_matrix(tmp_path):
 
     from tools.render_demo.recording import RecordingMatrix
 
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
     from led_ticker.frame import LedFrame
     from led_ticker.preview import PreviewTee
 
-    frame = LedFrame()
+    frame = LedFrame(backend=RgbMatrixBackend())
+    frame.setup()
 
     # Install the preview tee.
+    width = frame.backend.led_cols
+    height = frame.backend.led_rows
     tee = PreviewTee(
-        hw=frame.matrix.CreateFrameCanvas(),
-        width=frame.led_cols,
-        height=frame.led_rows,
+        hw=frame.create_canvas(),
+        width=width,
+        height=height,
         frame_path=tmp_path / "preview.bin",
     )
     tee.set_watched(True)
     frame.install_preview(tee)
 
-    # Wrap the matrix in a RecordingMatrix so SwapOnVSync calls are captured.
-    frame.matrix = RecordingMatrix(frame.matrix)
+    # Wrap the backend's inner matrix with RecordingMatrix so SwapOnVSync
+    # calls are captured; backend.swap() delegates to _matrix.SwapOnVSync.
+    recording = RecordingMatrix(frame.backend._matrix)
+    frame.backend._matrix = recording
 
     # Draw something and swap — one full render cycle.
     canvas = frame.get_clean_canvas()
     canvas.SetPixel(0, 0, 255, 128, 64)
     frame.swap(canvas)
 
-    assert len(frame.matrix.frames) == 1, (
-        f"Expected 1 recorded frame after one swap, got {len(frame.matrix.frames)}"
+    assert len(recording.frames) == 1, (
+        f"Expected 1 recorded frame after one swap, got {len(recording.frames)}"
     )
 
 

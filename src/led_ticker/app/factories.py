@@ -1021,27 +1021,43 @@ def build_frame_from_config(display) -> LedFrame:
             "(separate from this log stream — that's the C library, "
             "not a glitch). Disable in config to silence."
         )
-    return LedFrame(
-        led_rows=display.rows,
-        led_cols=display.cols,
-        led_chain_length=display.chain_length,
-        led_parallel=display.parallel,
-        led_pixel_mapper_config=display.pixel_mapper_config,
-        led_gpio_slowdown=display.gpio_slowdown,
-        led_brightness=display.brightness,
-        led_hardware_mapping=display.hardware_mapping,
-        led_pwm_bits=display.pwm_bits,
-        led_pwm_lsb_nanoseconds=display.pwm_lsb_nanoseconds,
-        led_pwm_dither_bits=display.pwm_dither_bits,
-        led_show_refresh_rate=display.show_refresh_rate,
-        led_disable_hardware_pulsing=display.disable_hardware_pulsing,
-        led_rp1_pio=display.rp1_pio,
-        led_limit_refresh_rate_hz=display.limit_refresh_rate_hz,
-        led_multiplexing=display.multiplexing,
-        led_row_address_type=display.row_address_type,
-        led_panel_type=display.panel_type,
-        led_rgb_sequence=display.led_rgb_sequence,
-    )
+    from led_ticker.backends import get_backend_class  # noqa: PLC0415
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend  # noqa: PLC0415
+
+    backend_name = getattr(display, "backend", "rgbmatrix")
+    backend_cls = get_backend_class(backend_name)
+    if backend_cls is RgbMatrixBackend:
+        backend = RgbMatrixBackend(
+            led_rows=display.rows,
+            led_cols=display.cols,
+            led_chain_length=display.chain_length,
+            led_parallel=display.parallel,
+            led_pixel_mapper_config=display.pixel_mapper_config,
+            led_gpio_slowdown=display.gpio_slowdown,
+            brightness=display.brightness,
+            led_hardware_mapping=display.hardware_mapping,
+            led_pwm_bits=display.pwm_bits,
+            led_pwm_lsb_nanoseconds=display.pwm_lsb_nanoseconds,
+            led_pwm_dither_bits=display.pwm_dither_bits,
+            led_show_refresh_rate=display.show_refresh_rate,
+            led_disable_hardware_pulsing=display.disable_hardware_pulsing,
+            led_rp1_pio=display.rp1_pio,
+            led_limit_refresh_rate_hz=display.limit_refresh_rate_hz,
+            led_multiplexing=display.multiplexing,
+            led_row_address_type=display.row_address_type,
+            led_panel_type=display.panel_type,
+        )
+    else:
+        # Headless (and future software backends): size from rows*chain x
+        # parallel*cols-equivalent; reuse the rgbmatrix geometry convention.
+        from led_ticker.backends.headless import HeadlessBackend  # noqa: PLC0415
+
+        width = display.cols * display.chain_length
+        height = display.rows * display.parallel
+        backend = HeadlessBackend(
+            width, height, pixel_mapper_config=display.pixel_mapper_config
+        )
+    return LedFrame(backend=backend)
 
 
 def _configure_user_font_dir(config_path: Path) -> None:

@@ -278,10 +278,12 @@ def test_setup_tolerates_nameless_plugin_info(tmp_path):
 
 def test_setup_preview_installs_tee_when_web_present(tmp_path):
     from led_ticker.app.run import _setup_preview
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
     from led_ticker.frame import LedFrame
 
     config = _make_fake_config(str(tmp_path / "status.json"))
-    frame = LedFrame(led_cols=32, led_chain_length=1)
+    frame = LedFrame(backend=RgbMatrixBackend(led_cols=32, led_chain_length=1))
+    frame.setup()
     tee = _setup_preview(config, frame)
     assert tee is not None
     assert frame.get_clean_canvas() is tee
@@ -291,10 +293,12 @@ def test_setup_preview_none_when_web_absent(tmp_path):
     import types as _types
 
     from led_ticker.app.run import _setup_preview
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
     from led_ticker.frame import LedFrame
 
     config = _types.SimpleNamespace(web=None, display=None)
-    frame = LedFrame(led_cols=32, led_chain_length=1)
+    frame = LedFrame(backend=RgbMatrixBackend(led_cols=32, led_chain_length=1))
+    frame.setup()
     assert _setup_preview(config, frame) is None
     canvas = frame.get_clean_canvas()
     assert not hasattr(canvas, "mirror")  # raw canvas, no tee
@@ -305,13 +309,15 @@ async def test_heartbeat_toggles_mirror_from_marker(tmp_path):
     import asyncio as _asyncio
 
     from led_ticker.app.run import _status_heartbeat
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
     from led_ticker.frame import LedFrame
     from led_ticker.preview import PreviewTee
 
     board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
-    frame = LedFrame(led_cols=32, led_chain_length=1)
+    frame = LedFrame(backend=RgbMatrixBackend(led_cols=32, led_chain_length=1))
+    frame.setup()
     tee = PreviewTee(
-        hw=frame.matrix.CreateFrameCanvas(),
+        hw=frame.create_canvas(),
         width=32,
         height=16,
         frame_path=tmp_path / "preview.bin",
@@ -337,15 +343,19 @@ def test_setup_preview_sizes_from_mapped_canvas_not_config_math(tmp_path):
     makes ScaledCanvas's panel-height check crash the display at the first
     wrap. The stub honors U-mapper, which reshapes exactly like this."""
     from led_ticker.app.run import _setup_preview
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
     from led_ticker.frame import LedFrame
 
     frame = LedFrame(
-        led_rows=32,
-        led_cols=64,
-        led_chain_length=8,
-        led_parallel=1,
-        led_pixel_mapper_config="U-mapper",
+        backend=RgbMatrixBackend(
+            led_rows=32,
+            led_cols=64,
+            led_chain_length=8,
+            led_parallel=1,
+            led_pixel_mapper_config="U-mapper",
+        )
     )
+    frame.setup()
     config = _make_fake_config(str(tmp_path / "status.json"))
     config.display = types.SimpleNamespace(
         rows=32, cols=64, chain_length=8, parallel=1, default_scale=4
@@ -362,13 +372,15 @@ async def test_heartbeat_exit_turns_mirror_off(tmp_path):
     import asyncio as _asyncio
 
     from led_ticker.app.run import _status_heartbeat
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
     from led_ticker.frame import LedFrame
     from led_ticker.preview import PreviewTee
 
     board = StatusBoard(path=tmp_path / "status.json", min_interval=0.05)
-    frame = LedFrame(led_cols=32, led_chain_length=1)
+    frame = LedFrame(backend=RgbMatrixBackend(led_cols=32, led_chain_length=1))
+    frame.setup()
     tee = PreviewTee(
-        hw=frame.matrix.CreateFrameCanvas(),
+        hw=frame.create_canvas(),
         width=32,
         height=16,
         frame_path=tmp_path / "preview.bin",

@@ -27,7 +27,7 @@ class RgbMatrixBackend:
     led_parallel: int = 1
     led_pwm_bits: int = 11
     led_pwm_dither_bits: int = 0
-    brightness: int = 100
+    _brightness: int = attrs.field(alias="brightness", default=100)
     led_hardware_mapping: str = "adafruit-hat"
     led_scan_mode: int = 0
     led_pwm_lsb_nanoseconds: int = 130
@@ -43,6 +43,18 @@ class RgbMatrixBackend:
     led_limit_refresh_rate_hz: int = 0
     framerate_fraction: int = attrs.field(init=False, default=1)
     _matrix: object = attrs.field(init=False, default=None)
+
+    @property
+    def brightness(self) -> int:
+        if self._matrix is not None:
+            return self._matrix.brightness
+        return self._brightness
+
+    @brightness.setter
+    def brightness(self, value: int) -> None:
+        self._brightness = value
+        if self._matrix is not None:
+            self._matrix.brightness = value
 
     def setup(self) -> None:
         options = build_options(self)
@@ -78,7 +90,7 @@ def build_options(backend: RgbMatrixBackend) -> RGBMatrixOptions:
     options.row_address_type = backend.led_row_address_type
     options.multiplexing = backend.led_multiplexing
     options.pwm_bits = backend.led_pwm_bits
-    options.brightness = backend.brightness
+    options.brightness = backend._brightness
     options.pwm_lsb_nanoseconds = backend.led_pwm_lsb_nanoseconds
     if backend.led_pwm_dither_bits and hasattr(options, "pwm_dither_bits"):
         options.pwm_dither_bits = backend.led_pwm_dither_bits  # type: ignore[attr-defined]

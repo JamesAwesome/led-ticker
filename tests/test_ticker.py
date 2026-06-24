@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from led_ticker.backends.rgbmatrix import RgbMatrixBackend
 from led_ticker.color_providers import Rainbow
 from led_ticker.colors import RGB_WHITE
 from led_ticker.frame import LedFrame
@@ -24,9 +25,16 @@ from led_ticker.ticker import (
 )
 
 
+def _rgb_frame(**kwargs):
+    """Build a setup LedFrame backed by RgbMatrixBackend."""
+    f = LedFrame(backend=RgbMatrixBackend(**kwargs))
+    f.setup()
+    return f
+
+
 def test_maybe_wrap_skips_wrap_when_canvas_fits():
     # Smallsign: panel_h == content_height == 16, scale=1 → no wrap needed.
-    frame = LedFrame(led_cols=32, led_chain_length=5)
+    frame = _rgb_frame(led_cols=32, led_chain_length=5)
     canvas = frame.get_clean_canvas()
     # The stub canvas height is 32; use content_height=canvas.height so it fits.
     result = _maybe_wrap(canvas, scale=1, content_height=canvas.height)
@@ -37,7 +45,7 @@ def test_maybe_wrap_skips_wrap_when_canvas_fits():
 def test_maybe_wrap_engages_when_content_height_smaller_than_panel():
     # Bigsign running at scale=1: panel_h=64, content_height=16 → must wrap
     # so widgets see canvas.height == 16 and content is vertically centered.
-    frame = LedFrame(
+    frame = _rgb_frame(
         led_rows=32, led_cols=64, led_chain_length=8, led_pixel_mapper_config="U-mapper"
     )
     canvas = frame.get_clean_canvas()
@@ -50,7 +58,7 @@ def test_maybe_wrap_engages_when_content_height_smaller_than_panel():
 
 
 def test_maybe_wrap_returns_scaled_canvas_at_scale_4():
-    frame = LedFrame(
+    frame = _rgb_frame(
         led_rows=32, led_cols=64, led_chain_length=8, led_pixel_mapper_config="U-mapper"
     )
     canvas = frame.get_clean_canvas()
@@ -61,7 +69,7 @@ def test_maybe_wrap_returns_scaled_canvas_at_scale_4():
 
 
 def test_swap_handles_real_canvas():
-    frame = LedFrame(led_cols=32, led_chain_length=5)
+    frame = _rgb_frame(led_cols=32, led_chain_length=5)
     canvas = frame.get_clean_canvas()
     new_canvas = _swap(canvas, frame)
     # Stub returns a different canvas object on swap
@@ -69,7 +77,7 @@ def test_swap_handles_real_canvas():
 
 
 def test_swap_handles_scaled_canvas_in_place():
-    frame = LedFrame(
+    frame = _rgb_frame(
         led_rows=32, led_cols=64, led_chain_length=8, led_pixel_mapper_config="U-mapper"
     )
     canvas = frame.get_clean_canvas()

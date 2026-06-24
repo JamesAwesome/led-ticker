@@ -18,6 +18,8 @@ from led_ticker.widgets.message import TickerCountdown, TickerMessage
 
 
 def test_build_frame_passes_pixel_mapper_and_parallel():
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
+
     display = DisplayConfig(
         rows=32,
         cols=64,
@@ -27,14 +29,17 @@ def test_build_frame_passes_pixel_mapper_and_parallel():
         default_scale=4,
     )
     frame = build_frame_from_config(display)
-    assert frame.led_pixel_mapper_config == "U-mapper"
-    assert frame.led_parallel == 1
-    assert frame.led_chain_length == 8
-    assert frame.led_rows == 32
-    assert frame.led_cols == 64
+    assert isinstance(frame.backend, RgbMatrixBackend)
+    assert frame.backend.led_pixel_mapper_config == "U-mapper"
+    assert frame.backend.led_parallel == 1
+    assert frame.backend.led_chain_length == 8
+    assert frame.backend.led_rows == 32
+    assert frame.backend.led_cols == 64
 
 
 def test_build_frame_existing_sign_defaults():
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend
+
     display = DisplayConfig(
         rows=16,
         cols=32,
@@ -43,10 +48,11 @@ def test_build_frame_existing_sign_defaults():
         gpio_slowdown=2,
     )
     frame = build_frame_from_config(display)
-    assert frame.led_pixel_mapper_config == ""
-    assert frame.led_parallel == 1
-    assert frame.led_brightness == 60
-    assert frame.led_gpio_slowdown == 2
+    assert isinstance(frame.backend, RgbMatrixBackend)
+    assert frame.backend.led_pixel_mapper_config == ""
+    assert frame.backend.led_parallel == 1
+    assert frame.backend._brightness == 60
+    assert frame.backend.led_gpio_slowdown == 2
 
 
 def test_build_frame_logs_show_refresh_explanation_when_enabled(caplog):
@@ -3104,18 +3110,27 @@ class TestGifLoopsRename:
         assert "  loops " not in result
 
 
+def _make_frame(width=64, height=32):
+    """Helper: build a setup LedFrame backed by HeadlessBackend."""
+    from led_ticker.backends.headless import HeadlessBackend
+    from led_ticker.frame import LedFrame
+
+    f = LedFrame(backend=HeadlessBackend(width, height))
+    f.setup()
+    return f
+
+
 class TestStartBusyLight:
     async def test_file_source_registers_hook_and_reads_file(self, tmp_path):
         from led_ticker.app.run import _start_busy_light
         from led_ticker.config import BusyLightConfig
-        from led_ticker.frame import LedFrame
 
         f = tmp_path / ".busy"
         f.write_text("")
         cfg = BusyLightConfig(
             enabled=True, source="file", file_path=str(f), poll_interval=999
         )
-        frame = LedFrame(led_cols=64, led_rows=32)
+        frame = _make_frame()
         busy = await _start_busy_light(cfg, frame)
         assert busy.paint in frame.overlay_hooks
         assert busy.is_busy is True  # initial update() read the existing file
@@ -3125,7 +3140,6 @@ class TestStartBusyLight:
 
         from led_ticker.app.run import _start_busy_light
         from led_ticker.config import BusyLightConfig
-        from led_ticker.frame import LedFrame
 
         before = asyncio.all_tasks()
         cfg = BusyLightConfig(
@@ -3135,7 +3149,7 @@ class TestStartBusyLight:
             http_port=0,
             ttl_seconds=120.0,
         )
-        frame = LedFrame(led_cols=64, led_rows=32)
+        frame = _make_frame()
         busy = await _start_busy_light(cfg, frame)
         new_tasks = asyncio.all_tasks() - before
         try:
@@ -3159,7 +3173,6 @@ class TestStartBusyLight:
 
         from led_ticker.app.run import _start_busy_light
         from led_ticker.config import BusyLightConfig
-        from led_ticker.frame import LedFrame
 
         before = asyncio.all_tasks()
         cfg = BusyLightConfig(
@@ -3169,7 +3182,7 @@ class TestStartBusyLight:
             http_port=0,
             ttl_seconds=0.0,
         )
-        frame = LedFrame(led_cols=64, led_rows=32)
+        frame = _make_frame()
         await _start_busy_light(cfg, frame)
         new_tasks = asyncio.all_tasks() - before
         try:
@@ -3191,12 +3204,11 @@ class TestStartBusyLight:
 
         from led_ticker.app.run import _start_busy_light
         from led_ticker.config import BusyLightConfig
-        from led_ticker.frame import LedFrame
 
         cfg = BusyLightConfig(
             enabled=True, source="http", http_host="127.0.0.1", http_port=0
         )
-        frame = LedFrame(led_cols=64, led_rows=32)
+        frame = _make_frame()
         await _start_busy_light(cfg, frame)
         # Let serve_busy() finish binding so the task reaches Event().wait()
         # (the rootless suspension point).

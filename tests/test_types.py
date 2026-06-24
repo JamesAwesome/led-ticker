@@ -26,10 +26,13 @@ class TestCanvasLike:
         assert isinstance(canvas, CanvasLike)
 
     def test_scaled_canvas_satisfies_protocol(self):
+        from led_ticker.backends.rgbmatrix import RgbMatrixBackend
         from led_ticker.frame import LedFrame
         from led_ticker.scaled_canvas import ScaledCanvas
 
-        frame = LedFrame(led_rows=32, led_cols=32, led_chain_length=5)
+        backend = RgbMatrixBackend(led_rows=32, led_cols=32, led_chain_length=5)
+        frame = LedFrame(backend=backend)
+        frame.setup()
         canvas = frame.get_clean_canvas()
         scaled = ScaledCanvas(real=canvas, scale=2)
         assert isinstance(scaled, CanvasLike)

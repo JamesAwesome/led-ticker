@@ -7,13 +7,10 @@ import led_ticker.app.run as _run_mod_alias  # noqa: F401 — side-effect: regis
 run_mod = importlib.import_module("led_ticker.app.run")
 
 
-class _FakeMatrix:
-    def __init__(self):
-        self.brightness = 100
-
-
 def _frame():
-    return SimpleNamespace(matrix=_FakeMatrix())
+    # Minimal duck-type for _respawn_schedule: exposes a settable `brightness`
+    # attribute (led_frame.brightness = level after the backend refactor).
+    return SimpleNamespace(brightness=100)
 
 
 def _cfg(*, enabled, brightness=100, tz="UTC"):
@@ -30,7 +27,7 @@ async def test_respawn_schedule_disabled_sets_base_and_returns_none():
         old, _cfg(enabled=False, brightness=40), frame
     )
     assert task is None
-    assert frame.matrix.brightness == 40
+    assert frame.brightness == 40
     assert old.cancelled() or old.cancelling()
 
 

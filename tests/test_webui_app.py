@@ -2435,3 +2435,19 @@ def test_header_renders_build_stamp_with_drift():
     assert "renderBuildStamp" in html  # the render fn
     assert "webui_build" in html  # reads the webui ref for drift
     assert "⚠" in html  # the drift warning glyph
+
+
+def test_reload_poll_is_patient():
+    from pathlib import Path
+
+    from led_ticker import webui
+
+    html = (Path(webui.__file__).parent / "static" / "index.html").read_text()
+    # Patient poll: ~180s cap at a 2s interval.
+    assert "RELOAD_POLL_ATTEMPTS = 90" in html
+    assert "RELOAD_POLL_INTERVAL_MS = 2000" in html
+    # Honest wait message while the next section seam is reached.
+    assert "saved — applying at next section…" in html
+    # The old impatient 6s budget (3 attempts) and stale message are gone.
+    assert "pollReloadOutcome(priorReloadAt, 3)" not in html
+    assert "saved — waiting for reload…" not in html

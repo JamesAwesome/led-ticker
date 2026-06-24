@@ -96,13 +96,16 @@ class ScaledCanvas:
         )
 
     def SetImage(self, image: object, offset_x: int = 0, offset_y: int = 0) -> None:
-        """Forward SetImage to the underlying real canvas.
+        """Blit a PIL image to the underlying real canvas at NATIVE physical pixel
+        coordinates.
 
-        Image widgets call this on the unwrapped real canvas (via
-        unwrap_to_real) so the image lands at native pixel resolution. The
-        forwarding method here satisfies the CanvasLike protocol so
-        ScaledCanvas can be used wherever a CanvasLike is expected without
-        needing to unwrap first.
+        WARNING: unlike SetPixel/SubFill, offset_x/offset_y here are NATIVE physical
+        pixel coordinates, NOT logical coordinates — and the image is not block-
+        expanded by the wrapper. A non-zero offset will NOT align with SetPixel at the
+        same logical coordinate. Production image widgets paint via
+        `unwrap_to_real(canvas).SetImage(...)`; this forwarding method exists so the
+        wrapper satisfies the CanvasLike contract. For any non-zero-offset blit, use
+        `unwrap_to_real` explicitly.
         """
         self.real.SetImage(image, offset_x, offset_y)
 

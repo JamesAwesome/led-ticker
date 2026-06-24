@@ -38,6 +38,9 @@ def _check_canvas_contract(factory: Callable[[], Backend]) -> None:
     c = b.create_canvas()
     for meth in ("SetPixel", "Clear", "Fill", "SubFill", "SetImage"):
         assert hasattr(c, meth), f"canvas missing {meth} (Canvas contract)"
+    # Presence-only: we assert the draw doesn't raise, not the pixel value.
+    # Constraint #3 (no GetPixel) means the kit cannot assume a backend canvas
+    # supports readback, so value-verification would over-constrain the contract.
     c.SetPixel(0, 0, 1, 2, 3)  # must not raise
     c.Clear()
 
@@ -76,13 +79,16 @@ def _check_wrappability(factory: Callable[[], Backend]) -> None:
     hw = b.create_canvas()
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tmp:
         frame_path = Path(tmp.name)
-    tee = PreviewTee(
-        hw=hw,
-        width=hw.width,
-        height=hw.height,
-        frame_path=frame_path,
-    )
-    tee.SetPixel(0, 0, 7, 8, 9)  # must not raise
+    try:
+        tee = PreviewTee(
+            hw=hw,
+            width=hw.width,
+            height=hw.height,
+            frame_path=frame_path,
+        )
+        tee.SetPixel(0, 0, 7, 8, 9)  # must not raise
+    finally:
+        frame_path.unlink(missing_ok=True)
 
 
 def _check_not_ready_guard(factory: Callable[[], Backend]) -> None:

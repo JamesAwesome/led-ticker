@@ -78,6 +78,7 @@
   <h1 id="hostname">led-ticker</h1>
   <span id="uptime" class="muted"></span>
   <span id="live" class="missing">connecting…</span>
+  <span id="build-stamp" class="muted" style="font-family:ui-monospace,monospace;font-size:.72rem;margin-left:.6rem;"></span>
   <div class="token-bar">
     <label for="token-input">Token</label>
     <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="enter token…">
@@ -411,6 +412,20 @@ function fmtAgo(ts) {
   return Math.round(s / 3600) + "h ago";
 }
 
+function renderBuildStamp(body) {
+  const el = $("build-stamp");
+  if (!el) return;
+  const disp = body.status && body.status.build;   // what's rendering the sign
+  const web = body.webui_build;                     // this webui container's build
+  if (!disp && !web) { el.textContent = ""; return; }
+  if (disp) {
+    el.textContent = "build " + disp;
+    if (web && web !== disp) el.textContent += "  ⚠ webui " + web;
+  } else {
+    el.textContent = "webui " + web;                // display build unknown (old schema / no status)
+  }
+}
+
 async function poll() {
   try {
     const r = await fetch("/api/status", {headers: auth});
@@ -421,6 +436,7 @@ async function poll() {
       return;
     }
     const body = await r.json();
+    renderBuildStamp(body);
     if (typeof body.allow_restart === "boolean") lastAllowRestart = body.allow_restart;
     const live = $("live");
     live.className = body.state;

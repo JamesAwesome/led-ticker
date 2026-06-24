@@ -2382,3 +2382,26 @@ def test_index_html_store_restart_ondone_clears_status_after_delay():
     assert 'setTimeout(() => { $("store-restart-status").textContent = ""; }' in html, (
         "onDone must clear store-restart-status via setTimeout, not synchronously"
     )
+
+
+def test_status_handler_adds_webui_build():
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    src = (Path(webui_pkg.__file__).parent / "__init__.py").read_text()
+    # The served status payload is augmented with the webui's own build ref.
+    assert 'payload["webui_build"] = build_ref()' in src
+    assert "from led_ticker._build import build_ref" in src
+
+
+def test_header_renders_build_stamp_with_drift():
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    assert 'id="build-stamp"' in html          # the header element
+    assert "renderBuildStamp" in html          # the render fn
+    assert "webui_build" in html               # reads the webui ref for drift
+    assert "⚠" in html                     # the drift warning glyph

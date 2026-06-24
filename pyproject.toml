@@ -70,6 +70,10 @@ Issues = "https://github.com/JamesAwesome/led-ticker/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/led_ticker"]
+# The Docker build generates src/led_ticker/_build_ref.py (the baked commit ref)
+# and git-ignores it; `artifacts` forces it into the wheel anyway (hatchling
+# otherwise excludes VCS-ignored files). See Dockerfile + _build.py.
+artifacts = ["src/led_ticker/_build_ref.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "tools/render_demo", "tools/gif_plan"]

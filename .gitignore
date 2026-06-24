@@ -165,3 +165,6 @@ docs/site/node_modules/
 docs/site/dist/
 docs/site/.astro/
 .claude/scheduled_tasks.lock
+
+# Build stamp baked into the Docker image (generated; see Dockerfile)
+src/led_ticker/_build_ref.py

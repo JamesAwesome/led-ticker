@@ -17,6 +17,21 @@ def test_git_fallback_when_env_unset(monkeypatch):
     assert build_ref() == "feat/y@def5678"
 
 
+def test_baked_ref_used_before_git(monkeypatch):
+    # In a Docker image the ref is baked into the package; it wins over runtime
+    # git (git is what catches a stale branch, so the baked git ref is the truth).
+    monkeypatch.delenv("LED_TICKER_BUILD_REF", raising=False)
+    monkeypatch.setattr(_build, "_baked_ref", lambda: "main@deadbee")
+    monkeypatch.setattr(_build, "_git_ref", lambda: "WRONG@0000000")
+    assert build_ref() == "main@deadbee"
+
+
+def test_baked_ref_absent_without_the_module():
+    # _build_ref.py is git-ignored and only generated inside the Docker image,
+    # so a source checkout has no baked ref (falls through to runtime git).
+    assert _build._baked_ref() is None
+
+
 def test_literal_unknown_env_falls_through(monkeypatch):
     # A bare `docker compose build` bakes the literal "unknown" — it must NOT
     # short-circuit; fall through to the next tier (package version here).

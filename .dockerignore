@@ -1,8 +1,11 @@
 # API keys and secrets — never bake into image layers
 .env
 
-# Version control metadata
-.git
+# Version control metadata. Keep .git's refs (HEAD/refs/packed-refs, ~KB) in the
+# build context so the Dockerfile can bake the commit ref into the image; exclude
+# .git/objects (the ~100MB+ bulk) and the lfs cache — the ref parse never needs them.
+.git/objects
+.git/lfs
 .gitignore
 .github
 

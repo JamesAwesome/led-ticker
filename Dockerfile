@@ -59,11 +59,29 @@ RUN pip install --no-cache-dir -e ".[dev]" \
 
 # Layer 3: app source (rebuilds on any code change — but fast, no pip)
 COPY . /code/
-RUN pip install --no-deps .
 
-# Build stamp — set by `make build-docker` / `make rebuild` / compose build args.
-# Placed last so changing it invalidates only this tiny layer, not the pip install.
-ARG BUILD_REF=unknown
+# Build stamp — bake "branch@shortsha" into the package so EVERY docker build
+# (bare `docker compose build` or `make rebuild`) carries the real commit. Git is
+# what catches a stale branch; the package version can't (it's identical across
+# branches). An explicit BUILD_REF arg wins; otherwise parse the source's git
+# refs — `.git/objects` (the bulk) is excluded from the build context via
+# .dockerignore, and HEAD/refs are all we need. The file is written into the
+# package BEFORE install so it ships in the wheel; `.git` is then removed.
+ARG BUILD_REF=
 ENV LED_TICKER_BUILD_REF=$BUILD_REF
+RUN BR="$BUILD_REF"; \
+    if [ -z "$BR" ] && [ -f /code/.git/HEAD ]; then \
+      HEAD="$(cat /code/.git/HEAD)"; \
+      case "$HEAD" in \
+        "ref: "*) ref="${HEAD#ref: }"; branch="${ref#refs/heads/}"; \
+          if [ -f "/code/.git/$ref" ]; then sha="$(cat "/code/.git/$ref")"; \
+          else sha="$(grep " $ref\$" /code/.git/packed-refs 2>/dev/null | cut -d' ' -f1)"; fi ;; \
+        *) branch="detached"; sha="$HEAD" ;; \
+      esac; \
+      [ -n "$sha" ] && BR="${branch}@$(printf '%s' "$sha" | cut -c1-8)"; \
+    fi; \
+    printf 'REF = "%s"\n' "${BR:-unknown}" > /code/src/led_ticker/_build_ref.py; \
+    rm -rf /code/.git
+RUN pip install --no-deps .
 
 CMD ["led-ticker", "--config", "/code/config/config.toml"]

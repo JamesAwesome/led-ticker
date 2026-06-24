@@ -271,6 +271,13 @@ The `config/config.example.toml` shipped with the project sets `allow_restart = 
 - No Pi reboot.
 - No brightness control.
 
+## Which build is deployed?
+
+The dashboard header shows `build <branch>@<sha>` — the Git branch and short SHA baked into the image when it was built. Use this to confirm both containers are running the code you expect.
+
+- **`build unknown`** — the image was not built via `make build-docker` or `make rebuild` (e.g. pulled from a registry without the build args, or started from a dev environment without the stamp step). The sign still runs correctly; `unknown` is a label, not an error.
+- **`⚠ webui build …`** — the webui sidecar is on a different build than the display process. This happens when you rebuild with a plain `docker compose up -d --build`: the image is updated but the profile-gated webui container is left on the old one. Run `make rebuild` to bring both containers to the same image at once.
+
 ## Troubleshooting
 
 **The page doesn't load at all (connection refused)** — The sidecar isn't running. On Docker, the `webui` service only starts when the `webui` compose profile is enabled — check `docker compose ps`; if the container is absent, start with `COMPOSE_PROFILES=webui docker compose up -d`. If the container exists but is restarting, check `docker compose logs webui` — a missing `[web]` block in `config.toml` makes the subcommand exit with a message naming the fix.

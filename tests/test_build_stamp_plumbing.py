@@ -19,4 +19,4 @@ def test_makefile_passes_build_arg():
 
 def test_compose_forwards_build_ref():
     cf = (REPO / "compose.yaml").read_text()
-    assert "BUILD_REF: ${BUILD_REF:-unknown}" in cf
+    assert "BUILD_REF: ${BUILD_REF:-}" in cf

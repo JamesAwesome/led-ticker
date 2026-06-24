@@ -61,9 +61,12 @@ RUN pip install --no-cache-dir -e ".[dev]" \
 COPY . /code/
 RUN pip install --no-deps .
 
-# Build stamp — set by `make build-docker` / `make rebuild` / compose build args.
-# Placed last so changing it invalidates only this tiny layer, not the pip install.
-ARG BUILD_REF=unknown
+# Build stamp — branch@shortsha, computed on the host by `make build-docker` /
+# `make rebuild` and passed as BUILD_REF. A bare `docker compose build` (no arg)
+# leaves it empty and the header shows "unknown" — deploy with `make rebuild` to
+# stamp the commit. Placed last so it invalidates only this tiny layer.
+ARG BUILD_REF=
 ENV LED_TICKER_BUILD_REF=$BUILD_REF
+LABEL org.opencontainers.image.revision=$BUILD_REF
 
 CMD ["led-ticker", "--config", "/code/config/config.toml"]

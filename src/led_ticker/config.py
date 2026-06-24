@@ -59,6 +59,9 @@ class DisplayConfig:
     # power up in a bad state and show the bottom half mirrored or garbled.
     panel_type: str = ""
     led_rgb_sequence: str = "RGB"
+    # Rendering backend: "rgbmatrix" (hardware) or "headless" (no panel required).
+    # Plugins may register additional backends via led_ticker.backends.register_backend.
+    backend: str = "rgbmatrix"
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
 
 

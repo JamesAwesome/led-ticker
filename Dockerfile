@@ -61,4 +61,9 @@ RUN pip install --no-cache-dir -e ".[dev]" \
 COPY . /code/
 RUN pip install --no-deps .
 
+# Build stamp — set by `make build-docker` / `make rebuild` / compose build args.
+# Placed last so changing it invalidates only this tiny layer, not the pip install.
+ARG BUILD_REF=unknown
+ENV LED_TICKER_BUILD_REF=$BUILD_REF
+
 CMD ["led-ticker", "--config", "/code/config/config.toml"]

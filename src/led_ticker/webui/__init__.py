@@ -26,6 +26,7 @@ from typing import Any
 
 from aiohttp import web
 
+from led_ticker._build import build_ref
 from led_ticker.config import resolve_secret_token
 from led_ticker.preview import HEADER, PREVIEW_MAGIC, PREVIEW_VERSION
 from led_ticker.reload import config_hash
@@ -205,6 +206,7 @@ def build_webui_app(
 
     async def status_handler(request: web.Request) -> web.Response:
         payload = _read_status(status_path)
+        payload["webui_build"] = build_ref()
         payload["allow_restart"] = allow_restart
         return web.json_response(payload)
 

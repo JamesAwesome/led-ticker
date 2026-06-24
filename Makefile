@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker rebuild docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker
 
 # --- Developer Setup ---
 
@@ -75,8 +75,15 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 
 # rgbmatrix fork is hardcoded in the Dockerfile (jamesawesome/main).
 # Validated to run on both the Pi 4 sign and the Pi 5 bigsign.
+
+# branch@shortsha(+dirty) — baked into the image as LED_TICKER_BUILD_REF.
+BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo +dirty)
+
 build-docker:  ## Build the production Docker image (Pi 4 + Pi 5)
-	docker build -t led-ticker .
+	docker build -t led-ticker --build-arg BUILD_REF="$(BUILD_REF)" .
+
+rebuild:  ## Stamped rebuild + recreate ALL services incl. the webui sidecar
+	BUILD_REF="$(BUILD_REF)" COMPOSE_PROFILES=webui docker compose up -d --build --force-recreate
 
 # --- Cleanup ---
 

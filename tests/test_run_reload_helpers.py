@@ -2,7 +2,6 @@ import asyncio
 import importlib
 from pathlib import Path
 from types import SimpleNamespace
-from types import SimpleNamespace as _SN
 
 import pytest
 
@@ -211,7 +210,7 @@ async def test_build_widget_guarded_cancels_sink_tasks_on_build_error(monkeypatc
 def _new_config():
     # Minimal stand-in: the helper only reads .between_sections, .sections,
     # and optionally ._coerce_warnings.
-    return _SN(between_sections=None, sections=[], _coerce_warnings=[])
+    return SimpleNamespace(between_sections=None, sections=[], _coerce_warnings=[])
 
 
 class _Watcher:

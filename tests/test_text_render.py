@@ -21,6 +21,25 @@ def _real_canvas(real_w: int = 160, real_h: int = 16):
     return matrix.CreateFrameCanvas()
 
 
+def test_scale1_text_renders_via_rasterizer():
+    """Task-10 TDD anchor: with USE_RASTERIZER_AT_SCALE1=True (default),
+    draw_text on a HeadlessCanvas at scale=1 paints pixels via the rasterizer
+    (SetPixel-based) without invoking the C graphics.DrawText at all."""
+    from led_ticker import text_render
+    from led_ticker._compat import require_graphics
+    from led_ticker.backends.headless import HeadlessCanvas
+    from led_ticker.text_render import draw_text
+
+    assert text_render.USE_RASTERIZER_AT_SCALE1 is True, "flag must be on"
+    canvas = HeadlessCanvas(width=64, height=16)
+    color = require_graphics().Color(255, 255, 255)
+    with mock_mod.patch("led_ticker.text_render._graphics") as gfx:
+        advance = draw_text(canvas, FONT_SMALL, 0, 12, color, "Hi")
+        gfx.DrawText.assert_not_called()
+    assert advance > 0
+    assert canvas.count_nonzero() > 0  # pixels actually painted at scale=1
+
+
 def test_draw_text_on_real_canvas_uses_graphics_drawtext():
     real = _real_canvas()
     color = graphics.Color(255, 0, 0)
@@ -36,17 +55,44 @@ def test_draw_text_on_scaled_canvas_uses_bdf_path():
 
 
 class TestDrawTextDispatch:
-    def test_bdf_font_with_mock_canvas_uses_graphics_DrawText(self):
-        """Real C canvas (Mock proxy) goes through graphics.DrawText."""
+    def test_bdf_font_with_flag_on_uses_rasterizer_not_graphics_DrawText(self):
+        """USE_RASTERIZER_AT_SCALE1=True: scale=1 BDF path goes through the
+        pure-Python rasterizer (SetPixel), NOT the C graphics.DrawText."""
+        from led_ticker import text_render
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.text_render import draw_text
+
+        assert text_render.USE_RASTERIZER_AT_SCALE1 is True, (
+            "flag must be True (default) for this test"
+        )
+        canvas = HeadlessCanvas(width=64, height=16)
+        with mock_mod.patch("led_ticker.text_render._graphics") as gfx:
+            result = draw_text(
+                canvas, FONT_DEFAULT, 0, 12, graphics.Color(255, 255, 255), "hi"
+            )
+            gfx.DrawText.assert_not_called()
+        assert result > 0
+        assert canvas.count_nonzero() > 0
+
+    def test_bdf_font_with_flag_off_uses_graphics_DrawText(self):
+        """USE_RASTERIZER_AT_SCALE1=False: scale=1 BDF falls back to the
+        legacy C DrawText path (retained until hardware pixel-diff sign-off)."""
+        from led_ticker import text_render
         from led_ticker.fonts import FONT_DEFAULT
         from led_ticker.text_render import draw_text
 
         canvas = mock_mod.MagicMock()
-        with mock_mod.patch("led_ticker.text_render._graphics") as gfx:
-            gfx.DrawText.return_value = 42
-            result = draw_text(canvas, FONT_DEFAULT, 0, 12, "color", "hi")
-            gfx.DrawText.assert_called_once()
-            assert result == 42
+        original = text_render.USE_RASTERIZER_AT_SCALE1
+        try:
+            text_render.USE_RASTERIZER_AT_SCALE1 = False
+            with mock_mod.patch("led_ticker.text_render._graphics") as gfx:
+                gfx.DrawText.return_value = 42
+                result = draw_text(canvas, FONT_DEFAULT, 0, 12, "color", "hi")
+                gfx.DrawText.assert_called_once()
+                assert result == 42
+        finally:
+            text_render.USE_RASTERIZER_AT_SCALE1 = original
 
     def test_hires_font_dispatches_to_hires_path(self):
         """HiresFont triggers _draw_hires_text, NOT graphics.DrawText."""

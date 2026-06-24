@@ -563,7 +563,7 @@ def _add_config_routes(
         body = await request.text()
         if len(body.encode()) > MAX_VALIDATE_BODY:
             return web.json_response({"error": "body too large"}, status=413)
-        result = await validate_config_text(body)
+        result = await validate_config_text(body, config_dir=config_path.parent)
         return web.json_response(_result_to_json(result))
 
     async def validate_file_handler(request: web.Request) -> web.Response:
@@ -644,7 +644,7 @@ def _add_config_routes(
                     status=400,
                 )
 
-            result = await validate_config_text(merged)
+            result = await validate_config_text(merged, config_dir=config_path.parent)
             if not result.valid:
                 return web.json_response(_result_to_json(result), status=422)
 

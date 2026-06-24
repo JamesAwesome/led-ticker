@@ -588,9 +588,11 @@ class TestConsumeRestartMarker:
         for_idx = next(
             i for i, ln in enumerate(lines) if "for section_index, section" in ln
         )
-        # The for-section loop body (the next ~30 lines) must contain a
+        # The for-section loop body (the next ~45 lines) must contain a
         # restart check + sys.exit, so latency is one section not a playlist.
-        body = "\n".join(lines[for_idx : for_idx + 30])
+        # (The per-section config-reload check now precedes the restart check
+        # in the loop body, so the window spans both.)
+        body = "\n".join(lines[for_idx : for_idx + 45])
         assert "_restart_requested()" in body, (
             "run() must check the restart marker inside the for-section loop "
             "(per-section), not only at the top of the outer while-True "

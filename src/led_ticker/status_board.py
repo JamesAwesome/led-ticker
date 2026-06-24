@@ -20,13 +20,15 @@ from typing import Any
 
 import attrs
 
+from led_ticker._build import build_ref
+
 logger = logging.getLogger(__name__)
 
 # SCHEMA_VERSION guards the TOP-LEVEL key set (see the tripwire in
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -70,6 +72,7 @@ class StatusBoard:
     def snapshot(self) -> dict[str, Any]:
         return {
             "schema": SCHEMA_VERSION,
+            "build": build_ref(),
             "published_at": time.time(),
             "min_interval": self.min_interval,
             "started_at": self.started_at,

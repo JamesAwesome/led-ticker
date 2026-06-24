@@ -29,6 +29,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "swap_count",
     "overlays",
     "log_tail",
+    "build",
 }
 
 
@@ -43,7 +44,7 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 7
+    assert snap["schema"] == SCHEMA_VERSION == 8
     assert "disabled_widgets" in snap
 
 
@@ -518,7 +519,7 @@ def test_reconcile_recorded_in_snapshot(tmp_path):
             [PluginAction("rss", "installed", "0.2.0")]
         )
         snap = board.snapshot()
-        assert snap["schema"] == 7
+        assert snap["schema"] == SCHEMA_VERSION
         assert snap["plugin_reconcile"][0]["namespace"] == "rss"
         assert snap["plugin_reconcile"][0]["action"] == "installed"
         assert snap["plugin_reconcile"][0]["detail"] == "0.2.0"
@@ -533,3 +534,9 @@ def test_record_plugin_reconcile_no_board_is_noop():
     status_board.clear_active_board()
     # Must not raise with no active board.
     status_board.record_plugin_reconcile([PluginAction("rss", "installed", "0.2.0")])
+
+
+def test_snapshot_carries_build_ref(tmp_path, monkeypatch):
+    monkeypatch.setenv("LED_TICKER_BUILD_REF", "feat/x@abc1234")
+    snap = _board(tmp_path).snapshot()
+    assert snap["build"] == "feat/x@abc1234"

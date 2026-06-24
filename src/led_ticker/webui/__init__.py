@@ -644,7 +644,7 @@ def _add_config_routes(
                     status=400,
                 )
 
-            result = await validate_config_text(merged)
+            result = await validate_config_text(merged, config_dir=config_path.parent)
             if not result.valid:
                 return web.json_response(_result_to_json(result), status=422)
 

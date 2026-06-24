@@ -739,11 +739,11 @@ async def test_put_config_host_edit_mid_handler_is_409(tmp_path):
 
     real_validate = webui_mod.validate_config_text
 
-    async def validate_then_host_edit(text):
+    async def validate_then_host_edit(text, **kwargs):
         # Simulate a host edit landing mid-handler: mutate the file on disk
         # after the conflict-check passed but before os.replace.
         config_path.write_text(original + "\n# host edit\n")
-        return await real_validate(text)
+        return await real_validate(text, **kwargs)
 
     monkeypatch_done = False
     try:

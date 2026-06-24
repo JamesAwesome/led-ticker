@@ -34,10 +34,8 @@ def test_unknown_backend_lists_known():
     with pytest.raises(ValueError) as exc:
         get_backend_class("does_not_exist")
     assert "does_not_exist" in str(exc.value)
-    # Message enumerates valid names so the user can self-correct.
-    # If any backends are known, at least one should appear in the message.
-    if known_backends():
-        assert any(name in str(exc.value) for name in known_backends())
+    # A known backend is always registered (headless); the error must enumerate it.
+    assert "headless" in str(exc.value)
 
 
 def test_backend_protocol_is_runtime_checkable():

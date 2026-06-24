@@ -43,3 +43,15 @@ def test_setpixel_clips_out_of_bounds():
     c = HeadlessCanvas(width=4, height=4)
     c.SetPixel(99, 99, 1, 2, 3)  # silently ignored
     assert c.count_nonzero() == 0
+
+
+def test_setimage_paints_with_offset_and_alpha_flatten():
+    from PIL import Image
+
+    img = Image.new("RGBA", (2, 1))
+    img.putpixel((0, 0), (10, 20, 30, 255))  # opaque -> paints RGB
+    img.putpixel((1, 0), (99, 99, 99, 0))  # alpha 0 -> flattens to black
+    c = HeadlessCanvas(width=8, height=8)
+    c.SetImage(img, offset_x=2, offset_y=3)
+    assert c.get_pixel(2, 3) == (10, 20, 30)
+    assert c.get_pixel(3, 3) == (0, 0, 0)

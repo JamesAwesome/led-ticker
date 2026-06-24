@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "led-ticker-core"
-version = "2.0.0"
+version = "2.1.0"
 description = "Asyncio LED matrix display for news, weather, crypto, and more"
 readme = "README.md"
 license = "MIT"

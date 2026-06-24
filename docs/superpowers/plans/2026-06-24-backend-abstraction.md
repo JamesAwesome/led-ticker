@@ -1346,52 +1346,48 @@ git commit -m "feat(backends): importable conformance kit + widen CanvasLike"
 
 ---
 
-### Task 9: Collapse `tests/stubs/rgbmatrix/`; migrate imports; retire `PYTHONPATH`
+### Task 9: Dedup the rgbmatrix stub against `HeadlessCanvas`; retire the Makefile `PYTHONPATH` hack
 
-This is a broad mechanical migration (~30 import sites). Do it in one task so the suite is green at the end; commit once.
+**REVISED during execution (2026-06-24).** The original plan ("delete the stub, migrate ~30 files to HeadlessBackend, retire PYTHONPATH") was wrong: `RgbMatrixBackend.build_options()` constructs `RGBMatrixOptions()`, which is `None` off-hardware once the stub is gone — so deleting the stub would break the Task 3 byte-identical guard tests and the rgbmatrix conformance test off-hardware. The stub is genuinely needed to test the rgbmatrix backend without a Pi.
+
+The spec's actual goals are met differently:
+- **External/plugin consumers get a package import** — already achieved by shipping `HeadlessBackend` (Task 2). Plugins import `led_ticker.backends.headless`, not a sibling `tests/stubs` path.
+- **Kill the `PYTHONPATH=tests/stubs` Makefile hack** — move the stub onto pytest's pythonpath via `pyproject.toml` so `make test` needs no env var.
+- **Dedup** — `HeadlessCanvas` is currently a copy of the stub's `_StubCanvas`; make the stub REUSE `HeadlessCanvas` so there's one canvas implementation.
+
+The ~30 test files are NOT migrated — they legitimately need a fake rgbmatrix (`RGBMatrixOptions`/`graphics`/canvas) and keep importing `from rgbmatrix import ...`, now resolved via the pytest pythonpath.
 
 **Files:**
-- Delete: `tests/stubs/rgbmatrix/__init__.py` (and `graphics.py` if only used by the full stub — verify)
-- Modify: `Makefile:17`, `pyproject.toml:84` (+ any `pythonpath` entries)
-- Modify: ~30 test files importing `from rgbmatrix import ...` / `_StubCanvas`
-- Decision: `src/led_ticker/_compat.py:16` import source
+- Modify: `tests/stubs/rgbmatrix/__init__.py` — reuse `HeadlessCanvas`; keep `RGBMatrix`/`RGBMatrixOptions` shims.
+- Modify: `pyproject.toml` — add `pythonpath = ["tests/stubs"]` to `[tool.pytest.ini_options]`.
+- Modify: `Makefile:17` — drop `PYTHONPATH=tests/stubs`.
 
 **Interfaces:**
-- Consumes: `HeadlessBackend`, `HeadlessCanvas` (Task 2).
+- Consumes: `HeadlessCanvas` (Task 2).
 
-- [ ] **Step 1: Inventory the import sites**
+- [ ] **Step 1: Dedup the stub canvas**
 
-Run: `grep -rln "from rgbmatrix import\|import rgbmatrix\|_StubCanvas\|RGBMatrixOptions()" tests/`
-Record the list. Expected ~30 files.
+In `tests/stubs/rgbmatrix/__init__.py`, replace the duplicated `_StubCanvas` class body with a reuse of `HeadlessCanvas`. At minimum alias it so existing `from rgbmatrix import _StubCanvas` / internal uses keep working:
 
-- [ ] **Step 2: Decide `_compat` import source**
-
-`_compat.py:16` does `from rgbmatrix import RGBMatrix, RGBMatrixOptions, graphics`. The `tests/stubs/rgbmatrix` package satisfied this off-hardware. **Decision:** `_compat` keeps importing `from rgbmatrix import ...` (real lib only) — on a non-Pi machine the `ImportError` fallback sets `RGBMatrix = None` / `RGBMatrixOptions = None` and uses the shipped `_rgbmatrix_stub` for `graphics`. This is already the existing fallback (`_compat.py:17-21`); removing `tests/stubs/rgbmatrix` simply means `from rgbmatrix import` fails off-hardware and the fallback fires — which is correct, because matrix construction off-hardware now goes through `HeadlessBackend`, not a fake `rgbmatrix` package. **No change to `_compat.py` needed** beyond confirming the fallback still imports `graphics` from `_rgbmatrix_stub`.
-
-Verify: `grep -n "RGBMatrixOptions\|RGBMatrix\b" src/led_ticker/_compat.py` — the fallback must leave `graphics` usable. It does (line 18).
-
-- [ ] **Step 3: Migrate each test import**
-
-For every file from Step 1, replace rgbmatrix-stub usage with the headless backend:
-- `from rgbmatrix import graphics` → `from led_ticker._compat import require_graphics` then `graphics = require_graphics()` (the shipped graphics stub already backs this).
-- `from rgbmatrix import RGBMatrixOptions, RGBMatrix` + `RGBMatrix(RGBMatrixOptions())` → construct a `HeadlessBackend(width, height)`, call `.setup()`, use `.create_canvas()`.
-- `_StubCanvas(width=W, height=H)` → `HeadlessCanvas(width=W, height=H)` (`from led_ticker.backends.headless import HeadlessCanvas`).
-- The `bigsign_canvas` fixture in `conftest.py` (U-mapper 256×64) → `HeadlessBackend(64*8, 32, pixel_mapper_config="U-mapper").setup(); backend.create_canvas()`.
-
-Do this file-by-file, running that file's tests after each: `PYTHONPATH=tests/stubs uv run pytest <file> -v` (keep the path until Step 5 so un-migrated files still resolve).
-
-- [ ] **Step 4: Delete the stub package**
-
-```bash
-git rm -r tests/stubs/rgbmatrix
+```python
+from led_ticker.backends.headless import HeadlessCanvas as _StubCanvas  # noqa: F401
 ```
 
-Check whether `tests/stubs/` has other contents (`ls tests/stubs/`). If `rgbmatrix` was the only entry, the directory is now empty.
+Then ensure `RGBMatrix.CreateFrameCanvas()` returns a `_StubCanvas(width=..., height=...)` (now `HeadlessCanvas`). `HeadlessCanvas` is API-identical to the old `_StubCanvas` (it was ported from it in Task 2: `SetPixel`/`Clear`/`Fill`/`SubFill`/`SetImage` + `get_pixel`/`count_nonzero`), so this is behavior-preserving. Keep the `RGBMatrix` + `RGBMatrixOptions` stub classes (including U-mapper reshape and the same-object `SwapOnVSync` default) — they are the rgbmatrix-shaped shim that lets the rgbmatrix backend be tested off-hardware. Keep `tests/stubs/rgbmatrix/graphics.py` as-is.
 
-- [ ] **Step 5: Retire `PYTHONPATH=tests/stubs`**
+- [ ] **Step 2: Move the stub onto pytest's pythonpath**
 
-In `Makefile:17`, change:
+In `pyproject.toml` `[tool.pytest.ini_options]` (currently has `testpaths = [...]`, NO `pythonpath`), add:
 
+```toml
+pythonpath = ["tests/stubs"]
+```
+
+Leave the pyright `extraPaths = ["tests/stubs"]` (line ~84) unchanged — it's for the type checker and is still correct.
+
+- [ ] **Step 3: Drop the Makefile `PYTHONPATH` hack**
+
+In `Makefile` (the `test` target, ~line 17), change:
 ```make
 	PYTHONPATH=tests/stubs uv run pytest -s --cov=src/ --cov-report=term-missing
 ```
@@ -1400,19 +1396,17 @@ to:
 	uv run pytest -s --cov=src/ --cov-report=term-missing
 ```
 
-In `pyproject.toml`, remove `extraPaths = ["tests/stubs"]` (line 84) and any `[tool.pytest.ini_options] pythonpath` entry referencing `tests/stubs`.
-
-- [ ] **Step 6: Run the full suite WITHOUT the stub path**
+- [ ] **Step 4: Verify the suite passes WITHOUT the env hack**
 
 Run: `make test`
-Expected: PASS with no `PYTHONPATH`. Any residual `from rgbmatrix import` in a test now fails to import — fix it (it was missed in Step 3).
+Expected: PASS — pytest now discovers `tests/stubs` via `pyproject.toml` `pythonpath`, so `from rgbmatrix import ...` resolves and the rgbmatrix-backend tests (build_options, conformance) still run off-hardware. Also run a focused check that the dedup didn't change behavior: `uv run pytest tests/test_backends/ tests/test_scaled_canvas.py tests/test_pixel_emoji.py -v`.
 
-- [ ] **Step 7: Lint, format, commit**
+- [ ] **Step 5: Lint, format, commit**
 
 ```bash
 make format && make lint
 git add -A
-git commit -m "test: migrate off tests/stubs/rgbmatrix to shipped HeadlessBackend; retire PYTHONPATH"
+git commit -m "test: dedup rgbmatrix stub canvas against HeadlessCanvas; move stub to pytest pythonpath (retire Makefile PYTHONPATH hack)"
 ```
 
 ---

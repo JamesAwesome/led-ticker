@@ -10,10 +10,9 @@ import contextlib
 import logging
 import sys
 import time
-import typing
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import aiohttp
 
@@ -252,7 +251,7 @@ def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
         return None
 
 
-class _ReloadResult(typing.NamedTuple):
+class _ReloadResult(NamedTuple):
     config: Any
     default_section_trans: Any
     schedule_task: Any
@@ -261,7 +260,7 @@ class _ReloadResult(typing.NamedTuple):
 async def _detect_and_apply_reload(
     *,
     watcher: Any,
-    config_path: Any,
+    config_path: Path,
     config: Any,
     widget_cache: dict,
     widget_tasks: dict,

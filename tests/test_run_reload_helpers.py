@@ -332,16 +332,150 @@ async def test_detect_transient_returns_none_no_record(monkeypatch, _patched_rel
 
 def test_reload_detected_per_section_not_only_per_cycle():
     src = Path(run_mod.__file__).read_text()
-    # Helper must be called at the cycle top AND inside the per-section loop.
-    assert src.count("_detect_and_apply_reload(") >= 2, (
-        "reload helper must be invoked both per-cycle and per-section"
+    # Count only CALL sites: the two real calls use `await`; the function
+    # definition is `async def _detect_and_apply_reload(` and is excluded.
+    # Loose `_detect_and_apply_reload(` would also match the definition, so a
+    # deleted call site could still satisfy it — `await` ties to invocation.
+    assert src.count("await _detect_and_apply_reload(") == 2, (
+        "reload helper must be invoked at exactly two call sites: per-cycle "
+        "(cycle top) and per-section (inside the section loop)"
     )
     marker = "for section_index, section in enumerate(config.sections):"
     assert marker in src
     section_region = src[src.index(marker) :]
-    assert "_detect_and_apply_reload(" in section_region, (
+    assert "await _detect_and_apply_reload(" in section_region, (
         "per-section reload check is missing — the bug was: reload only "
         "detected once per full playlist cycle"
     )
     # The per-section reload must break to restart the cycle on the new config.
-    assert "break" in section_region[: section_region.index("record_section")]
+    # Tie the break to the reload guard so a stray unrelated break can't
+    # satisfy it: slice from the guard to record_section and assert break is
+    # inside that guard block.
+    region_before_record = section_region[: section_region.index("record_section")]
+    guard = "if _reload_res is not None:"
+    assert guard in region_before_record, (
+        "per-section reload guard is missing — expected `if _reload_res is "
+        "not None:` before record_section"
+    )
+    guard_block = region_before_record[region_before_record.index(guard) :]
+    assert "break" in guard_block, (
+        "the per-section reload must break (to restart the cycle on the new "
+        "config) from inside the `if _reload_res is not None:` guard"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Behavioral run-loop test: per-section reload swaps in the new config and
+# restarts the cycle against it. Complements the source-scan above — the
+# source-scan proves the call site exists; this proves the runtime behavior
+# (the spy is invoked from inside the section loop AND the swapped-in
+# _ReloadResult.config is what the next cycle runs against).
+# ---------------------------------------------------------------------------
+
+
+class _StopApp(Exception):
+    """Sentinel raised from the spy to break out of run()'s `while True`."""
+
+
+async def test_per_section_reload_swaps_config_and_restarts_cycle(monkeypatch):
+    from unittest import mock
+
+    from led_ticker.config import (
+        AppConfig,
+        DisplayConfig,
+        SectionConfig,
+        TransitionConfig,
+    )
+
+    def _section(text):
+        return SectionConfig(mode="swap", title={"text": text}, widgets=[])
+
+    # Initial config: 2 sections A + B. Reload target: 1 different section C.
+    orig_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[_section("A"), _section("B")],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    new_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[_section("C")],
+        between_sections=TransitionConfig(type="cut"),
+    )
+
+    sentinel_trans = object()
+    sentinel_sched = object()
+    reload_result = run_mod._ReloadResult(
+        config=new_cfg,
+        default_section_trans=sentinel_trans,
+        schedule_task=sentinel_sched,
+    )
+
+    seen_configs: list = []
+
+    async def _spy(*, config, **kwargs):
+        seen_configs.append(config)
+        n = len(seen_configs)
+        if n == 1:
+            return None  # cycle-1 top: no change
+        if n == 2:
+            return reload_result  # cycle-1, first section: reload → break
+        raise _StopApp("captured cycle-2 top")  # cycle-2 top now on new config
+
+    spy = mock.AsyncMock(side_effect=_spy)
+    monkeypatch.setattr(run_mod, "_detect_and_apply_reload", spy)
+
+    # A Ticker that, if ever reached, records the section it ran (it should
+    # NOT be reached on cycle 1 because the reload breaks at section A before
+    # any section is rendered, and cycle 2 raises _StopApp at the top).
+    ran_sections: list = []
+
+    class _SpyTicker:
+        def __init__(self, *args, **kwargs):
+            ran_sections.append(kwargs.get("monitors"))
+            self.last_scroll_pos = 0
+
+        async def run_swap(self, **kw):
+            pass
+
+    with (
+        mock.patch.object(run_mod, "load_config", return_value=orig_cfg),
+        mock.patch.object(
+            run_mod,
+            "build_frame_from_config",
+            return_value=mock.Mock(
+                **{
+                    "get_clean_canvas.return_value": mock.Mock(height=16, width=160),
+                    "overlay_hooks": [],
+                }
+            ),
+        ),
+        mock.patch.object(run_mod, "_configure_user_font_dir"),
+        mock.patch.object(run_mod, "Ticker", _SpyTicker),
+        pytest.raises(_StopApp),
+    ):
+        await run_mod.run(Path("ignored.toml"))
+
+    # (a) The helper ran at the cycle top AND inside the section loop: the
+    # outer loop calls it exactly once before entering the for-loop, so a
+    # second call within the same cycle is necessarily the per-section call.
+    assert spy.call_count >= 3, (
+        f"reload helper must run per-cycle AND per-section; got {spy.call_count} calls"
+    )
+
+    # (b) Behavioral proof the source-scan can't give: calls 1 and 2 ran
+    # against the ORIGINAL config; call 3 (next cycle top) ran against the
+    # NEW config that was swapped in from _ReloadResult.config — i.e. the
+    # reload broke the section loop and restarted the cycle on the new config.
+    assert seen_configs[0] is orig_cfg
+    assert seen_configs[1] is orig_cfg
+    assert seen_configs[2] is new_cfg, (
+        "the per-section _ReloadResult.config was not swapped in / the cycle "
+        "did not restart against the new config"
+    )
+
+    # (c) Section B never rendered: the reload broke at section A on cycle 1,
+    # and cycle 2 raised before any section. Ticker was never constructed.
+    assert ran_sections == [], (
+        f"no section should have reached Ticker (reload broke at section A "
+        f"before render, cycle 2 stopped at top); got {ran_sections!r}"
+    )

@@ -9,18 +9,37 @@ Resolved in priority order:
 2. git, for non-Docker installs that run from a checkout (the systemd/venv
    deploy in ``deploy/led-ticker.service``, or local dev) — ``branch@shortsha``
    (+``dirty``).
-3. ``"unknown"`` — neither available (e.g. ``pip install`` from PyPI with no
-   checkout). There is genuinely no commit to name.
+3. the installed release version (a ``pip install`` from PyPI with no checkout)
+   — e.g. ``v2.1.0``.
+4. ``"unknown"`` — none of the above (should be rare for a real install).
 """
 
 import functools
 import os
 import subprocess
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 
 def build_ref() -> str:
-    return os.environ.get("LED_TICKER_BUILD_REF") or _git_ref() or "unknown"
+    return (
+        os.environ.get("LED_TICKER_BUILD_REF")
+        or _git_ref()
+        or _package_version()
+        or "unknown"
+    )
+
+
+@functools.cache
+def _package_version() -> str | None:
+    """The installed release version of ``led-ticker-core`` (a PyPI/pip install
+    with no checkout), e.g. ``v2.1.0``. ``None`` when the distribution isn't
+    installed under that name.
+    """
+    try:
+        return "v" + version("led-ticker-core")
+    except PackageNotFoundError:
+        return None
 
 
 @functools.cache

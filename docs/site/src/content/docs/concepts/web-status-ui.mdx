@@ -273,9 +273,9 @@ The `config/config.example.toml` shipped with the project sets `allow_restart = 
 
 ## Which build is deployed?
 
-The dashboard header shows `build <branch>@<sha>` — the Git branch and short SHA of the deployed code. In Docker it is baked into the image at build time; a non-Docker install running from a checkout (the systemd/venv deploy, or local dev) reads it from Git instead. Use this to confirm both containers are running the code you expect.
+The dashboard header shows the deployed build. It resolves to the first of: the `branch@sha` baked into the Docker image at build time; the `branch@sha` from Git for a non-Docker install running from a checkout (the systemd/venv deploy, or local dev); or the release version (`v2.1.0`) for a `pip install` from PyPI with no source tree. Use this to confirm both containers are running the code you expect.
 
-- **`build unknown`** — no build identity is available: the image was not built via `make build-docker` / `make rebuild` **and** the process is not running from a Git checkout (e.g. installed from PyPI with no source tree). The sign still runs correctly; `unknown` is a label, not an error.
+- **`build unknown`** — none of those were available (no baked stamp, no Git checkout, no installed package metadata). Rare for a real install; the sign still runs correctly, and `unknown` is a label, not an error.
 - **`⚠ webui build …`** — the webui sidecar is on a different build than the display process. This happens when you rebuild with a plain `docker compose up -d --build`: the image is updated but the profile-gated webui container is left on the old one. Run `make rebuild` to bring both containers to the same image at once.
 
 ## Troubleshooting

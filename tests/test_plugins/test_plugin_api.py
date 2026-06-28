@@ -158,3 +158,34 @@ def test_draw_result_is_exported():
 
     assert hasattr(p, "DrawResult")
     assert "DrawResult" in p.__all__
+
+
+def test_api_backend_buffers_namespaced():
+    from led_ticker.plugin import PluginAPI
+
+    api = PluginAPI(namespace="acme")
+
+    class B:
+        def setup(self): ...
+
+        def create_canvas(self): ...
+
+        def swap(self, c): ...
+
+    api.backend("web")(B)
+    assert api._buffers["backends"] == {"acme.web": B}
+
+
+def test_backends_surface_commits_to_backend_registry():
+    from led_ticker._plugin_loader import _REGISTRY_MAP
+    from led_ticker.backends import _REGISTRY
+
+    assert _REGISTRY_MAP["backends"] is _REGISTRY
+
+
+def test_headless_canvas_on_public_surface():
+    import led_ticker.plugin as p
+    from led_ticker.backends.headless import HeadlessCanvas
+
+    assert p.HeadlessCanvas is HeadlessCanvas
+    assert "HeadlessCanvas" in p.__all__

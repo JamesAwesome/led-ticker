@@ -38,7 +38,7 @@ from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font, Pixel
 from led_ticker.animations import Animation, AnimationFrame
 from led_ticker.backends import Backend, BackendNotReadyError, register_backend
 from led_ticker.backends.conformance import run_backend_conformance
-from led_ticker.backends.headless import HeadlessBackend
+from led_ticker.backends.headless import HeadlessBackend, HeadlessCanvas
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import (
     ColorProvider,
@@ -119,6 +119,7 @@ __all__ = [
     "Font",
     "FrameAwareBase",
     "HeadlessBackend",
+    "HeadlessCanvas",
     "HiResEmoji",
     "HiresFont",
     "HiresSpec",
@@ -241,6 +242,7 @@ class PluginAPI:
             "emojis": {},
             "hires_emojis": {},
             "fonts": {},
+            "backends": {},
         }
         # Lifecycle hooks are ordered lists of callables (no name key), so they
         # live outside _buffers and are NOT committed to a registry — the loader
@@ -281,6 +283,21 @@ class PluginAPI:
 
         def deco(cls: _T) -> _T:
             self._buffers["transitions"][self._qualify(name)] = cls
+            return cls
+
+        return deco
+
+    def backend(self, name: str) -> Callable[[_T], _T]:
+        """Register a rendering Backend under ``namespace.name``.
+
+        Buffered + namespaced like every plugin registration; the loader commits
+        it to the backend registry. Plugin backends are therefore selected as
+        ``[display] backend = "<namespace>.<name>"`` (built-in headless/rgbmatrix
+        stay bare). A backend implements setup()/create_canvas()/swap() — see the
+        Backend protocol in led_ticker.plugin."""
+
+        def deco(cls: _T) -> _T:
+            self._buffers["backends"][self._qualify(name)] = cls
             return cls
 
         return deco

@@ -49,14 +49,15 @@ Two rules govern every registration:
 
 ### Visual building blocks
 
-| Method                      | Form      | Registers                                            |
-| --------------------------- | --------- | ---------------------------------------------------- |
-| `api.widget(name)`          | decorator | A [widget](/widgets/) class under `namespace.name`   |
-| `api.transition(name)`      | decorator | A [transition](/transitions/) class                  |
-| `api.color_provider(style)` | decorator | A [color provider](/concepts/color-providers/) class |
-| `api.animation(style)`      | decorator | An [animation](/concepts/animations/) class          |
-| `api.border(name)`          | decorator | A [border effect](/concepts/borders/) class          |
-| `api.easing(name, fn)`      | call      | An easing function `(float) -> float`                |
+| Method                      | Form      | Registers                                                                                              |
+| --------------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
+| `api.widget(name)`          | decorator | A [widget](/widgets/) class under `namespace.name`                                                     |
+| `api.transition(name)`      | decorator | A [transition](/transitions/) class                                                                    |
+| `api.backend(name)`         | decorator | A rendering [backend](#backend-authoring) class (selectable as `[display] backend = "namespace.name"`) |
+| `api.color_provider(style)` | decorator | A [color provider](/concepts/color-providers/) class                                                   |
+| `api.animation(style)`      | decorator | An [animation](/concepts/animations/) class                                                            |
+| `api.border(name)`          | decorator | A [border effect](/concepts/borders/) class                                                            |
+| `api.easing(name, fn)`      | call      | An easing function `(float) -> float`                                                                  |
 
 ```python
 @api.widget("clock")
@@ -194,13 +195,14 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 ### Backend authoring
 
-| Name                               | What it is                                                                                                                                |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `Backend`                          | The rendering-backend protocol (`setup`, `create_canvas`, `swap`, `brightness`); `brightness` is buffered before `setup()` and live after |
-| `BackendNotReadyError`             | Raised when a canvas/swap/brightness op is attempted before `setup()`                                                                     |
-| `register_backend(name)`           | Class decorator registering a backend under `name` (selectable via `[display] backend = "name"`)                                          |
-| `run_backend_conformance(factory)` | Run the importable conformance suite (the hardware-rendering constraints) against backends from `factory`                                 |
-| `HeadlessBackend`                  | The shipped software backend (no hardware) — reuse it for tests or as a base for a custom backend                                         |
+| Name                               | What it is                                                                                                                                                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Backend`                          | The rendering-backend protocol (`setup`, `create_canvas`, `swap`, `brightness`); `brightness` is buffered before `setup()` and live after                                 |
+| `BackendNotReadyError`             | Raised when a canvas/swap/brightness op is attempted before `setup()`                                                                                                     |
+| `register_backend(name)`           | Class decorator registering a backend under `name` (selectable via `[display] backend = "name"`)                                                                          |
+| `run_backend_conformance(factory)` | Run the importable conformance suite (the hardware-rendering constraints) against backends from `factory`                                                                 |
+| `HeadlessBackend`                  | The shipped software backend (no hardware) — reuse it for tests or as a base for a custom backend                                                                         |
+| `HeadlessCanvas`                   | The canvas produced by `HeadlessBackend`; exposes `get_pixel(x, y)` so a backend can serialize its own pixel state (use to stream/send frames in a custom output backend) |
 
 {/* <!-- api-exports:end --> */}
 

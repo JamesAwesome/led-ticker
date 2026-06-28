@@ -56,7 +56,10 @@ class HeadlessCanvas:
                     r, g, b = px[0], px[1], px[2]
                 self.SetPixel(offset_x + x, offset_y + y, r, g, b)
 
-    # Test-only helpers (not part of the Canvas contract).
+    # Read accessors (not part of the Canvas contract). get_pixel is the
+    # supported way a backend serializes its OWN canvas's accumulated pixels
+    # (constraint #3 bans Canvas GetPixel for the engine, not a backend reading
+    # the canvas it created); count_nonzero is test-only.
     def get_pixel(self, x: int, y: int) -> tuple[int, int, int]:
         return self._pixels.get((x, y), (0, 0, 0))
 

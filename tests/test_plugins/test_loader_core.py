@@ -1,6 +1,8 @@
 import pytest
 
 from led_ticker import _plugin_loader as L
+from led_ticker.backends import _REGISTRY as _BACKEND_REGISTRY
+from led_ticker.backends import get_backend_class
 from led_ticker.transitions import _TRANSITION_REGISTRY
 from led_ticker.widgets import _WIDGET_REGISTRY
 
@@ -12,6 +14,17 @@ def _clean():
     L.reset_plugins()
 
 
+@pytest.fixture(autouse=True)
+def _isolate_backend_registry():
+    """Snapshot/restore the backend registry so a test that commits a dummy
+    backend via api.backend() can't leak into — or clobber — the real
+    headless/rgbmatrix registrations made at import time."""
+    saved = dict(_BACKEND_REGISTRY)
+    yield
+    _BACKEND_REGISTRY.clear()
+    _BACKEND_REGISTRY.update(saved)
+
+
 def _ok_register(api):
     @api.widget("clock")
     class Clock:
@@ -21,15 +34,29 @@ def _ok_register(api):
     class Swoosh:
         pass
 
+    @api.backend("srv")
+    class Srv:
+        def setup(self): ...
+
+        def create_canvas(self): ...
+
+        def swap(self, c): ...
+
 
 def test_clean_register_commits_namespaced():
     result = L.LoadedPlugins()
     L._load_one("acme", "test", _ok_register, None, set(), result)
     assert "acme.clock" in _WIDGET_REGISTRY
     assert "acme.swoosh" in _TRANSITION_REGISTRY
+    # End-to-end: api.backend() must buffer-then-commit to the live backend
+    # registry (the generic _commit loop must include the "backends" surface),
+    # namespaced, and be retrievable via the public lookup.
+    assert "acme.srv" in _BACKEND_REGISTRY
+    assert get_backend_class("acme.srv") is _BACKEND_REGISTRY["acme.srv"]
     assert result.loaded[0].namespace == "acme"
     assert result.loaded[0].counts["widgets"] == 1
     assert result.loaded[0].counts["transitions"] == 1
+    assert result.loaded[0].counts["backends"] == 1
     assert not result.failed
 
 

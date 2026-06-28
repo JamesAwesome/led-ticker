@@ -17,6 +17,7 @@ from led_ticker.plugin import (
     AnimationFrame,
     BorderEffectBase,
     ColorProviderBase,
+    HeadlessCanvas,
     HiResEmoji,
     StartupContext,
     draw_text,
@@ -76,6 +77,33 @@ def register(api):
             frame = incoming if t >= self.threshold else outgoing
             frame.draw(canvas, cursor_pos=0)
             return canvas
+
+    @api.backend("display")
+    class AcmeBackend:
+        """Minimal reference backend — exercises the api.backend() surface.
+
+        Reuses HeadlessCanvas (no hardware) and the shared headless-style
+        constructor `(width, height, pixel_mapper_config=…)`. The engine writes
+        `brightness` after setup(); a class attribute default is fine.
+        """
+
+        brightness = 100
+
+        def __init__(self, width, height, *, pixel_mapper_config=""):
+            self._width = width
+            self._height = height
+            self._back = None
+
+        def setup(self):
+            return None
+
+        def create_canvas(self):
+            return HeadlessCanvas(width=self._width, height=self._height)
+
+        def swap(self, canvas):
+            # Return a DIFFERENT object than handed in (constraint #8).
+            old, self._back = self._back, canvas
+            return old or HeadlessCanvas(width=self._width, height=self._height)
 
     @api.color_provider("fire")
     class Fire(ColorProviderBase):

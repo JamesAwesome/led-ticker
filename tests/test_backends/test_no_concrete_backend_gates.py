@@ -17,7 +17,13 @@ import re
 
 def test_engine_does_not_gate_on_concrete_backend_types() -> None:
     root = pathlib.Path(__file__).resolve().parents[2] / "src" / "led_ticker"
-    files = ["frame.py", "ticker.py", "app/run.py", "scaled_canvas.py"]
+    files = [
+        "frame.py",
+        "ticker.py",
+        "app/run.py",
+        "app/factories.py",
+        "scaled_canvas.py",
+    ]
     pat = re.compile(
         r"isinstance\([^)]*,\s*(RgbMatrixBackend|HeadlessBackend|HeadlessCanvas)\b"
     )

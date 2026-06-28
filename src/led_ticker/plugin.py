@@ -293,8 +293,10 @@ class PluginAPI:
         Buffered + namespaced like every plugin registration; the loader commits
         it to the backend registry. Plugin backends are therefore selected as
         ``[display] backend = "<namespace>.<name>"`` (built-in headless/rgbmatrix
-        stay bare). A backend implements setup()/create_canvas()/swap() — see the
-        Backend protocol in led_ticker.plugin."""
+        stay bare). A backend implements setup()/create_canvas()/swap() and
+        exposes a mutable ``brightness: int`` attribute (the engine writes it at
+        startup via LedFrame — you don't wire it into the constructor) — see the
+        Backend protocol + plugin-system.md §12."""
 
         def deco(cls: _T) -> _T:
             self._buffers["backends"][self._qualify(name)] = cls

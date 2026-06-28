@@ -77,8 +77,15 @@ def get_backend_class(name: str) -> type:
     try:
         return _REGISTRY[name]
     except KeyError:
+        hint = ""
+        if "." not in name:
+            # Plugin backends are namespaced (`<plugin>.<name>`); a user who
+            # wrote a bare name may have meant a registered dotted one.
+            dotted = [k for k in _REGISTRY if "." in k and k.split(".", 1)[1] == name]
+            if dotted:
+                hint = f" (plugin backends are namespaced — did you mean {dotted!r}?)"
         raise ValueError(
-            f"unknown backend {name!r}; known backends: {known_backends()}"
+            f"unknown backend {name!r}; known backends: {known_backends()}{hint}"
         ) from None
 
 

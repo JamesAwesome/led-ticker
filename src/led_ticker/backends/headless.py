@@ -14,8 +14,9 @@ from led_ticker.backends import register_backend
 
 class HeadlessCanvas:
     """Software canvas with pixel storage. Satisfies the Canvas contract:
-    SetPixel / Clear / Fill / SubFill / SetImage, plus test-only get_pixel /
-    count_nonzero helpers."""
+    SetPixel / Clear / Fill / SubFill / SetImage. `get_pixel` is the supported
+    backend serialization read (see the inline comment on the read accessors);
+    `count_nonzero` is test-only."""
 
     def __init__(self, width: int = 160, height: int = 16) -> None:
         self.width = width

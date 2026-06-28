@@ -32,7 +32,13 @@ class Backend(Protocol):
     def setup(self) -> None:
         """Build the underlying matrix and perform all privileged work.
         The declared privilege-drop boundary. Called exactly once by the app
-        after all pre-drop work."""
+        after all pre-drop work.
+
+        Lifecycle: setup() is called from INSIDE the running asyncio loop (via
+        LedFrame.setup() in app.run.run()), so a backend that needs background I/O
+        may `asyncio.get_running_loop().create_task(...)` from setup(). setup() is
+        still a sync def — guard get_running_loop() with try/except RuntimeError so
+        the backend also works when constructed outside a loop (e.g. conformance)."""
         ...
 
     def create_canvas(self) -> Canvas:
@@ -71,8 +77,15 @@ def get_backend_class(name: str) -> type:
     try:
         return _REGISTRY[name]
     except KeyError:
+        hint = ""
+        if "." not in name:
+            # Plugin backends are namespaced (`<plugin>.<name>`); a user who
+            # wrote a bare name may have meant a registered dotted one.
+            dotted = [k for k in _REGISTRY if "." in k and k.split(".", 1)[1] == name]
+            if dotted:
+                hint = f" (plugin backends are namespaced — did you mean {dotted!r}?)"
         raise ValueError(
-            f"unknown backend {name!r}; known backends: {known_backends()}"
+            f"unknown backend {name!r}; known backends: {known_backends()}{hint}"
         ) from None
 
 

@@ -14,8 +14,9 @@ from led_ticker.backends import register_backend
 
 class HeadlessCanvas:
     """Software canvas with pixel storage. Satisfies the Canvas contract:
-    SetPixel / Clear / Fill / SubFill / SetImage, plus test-only get_pixel /
-    count_nonzero helpers."""
+    SetPixel / Clear / Fill / SubFill / SetImage. `get_pixel` is the supported
+    backend serialization read (see the inline comment on the read accessors);
+    `count_nonzero` is test-only."""
 
     def __init__(self, width: int = 160, height: int = 16) -> None:
         self.width = width
@@ -56,7 +57,10 @@ class HeadlessCanvas:
                     r, g, b = px[0], px[1], px[2]
                 self.SetPixel(offset_x + x, offset_y + y, r, g, b)
 
-    # Test-only helpers (not part of the Canvas contract).
+    # Read accessors (not part of the Canvas contract). get_pixel is the
+    # supported way a backend serializes its OWN canvas's accumulated pixels
+    # (constraint #3 bans Canvas GetPixel for the engine, not a backend reading
+    # the canvas it created); count_nonzero is test-only.
     def get_pixel(self, x: int, y: int) -> tuple[int, int, int]:
         return self._pixels.get((x, y), (0, 0, 0))
 

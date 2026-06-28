@@ -1049,12 +1049,12 @@ def build_frame_from_config(display) -> LedFrame:
             led_rgb_sequence=display.led_rgb_sequence,
         )
     else:
-        # Any non-rgbmatrix backend (headless today; future software /
-        # `api.backend()`-registered backends). Until `api.backend()` lands,
-        # the convention for a non-rgbmatrix backend constructor is the
-        # headless-style signature: `(width, height, pixel_mapper_config=…)`.
-        # Construct the RESOLVED class generically rather than hardcoding
-        # HeadlessBackend so a future registered backend isn't mis-built.
+        # Any non-rgbmatrix backend: headless, or an `api.backend()`-registered
+        # plugin backend. The convention for a non-rgbmatrix backend constructor
+        # is the shared headless-style signature:
+        # `(width, height, pixel_mapper_config=…)`. Construct the RESOLVED class
+        # generically rather than hardcoding HeadlessBackend so a registered
+        # plugin backend isn't mis-built.
         from led_ticker.backends.headless import HeadlessBackend  # noqa: PLC0415
 
         if backend_cls is HeadlessBackend:

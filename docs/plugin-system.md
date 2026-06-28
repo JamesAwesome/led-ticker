@@ -224,3 +224,105 @@ These are the documented sharp edges + the gaps a real "monitor/feed" widget (e.
 ## 11. Reference example
 
 `examples/plugins/acme/` is a complete reference plugin exercising every surface + every hook (namespaced `acme.*`), importing only `led_ticker.plugin` (+ `attrs`). An AST test (`tests/test_plugins/test_public_surface_boundary.py`) enforces the import boundary. The full plugin test suite lives under `tests/test_plugins/`.
+
+## 12. Authoring a backend plugin
+
+A backend plugin replaces the display driver entirely — for example, outputting to a telnet stream instead of the GPIO matrix. You register via `api.backend("name")` inside your `register(api)` function; the loader namespaces it to `<namespace>.name`, so `api.backend("telnet")` in a plugin named `mynet` registers `mynet.telnet`. In `config.toml`:
+
+```toml
+[display]
+backend = "mynet.telnet"
+```
+
+### Constructor convention
+
+The engine constructs every non-rgbmatrix backend with a fixed signature: `YourBackend(width, height, pixel_mapper_config=...)`. Your `__init__` **must** accept all three — `width: int`, `height: int`, and the keyword-only `pixel_mapper_config: str = ""`. Omitting the `pixel_mapper_config` keyword raises `TypeError: __init__() got an unexpected keyword argument 'pixel_mapper_config'` at app startup, with no pointer to the cause. `width`/`height` are the resolved logical canvas size (`cols * chain_length` × `rows * parallel`); honor `pixel_mapper_config` only if your backend re-folds the chain (see `HeadlessBackend`'s `U-mapper` handling), otherwise accept and ignore it.
+
+### The three methods your class must implement
+
+```python
+from led_ticker.plugin import HeadlessCanvas
+
+class TelnetBackend:
+    brightness: int = 100
+
+    def __init__(self, width: int, height: int, *, pixel_mapper_config: str = "") -> None:
+        # Pre-allocate two buffers and flip between them rather than allocating
+        # a fresh canvas every swap() (no per-frame heap pressure).
+        self._buffers = [
+            HeadlessCanvas(width, height),
+            HeadlessCanvas(width, height),
+        ]
+        self._back = 0
+
+    def setup(self) -> None:
+        # Called once from INSIDE the running asyncio loop (see lifecycle note).
+        # Do privileged / connection work here.
+        ...
+
+    def create_canvas(self):
+        # Hand out the current back buffer.
+        return self._buffers[self._back]
+
+    def swap(self, canvas):
+        # Present the just-drawn canvas, then flip + return the OTHER buffer.
+        # MUST return a different object than it was handed (constraint #8).
+        self._send(canvas)   # serialize and transmit
+        self._back ^= 1
+        return self._buffers[self._back]
+
+    def _send(self, canvas) -> None:
+        # Your output device: e.g. read pixels via canvas.get_pixel(x, y),
+        # serialize, and write to your socket / terminal / transport.
+        ...
+```
+
+`HeadlessCanvas` is the right canvas type to reuse — `HeadlessCanvas.get_pixel(x, y)` lets you read back individual pixel values for serialization, which no other canvas type supports (constraint #3: no GetPixel on real canvases). The two-buffer flip above (rather than a fresh `HeadlessCanvas` per `swap`) avoids per-frame heap pressure on a backend that runs for hours.
+
+### Wiring it up
+
+Registering the class is one line inside your plugin's `register(api)`:
+
+```python
+def register(api):
+    api.backend("telnet")(TelnetBackend)
+```
+
+`api.backend` namespaces the name to `<plugin>.telnet` (e.g. a plugin named `mynet` registers `mynet.telnet`), so select it with `backend = "mynet.telnet"` in `[display]`.
+
+### Async-spawn pattern
+
+`setup()` is a sync `def`, but it runs inside the app's asyncio event loop. If your backend needs a background task (a polling loop, a keep-alive sender), you can start one from `setup()`:
+
+```python
+import asyncio
+
+def setup(self) -> None:
+    try:
+        loop = asyncio.get_running_loop()
+        self._task = loop.create_task(self._keepalive())
+    except RuntimeError:
+        # No running loop — e.g. during conformance testing. Skip background work.
+        pass
+```
+
+### Testing your backend
+
+The hardware-rendering constraints (capture-the-swap, swap-returns-a-new-buffer, the Canvas contract, brightness, setup-ordering, and wrappability) ship as an importable conformance suite. Point it at a factory that returns a **fresh, un-setup** backend each call:
+
+```python
+from led_ticker.plugin import run_backend_conformance
+
+def test_telnet_backend_conforms():
+    run_backend_conformance(lambda: TelnetBackend(width=64, height=32))
+```
+
+The factory **must** return a new backend per call (not reuse one) — several checks construct and `setup()` independent instances. The suite also wraps your raw canvas in `ScaledCanvas` (the bigsign scale path) and `PreviewTee`, so passing it confirms your canvas works under the bigsign coverage, not just smallsign.
+
+### Sharp edges
+
+- **Your `__init__` must accept `pixel_mapper_config: str = ""`.** The engine always calls `YourBackend(width, height, pixel_mapper_config=...)` (see Constructor convention above). Dropping the keyword raises `TypeError` at startup.
+- **`brightness` must be a settable instance attribute (0–100).** The engine assigns `backend.brightness = <configured value>` at startup and again whenever the dimming schedule changes it — so the configured `[display] brightness` *is* forwarded to your backend this way, regardless of your constructor. A plain `brightness: int = 100` class attribute is fine (the engine's write shadows it on the instance). If you expose `brightness` as a `@property`, it MUST have a setter, or the startup assignment raises.
+- **Plugin backends cannot read `[display]` config fields yet.** `DisplayConfig` has a fixed set of recognized fields; any `[display]` key not in that set is silently ignored rather than forwarded to your backend. There is currently no mechanism to pass `[display]` config to a plugin backend — use environment variables instead. A possible future mechanism (`[display.<backend>]` → a `from_config(cls, cfg)` classmethod) could close this gap.
+- **Swap must return a different object.** A backend that returns the same canvas it was handed will corrupt the display (constraint #8 — the engine draws into the returned canvas while the previous one is being displayed).
+- **`HeadlessCanvas` has no hardware dependency.** It's safe to construct in tests with no GPIO or network available.

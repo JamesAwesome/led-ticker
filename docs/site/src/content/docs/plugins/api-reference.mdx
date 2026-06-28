@@ -43,20 +43,21 @@ Two rules govern every registration:
 
 ## Registration methods
 
-`PluginAPI` exposes twelve registration methods. The **decorator** forms register a class; the **call** forms register a value directly. Several examples below draw onto a **canvas** — the pixel grid for the current frame (the [`Canvas`](#exported-names) type, listed under Exported names).
+`PluginAPI` exposes thirteen registration methods. The **decorator** forms register a class; the **call** forms register a value directly. Several examples below draw onto a **canvas** — the pixel grid for the current frame (the [`Canvas`](#exported-names) type, listed under Exported names).
 
 {/* <!-- api-methods:start --> */}
 
 ### Visual building blocks
 
-| Method                      | Form      | Registers                                            |
-| --------------------------- | --------- | ---------------------------------------------------- |
-| `api.widget(name)`          | decorator | A [widget](/widgets/) class under `namespace.name`   |
-| `api.transition(name)`      | decorator | A [transition](/transitions/) class                  |
-| `api.color_provider(style)` | decorator | A [color provider](/concepts/color-providers/) class |
-| `api.animation(style)`      | decorator | An [animation](/concepts/animations/) class          |
-| `api.border(name)`          | decorator | A [border effect](/concepts/borders/) class          |
-| `api.easing(name, fn)`      | call      | An easing function `(float) -> float`                |
+| Method                      | Form      | Registers                                                                                              |
+| --------------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
+| `api.widget(name)`          | decorator | A [widget](/widgets/) class under `namespace.name`                                                     |
+| `api.transition(name)`      | decorator | A [transition](/transitions/) class                                                                    |
+| `api.backend(name)`         | decorator | A rendering [backend](#backend-authoring) class (selectable as `[display] backend = "namespace.name"`) |
+| `api.color_provider(style)` | decorator | A [color provider](/concepts/color-providers/) class                                                   |
+| `api.animation(style)`      | decorator | An [animation](/concepts/animations/) class                                                            |
+| `api.border(name)`          | decorator | A [border effect](/concepts/borders/) class                                                            |
+| `api.easing(name, fn)`      | call      | An easing function `(float) -> float`                                                                  |
 
 ```python
 @api.widget("clock")
@@ -67,6 +68,13 @@ class Clock:
 @api.transition("swirl")
 class Swirl:
     def frame_at(self, t, canvas, outgoing, incoming, **kw): ...
+
+
+@api.backend("telnet")
+class TelnetBackend:
+    def setup(self): ...
+    def create_canvas(self): ...
+    def swap(self, canvas): ...
 
 
 api.easing("snap", lambda t: 0.0 if t < 0.5 else 1.0)
@@ -194,15 +202,27 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 ### Backend authoring
 
-| Name                               | What it is                                                                                                                                |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `Backend`                          | The rendering-backend protocol (`setup`, `create_canvas`, `swap`, `brightness`); `brightness` is buffered before `setup()` and live after |
-| `BackendNotReadyError`             | Raised when a canvas/swap/brightness op is attempted before `setup()`                                                                     |
-| `register_backend(name)`           | Class decorator registering a backend under `name` (selectable via `[display] backend = "name"`)                                          |
-| `run_backend_conformance(factory)` | Run the importable conformance suite (the hardware-rendering constraints) against backends from `factory`                                 |
-| `HeadlessBackend`                  | The shipped software backend (no hardware) — reuse it for tests or as a base for a custom backend                                         |
+<Aside type="caution" title="Register via api.backend(), not register_backend">
+Plugin authors register a backend with **`api.backend(name)`** from inside their `register(api)` function — it auto-namespaces the registration to `<plugin>.<name>` (selectable via `[display] backend = "<plugin>.<name>"`) and is cleaned up on reload. `register_backend(name)` is the **built-in** path (used by `headless` / `rgbmatrix`); it registers a bare, un-namespaced name that `reset_plugins()` will not clean up and that could shadow a future built-in. It is listed below for completeness only — do not use it in a plugin.
+</Aside>
+
+| Name                               | What it is                                                                                                                                                                                          |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Backend`                          | The rendering-backend protocol (`setup`, `create_canvas`, `swap`, `brightness`); `brightness` is buffered before `setup()` and live after                                                           |
+| `BackendNotReadyError`             | Raised when a canvas/swap/brightness op is attempted before `setup()`                                                                                                                               |
+| `register_backend(name)`           | **Internal / built-in use only** (plugin authors use `api.backend()` — it auto-namespaces). Class decorator registering a backend under a bare `name` (selectable via `[display] backend = "name"`) |
+| `run_backend_conformance(factory)` | Run the importable conformance suite (the hardware-rendering constraints) against backends from `factory`                                                                                           |
+| `HeadlessBackend`                  | The shipped software backend (no hardware) — reuse it for tests or as a base for a custom backend                                                                                                   |
+| `HeadlessCanvas`                   | The canvas produced by `HeadlessBackend`; exposes `get_pixel(x, y)` so a backend can serialize its own pixel state (use to stream/send frames in a custom output backend)                           |
 
 {/* <!-- api-exports:end --> */}
+
+<Aside type="note" title="Configuring a plugin backend">
+  Plugin backends can't read custom `[display]` fields yet — `DisplayConfig` has a fixed field set,
+  so any unrecognized key is ignored. Pass backend config (host, port, …) via **environment
+  variables** for now. See [`docs/plugin-system.md` §12](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md)
+  and the planned `[display.<backend>]` follow-up.
+</Aside>
 
 ## Conventions
 

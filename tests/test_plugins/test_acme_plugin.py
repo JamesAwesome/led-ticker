@@ -31,6 +31,7 @@ def test_example_plugin_registers_every_surface_and_hook():
         for surface in (
             "widgets",
             "transitions",
+            "backends",
             "color_providers",
             "animations",
             "borders",

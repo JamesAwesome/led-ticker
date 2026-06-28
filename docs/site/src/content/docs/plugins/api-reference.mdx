@@ -70,6 +70,13 @@ class Swirl:
     def frame_at(self, t, canvas, outgoing, incoming, **kw): ...
 
 
+@api.backend("telnet")
+class TelnetBackend:
+    def setup(self): ...
+    def create_canvas(self): ...
+    def swap(self, canvas): ...
+
+
 api.easing("snap", lambda t: 0.0 if t < 0.5 else 1.0)
 ```
 
@@ -209,6 +216,13 @@ Plugin authors register a backend with **`api.backend(name)`** from inside their
 | `HeadlessCanvas`                   | The canvas produced by `HeadlessBackend`; exposes `get_pixel(x, y)` so a backend can serialize its own pixel state (use to stream/send frames in a custom output backend)                           |
 
 {/* <!-- api-exports:end --> */}
+
+<Aside type="note" title="Configuring a plugin backend">
+  Plugin backends can't read custom `[display]` fields yet — `DisplayConfig` has a fixed field set,
+  so any unrecognized key is ignored. Pass backend config (host, port, …) via **environment
+  variables** for now. See [`docs/plugin-system.md` §12](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md)
+  and the planned `[display.<backend>]` follow-up.
+</Aside>
 
 ## Conventions
 

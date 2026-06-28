@@ -247,8 +247,13 @@ class TelnetBackend:
     brightness: int = 100
 
     def __init__(self, width: int, height: int, *, pixel_mapper_config: str = "") -> None:
-        self._width = width
-        self._height = height
+        # Pre-allocate two buffers and flip between them rather than allocating
+        # a fresh canvas every swap() (no per-frame heap pressure).
+        self._buffers = [
+            HeadlessCanvas(width, height),
+            HeadlessCanvas(width, height),
+        ]
+        self._back = 0
 
     def setup(self) -> None:
         # Called once from INSIDE the running asyncio loop (see lifecycle note).
@@ -256,18 +261,29 @@ class TelnetBackend:
         ...
 
     def create_canvas(self):
-        # Return a fresh back-buffer canvas.
-        return HeadlessCanvas(width=self._width, height=self._height)
+        # Hand out the current back buffer.
+        return self._buffers[self._back]
 
     def swap(self, canvas):
-        # Present the current canvas, return the NEW back-buffer.
+        # Present the just-drawn canvas, then flip + return the OTHER buffer.
         # MUST return a different object than it was handed (constraint #8).
-        new_canvas = HeadlessCanvas(width=canvas.width, height=canvas.height)
         self._send(canvas)   # serialize and transmit
-        return new_canvas
+        self._back ^= 1
+        return self._buffers[self._back]
 ```
 
-`HeadlessCanvas` is the right canvas type to reuse — `HeadlessCanvas.get_pixel(x, y)` lets you read back individual pixel values for serialization, which no other canvas type supports (constraint #3: no GetPixel on real canvases).
+`HeadlessCanvas` is the right canvas type to reuse — `HeadlessCanvas.get_pixel(x, y)` lets you read back individual pixel values for serialization, which no other canvas type supports (constraint #3: no GetPixel on real canvases). The two-buffer flip above (rather than a fresh `HeadlessCanvas` per `swap`) avoids per-frame heap pressure on a backend that runs for hours.
+
+### Wiring it up
+
+Registering the class is one line inside your plugin's `register(api)`:
+
+```python
+def register(api):
+    api.backend("telnet")(TelnetBackend)
+```
+
+`api.backend` namespaces the name to `<plugin>.telnet` (e.g. a plugin named `mynet` registers `mynet.telnet`), so select it with `backend = "mynet.telnet"` in `[display]`.
 
 ### Async-spawn pattern
 
@@ -284,6 +300,19 @@ def setup(self) -> None:
         # No running loop — e.g. during conformance testing. Skip background work.
         pass
 ```
+
+### Testing your backend
+
+The hardware-rendering constraints (capture-the-swap, swap-returns-a-new-buffer, the Canvas contract, brightness, setup-ordering, and wrappability) ship as an importable conformance suite. Point it at a factory that returns a **fresh, un-setup** backend each call:
+
+```python
+from led_ticker.plugin import run_backend_conformance
+
+def test_telnet_backend_conforms():
+    run_backend_conformance(lambda: TelnetBackend(width=64, height=32))
+```
+
+The factory **must** return a new backend per call (not reuse one) — several checks construct and `setup()` independent instances. The suite also wraps your raw canvas in `ScaledCanvas` (the bigsign scale path) and `PreviewTee`, so passing it confirms your canvas works under the bigsign coverage, not just smallsign.
 
 ### Sharp edges
 

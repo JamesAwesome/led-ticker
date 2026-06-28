@@ -242,6 +242,10 @@ from led_ticker.plugin import HeadlessCanvas
 class TelnetBackend:
     brightness: int = 100
 
+    def __init__(self, width: int, height: int, *, pixel_mapper_config: str = "") -> None:
+        self._width = width
+        self._height = height
+
     def setup(self) -> None:
         # Called once from INSIDE the running asyncio loop (see lifecycle note).
         # Do privileged / connection work here.
@@ -249,12 +253,12 @@ class TelnetBackend:
 
     def create_canvas(self):
         # Return a fresh back-buffer canvas.
-        return HeadlessCanvas(cols=160, rows=16)
+        return HeadlessCanvas(width=self._width, height=self._height)
 
     def swap(self, canvas):
         # Present the current canvas, return the NEW back-buffer.
         # MUST return a different object than it was handed (constraint #8).
-        new_canvas = HeadlessCanvas(cols=canvas.width, rows=canvas.height)
+        new_canvas = HeadlessCanvas(width=canvas.width, height=canvas.height)
         self._send(canvas)   # serialize and transmit
         return new_canvas
 ```
@@ -279,6 +283,6 @@ def setup(self) -> None:
 
 ### Sharp edges
 
-- **Plugin backends cannot read `[display]` config fields yet.** The `[display]` block is parsed before plugins load, so any `[display]` key outside the built-in set raises at config-load. Pass configuration to your backend via environment variables instead. A possible future mechanism (`[display.<backend>]` → a `from_config(cls, cfg)` classmethod) could close this gap.
+- **Plugin backends cannot read `[display]` config fields yet.** `DisplayConfig` has a fixed set of recognized fields; any `[display]` key not in that set is silently ignored rather than forwarded to your backend. There is currently no mechanism to pass `[display]` config to a plugin backend — use environment variables instead. A possible future mechanism (`[display.<backend>]` → a `from_config(cls, cfg)` classmethod) could close this gap.
 - **Swap must return a different object.** A backend that returns the same canvas it was handed will corrupt the display (constraint #8 — the engine draws into the returned canvas while the previous one is being displayed).
 - **`HeadlessCanvas` has no hardware dependency.** It's safe to construct in tests with no GPIO or network available.

@@ -234,6 +234,10 @@ A backend plugin replaces the display driver entirely — for example, outputtin
 backend = "mynet.telnet"
 ```
 
+### Constructor convention
+
+The engine constructs every non-rgbmatrix backend with a fixed signature: `YourBackend(width, height, pixel_mapper_config=...)`. Your `__init__` **must** accept all three — `width: int`, `height: int`, and the keyword-only `pixel_mapper_config: str = ""`. Omitting the `pixel_mapper_config` keyword raises `TypeError: __init__() got an unexpected keyword argument 'pixel_mapper_config'` at app startup, with no pointer to the cause. `width`/`height` are the resolved logical canvas size (`cols * chain_length` × `rows * parallel`); honor `pixel_mapper_config` only if your backend re-folds the chain (see `HeadlessBackend`'s `U-mapper` handling), otherwise accept and ignore it.
+
 ### The three methods your class must implement
 
 ```python
@@ -283,6 +287,8 @@ def setup(self) -> None:
 
 ### Sharp edges
 
+- **Your `__init__` must accept `pixel_mapper_config: str = ""`.** The engine always calls `YourBackend(width, height, pixel_mapper_config=...)` (see Constructor convention above). Dropping the keyword raises `TypeError` at startup.
+- **`brightness` must be a settable instance attribute (0–100).** The engine assigns `backend.brightness = <configured value>` at startup and again whenever the dimming schedule changes it — so the configured `[display] brightness` *is* forwarded to your backend this way, regardless of your constructor. A plain `brightness: int = 100` class attribute is fine (the engine's write shadows it on the instance). If you expose `brightness` as a `@property`, it MUST have a setter, or the startup assignment raises.
 - **Plugin backends cannot read `[display]` config fields yet.** `DisplayConfig` has a fixed set of recognized fields; any `[display]` key not in that set is silently ignored rather than forwarded to your backend. There is currently no mechanism to pass `[display]` config to a plugin backend — use environment variables instead. A possible future mechanism (`[display.<backend>]` → a `from_config(cls, cfg)` classmethod) could close this gap.
 - **Swap must return a different object.** A backend that returns the same canvas it was handed will corrupt the display (constraint #8 — the engine draws into the returned canvas while the previous one is being displayed).
 - **`HeadlessCanvas` has no hardware dependency.** It's safe to construct in tests with no GPIO or network available.

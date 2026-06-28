@@ -32,7 +32,13 @@ class Backend(Protocol):
     def setup(self) -> None:
         """Build the underlying matrix and perform all privileged work.
         The declared privilege-drop boundary. Called exactly once by the app
-        after all pre-drop work."""
+        after all pre-drop work.
+
+        Lifecycle: setup() is called from INSIDE the running asyncio loop (via
+        LedFrame.setup() in app.run.run()), so a backend that needs background I/O
+        may `asyncio.get_running_loop().create_task(...)` from setup(). setup() is
+        still a sync def — guard get_running_loop() with try/except RuntimeError so
+        the backend also works when constructed outside a loop (e.g. conformance)."""
         ...
 
     def create_canvas(self) -> Canvas:

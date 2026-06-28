@@ -1,9 +1,18 @@
 import pytest
 
 from led_ticker.app.factories import build_frame_from_config
+from led_ticker.backends import get_backend_class
 from led_ticker.backends.headless import HeadlessBackend
 from led_ticker.backends.rgbmatrix import RgbMatrixBackend
 from led_ticker.config import DisplayConfig
+
+
+def test_unknown_backend_errors_loudly_listing_known():
+    with pytest.raises(ValueError) as ei:
+        get_backend_class("telnet")  # bare — plugin backends are namespaced
+    msg = str(ei.value)
+    assert "unknown backend 'telnet'" in msg
+    assert "known backends" in msg  # lists what IS available so the user self-corrects
 
 
 def test_default_backend_is_rgbmatrix():

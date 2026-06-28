@@ -224,3 +224,61 @@ These are the documented sharp edges + the gaps a real "monitor/feed" widget (e.
 ## 11. Reference example
 
 `examples/plugins/acme/` is a complete reference plugin exercising every surface + every hook (namespaced `acme.*`), importing only `led_ticker.plugin` (+ `attrs`). An AST test (`tests/test_plugins/test_public_surface_boundary.py`) enforces the import boundary. The full plugin test suite lives under `tests/test_plugins/`.
+
+## 12. Authoring a backend plugin
+
+A backend plugin replaces the display driver entirely — for example, outputting to a telnet stream instead of the GPIO matrix. You register via `api.backend("name")` inside your `register(api)` function; the loader namespaces it to `<namespace>.name`, so `api.backend("telnet")` in a plugin named `mynet` registers `mynet.telnet`. In `config.toml`:
+
+```toml
+[display]
+backend = "mynet.telnet"
+```
+
+### The three methods your class must implement
+
+```python
+from led_ticker.plugin import HeadlessCanvas
+
+class TelnetBackend:
+    brightness: int = 100
+
+    def setup(self) -> None:
+        # Called once from INSIDE the running asyncio loop (see lifecycle note).
+        # Do privileged / connection work here.
+        ...
+
+    def create_canvas(self):
+        # Return a fresh back-buffer canvas.
+        return HeadlessCanvas(cols=160, rows=16)
+
+    def swap(self, canvas):
+        # Present the current canvas, return the NEW back-buffer.
+        # MUST return a different object than it was handed (constraint #8).
+        new_canvas = HeadlessCanvas(cols=canvas.width, rows=canvas.height)
+        self._send(canvas)   # serialize and transmit
+        return new_canvas
+```
+
+`HeadlessCanvas` is the right canvas type to reuse — `HeadlessCanvas.get_pixel(x, y)` lets you read back individual pixel values for serialization, which no other canvas type supports (constraint #3: no GetPixel on real canvases).
+
+### Async-spawn pattern
+
+`setup()` is a sync `def`, but it runs inside the app's asyncio event loop. If your backend needs a background task (a polling loop, a keep-alive sender), you can start one from `setup()`:
+
+```python
+import asyncio
+
+def setup(self) -> None:
+    try:
+        loop = asyncio.get_running_loop()
+        self._task = loop.create_task(self._keepalive())
+    except RuntimeError:
+        # No running loop — e.g. during conformance testing. Skip background work.
+        pass
+```
+
+### Sharp edges
+
+- **Plugin backends cannot read `[display]` config fields yet.** The `[display]` block is parsed before plugins load, so any `[display]` key outside the built-in set raises at config-load. Pass configuration to your backend via environment variables instead. A possible future mechanism (`[display.<backend>]` → a `from_config(cls, cfg)` classmethod) could close this gap.
+- **Swap must return a different object.** A backend that returns the same canvas it was handed will corrupt the display (constraint #8 — the engine draws into the returned canvas while the previous one is being displayed).
+- **`HeadlessCanvas` has no hardware dependency.** It's safe to construct in tests with no GPIO or network available.

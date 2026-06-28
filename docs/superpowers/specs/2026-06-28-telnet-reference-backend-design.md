@@ -26,7 +26,7 @@ Success is not "telnet works" — it is the set of answers this exercise forces:
 
 ### A. Core (led-ticker) — minimal plugin-backend surface
 
-1. **`api.backend(name)`** — a decorator method on `PluginAPI` (`plugin.py`) mirroring `api.widget`/`api.transition`, wrapping the already-public `register_backend`. (`register_backend`, `Backend`, `BackendNotReadyError` are already in `led_ticker.plugin.__all__`; this adds the ergonomic registration method.)
+1. **`api.backend(name)`** — a decorator method on `PluginAPI` (`plugin.py`) mirroring `api.widget`/`api.transition`: it **buffers** the registration under the qualified `namespace.name` (it does NOT call `register_backend` directly). The plugin loader commits it via the generic `_commit` path by adding one entry to `_REGISTRY_MAP` (`"backends": _REGISTRY`, the backend registry dict). This **honors the PluginAPI invariant** (no bare names; atomic commit; collision-check for free) and resolves a real validation finding: backends are selected by a single config string, but the plugin model namespaces everything. **Plugin backends are therefore namespaced** (`backend = "telnet.telnet"`), like `type = "calendar.events"`; built-in backends stay bare (`headless`/`rgbmatrix`). This is safe with reload because `reset_plugins` deletes only *dotted* registry keys — bare built-ins survive, the dotted plugin backend is cleared + re-committed. (`register_backend`, `Backend`, `BackendNotReadyError` are already in `led_ticker.plugin.__all__`.)
 2. **Export `HeadlessCanvas`** on the public `led_ticker.plugin` surface. Today only `HeadlessBackend` is exported; a backend author cannot cleanly reuse the software canvas. Exporting it lets the telnet backend *compose* the canvas instead of reinventing the pixel-store + 5-method contract.
 3. **Load-order tripwire** — assert `load_plugins` runs before `build_frame_from_config` (verified order in `run.py`: reconcile → `load_plugins` → `build_frame_from_config` → `setup()`/privilege-drop). This is the registration-before-selection guarantee a plugin backend depends on; lock it so a refactor can't reorder it.
 4. **`isinstance`-leak audit** — grep `frame.py`/`ticker.py`/`run.py`/`scaled_canvas.py` for `isinstance(_, RgbMatrixBackend)` / concrete-canvas-type gates that a non-rgbmatrix backend would silently miss (hi-res routing, privilege-drop timing, overlay hooks). Fix or document each; the conformance kit tests the canvas, not the engine's trust in it.
@@ -37,7 +37,7 @@ These are the only core changes. No preview-format export, no config-plumbing sy
 
 ### B. led-ticker-plugins monorepo — the `telnet` backend plugin
 
-- New workspace package `plugins/telnet/` (dist **`led-ticker-telnet`**); `register(api)` calls `api.backend("telnet")(TelnetBackend)`.
+- New workspace package `plugins/telnet/` (dist **`led-ticker-telnet`**); `register(api)` calls `api.backend("telnet")(TelnetBackend)` → registers as `telnet.telnet` (entry-point namespace `telnet` + name `telnet`).
 - **`create_canvas()`** → returns a `HeadlessCanvas` (reused from core's public surface). The canvas stores its own pixels (no `GetPixel`, constraint #3) so `swap()` can serialize them.
 - **`setup()`** → start an `asyncio` TCP server bound to the configured host/port; accept multiple clients; log `telnet backend — connect: telnet <host> <port>`. A bind failure logs and degrades (the panel must still boot — constraint #1 mirrored).
 - **`swap(canvas)`** → render the canvas's stored pixels to an ANSI frame and broadcast to connected clients, then return the *other* buffer (double-buffer contract, constraint #8). Rendering: 24-bit-color half-block `▀` (top pixel = foreground, bottom pixel = background → two LED rows per character cell), cursor-home (`ESC[H`) each frame so the terminal repaints in place. Disconnected clients are pruned.
@@ -54,7 +54,7 @@ Backends are `attrs` classes whose fields `build_frame_from_config` populates fr
 
 ```toml
 [display]
-backend = "telnet"
+backend = "telnet.telnet"   # namespaced: <entry-point namespace>.<backend name>
 ```
 Install `led-ticker-telnet`, start led-ticker, then from any terminal: `telnet sign.local 2300` (or `nc sign.local 2300`). The display runs with no hardware; frames stream as ANSI color.
 

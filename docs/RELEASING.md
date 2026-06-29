@@ -77,8 +77,8 @@ Plugins declare `led-ticker-core` as a dependency, so **core must be on PyPI bef
 
 1. Merge the release branch to `main`.
 2. On GitHub: **Releases → Draft a new release**.
-   - Tag: `v2.0.0` (create new tag, target `main`)
-   - Title: `v2.0.0`
+   - Tag: `v2.2.0` (create new tag, target `main`; `v2.0.0`/`v2.1.0` already exist)
+   - Title: `v2.2.0`
    - Click **Publish release**.
 3. The `publish.yml` workflow fires, builds the distribution from the tag-derived version, and **pauses for approval** at the `release` environment gate.
 4. Go to **Actions → the running workflow → Review deployments** → approve.

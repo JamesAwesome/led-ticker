@@ -25,6 +25,15 @@ def test_version_resolves_not_fallback():
     assert v != "0.0.0", v
 
 
+def test_module_version_matches_metadata():
+    # led_ticker.__version__ must come from the build-generated _version.py
+    # (hatch-vcs), never a hand-typed static string — so it can't drift from the
+    # real dist version. Guards against a hardcoded `__version__ = "X.Y.Z"`.
+    import led_ticker
+
+    assert led_ticker.__version__ == version("led-ticker-core")
+
+
 def test_workflows_use_full_history_and_no_version_guard():
     pub = (REPO / ".github/workflows/publish.yml").read_text()
     assert "check_release_version" not in pub  # tag IS the version now

@@ -308,7 +308,7 @@ def setup(self) -> None:
 
 ### Testing your backend
 
-The hardware-rendering constraints (capture-the-swap, swap-returns-a-new-buffer, the Canvas contract, brightness, setup-ordering, and wrappability) ship as an importable conformance suite. Point it at a factory that returns a **fresh, un-setup** backend each call:
+The hardware-rendering constraints (capture-the-swap, swap-returns-a-new-buffer, the Canvas contract, brightness, setup-ordering, wrappability, and engine-buildable constructor convention) ship as an importable conformance suite. Point it at a factory that returns a **fresh, un-setup** backend each call:
 
 ```python
 from led_ticker.plugin import run_backend_conformance

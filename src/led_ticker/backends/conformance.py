@@ -152,9 +152,11 @@ def _check_engine_buildable(factory: Callable[[], Backend]) -> None:
         raise AssertionError(
             f"{cls.__name__} is not engine-buildable: the engine constructs "
             f"non-rgbmatrix backends as `cls(width, height, pixel_mapper_config=…)` "
-            f"(app/factories.py build_frame_from_config); your __init__ must accept "
-            f"that signature, e.g. `def __init__(self, width, height, *, "
-            f"pixel_mapper_config=''): ...`. ({e})"
+            f"(app/factories.py build_frame_from_config). If this is an "
+            f"unexpected-keyword TypeError, give __init__ that signature, e.g. "
+            f"`def __init__(self, width, height, *, pixel_mapper_config=''): ...`; "
+            f"otherwise __init__ raised TypeError internally for args "
+            f"(64, 32, pixel_mapper_config=''). ({e})"
         ) from e
     assert isinstance(built, Backend), (
         f"{cls.__name__}(width, height, pixel_mapper_config=…) must return a Backend"

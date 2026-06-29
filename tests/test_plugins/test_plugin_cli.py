@@ -758,6 +758,16 @@ def test_install_hint_raises_on_unknown_kind():
         plugin_cmd._install_hint("bogus", "x.y")
 
 
+def test_install_hint_covers_every_surface_kind():
+    # cmd_install calls _install_hint(*provides.primary()); primary() can return
+    # ANY kind in _PRIMARY_ORDER (== _SURFACE_KINDS), so every kind needs a hint
+    # or `plugin install` crashes AFTER pip runs. Keep the if/elif in lockstep.
+    from led_ticker.plugins_catalog import _SURFACE_KINDS
+
+    for kind in _SURFACE_KINDS:
+        assert plugin_cmd._install_hint(kind, "x"), kind  # non-empty, no raise
+
+
 # --- Fix 4: empty-provides paths for CLI consumers ---
 
 

@@ -160,7 +160,7 @@ Read by a lightweight `read_plugins_config()` **before** full `load_config` (plu
 `src/led_ticker/plugins_catalog.json` is the bundled, offline source of truth for
 `led-ticker plugin list / search / install`. It is loaded and validated by
 `load_catalog()` in `src/led_ticker/plugins_catalog.py`. Current
-`schema_version` is **3**.
+`schema_version` is **4**.
 
 Each entry:
 
@@ -175,7 +175,7 @@ Each entry:
 
 `provides` is an **object keyed by surface kind** — the full set the plugin API
 can register: `widgets`, `transitions`, `emoji`, `fonts`, `borders`,
-`color_providers`, `animations`, `easing`. Every key is optional; values are
+`color_providers`, `animations`, `easing`, `backends`. Every key is optional; values are
 arrays of fully-qualified `namespace.name` strings. A hi-res emoji is listed once
 under `emoji` by its slug (the lo-res + hi-res pair share it) — there is no
 `hires_emoji` key. An unknown key fails the load (typo guard).

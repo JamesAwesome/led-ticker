@@ -49,6 +49,8 @@ def _install_hint(kind: str, name: str) -> str:
         return f'Use  font = "{name}"  on a widget,'
     if kind == "easing":
         return f'Use  easing = "{name}"  on a transition,'
+    if kind == "backends":
+        return f'Set  backend = "{name}"  in [display],'
     raise ValueError(f"no install hint for surface kind {kind!r}")
 
 

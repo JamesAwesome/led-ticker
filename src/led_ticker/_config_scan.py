@@ -7,6 +7,9 @@ import re
 import tomllib
 from pathlib import Path
 
+from led_ticker.app.plugin_cmd import _requirement_key
+from led_ticker.plugins_catalog import load_catalog
+
 _TRANSITION_KEYS = ("transition", "entry_transition", "widget_transition")
 
 # Inline emoji token in widget text, e.g. ":pokeball.ball:". A namespaced slug
@@ -66,3 +69,57 @@ def config_references(config_path: Path) -> dict[str, list[dict[str, str]]]:
     except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
         return {}
     return _references_from_data(data)
+
+
+def _load(source: str | Path) -> dict:
+    try:
+        return tomllib.loads(Path(source).read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+        return {}
+
+
+def _namespace_to_package() -> dict[str, str]:
+    """Catalog-derived namespace -> pip package. The same expression the Store
+    uses; flair's four namespaces collapse to led-ticker-flair. Derived from
+    load_catalog() (the drift-guarded SoT) — no hand map.
+
+    NOTE: the "pip package name" guarantee holds because every catalog source is
+    a pypi package today. A future git/#subdirectory source would yield a dedup
+    key, not a pip-installable name."""
+    return {
+        e.namespace: _requirement_key(e.requirement()) for e in load_catalog().entries
+    }
+
+
+def _referenced_namespaces(data: dict) -> set[str]:
+    """All plugin namespaces a config references — the recursive walk PLUS the
+    two deploy surfaces the Store walk omits: top-level [transitions]
+    default/between_sections, and [display] backend (a bare namespace).
+    UNFILTERED (includes non-catalog namespaces and built-in backends)."""
+    namespaces = set(_references_from_data(data))
+    trans = data.get("transitions")
+    if isinstance(trans, dict):
+        for key in ("default", "between_sections"):
+            v = trans.get(key)
+            if isinstance(v, str) and "." in v:
+                namespaces.add(v.split(".")[0])
+    # [display] backend is a BARE namespace (no dot), so the dotted walk misses
+    # it. Scoped to exactly this key so a stray free-text value can't over-count.
+    # Sharp edge: if a future catalog namespace ever equals a built-in backend
+    # name (rgbmatrix/headless), this would false-flag. None collide today.
+    display = data.get("display")
+    if isinstance(display, dict):
+        backend = display.get("backend")
+        if isinstance(backend, str):
+            namespaces.add(backend)
+    return namespaces
+
+
+def required_plugins(source: dict | str | Path) -> set[str]:
+    """Pip packages a config requires, from its ACTIVE (uncommented) plugin
+    references. Parses with tomllib (comments excluded); never builds widgets,
+    so it works whether or not the plugins are installed. Non-plugin dotted
+    values and non-catalog namespaces fall through."""
+    data = source if isinstance(source, dict) else _load(source)
+    nsmap = _namespace_to_package()
+    return {nsmap[ns] for ns in _referenced_namespaces(data) if ns in nsmap}

@@ -162,49 +162,82 @@ def test_parse_remap_rejects_garbage():
         parse_remap_string("not a remap string")
 
 
-def test_paint_verify_draws_per_panel_indices():
+def test_paint_verify_draws_reading_order_indices():
+    """Each visible cell is labelled by reading-order position, not by mapper
+    entry — the canvas-keyed design that makes a wrong mapper visibly scramble.
+
+    Bigsign is 4 cols × 2 rows: cell (0,0) → label 1, cell (192,32) → label 8.
+    """
     c = HeadlessCanvas(width=256, height=64)
     paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)
-    # entry 8 sits at canvas (0,0); its index pixels live in that cell
-    cell8 = any(
+    # cell (0,0) carries reading-order label 1; its index pixels live there
+    cell_first = any(
         c.get_pixel(x, y) != (0, 0, 0) for x in range(0, 64) for y in range(0, 32)
     )
-    # entry 1 sits at (192,32); its index pixels live in that cell
-    cell1 = any(
+    # cell (192,32) carries reading-order label 8; its index pixels live there
+    cell_last = any(
         c.get_pixel(x, y) != (0, 0, 0) for x in range(192, 256) for y in range(32, 64)
     )
-    assert cell8 and cell1
-    # the two cells render different indices (8 vs 1)
-    region8 = [c.get_pixel(x, y) for x in range(0, 64) for y in range(0, 32)]
-    region1 = [c.get_pixel(x, y) for x in range(192, 256) for y in range(32, 64)]
-    assert region8 != region1
+    assert cell_first and cell_last
+    # the two cells render different indices (1 vs 8)
+    region_first = [c.get_pixel(x, y) for x in range(0, 64) for y in range(0, 32)]
+    region_last = [c.get_pixel(x, y) for x in range(192, 256) for y in range(32, 64)]
+    assert region_first != region_last
 
 
 def test_paint_verify_index_digit_within_cell():
-    """Entry 8 sits at canvas (0,0); its "8" digit must light pixels there."""
+    """Cell (0,0) carries reading-order label "1"; its digit must light pixels
+    within that cell."""
     c = HeadlessCanvas(width=256, height=64)
     paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)
-    # index drawn at (x+3, y+2) = (3, 2) with scale=4.
-    # Digit "8" row 0 col 0 = "1" → the 4×4 block starting at (3,2) is white.
-    assert c.get_pixel(3, 2) == (255, 255, 255), (
-        "index 8 digit pixel not white at (3,2)"
+    # The index is drawn in white (255,255,255) starting at (3,2). Assert at
+    # least one white digit pixel falls inside cell (0,0) = [0,64)×[0,32).
+    white_in_cell = any(
+        c.get_pixel(x, y) == (255, 255, 255)
+        for x in range(0, 64)
+        for y in range(0, 32)
     )
-    # Sanity: the pixel is inside entry 8's cell [0,64)×[0,32)
-    assert 0 <= 3 < 64 and 0 <= 2 < 32
+    assert white_in_cell, "label digit not rendered white inside cell (0,0)"
 
 
-def test_paint_verify_arrow_does_not_bleed_across_panel_boundary():
-    """Per-panel arrow must be bounded within its cell.
+def test_paint_verify_is_mapper_independent():
+    """The painted canvas must be IDENTICAL for any same-size mapper.
+
+    This is the regression guard for the tautology bug: the old design keyed
+    the labels to each mapper's own entry positions, so the hardware routed
+    every panel back to its own number for ANY mapper — diagnosing nothing.
+    The fix keys labels to visible canvas position, so the painted image does
+    not depend on the mapper string at all; the diagnostic lives entirely in
+    how the hardware routes the pixels. Same header → byte-identical canvas.
+    """
+    # BIGSIGN_STRING and the 180°-flipped (broken) mapper share the 256×64
+    # header but list panels in opposite order.
+    flipped = (
+        "Remap:256,64|0,0n|0,32n|64,0n|64,32n|128,0n|128,32n|192,0n|192,32n"
+    )
+    a = HeadlessCanvas(width=256, height=64)
+    b = HeadlessCanvas(width=256, height=64)
+    paint_verify(a, mapper=BIGSIGN_STRING, cols=64, rows=32)
+    paint_verify(b, mapper=flipped, cols=64, rows=32)
+    pixels_a = [a.get_pixel(x, y) for x in range(256) for y in range(64)]
+    pixels_b = [b.get_pixel(x, y) for x in range(256) for y in range(64)]
+    assert pixels_a == pixels_b, (
+        "paint_verify canvas depends on the mapper string — tautology regression"
+    )
+
+
+def test_paint_verify_arrow_does_not_bleed_across_cell_boundary():
+    """Per-cell arrow must be bounded within its visible cell.
 
     Regression for the old unbounded call: at bigsign geometry (cols=64,
     rows=32) the old cx=x+cols-max(4,scale*2)=x+56 with default
     head_half=14 spreads the arrowhead to x+56+13=x+69, 6 px into the
     adjacent cell.  With the fix, rightmost pixel ≤ x+62.
 
-    Entry 5 occupies x=64..127, y=32..63.  Neither x=127 (the slot's own
-    right border, painted teal) nor x=128 (start of entry 3's cell, also
-    teal) should be yellow from entry 5's arrow.  Entry 3's own arrow is
-    centred at x=176, far from x=127..128.
+    The cell at x=64..127, y=32..63 has its own up-arrow.  Neither x=127 (its
+    own right border, painted teal) nor x=128 (start of the next cell, also
+    teal) should be yellow from that arrow.  The next cell's arrow is centred
+    at x=176, far from x=127..128.
     """
     c = HeadlessCanvas(width=256, height=64)
     paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)

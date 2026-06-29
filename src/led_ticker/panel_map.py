@@ -251,36 +251,52 @@ def parse_remap_string(mapper):
 
 
 def paint_verify(canvas, *, mapper, cols, rows):
-    """Paint a coherent, self-diagnosing pattern on the final canvas.
+    """Paint a mapper-independent reference image on the VISIBLE canvas.
 
-    Global aids: faint panel-seam grid, corner labels, one big up-arrow.
-    Per-panel overlay: each chain entry k paints its index + up-arrow + dot
-    into its (x, y) cell, so a wrong mapper shows WHICH panel is misplaced.
+    The image is keyed to visible canvas position, NOT to the mapper's own
+    entries. Labelling by mapper entry would be tautological: painting index k
+    at entry k's position makes the hardware route it straight back to cable
+    panel k, so every physical panel shows its own number for ANY mapper —
+    right or wrong — diagnosing nothing. Instead each visible cell (col, row)
+    shows its READING-ORDER number (1, 2, 3, … left-to-right, top-to-bottom)
+    plus an up-arrow + top-left dot, over a panel-seam grid.
+
+    The hardware mapper is what differs: with the correct mapper the numbers
+    read in order across the wall and every arrow points up; a wrong mapper
+    scrambles the numbers and/or rotates the arrows on the panels it
+    misplaces. So this painted canvas is identical for any same-size mapper —
+    the diagnostic lives in how the hardware routes it, which is exactly what
+    the panel build is verifying.
     """
-    width, height, entries = parse_remap_string(mapper)
+    width, height, _entries = parse_remap_string(mapper)  # header sizes the canvas
     canvas.Fill(0, 0, 0)
 
-    # faint seam grid every cols/rows pixels
+    n_cols = max(1, width // cols)
+    n_rows = max(1, height // rows)
+
+    # seam grid every cols/rows pixels — panel boundaries on the visible canvas
     for x in range(0, width, cols):
         for y in range(height):
-            canvas.SetPixel(x, y, 0, 40, 40)
+            canvas.SetPixel(x, y, 0, 50, 50)
     for y in range(0, height, rows):
         for x in range(width):
-            canvas.SetPixel(x, y, 0, 40, 40)
+            canvas.SetPixel(x, y, 0, 50, 50)
 
-    # corner label — 0 marks the canvas origin
-    draw_index(canvas, 0, 1, 1, scale=1, r=120, g=120, b=255)
-    # big up-arrow spanning the canvas
-    draw_up_arrow(canvas, width // 2, 2, height - 4, 60, 60, 60)
-
-    # per-panel diagnostic overlay
+    # per visible-cell labels — canvas-keyed, so a wrong mapper visibly scrambles them
     scale = _panel_scale(cols, rows)
-    for k, (x, y, _flag) in enumerate(entries, start=1):
-        draw_border(canvas, x, y, cols, rows, 0, 80, 80)
-        draw_corner_dot(canvas, x + 1, y + 1, max(2, scale), 255, 0, 0)
-        draw_index(canvas, k, x + 3, y + 2, scale=scale)
-        index_end_x = x + 3 + len(str(k)) * (_DIGIT_W * scale + scale) - scale
-        _draw_bounded_cell_arrow(canvas, x, y, cols, rows, index_end_x=index_end_x)
+    for row in range(n_rows):
+        for col in range(n_cols):
+            ox, oy = col * cols, row * rows
+            label = row * n_cols + col + 1
+            draw_border(canvas, ox, oy, cols, rows, 0, 80, 80)
+            draw_corner_dot(canvas, ox + 1, oy + 1, max(3, scale), 255, 0, 0)
+            draw_index(canvas, label, ox + 3, oy + 2, scale=scale)
+            index_end_x = (
+                ox + 3 + len(str(label)) * (_DIGIT_W * scale + scale) - scale
+            )
+            _draw_bounded_cell_arrow(
+                canvas, ox, oy, cols, rows, index_end_x=index_end_x
+            )
 
 
 def paint_reveal(canvas, *, cols, rows, chain_length, parallel):

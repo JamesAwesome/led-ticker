@@ -253,7 +253,6 @@ wheels = [
 
 [[package]]
 name = "led-ticker-core"
-version = "2.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -295,7 +294,7 @@ requires-dist = [
     { name = "tomli-w", specifier = ">=1.0" },
     { name = "tomli-w", marker = "extra == 'render'", specifier = ">=1.0" },
 ]
-provides-extras = ["render", "dev"]
+provides-extras = ["dev", "render"]
 
 [[package]]
 name = "multidict"

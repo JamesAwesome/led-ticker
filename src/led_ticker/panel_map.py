@@ -183,6 +183,75 @@ def draw_border(canvas, x, y, w, h, r, g, b):  # noqa: PLR0913
         canvas.SetPixel(x + w - 1, y + dy, r, g, b)
 
 
+def parse_remap_string(mapper):
+    """Parse 'Remap:W,H|x,yORIENT|...' into (width, height, entries).
+
+    Returns (width, height, [(x, y, flag), ...]) in chain order.
+    Raises LayoutError on a malformed string.
+    """
+    if not mapper.startswith("Remap:") or "|" not in mapper:
+        raise LayoutError(
+            f"{mapper!r} is not a Remap string (expected "
+            "'Remap:WIDTH,HEIGHT|x,yORIENT|...')."
+        )
+    header, *cells = mapper[len("Remap:") :].split("|")
+    try:
+        width, height = (int(v) for v in header.split(","))
+    except ValueError as exc:
+        raise LayoutError(f"Bad Remap header {header!r}: {exc}") from exc
+    entries: list[tuple[int, int, str]] = []
+    for cell in cells:
+        flag = cell[-1].lower()
+        if flag not in VALID_FLAGS:
+            raise LayoutError(f"Bad orientation flag in {cell!r}.")
+        try:
+            x, y = (int(v) for v in cell[:-1].split(","))
+        except ValueError as exc:
+            raise LayoutError(f"Bad coordinates in {cell!r}: {exc}") from exc
+        entries.append((x, y, flag))
+    return width, height, entries
+
+
+def paint_verify(canvas, *, mapper, cols, rows):
+    """Paint a coherent, self-diagnosing pattern on the final canvas.
+
+    Global aids: faint panel-seam grid, corner labels, one big up-arrow.
+    Per-panel overlay: each chain entry k paints its index + up-arrow + dot
+    into its (x, y) cell, so a wrong mapper shows WHICH panel is misplaced.
+    """
+    width, height, entries = parse_remap_string(mapper)
+    canvas.Fill(0, 0, 0)
+
+    # faint seam grid every cols/rows pixels
+    for x in range(0, width, cols):
+        for y in range(height):
+            canvas.SetPixel(x, y, 0, 40, 40)
+    for y in range(0, height, rows):
+        for x in range(width):
+            canvas.SetPixel(x, y, 0, 40, 40)
+
+    # corner label — 0 marks the canvas origin
+    draw_index(canvas, 0, 1, 1, scale=1, r=120, g=120, b=255)
+    # big up-arrow spanning the canvas
+    draw_up_arrow(canvas, width // 2, 2, height - 4, 60, 60, 60)
+
+    # per-panel diagnostic overlay
+    scale = max(1, min(cols // 8, rows // 8))
+    for k, (x, y, _flag) in enumerate(entries, start=1):
+        draw_border(canvas, x, y, cols, rows, 0, 80, 80)
+        draw_corner_dot(canvas, x + 1, y + 1, max(2, scale), 255, 0, 0)
+        draw_index(canvas, k, x + 3, y + 2, scale=scale)
+        draw_up_arrow(
+            canvas,
+            x + cols - max(4, scale * 2),
+            y + 2,
+            rows - 4,
+            255,
+            255,
+            0,
+        )
+
+
 def paint_reveal(canvas, *, cols, rows, chain_length, parallel):
     """Paint each raw-chain panel slot with its 1-based chain index, an
     up-arrow (logical-up), a top-left corner dot, an underline beneath the

@@ -7,7 +7,9 @@ from led_ticker.panel_map import (
     derive_remap_string,
     draw_index,
     paint_reveal,
+    paint_verify,
     parse_layout,
+    parse_remap_string,
 )
 
 BIGSIGN_GRID = "8n 6n 4n 2n\n7n 5n 3n 1n"
@@ -137,3 +139,39 @@ def test_arrow_does_not_bleed_across_slot_boundary():
         sum(1 for x in range(32) if c.get_pixel(x, y) == YELLOW) for y in range(16)
     )
     assert max_yellow_in_row >= 2, "arrow shaft should be >= 2 px wide in some row"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: verify calibration pattern
+# ---------------------------------------------------------------------------
+
+
+def test_parse_remap_round_trips_bigsign():
+    w, h, entries = parse_remap_string(BIGSIGN_STRING)
+    assert (w, h) == (256, 64)
+    assert len(entries) == 8
+    assert entries[0] == (192, 32, "n")
+    assert entries[7] == (0, 0, "n")
+
+
+def test_parse_remap_rejects_garbage():
+    with pytest.raises(LayoutError):
+        parse_remap_string("not a remap string")
+
+
+def test_paint_verify_draws_per_panel_indices():
+    c = HeadlessCanvas(width=256, height=64)
+    paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)
+    # entry 8 sits at canvas (0,0); its index pixels live in that cell
+    cell8 = any(
+        c.get_pixel(x, y) != (0, 0, 0) for x in range(0, 64) for y in range(0, 32)
+    )
+    # entry 1 sits at (192,32); its index pixels live in that cell
+    cell1 = any(
+        c.get_pixel(x, y) != (0, 0, 0) for x in range(192, 256) for y in range(32, 64)
+    )
+    assert cell8 and cell1
+    # the two cells render different indices (8 vs 1)
+    region8 = [c.get_pixel(x, y) for x in range(0, 64) for y in range(0, 32)]
+    region1 = [c.get_pixel(x, y) for x in range(192, 256) for y in range(32, 64)]
+    assert region8 != region1

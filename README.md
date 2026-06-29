@@ -116,6 +116,8 @@ The compose file mounts `./config` read-only into the container; edit TOML on th
 
 An optional sidecar serves a read-only status dashboard (live preview, monitors, plugins, inventory) plus a token-gated config editor. Enable it with the `webui` compose profile — `COMPOSE_PROFILES=webui docker compose up -d`. Details: <https://docs.ledticker.dev/concepts/web-status-ui/>.
 
+![The web UI status dashboard — live browser preview of the sign, now-playing, health, and installed plugins](docs/site/public/showcase/webui-status.png)
+
 The header shows the deployed build (`build <branch>@<sha>`). Use `make rebuild` to update the display **and** the webui sidecar together — a bare `docker compose up -d --build` leaves the profile-gated webui on the old image.
 
 The compose file's `restart: unless-stopped` policy handles auto-restart on crash and on Pi reboot. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.

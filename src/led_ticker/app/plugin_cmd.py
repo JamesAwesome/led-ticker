@@ -27,6 +27,7 @@ _KIND_LABELS = {
     "color_providers": "color providers",
     "animations": "animations",
     "easing": "easing",
+    "backends": "backends",
 }
 
 

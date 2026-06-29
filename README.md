@@ -3,7 +3,11 @@
 [![CI](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-An asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi via a TOML config. It runs HUB75 panels through an Adafruit RGB Matrix HAT (or Bonnet) on top of [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/JamesAwesome/rpi-rgb-led-matrix) — our modified fork of [`hzeller/rpi-rgb-led-matrix`](https://github.com/hzeller/rpi-rgb-led-matrix) that adds Raspberry Pi 5 (RP1) support and a few patches — so anything that library drives, led-ticker drives. Two reference builds share one codebase and one Docker image:
+![led-ticker — a live LED ticker scrolling weather, crypto, and transit widgets side by side](https://docs.ledticker.dev/demos-long/sections-forever_scroll.gif)
+
+**led-ticker** is an open-source Python toolkit that drives RGB LED matrix panels — storefront marquees, gym and class schedules, sports scores, transit times, scrolling messages — from a Raspberry Pi, all from a single TOML config. Try it on your laptop with **no hardware** in about two minutes, then deploy the same Docker image to a Pi when your panels arrive.
+
+Two reference builds share one codebase and one image:
 
 - **Smallsign** — Pi 4 + 5× chained 16×32 panels = 160×16 logical canvas
 - **Bigsign** — Pi 5 + 8× P3 32×64 panels in a 2×4 vertical-serpentine layout = 256×64 canvas
@@ -12,17 +16,30 @@ New to LED signs? [Why led-ticker?](https://docs.ledticker.dev/why-led-ticker/) 
 
 Full documentation: <https://docs.ledticker.dev>
 
-## Quick start
+## Showcase
+
+A few of the things a config can put on the wall — every cell links to the page that explains it:
+
+| | | |
+|:---:|:---:|:---:|
+| [![Two-row layout](https://docs.ledticker.dev/demos-long/widget-two_row.gif)](https://docs.ledticker.dev/widgets/two_row/) | [![Inline emoji in a message](https://docs.ledticker.dev/demos-pinned/message-inline-emoji.gif)](https://docs.ledticker.dev/assets/emoji/) | [![Hi-res "grand opening" message](https://docs.ledticker.dev/demos-pinned/message-hires-grand-opening.gif)](https://docs.ledticker.dev/concepts/fonts/) |
+| Held top + scrolling bottom | Inline `:slug:` emoji | Hi-res fonts |
+| [![Nyancat sprite-trail transition](https://docs.ledticker.dev/demos-long/transitions-nyancat.gif)](https://docs.ledticker.dev/transitions/) | [![Animated lightbulb border](https://docs.ledticker.dev/demos-pinned/border-lightbulbs-rainbow.gif)](https://docs.ledticker.dev/concepts/borders/) | [![Typewriter reveal with rainbow color](https://docs.ledticker.dev/demos-pinned/message-typewriter-rainbow.gif)](https://docs.ledticker.dev/concepts/animations/) |
+| Sprite-trail transitions | Animated borders | Animations + color providers |
+
+## Quick start — no hardware required
+
+No panel, no Pi. With [Docker](https://docs.docker.com/get-docker/) installed:
 
 ```bash
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
-make dev
-cp config/config.example.toml config/config.toml  # or config.bigsign.example.toml
-led-ticker --config config/config.toml
+make try
 ```
 
-For hardware setup, BOM, and wiring diagrams see [docs.ledticker.dev/hardware/building-your-own](https://docs.ledticker.dev/hardware/building-your-own/).
+`make try` builds the image and starts a headless display engine plus the web UI — no panel, no Pi. Open **<http://localhost:8080>** and click the **live preview** tab to watch the bundled example (a few demo widgets) scroll in your browser. Edit `config/config.try.example.toml` and refresh to see your changes live. To stop: press `Ctrl-C`, then run `make try-down`.
+
+**Ready for hardware?** The [Getting started guide](https://docs.ledticker.dev/getting-started/) walks the full Raspberry Pi deploy end to end (`make setup` → `docker compose up -d`), and [building your own](https://docs.ledticker.dev/hardware/building-your-own/) covers the physical build — BOM, wiring, and panel tuning.
 
 ## Configuration
 
@@ -32,19 +49,19 @@ Everything is configured via a TOML file. Three reference configs ship in `confi
 - `config.bigsign.example.toml` — bigsign with `pixel_mapper_config`, scaling, RP1 tuning (256×64)
 - `config.firebird.example.toml` — realistic bigsign storefront layout (Firebird Yoga)
 
-Full config reference: <https://docs.ledticker.dev/reference/config-options/>. Per-widget pages document every knob: <https://docs.ledticker.dev/widgets/>.
-
-### Engine
-
-The display engine is published on PyPI as **`led-ticker-core`**:
+Pre-flight any config before deploying:
 
 ```bash
-pip install led-ticker-core
+make validate CONFIG=config/config.toml
 ```
 
-### Plugins
+`led-ticker validate` checks the config against a registry of decision rules — bad font sizes, scroll-mode + stretch collisions, content-height overflow. It exits non-zero on errors, so it's handy in CI. Full output format: <https://docs.ledticker.dev/tools/validate/>.
 
-Extra widgets (and other extension points) are installed as plugins, declared in a pip-requirements file. The first-party plugins live in the **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — one package each, each with its own README. Install them like this:
+Full config reference: <https://docs.ledticker.dev/reference/config-options/>. Per-widget pages document every knob: <https://docs.ledticker.dev/widgets/>.
+
+## Plugins
+
+The display engine ships on PyPI as **`led-ticker-core`** (`pip install led-ticker-core`); extra widgets and other extension points install separately as **plugins** that register themselves at startup. The first-party plugins live in the **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — one package each, each with its own README. Declare the ones you want in a pip-requirements file:
 
 ```bash
 cp config/requirements-plugins.example.txt config/requirements-plugins.txt
@@ -65,19 +82,13 @@ First-party data plugins are on PyPI — add them by name:
 | RSS/Atom feeds | `led-ticker-rss` | `rss.feed` |
 | Weather | `led-ticker-weather` | `weather.current` |
 
-The homage sprite-trail transitions (`nyancat`, `pokeball`, `pacman`, `sailor_moon`) ship together on PyPI as **`led-ticker-flair`** — one install adds all four (`transition = "nyancat.forward"` etc.) plus the `:pokeball.ball:` emoji.
+The flair sprite-trail transitions (`nyancat`, `pokeball`, `pacman`, `sailor_moon`) ship together on PyPI as **`led-ticker-flair`** — one install adds all four (`transition = "nyancat.forward"` etc.) plus the `:pokeball.ball:` emoji.
 
 Browse the first-party plugins in the [led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins) monorepo — they double as worked examples. Building your own? The [plugin authoring guide](https://docs.ledticker.dev/plugins/) walks you through shipping it as a standalone package in your own repo — no fork, no monorepo PR needed.
 
-Pre-flight a config before deploying:
-
-```bash
-make validate CONFIG=config/config.toml
-```
-
-`led-ticker validate` checks the config against a registry of decision rules — bad font sizes, scroll-mode + stretch collisions, content-height overflow. Exits non-zero on errors. Useful in CI. Full output format: <https://docs.ledticker.dev/tools/validate/>.
-
 ## Development
+
+Working on led-ticker itself? Run it from a clone — no Docker, no hardware:
 
 ```bash
 make dev        # Install deps (requires uv)
@@ -105,7 +116,9 @@ The compose file mounts `./config` read-only into the container; edit TOML on th
 
 An optional sidecar serves a read-only status dashboard (live preview, monitors, plugins, inventory) plus a token-gated config editor. Enable it with the `webui` compose profile — `COMPOSE_PROFILES=webui docker compose up -d`. Details: <https://docs.ledticker.dev/concepts/web-status-ui/>.
 
-The header shows the deployed build (`build <branch>@<sha>`). Rebuild the sign so the display **and** the webui sidecar both land on the new code with `make rebuild` (a stamped `docker compose up -d --build --force-recreate` with the `webui` profile) — a bare `docker compose up -d --build` rebuilds the image but leaves the profile-gated webui container on the old one.
+![The web UI status dashboard — live browser preview of the sign, now-playing, health, and installed plugins](docs/site/public/showcase/webui-status.png)
+
+The header shows the deployed build (`build <branch>@<sha>`). Use `make rebuild` to update the display **and** the webui sidecar together — a bare `docker compose up -d --build` leaves the profile-gated webui on the old image.
 
 The compose file's `restart: unless-stopped` policy handles auto-restart on crash and on Pi reboot. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.
 
@@ -121,9 +134,16 @@ led-ticker works with the same hardware as the underlying `jamesawesome/rpi-rgb-
 
 - **Controller boards:** Adafruit RGB Matrix HAT and RGB Matrix Bonnet (`hardware_mapping = "adafruit-hat"`). Other HUB75 wiring/GPIO mappings supported by the library also work.
 - **Panels:** HUB75 RGB LED matrix panels — any pitch (P3, P4, P5, …). The reference builds use P3 32×64 and 16×32 panels; chains and serpentine layouts are configured in TOML.
-- **Raspberry Pi:** Pi 4 (BCM2711 GPIO backend) and Pi 5 (RP1 PIO/RIO backend). The single Docker image detects the SoC at runtime.
+- **Raspberry Pi:** Pi 4 (BCM2711 GPIO backend) and Pi 5 (RP1 PIO/RIO backend).
 
 See the [hardware reference](https://docs.ledticker.dev/hardware/building-your-own/) for BOMs, wiring diagrams, and panel-tuning knobs.
+
+### Calibration & diagnostics
+
+Two deterministic helpers for the moment you power on a freshly wired sign and the output is blank, the wrong colors, or scrambled:
+
+- **`panel-test`** (`make panel-test`) — paints the whole wall solid R → G → B → White → Black so you can rule out wiring, driver, and RGB-order problems before touching any TOML. [Docs](https://docs.ledticker.dev/tools/panel-test/)
+- **`panel-map`** (`make panel-map-reveal` → photo → `derive` → `verify`) — when your panels are chained in a serpentine layout and text comes out mirrored or scrambled, this derives the `pixel_mapper_config` "Remap" string for you instead of hand-iterating with random text. [Docs](https://docs.ledticker.dev/tools/panel-map/)
 
 ## Community
 

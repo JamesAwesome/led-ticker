@@ -175,3 +175,55 @@ def test_paint_verify_draws_per_panel_indices():
     region8 = [c.get_pixel(x, y) for x in range(0, 64) for y in range(0, 32)]
     region1 = [c.get_pixel(x, y) for x in range(192, 256) for y in range(32, 64)]
     assert region8 != region1
+
+
+def test_paint_verify_index_digit_within_cell():
+    """Entry 8 sits at canvas (0,0); its "8" digit must light pixels there."""
+    c = HeadlessCanvas(width=256, height=64)
+    paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)
+    # index drawn at (x+3, y+2) = (3, 2) with scale=4.
+    # Digit "8" row 0 col 0 = "1" → the 4×4 block starting at (3,2) is white.
+    assert c.get_pixel(3, 2) == (255, 255, 255), (
+        "index 8 digit pixel not white at (3,2)"
+    )
+    # Sanity: the pixel is inside entry 8's cell [0,64)×[0,32)
+    assert 0 <= 3 < 64 and 0 <= 2 < 32
+
+
+def test_paint_verify_arrow_does_not_bleed_across_panel_boundary():
+    """Per-panel arrow must be bounded within its cell.
+
+    Regression for the old unbounded call: at bigsign geometry (cols=64,
+    rows=32) the old cx=x+cols-max(4,scale*2)=x+56 with default
+    head_half=14 spreads the arrowhead to x+56+13=x+69, 6 px into the
+    adjacent cell.  With the fix, rightmost pixel ≤ x+62.
+
+    Entry 5 occupies x=64..127, y=32..63.  Neither x=127 (the slot's own
+    right border, painted teal) nor x=128 (start of entry 3's cell, also
+    teal) should be yellow from entry 5's arrow.  Entry 3's own arrow is
+    centred at x=176, far from x=127..128.
+    """
+    c = HeadlessCanvas(width=256, height=64)
+    paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)
+    YELLOW = (255, 255, 0)
+    for check_x in (127, 128):
+        for y in range(32, 64):
+            assert c.get_pixel(check_x, y) != YELLOW, (
+                f"yellow arrow bleeds at x={check_x}, y={y}"
+            )
+
+
+def test_parse_remap_bad_flag_raises_layout_error():
+    with pytest.raises(LayoutError, match="orientation"):
+        parse_remap_string("Remap:64,32|0,0z")
+
+
+def test_parse_remap_bad_coordinates_raises_layout_error():
+    with pytest.raises(LayoutError, match="coordinates"):
+        parse_remap_string("Remap:64,32|abc,defn")
+
+
+def test_parse_remap_empty_trailing_cell_raises_layout_error():
+    """Trailing pipe must raise LayoutError, not IndexError."""
+    with pytest.raises(LayoutError):
+        parse_remap_string("Remap:256,64|")

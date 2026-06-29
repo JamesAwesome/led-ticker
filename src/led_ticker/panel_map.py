@@ -183,6 +183,39 @@ def draw_border(canvas, x, y, w, h, r, g, b):  # noqa: PLR0913
         canvas.SetPixel(x + w - 1, y + dy, r, g, b)
 
 
+def _panel_scale(cols: int, rows: int) -> int:
+    """Integer display scale so the 3×5 digit font fits comfortably in a slot."""
+    return max(1, min(cols // 8, rows // 8))
+
+
+def _draw_bounded_cell_arrow(canvas, ox, oy, cols, rows, *, index_end_x: int):
+    """Draw a yellow up-arrow in the right portion of a slot, strictly bounded.
+
+    Every arrow pixel stays within [ox, ox+cols) with ≥1 px margin from the
+    right slot border and ≥2 px gap after the rendered index digits.
+    Shared by paint_reveal and paint_verify so neither drifts back to the
+    unbounded default.
+    """
+    shaft_h = rows - 4
+    shaft_w = max(2, shaft_h // 8)
+    arrow_cx = ox + cols * 3 // 4
+    right_bound = ox + cols - 2  # 1-px slot border + 1-px breathing room
+    left_bound = index_end_x + 2  # 2-px gap after index digits
+    # head at row d spans cx±d; require cx+(head_half-1) ≤ right_bound
+    head_half = max(1, min(right_bound - arrow_cx + 1, arrow_cx - left_bound + 1))
+    draw_up_arrow(
+        canvas,
+        arrow_cx,
+        oy + 2,
+        shaft_h,
+        255,
+        255,
+        0,
+        shaft_w=shaft_w,
+        head_half=head_half,
+    )
+
+
 def parse_remap_string(mapper):
     """Parse 'Remap:W,H|x,yORIENT|...' into (width, height, entries).
 
@@ -201,6 +234,11 @@ def parse_remap_string(mapper):
         raise LayoutError(f"Bad Remap header {header!r}: {exc}") from exc
     entries: list[tuple[int, int, str]] = []
     for cell in cells:
+        if not cell:
+            raise LayoutError(
+                "Remap string has an empty cell (trailing '|'?). Each '|' must "
+                "be followed by a coordinate entry like '64,0n'."
+            )
         flag = cell[-1].lower()
         if flag not in VALID_FLAGS:
             raise LayoutError(f"Bad orientation flag in {cell!r}.")
@@ -236,20 +274,13 @@ def paint_verify(canvas, *, mapper, cols, rows):
     draw_up_arrow(canvas, width // 2, 2, height - 4, 60, 60, 60)
 
     # per-panel diagnostic overlay
-    scale = max(1, min(cols // 8, rows // 8))
+    scale = _panel_scale(cols, rows)
     for k, (x, y, _flag) in enumerate(entries, start=1):
         draw_border(canvas, x, y, cols, rows, 0, 80, 80)
         draw_corner_dot(canvas, x + 1, y + 1, max(2, scale), 255, 0, 0)
         draw_index(canvas, k, x + 3, y + 2, scale=scale)
-        draw_up_arrow(
-            canvas,
-            x + cols - max(4, scale * 2),
-            y + 2,
-            rows - 4,
-            255,
-            255,
-            0,
-        )
+        index_end_x = x + 3 + len(str(k)) * (_DIGIT_W * scale + scale) - scale
+        _draw_bounded_cell_arrow(canvas, x, y, cols, rows, index_end_x=index_end_x)
 
 
 def paint_reveal(canvas, *, cols, rows, chain_length, parallel):
@@ -260,7 +291,7 @@ def paint_reveal(canvas, *, cols, rows, chain_length, parallel):
     """
     canvas.Fill(0, 0, 0)
     # integer scale so the 5-tall digit comfortably fits the slot height
-    scale = max(1, min(cols // 8, rows // 8))
+    scale = _panel_scale(cols, rows)
     for j in range(parallel):
         for i in range(chain_length):
             k = j * chain_length + i + 1
@@ -272,27 +303,7 @@ def paint_reveal(canvas, *, cols, rows, chain_length, parallel):
             # Fix 3: underline spans the full rendered width of str(k)
             index_w = len(str(k)) * (_DIGIT_W * scale + scale) - scale
             draw_underline(canvas, dx, dy + _DIGIT_H * scale, index_w, 0, 255, 0)
-            # Fix 1: solid, bounded up-arrow on the right side of the slot.
-            # Place the arrow centre at 3/4 of slot width and compute head_half
-            # so every pixel stays within [ox, ox+cols) with ≥1 px from the border.
-            shaft_h = rows - 4
-            shaft_w = max(2, shaft_h // 8)
-            arrow_cx = ox + cols * 3 // 4
-            digit_end_x = dx + index_w  # x past the last digit pixel
-            right_bound = ox + cols - 2  # 1-px slot border + 1-px breathing room
-            left_bound = digit_end_x + 2  # 2-px gap after index digits
-            # head at row d spans cx±d; require cx+(head_half-1) ≤ right_bound
-            head_half = max(
-                1, min(right_bound - arrow_cx + 1, arrow_cx - left_bound + 1)
-            )
-            draw_up_arrow(
-                canvas,
-                arrow_cx,
-                oy + 2,
-                shaft_h,
-                255,
-                255,
-                0,
-                shaft_w=shaft_w,
-                head_half=head_half,
+            # Bounded up-arrow: shared helper keeps both reveal and verify in sync.
+            _draw_bounded_cell_arrow(
+                canvas, ox, oy, cols, rows, index_end_x=dx + index_w
             )

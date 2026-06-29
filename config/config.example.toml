@@ -98,7 +98,7 @@ font_color = "random"
 [[playlist.section.widget]]
 type = "countdown"
 text = "Days Until Spring"
-countdown_date = 2027-03-20
+countdown_date = 2027-03-20   # ← change to your own date
 
 [[playlist.section.widget]]
 type = "countdown"
@@ -112,7 +112,7 @@ text = "Open for"
 countup_date = 2024-01-01
 
 # Local time — the built-in clock widget. `format` is "12h"/"24h" or a strftime
-# template (e.g. "%-I:%M %p %Z"); set `timezone` to an IANA name or it follows
+# template (e.g. "%I:%M %p %Z"); set `timezone` to an IANA name or it follows
 # the Pi's system clock. Knobs: https://docs.ledticker.dev/widgets/clock/
 
 [[playlist.section]]
@@ -148,9 +148,15 @@ image_align = "center"
 
 # ── Add live data with plugins ────────────────────────────────────────
 # Everything above is built in. For live feeds, install a first-party plugin
-# (https://docs.ledticker.dev/plugins/): add it to config/requirements-plugins.txt
-# (copy requirements-plugins.example.txt, or use the web UI Store tab), restart,
-# then add a section using its widget type:
+# (https://docs.ledticker.dev/plugins/) — copy the requirements file, add the
+# plugin you want, and restart (no image rebuild):
+#
+#   cp config/requirements-plugins.example.txt config/requirements-plugins.txt
+#   # uncomment the plugin line(s) you want, then:
+#   docker compose restart
+#
+# (or use the web UI Store tab, which writes that file for you). Then add a
+# section using the plugin's widget type:
 #
 #   led-ticker-weather    weather.current    current conditions (WeatherAPI.com)
 #   led-ticker-rss        rss.feed           RSS / Atom headlines

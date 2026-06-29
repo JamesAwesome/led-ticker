@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "led-ticker-core"
-version = "2.2.0"
+dynamic = ["version"]
 description = "Asyncio LED matrix display for news, weather, crypto, and more"
 readme = "README.md"
 license = "MIT"
@@ -67,6 +67,12 @@ led-ticker = "led_ticker.app:main"
 Homepage = "https://docs.ledticker.dev"
 Repository = "https://github.com/JamesAwesome/led-ticker"
 Issues = "https://github.com/JamesAwesome/led-ticker/issues"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/led_ticker/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/led_ticker"]

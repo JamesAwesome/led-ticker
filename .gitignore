@@ -165,3 +165,6 @@ docs/site/node_modules/
 docs/site/dist/
 docs/site/.astro/
 .claude/scheduled_tasks.lock
+
+# Build-generated version (hatch-vcs); see pyproject [tool.hatch.build.hooks.vcs]
+src/led_ticker/_version.py

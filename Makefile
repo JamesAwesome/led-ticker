@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker rebuild try docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker rebuild try setup docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker
 
 # --- Developer Setup ---
 
@@ -94,6 +94,12 @@ rebuild:  ## Stamped rebuild + recreate ALL services incl. the webui sidecar
 try:  ## Try led-ticker with NO hardware: headless engine + webui preview at http://localhost:8080
 	@echo "building + starting (first build takes a minute)... then open http://localhost:8080 and click the live preview  (stop: Ctrl-C, then docker compose -f compose.try.yaml -p led-ticker-try down)"
 	docker compose -f compose.try.yaml -p led-ticker-try up --build
+
+# Default mode for make setup (override with MODE=try).
+MODE ?= deploy
+
+setup:  ## One-command setup: check Docker, seed config/.env, bring up. Usage: make setup [MODE=try|deploy]
+	bash scripts/setup.sh $(MODE)
 
 # --- Cleanup ---
 

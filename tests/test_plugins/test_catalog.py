@@ -15,7 +15,9 @@ from led_ticker.plugins_catalog import (
 # --- bundled catalog integrity (guards a hand-edited plugins_catalog.json) ---
 
 
-def test_bundled_catalog_loads_and_is_v3():
+def test_bundled_catalog_loads_and_is_v4():
+    from led_ticker.plugins_catalog import SCHEMA_VERSION
+    assert SCHEMA_VERSION == 4
     cat = load_catalog()
     assert isinstance(cat, Catalog)
     assert cat.entries  # non-empty
@@ -35,6 +37,7 @@ def test_bundled_catalog_has_the_first_party_plugins():
         "pokeball",
         "pacman",
         "sailor_moon",
+        "telnet",
     }
     # the split is done — no monolithic feeds/arcade entries remain
     assert "feeds" not in names and "arcade" not in names
@@ -146,10 +149,21 @@ def test_pokeball_provides_transitions_and_emoji():
     assert prov.emoji == ("pokeball.ball",)
 
 
-def test_schema_version_is_3():
+def test_telnet_provides_a_backend():
+    from led_ticker.plugins_catalog import _SURFACE_KINDS
+    assert "backends" in _SURFACE_KINDS
+    cat = load_catalog()
+    telnet = cat.get("telnet")
+    assert telnet.provides.backends == ("telnet",)
+    assert not telnet.provides.is_empty()
+    # backend is the plugin's primary (and only) surface
+    assert telnet.provides.primary() == ("backends", "telnet")
+
+
+def test_schema_version_is_4():
     from led_ticker.plugins_catalog import SCHEMA_VERSION
 
-    assert SCHEMA_VERSION == 3
+    assert SCHEMA_VERSION == 4
 
 
 def test_parse_provides_valid_multi_kind():

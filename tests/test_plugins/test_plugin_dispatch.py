@@ -57,6 +57,17 @@ def test_plugin_list_dispatches_to_catalog(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert code == 0
     assert "pool" in out  # the bundled catalog
+    assert "telnet" in out  # backend plugin renders too (no KeyError on its kind)
+
+
+def test_kind_labels_cover_every_surface_kind():
+    # The `plugin list` renderer indexes _KIND_LABELS[kind] for every provided
+    # kind; a surface kind without a label KeyErrors at render time. Keep the two
+    # in lockstep so adding a future kind can't crash the CLI.
+    from led_ticker.app.plugin_cmd import _KIND_LABELS
+    from led_ticker.plugins_catalog import _SURFACE_KINDS
+
+    assert set(_KIND_LABELS) == set(_SURFACE_KINDS)
 
 
 def test_plugin_search_dispatches(monkeypatch, capsys):

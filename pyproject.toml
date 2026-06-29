@@ -71,8 +71,14 @@ Issues = "https://github.com/JamesAwesome/led-ticker/issues"
 [tool.hatch.version]
 source = "vcs"
 
-[tool.hatch.build.hooks.vcs]
-version-file = "src/led_ticker/_version.py"
+[tool.hatch.version.raw-options]
+# The Docker deps layer (and a bare `docker compose build`) has no .git and no
+# PRETEND_VERSION; without a fallback, setuptools-scm raises instead of building.
+# A real build resolves from git/tag or the host-passed PRETEND_VERSION — this is
+# only the last resort. No version-file hook: it would write src/led_ticker/
+# _version.py, which fails in the deps layer where src/ isn't copied yet, so
+# led_ticker.__version__ reads importlib.metadata instead.
+fallback_version = "0.0.0"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/led_ticker"]

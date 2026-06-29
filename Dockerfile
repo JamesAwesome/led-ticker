@@ -40,20 +40,20 @@ RUN cd /opt && \
     printf 'Cython>=3.2.5\n' > /tmp/build-constraints.txt && \
     PIP_CONSTRAINT=/tmp/build-constraints.txt pip install .
 
-# Layer 2: app dependencies (only rebuilds if pyproject.toml changes). After
-# installing, snapshot the exact installed versions into a pip constraints file
-# (constraints-core.txt) so runtime plugin installs can pull their own new
-# deps but cannot move core's stack. `pip list --format=freeze` renders the
-# editable led-ticker as `led-ticker==<v>` (a valid constraint), unlike
-# `pip freeze` which emits an unusable `-e ...` line.
+# Layer 2: app dependencies (only rebuilds if pyproject.toml changes). The
+# constraints-core.txt snapshot (so runtime plugin installs can pull their own
+# new deps but cannot move core's stack) is generated AFTER the source install
+# below — at this layer led-ticker-core has only the 0.0.0 scm fallback (no .git
+# yet), which must not leak into the constraints. `pip list --format=freeze`
+# renders core as `led-ticker-core==<v>` (a valid constraint), unlike `pip
+# freeze` which emits an unusable `-e ...` line.
 FROM rgbmatrix
 WORKDIR /code
 # pyproject now declares readme + license-files (PEP 639), which hatchling reads
 # at install/metadata time — copy README.md + LICENSE alongside pyproject so the
 # editable install in this deps-only layer doesn't fail on the missing files.
 COPY pyproject.toml README.md LICENSE /code/
-RUN pip install --no-cache-dir -e ".[dev]" \
- && pip list --format=freeze > /code/constraints-core.txt
+RUN pip install --no-cache-dir -e ".[dev]"
 
 # Plugins are NOT baked — they install at runtime onto the ticker-plugins volume (see plugin_reconcile.py).
 
@@ -64,7 +64,11 @@ COPY . /code/
 # and skips git). See Makefile/compose. Empty -> scm fallback (bare dev build).
 ARG SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE=
 ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE=$SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE
-RUN pip install --no-deps .
+# Install core at its real version (PRETEND set above), THEN snapshot the
+# constraints — so constraints-core.txt records led-ticker-core at the real
+# version, not the 0.0.0 fallback the deps layer would have (it had no version).
+RUN pip install --no-deps . \
+ && pip list --format=freeze > /code/constraints-core.txt
 
 # Build stamp — branch@shortsha, computed on the host by `make build-docker` /
 # `make rebuild` and passed as BUILD_REF. A bare `docker compose build` (no arg)

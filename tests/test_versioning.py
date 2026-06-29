@@ -12,7 +12,8 @@ def test_pyproject_uses_vcs_version():
     assert 'requires = ["hatchling", "hatch-vcs"]' in pp
     assert 'dynamic = ["version"]' in pp
     assert '[tool.hatch.version]\nsource = "vcs"' in pp
-    assert "version-file" in pp
+    # fallback so the Docker deps layer / bare build (no .git) doesn't error
+    assert "fallback_version" in pp
     # the static version must be gone
     assert not re.search(r'^version\s*=\s*"', pp, re.MULTILINE)
 

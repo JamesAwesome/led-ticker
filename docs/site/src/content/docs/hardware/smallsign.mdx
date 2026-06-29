@@ -125,8 +125,13 @@ and adjust the per-widget content for your sign.
 # led-ticker configuration — smallsign starter (160×16 canvas)
 #
 # 5× chained 32×16 panels = 160×16 logical canvas. Driven by a Raspberry Pi 4
-# through an Adafruit RGB Matrix bonnet. No pixel_mapper_config needed — panels are a
-# single horizontal chain, left-to-right.
+# through an Adafruit RGB Matrix bonnet. No pixel_mapper_config needed — panels
+# are a single horizontal chain_length, left-to-right.
+#
+# This starter runs entirely on BUILT-IN widgets — no plugins required, so it
+# boots straight from `make setup`. Want live data (weather, RSS, crypto, MLB
+# scores, pool temps)? Those are first-party plugins — see "Add live data with
+# plugins" near the bottom and https://docs.ledticker.dev/plugins/ .
 #
 # Copy this to config.toml and adjust the playlist sections for your content.
 # Full config-options reference: https://docs.ledticker.dev/reference/config-options/
@@ -138,6 +143,32 @@ chain_length = 5
 brightness = 60
 gpio_slowdown = 2      # mandatory on Pi 4 — bump to 3+ if you see flicker
 hardware_mapping = "adafruit-hat"
+# hot_reload = true    # live-reload config.toml edits without a restart (default on; set false to disable)
+
+# --- Optional: brightness schedule (uncomment + edit to use) ---
+# Example: full brightness by day, a softer evening, and a dim overnight
+# (10pm–7am, every day). Times are local wall-clock — set `timezone` or they
+# follow the Pi's system clock (often UTC). Any hour not covered by a window
+# uses the [display] `brightness` above.
+# [display.schedule]
+# enabled = true
+# timezone = "America/New_York"   # set this! defaults to the Pi's system time (often UTC)
+#
+# [[display.schedule.windows]]
+# start = "07:00"
+# end = "18:00"
+# brightness = 100
+#
+# [[display.schedule.windows]]
+# start = "18:00"
+# end = "22:00"
+# brightness = 40
+#
+# [[display.schedule.windows]]            # dim overnight, 10pm → 7am, every day
+# start = "22:00"            # 10pm — wraps past midnight to 7am
+# end = "07:00"
+# brightness = 15            # dim, not off (set brightness = 0 to switch the panel off)
+# # days omitted = every day; e.g. days = ["mon", "tue", "wed", "thu", "fri"] for weekdays only
 
 [title]
 delay = 5
@@ -158,6 +189,8 @@ between_sections = "dissolve"
 # Each [[playlist.section]] displays in order, then the whole playlist loops.
 # Sections, modes, and timing knobs: https://docs.ledticker.dev/concepts/sections-and-modes/
 
+# Welcome / brand messages.
+
 [[playlist.section]]
 mode = "forever_scroll"
 loop_count = 1
@@ -175,7 +208,6 @@ text = "May the uptime be with you!"
 type = "message"
 text = "Always be shipping!"
 
-# --- Countdowns ---
 # Counts down to any date. Message + remaining days scroll across the panel.
 
 [[playlist.section]]
@@ -190,59 +222,138 @@ font_color = "random"
 [[playlist.section.widget]]
 type = "countdown"
 text = "Days Until Spring"
-countdown_date = 2026-03-20
+countdown_date = 2027-03-20   # ← change to your own date
 
 [[playlist.section.widget]]
 type = "countdown"
 text = "Days Until Summer"
-countdown_date = 2026-06-20
+countdown_date = 2027-06-20
 
-# --- RSS Feeds (rss package) ---
-# RSS/Atom headlines (type = "rss.feed") via the rss package in led-ticker-plugins.
-# See https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/rss for install + config.
+# Counts up from any past date. Widget disappears before countup_date arrives.
+[[playlist.section.widget]]
+type = "countup"
+text = "Open for"
+countup_date = 2024-01-01
 
-# --- Crypto Prices (crypto package) ---
-# Live CoinGecko prices via the crypto package in led-ticker-plugins.
-# See https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/crypto for install + config.
+# Local time — the built-in clock widget. `format` is "12h"/"24h" or a strftime
+# template (e.g. "%I:%M %p %Z"); set `timezone` to an IANA name or it follows
+# the Pi's system clock. Knobs: https://docs.ledticker.dev/widgets/clock/
 
-# --- MLB Scores (baseball package) ---
-# Requires the baseball package — add led-ticker-baseball to
-# config/requirements-plugins.txt and restart (docker compose restart). Free MLB Stats API, no key
-# needed. Shows current series scores, live game updates, and upcoming matchups.
+[[playlist.section]]
+mode = "swap"
+hold_time = 5
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Local Time"
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "clock"
+format = "12h"
+timezone = "America/New_York"
+font_color = "rainbow"
+
+# A bundled sample animation — no plugin, no API key, and no media of your own
+# required. config/assets/ ships a few CC0 clips; swap `path` for your own art
+# in config/local/ (gitignored). Image/gif knobs: https://docs.ledticker.dev/widgets/gif/
+
+[[playlist.section]]
+mode = "swap"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "gif"
+path = "assets/phoenix.gif"
+fit = "pillarbox"
+image_align = "center"
+
+# ── Add live data with plugins ────────────────────────────────────────
+# Everything above is built in. For live feeds, install a first-party plugin
+# (https://docs.ledticker.dev/plugins/) — copy the requirements file, add the
+# plugin you want, and restart (no image rebuild):
+#
+#   cp config/requirements-plugins.example.txt config/requirements-plugins.txt
+#   # uncomment the plugin line(s) you want, then:
+#   docker compose restart
+#
+# (or use the web UI Store tab, which writes that file for you). Then add a
+# section using the plugin's widget type:
+#
+#   led-ticker-weather    weather.current    current conditions (WeatherAPI.com)
+#   led-ticker-rss        rss.feed           RSS / Atom headlines
+#   led-ticker-crypto     crypto.coingecko   crypto prices (CoinGecko)
+#   led-ticker-baseball   baseball.scores / .standings / … + baseball.roll* transition
+#   led-ticker-calendar   calendar.events    calendar (.ics) agenda / next event
+#   led-ticker-pool       pool.monitor       pool water temperature (InfluxDB)
+#
+# Example — current weather (needs led-ticker-weather + WEATHERAPI_KEY in .env;
+# location can be a city name, zip code, or "lat,lon"):
 #
 # [[playlist.section]]
 # mode = "swap"
-# transition = "scroll"
-# transition_duration = 4.0
-# loop_count = 0
-#
-# [[playlist.section.widget]]
-# type = "baseball.scores"
-# team = "PHI"
-# timezone = "America/New_York"
-# final_hold_hours = 6   # hours to show final score before moving on (default: 6)
-
-# --- MLB Standings (baseball package) ---
-# Same package as above. Top-N teams by record plus any teams you're tracking.
-# Shows "Opens [date]" during offseason / spring training. The package also
-# provides the baseball.roll_alternating rolling-ball transition used here.
-#
-# [[playlist.section]]
-# mode = "swap"
-# transition = "baseball.roll_alternating"
-# transition_duration = 2.0
-# hold_time = 6
 # loop_count = 1
 #
+# [playlist.section.title]
+# type = "message"
+# text = "Weather"
+# font_color = "random"
+#
 # [[playlist.section.widget]]
-# type = "baseball.standings"
-# teams = ["NYM", "PHI"]
-# top_n = 3
+# type = "weather.current"
+# text = "NYC"
+# location = "New York"
+# units = "imperial"
+# ──────────────────────────────────────────────────────────────────────
 
-# --- Weather (weather package) ---
-# Current conditions + temperature (type = "weather.current") via the
-# weather package in led-ticker-plugins. Needs a free WEATHERAPI_KEY in .env.
-# See https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather for install + config.
+# --- Images and media ---
+# Bundled sample art lives in config/assets/ and is referenced as
+# path = "assets/<file>" (e.g. path = "assets/phoenix.gif").
+# Your own media goes in config/local/ (gitignored), referenced as
+# path = "local/<file>" (e.g. path = "local/logo.gif").
+# The entire config/ directory is mounted into the container, so both
+# locations resolve correctly at runtime.
+
+# Busy light — a persistent corner dot that lights up while a local file
+# exists. The dot composites over every section and transition. (Real
+# calendar/Slack sources are a future addition behind the same overlay.)
+#
+# DOCKER (the usual deploy): `~/.busy` is the CONTAINER's home, which your
+# host can't reach. Point file_path at the bind-mounted config dir instead
+# and toggle the file on the host:
+#   file_path = "/code/config/.busy"   # in-container path (./config:/code/config:ro)
+#   touch config/.busy   # ON     rm config/.busy   # OFF
+# Bare-metal (no Docker): file_path = "~/.busy"; toggle ~/.busy directly.
+#
+# [busy_light]
+# enabled = true
+# file_path = "/code/config/.busy"
+# poll_interval = 5.0
+# corner = "top_right"       # top_left | top_right | bottom_left | bottom_right
+# color = [255, 0, 0]        # 3 ints, each 0-255
+# size = 4                    # dot side in physical px: ~4 on the 16-tall
+#                             # smallsign, ~8-10 on the 64-tall bigsign/longboi
+# token = ""        # fallback only — prefer LED_TICKER_BUSY_TOKEN in .env
+
+# Web status UI — serves a live dashboard of what's on the panel at
+# http://<pi>:8080. Presence of this block enables status publishing by the
+# display process; the sidecar reads status.json and handles HTTP.
+#
+# DOCKER (the usual deploy): the compose.yaml webui service sits behind the
+# `webui` compose profile — start with `COMPOSE_PROFILES=webui docker compose up -d`
+# (or add COMPOSE_PROFILES=webui to your .env to make it sticky).
+# Docs: https://docs.ledticker.dev/concepts/web-status-ui/
+#
+# [web]
+# http_host = "0.0.0.0"
+# http_port = 8080
+# token = ""        # fallback only — prefer LED_TICKER_WEB_TOKEN in .env (secrets don't belong in config.toml)
+# status_path = "/run/led-ticker/status.json"   # default works in Docker too (shared volume mounts here)
+# allow_restart = true   # enables the "Restart to apply" button in the web UI; requires a process supervisor
+#                        # to bring the display back — Docker's `restart: unless-stopped` (shipped in compose.yaml)
+#                        # handles this automatically. Defaults to false.
 ```
 
 </details>

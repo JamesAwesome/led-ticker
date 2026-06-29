@@ -1,20 +1,13 @@
-# ── Plugin dependencies ───────────────────────────────────────────────
-# Requires these led-ticker plugins. Install via
-# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
-# and rebuild before running:
-#   led-ticker-rss       rss.feed
-#   led-ticker-weather   weather.current (commented example)
-#   led-ticker-baseball  baseball.scores, baseball.standings, baseball.roll*, :baseball.ball:
-#   led-ticker-pool      pool.monitor
-# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
-# flair, and the foundational transitions need no plugins.
-# ──────────────────────────────────────────────────────────────────────
-
 # led-ticker configuration — smallsign starter (160×16 canvas)
 #
 # 5× chained 32×16 panels = 160×16 logical canvas. Driven by a Raspberry Pi 4
-# through an Adafruit RGB Matrix bonnet. No pixel_mapper_config needed — panels are a
-# single horizontal chain_length, left-to-right.
+# through an Adafruit RGB Matrix bonnet. No pixel_mapper_config needed — panels
+# are a single horizontal chain_length, left-to-right.
+#
+# This starter runs entirely on BUILT-IN widgets — no plugins required, so it
+# boots straight from `make setup`. Want live data (weather, RSS, crypto, MLB
+# scores, pool temps)? Those are first-party plugins — see "Add live data with
+# plugins" near the bottom and https://docs.ledticker.dev/plugins/ .
 #
 # Copy this to config.toml and adjust the playlist sections for your content.
 # Full config-options reference: https://docs.ledticker.dev/reference/config-options/
@@ -105,12 +98,12 @@ font_color = "random"
 [[playlist.section.widget]]
 type = "countdown"
 text = "Days Until Spring"
-countdown_date = 2026-03-20
+countdown_date = 2027-03-20   # ← change to your own date
 
 [[playlist.section.widget]]
 type = "countdown"
 text = "Days Until Summer"
-countdown_date = 2026-06-20
+countdown_date = 2027-06-20
 
 # Counts up from any past date. Widget disappears before countup_date arrives.
 [[playlist.section.widget]]
@@ -118,103 +111,62 @@ type = "countup"
 text = "Open for"
 countup_date = 2024-01-01
 
-# Live RSS headlines from Nintendo Life — a known-stable feed for the demo.
-# Swap feed_url for any RSS/Atom URL of your own; update_interval is seconds
-# between fetches.
+# Local time — the built-in clock widget. `format` is "12h"/"24h" or a strftime
+# template (e.g. "%I:%M %p %Z"); set `timezone` to an IANA name or it follows
+# the Pi's system clock. Knobs: https://docs.ledticker.dev/widgets/clock/
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "swap"
+hold_time = 5
 loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = "Nintendo Life"
+text = "Local Time"
 font_color = "random"
 
 [[playlist.section.widget]]
-type = "rss.feed"
-feed_url = "https://www.nintendolife.com/feeds/news"
-update_interval = 3000
-
-# Crypto prices via the led-ticker-crypto plugin (crypto.coingecko).
-# See https://github.com/JamesAwesome/led-ticker-crypto for install + config.
-
-# MLB scores via the free MLB Stats API — no API key. Shows current series,
-# live game updates, upcoming matchups for the teams you pick.
-# Replace "PHI" with your team code.
-#
-# The MLB widgets (baseball.scores / baseball.standings) and the baseball.roll*
-# transition are the `led-ticker-baseball` plugin. To install it, add it to
-# config/requirements-plugins.txt (copy the tracked .example, which already
-# lists it) and rebuild — see https://docs.ledticker.dev/plugins/ . The entry
-# point auto-registers the widgets, transition, and :baseball.ball: emoji.
-
-[[playlist.section]]
-mode = "swap"
-transition = "scroll"
-transition_duration = 4.0
-loop_count = 0
-
-[[playlist.section.widget]]
-type = "baseball.scores"
-team = "PHI"
+type = "clock"
+format = "12h"
 timezone = "America/New_York"
-final_hold_hours = 6   # hours to show final score before moving on
+font_color = "rainbow"
 
-# Top-N teams by record plus tracked teams. Shows "Opens [date]" during
-# offseason / spring training.
-
-[[playlist.section]]
-mode = "swap"
-transition = "baseball.roll_alternating"
-transition_duration = 2.0
-hold_time = 6
-loop_count = 1
-
-[[playlist.section.widget]]
-type = "baseball.standings"
-teams = ["NYM", "PHI"]
-top_n = 3
-
-# Pool water temperature from the pool_monitor InfluxDB server.
-# Requires INFLUXDB_URL / INFLUXDB_TOKEN / INFLUXDB_ORG / INFLUXDB_BUCKET in .env.
-# Cycles four screens: title → "Pool 24h" (current + today HI/LO) →
-# "Pool 7D AVG" (week mean + week HI/LO) → "Pool Season HI/LO" (year-to-date).
+# A bundled sample animation — no plugin, no API key, and no media of your own
+# required. config/assets/ ships a few CC0 clips; swap `path` for your own art
+# in config/local/ (gitignored). Image/gif knobs: https://docs.ledticker.dev/widgets/gif/
 
 [[playlist.section]]
 mode = "swap"
-transition = "scroll"
-transition_duration = 2.0
-hold_time = 4
+hold_time = 5
 loop_count = 1
 
-# The pool widget is the `led-ticker-pool` plugin (type = "pool.monitor"). To
-# install it, add it to config/requirements-plugins.txt (copy the tracked
-# .example, which already lists it) and rebuild — see
-# https://docs.ledticker.dev/plugins/ . The entry point auto-registers it.
 [[playlist.section.widget]]
-type = "pool.monitor"
-title = "POOL TEMPS"
-# sensor_id = "12345"   # optional. Without it the widget aggregates GLOBALLY
-                        # across every sensor matching `_field=temperature_C`
-                        # in the bucket — fine for single-sensor setups but
-                        # may pick up ambient/heater readings on multi-sensor
-                        # buckets. Set sensor_id to pin one sensor.
-units = "imperial"
-update_interval = 300
-stale_after = 14400  # 4 hours
-# Optional: tint the prefix labels ("Pool 24h" / "Pool 7D" / "Pool Season")
-# and separators. Defaults to white. Use [r,g,b] e.g. [130, 220, 255] for
-# an icy cyan that fits the pool theme.
-# label_color = [130, 220, 255]
-# layout = "two_row"   # optional: stacks the label ("POOL 24H" / "POOL 7D" /
-#                      # "POOL SEASON") on top and the headline value on bottom.
-#                      # Best for bigsign / longboi. See the led-ticker-pool
-#                      # README: https://github.com/JamesAwesome/led-ticker-pool#layouts
+type = "gif"
+path = "assets/phoenix.gif"
+fit = "pillarbox"
+image_align = "center"
 
-# --- Weather (optional) ---
-# Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
-# location can be a city name, zip code, or "lat,lon".
+# ── Add live data with plugins ────────────────────────────────────────
+# Everything above is built in. For live feeds, install a first-party plugin
+# (https://docs.ledticker.dev/plugins/) — copy the requirements file, add the
+# plugin you want, and restart (no image rebuild):
+#
+#   cp config/requirements-plugins.example.txt config/requirements-plugins.txt
+#   # uncomment the plugin line(s) you want, then:
+#   docker compose restart
+#
+# (or use the web UI Store tab, which writes that file for you). Then add a
+# section using the plugin's widget type:
+#
+#   led-ticker-weather    weather.current    current conditions (WeatherAPI.com)
+#   led-ticker-rss        rss.feed           RSS / Atom headlines
+#   led-ticker-crypto     crypto.coingecko   crypto prices (CoinGecko)
+#   led-ticker-baseball   baseball.scores / .standings / … + baseball.roll* transition
+#   led-ticker-calendar   calendar.events    calendar (.ics) agenda / next event
+#   led-ticker-pool       pool.monitor       pool water temperature (InfluxDB)
+#
+# Example — current weather (needs led-ticker-weather + WEATHERAPI_KEY in .env;
+# location can be a city name, zip code, or "lat,lon"):
 #
 # [[playlist.section]]
 # mode = "swap"
@@ -230,6 +182,7 @@ stale_after = 14400  # 4 hours
 # text = "NYC"
 # location = "New York"
 # units = "imperial"
+# ──────────────────────────────────────────────────────────────────────
 
 # --- Images and media ---
 # Bundled sample art lives in config/assets/ and is referenced as

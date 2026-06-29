@@ -20,7 +20,7 @@
 # Stop:
 #   docker rm -f led-try
 #
-# Or: docker compose --profile try up  (see C2 compose profile)
+# Or via compose: make try   (see compose.try.yaml)
 FROM python:3.14-bookworm
 WORKDIR /code
 COPY pyproject.toml README.md ./

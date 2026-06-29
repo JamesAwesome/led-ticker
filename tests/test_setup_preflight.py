@@ -6,34 +6,88 @@ Tests that when Docker is absent the script:
   (b) exits non-zero
   (c) does NOT attempt a compose up
 
-All tests run the real shell script with a synthetic PATH that contains no
-docker binary, so the check is structural (the script's own detection logic)
-not a mock.
+All tests run the real shell script with a synthetic PATH built from a
+symlink-farm containing the POSIX utilities the script needs (sh, cat, printf,
+…) but NOT docker.  This makes 'command -v docker' fail unconditionally,
+regardless of where docker happens to be installed on the host — including
+/usr/bin/docker on GitHub Actions Ubuntu runners, which was silently causing
+the whole suite to skip when PATH was naively stripped to /usr/bin:/bin.
 """
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 # Absolute path to the script under test — never rely on cwd.
 REPO_ROOT = Path(__file__).parent.parent
 SETUP_SH = REPO_ROOT / "scripts" / "setup.sh"
 
+# ---------------------------------------------------------------------------
+# Utilities symlinked into the no-docker bin dir.
+#
+# These are the external commands that setup.sh (and the POSIX sh interpreter
+# itself) need to reach for the preflight + heredoc print path.  printf and
+# test are shell built-ins in every target shell (sh/dash/bash) so they are
+# included opportunistically but their absence won't break anything.
+# ---------------------------------------------------------------------------
+_SYMLINK_TOOLS = [
+    "sh",
+    "bash",
+    "dash",
+    "env",
+    "cat",
+    "cp",
+    "printf",
+    "rm",
+    "mkdir",
+    "test",
+    "[",
+    "ls",
+    "grep",
+    "sed",
+    "mv",
+    "mktemp",
+    "chmod",
+]
+
+
+@pytest.fixture(scope="session")
+def no_docker_bin(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """Return the path to a temp bin/ dir that has POSIX utils but NOT docker.
+
+    Symlinks are created once per test session.  Each tool is resolved via
+    shutil.which (using the real host PATH) and symlinked only when found, so
+    the fixture degrades gracefully on minimal systems.  docker is explicitly
+    NOT included, so 'command -v docker' in the subprocess fails regardless of
+    where docker is installed on the host.
+    """
+    bin_dir = tmp_path_factory.mktemp("no_docker_bin")
+
+    for tool in _SYMLINK_TOOLS:
+        real = shutil.which(tool)
+        if real:
+            link = bin_dir / tool
+            link.symlink_to(real)
+
+    return str(bin_dir)
+
 
 def _run_setup(
-    mode: str | None = None, *, path_dirs: list[str] | None = None
+    mode: str | None = None,
+    *,
+    no_docker_bin: str,
 ) -> subprocess.CompletedProcess[str]:
-    """Run scripts/setup.sh in a subprocess with a controlled PATH.
+    """Run scripts/setup.sh in a subprocess using the symlink-farm PATH.
 
-    *path_dirs* replaces PATH entirely; pass a list of directories that
-    contain real POSIX utilities but NOT docker.  Defaults to the bare
-    minimum (/usr/bin:/bin) which is present on every POSIX system and
-    never ships docker.
+    The subprocess sees only *no_docker_bin* on PATH, so:
+    - The shell interpreter (sh) is reachable.
+    - The script's coreutils (cat for the heredoc, printf, etc.) are reachable.
+    - docker is NOT reachable, so 'command -v docker' always fails.
     """
-    if path_dirs is None:
-        path_dirs = ["/usr/bin", "/bin"]
-
-    env = {**os.environ, "PATH": ":".join(path_dirs)}
+    env = {**os.environ, "PATH": no_docker_bin}
 
     cmd = ["sh", str(SETUP_SH)]
     if mode is not None:
@@ -49,57 +103,39 @@ def _run_setup(
     )
 
 
-def _docker_in_stripped_path() -> bool:
-    """Return True if docker somehow lives in /usr/bin or /bin (extremely unlikely)."""
-    return any((Path(d) / "docker").exists() for d in ("/usr/bin", "/bin"))
-
-
-# ---------------------------------------------------------------------------
-# Guard: skip the whole module if docker actually lives in the stripped PATH.
-# In practice this never happens, but the guard prevents a false-green on an
-# exotic system where docker is at /usr/bin/docker.
-# ---------------------------------------------------------------------------
-if _docker_in_stripped_path():
-    import pytest
-
-    _SKIP_REASON = (
-        "docker found in /usr/bin or /bin"
-        " — cannot strip it from PATH for preflight test"
-    )
-    pytestmark = pytest.mark.skip(reason=_SKIP_REASON)
-
-
 class TestDockerPreflight:
     """The script must detect missing docker and print official install guidance."""
 
-    def test_exits_nonzero_when_docker_absent(self) -> None:
-        result = _run_setup()
+    def test_exits_nonzero_when_docker_absent(self, no_docker_bin: str) -> None:
+        result = _run_setup(no_docker_bin=no_docker_bin)
         assert result.returncode != 0, (
             f"Expected non-zero exit when docker is absent, got {result.returncode}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_output_contains_get_docker_com(self) -> None:
+    def test_output_contains_get_docker_com(self, no_docker_bin: str) -> None:
         """Linux/Pi install URL must appear."""
-        result = _run_setup()
+        result = _run_setup(no_docker_bin=no_docker_bin)
         combined = result.stdout + result.stderr
         assert "get.docker.com" in combined, (
             "Expected 'get.docker.com' in output when docker is absent.\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_output_contains_docs_docker_com_get_docker(self) -> None:
+    def test_output_contains_docs_docker_com_get_docker(
+        self, no_docker_bin: str
+    ) -> None:
         """macOS/Windows install URL must appear."""
-        result = _run_setup()
+        result = _run_setup(no_docker_bin=no_docker_bin)
         combined = result.stdout + result.stderr
         assert "docs.docker.com/get-docker" in combined, (
             "Expected 'docs.docker.com/get-docker' in output when docker is absent.\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_does_not_attempt_compose_up(self) -> None:
+    def test_does_not_attempt_compose_up(self, no_docker_bin: str) -> None:
         """The script must not reach the docker compose up call."""
-        result = _run_setup()
+        result = _run_setup(no_docker_bin=no_docker_bin)
         combined = result.stdout + result.stderr
         # "compose up" would only appear if the preflight was bypassed.
         assert "compose up" not in combined, (
@@ -107,9 +143,9 @@ class TestDockerPreflight:
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_preflight_applies_to_try_mode(self) -> None:
+    def test_preflight_applies_to_try_mode(self, no_docker_bin: str) -> None:
         """try mode must also fail the preflight — it's not skipped for try."""
-        result = _run_setup(mode="try")
+        result = _run_setup(mode="try", no_docker_bin=no_docker_bin)
         assert result.returncode != 0, (
             "Expected non-zero exit in try mode when docker is absent.\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
@@ -117,9 +153,9 @@ class TestDockerPreflight:
         combined = result.stdout + result.stderr
         assert "get.docker.com" in combined
 
-    def test_preflight_applies_to_deploy_mode(self) -> None:
+    def test_preflight_applies_to_deploy_mode(self, no_docker_bin: str) -> None:
         """deploy mode must also fail the preflight."""
-        result = _run_setup(mode="deploy")
+        result = _run_setup(mode="deploy", no_docker_bin=no_docker_bin)
         assert result.returncode != 0
         combined = result.stdout + result.stderr
         assert "get.docker.com" in combined
@@ -129,9 +165,8 @@ class TestUsageErrors:
     """Bad arguments must print usage and exit non-zero."""
 
     def test_unknown_mode_exits_nonzero(self) -> None:
-        # Use a path that actually has docker so we get past the preflight
-        # and hit the mode-validation branch.  If docker isn't available at
-        # all on this machine, the test still validates exit code != 0.
+        # Mode-validation runs BEFORE the docker check in the script, so this
+        # test uses the real system PATH — docker presence is irrelevant here.
         result = subprocess.run(
             ["sh", str(SETUP_SH), "bogus-mode"],
             capture_output=True,

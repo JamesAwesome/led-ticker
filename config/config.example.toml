@@ -231,6 +231,14 @@ stale_after = 14400  # 4 hours
 # location = "New York"
 # units = "imperial"
 
+# --- Images and media ---
+# Bundled sample art lives in config/assets/ and is referenced as
+# path = "assets/<file>" (e.g. path = "assets/phoenix.gif").
+# Your own media goes in config/local/ (gitignored), referenced as
+# path = "local/<file>" (e.g. path = "local/logo.gif").
+# The entire config/ directory is mounted into the container, so both
+# locations resolve correctly at runtime.
+
 # Busy light — a persistent corner dot that lights up while a local file
 # exists. The dot composites over every section and transition. (Real
 # calendar/Slack sources are a future addition behind the same overlay.)

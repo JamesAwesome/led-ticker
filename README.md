@@ -3,6 +3,8 @@
 [![CI](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+![led-ticker — a live LED ticker scrolling weather, crypto, and transit widgets side by side](https://docs.ledticker.dev/demos-long/sections-forever_scroll.gif)
+
 An asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi via a TOML config. It runs HUB75 panels through an Adafruit RGB Matrix HAT (or Bonnet) on top of [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/JamesAwesome/rpi-rgb-led-matrix) — our modified fork of [`hzeller/rpi-rgb-led-matrix`](https://github.com/hzeller/rpi-rgb-led-matrix) that adds Raspberry Pi 5 (RP1) support and a few patches — so anything that library drives, led-ticker drives. Two reference builds share one codebase and one Docker image:
 
 - **Smallsign** — Pi 4 + 5× chained 16×32 panels = 160×16 logical canvas
@@ -11,6 +13,17 @@ An asyncio Python toolkit that drives RGB LED matrix panels from a Raspberry Pi 
 New to LED signs? [Why led-ticker?](https://docs.ledticker.dev/why-led-ticker/) covers when a Raspberry Pi HUB75 sign is the right tool — and when WLED, Tidbyt, or an ESP32 clock fits better.
 
 Full documentation: <https://docs.ledticker.dev>
+
+## Showcase
+
+A few of the things a config can put on the wall — every cell links to the page that explains it:
+
+| | | |
+|:---:|:---:|:---:|
+| [![Two-row layout](https://docs.ledticker.dev/demos-long/widget-two_row.gif)](https://docs.ledticker.dev/widgets/two_row/) | [![Inline emoji in a message](https://docs.ledticker.dev/demos-pinned/message-inline-emoji.gif)](https://docs.ledticker.dev/assets/emoji/) | [![Hi-res "grand opening" message](https://docs.ledticker.dev/demos-pinned/message-hires-grand-opening.gif)](https://docs.ledticker.dev/concepts/fonts/) |
+| Held top + scrolling bottom | Inline `:slug:` emoji | Hi-res fonts |
+| [![Nyancat sprite-trail transition](https://docs.ledticker.dev/demos-long/transitions-nyancat.gif)](https://docs.ledticker.dev/transitions/) | [![Animated lightbulb border](https://docs.ledticker.dev/demos-pinned/border-lightbulbs-rainbow.gif)](https://docs.ledticker.dev/concepts/borders/) | [![Typewriter reveal with rainbow color](https://docs.ledticker.dev/demos-pinned/message-typewriter-rainbow.gif)](https://docs.ledticker.dev/concepts/animations/) |
+| Sprite-trail transitions | Animated borders | Animations + color providers |
 
 ## Quick start
 
@@ -124,6 +137,13 @@ led-ticker works with the same hardware as the underlying `jamesawesome/rpi-rgb-
 - **Raspberry Pi:** Pi 4 (BCM2711 GPIO backend) and Pi 5 (RP1 PIO/RIO backend). The single Docker image detects the SoC at runtime.
 
 See the [hardware reference](https://docs.ledticker.dev/hardware/building-your-own/) for BOMs, wiring diagrams, and panel-tuning knobs.
+
+### Calibration & diagnostics
+
+Two deterministic helpers for bringing up a custom panel chain:
+
+- **`panel-test`** — paints the whole wall solid R → G → B → White → Black so you can isolate hardware/wiring/driver issues from your config before touching any TOML. [Docs](https://docs.ledticker.dev/tools/panel-test/)
+- **`panel-map`** — derives your `pixel_mapper_config` "Remap" string from a photo of numbered panels, instead of hand-iterating with random text. [Docs](https://docs.ledticker.dev/tools/panel-map/)
 
 ## Community
 

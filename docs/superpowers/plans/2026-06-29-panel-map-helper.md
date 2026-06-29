@@ -915,3 +915,28 @@ Address all blocking concerns; re-run Step 3; amend the commit.
 
 - _(record persona non-blocking suggestions here as tasks complete)_
 - Parallel chains (`parallel > 1`) slot/ordering is implemented row-major (`k = j*chain_length + i + 1`); the reference builds are `parallel = 1`, so this path is untested on hardware — note in docs and revisit if a `parallel > 1` builder appears.
+
+---
+
+## RESUME STATE (parked 2026-06-29 — credits)
+
+SDD execution is paused mid-Task-3. Ledger: `.superpowers/sdd/progress.md` (gitignored scratch — this committed section is the durable copy). Worktree `/Users/james/projects/github/jamesawesome/led-ticker-panel-map`, branch `feat/panel-map-helper`.
+
+**Done & reviewed clean (PM + hobbyist + code-review gates all addressed):**
+- **Task 1** — derive logic. Commits `f4f638eb..7ccd08c5`. (fix: dropped `from __future__`, plainer error messages)
+- **Task 2** — reveal calibration paint. Commits `..a14c6cb0`. (fix: solid bounded arrow, 3px corner dot, full-width underline, arrow-bleed regression test; previews `/tmp/reveal_*.png` looked good)
+
+**Task 3 — verify paint: IMPLEMENTED (commit `f13bfae8`), reviews done, FIX PENDING (not yet dispatched).** Resume by dispatching ONE fix subagent (sonnet, worktree-discipline prompt) for, in `src/led_ticker/panel_map.py` + `tests/test_panel_map.py`:
+1. **Important — port the bounded arrow.** `paint_verify`'s per-panel `draw_up_arrow` uses the unbounded default `head_half`, re-introducing the slot-bleed fixed for `paint_reveal` in Task 2 (≈6px into the neighbor cell at bigsign). Reuse `paint_reveal`'s bounded placement; extract a shared helper so the two can't drift (also satisfies the DRY-`scale` minor).
+2. **Minor — `_panel_scale(cols, rows)` helper** for the `max(1, min(cols//8, rows//8))` formula duplicated in both paint fns.
+3. **Minor — `parse_remap_string` empty trailing cell.** `"Remap:256,64|"` → `cells=[""]` → `cell[-1]` raises `IndexError`; should raise `LayoutError`. Add a guard + a test.
+4. **Tests — strengthen verify coverage:** a verify no-bleed regression (no arrow color in the next cell's leftmost columns), a pixel-coordinate assertion (a specific index digit lands in its specific cell), and bad-flag / bad-coord `parse_remap_string` cases.
+5. Keep `canvas.Fill` (adjudicated NOT a defect — matches `panel_color_test.py`). Do NOT add `from __future__`.
+
+**DESIGN DECISION (locked) — verify rotation cue = "Transform + docs" (NOT a flag label).** Rationale: `verify` paints the logical canvas; on real hardware the rgbmatrix mapper rotates each panel's content per its flag, so a wrong flag makes that panel's digit/arrow/dot appear rotated on the wall — the rotation diagnostic is delivered by the transform (invisible in headless tests). Do NOT draw a flag-rotated arrow (would double-rotate) and do NOT add an n/s/e/w/x letter font. Two downstream requirements:
+- **Task 6 docs** must explain how to *read* verify: a panel whose number/arrow/dot looks rotated has the wrong flag → use the flip-and-retry fallback.
+- **Task 5 hardware spike** add a check: deliberately set one wrong flag, confirm `verify` shows that one panel rotated.
+
+**Remaining tasks:** Task 3 fix (above) → Task 4 (CLI + Make targets) → Task 5 (hardware spike — **needs James + real panels**; pins `e`/`w`, glyph legibility, reveal photo) → Task 6 (docs page + inline intercept + cross-links). Then final whole-branch review + finishing-a-development-branch.
+
+**Resume procedure:** re-read this section and the ledger; `git log --oneline` to confirm HEAD is `f13bfae8`; dispatch the Task 3 fix; continue the per-task implement → (code + PM + hobbyist) review → fix loop. Base for the Task 3-fix review package is `a14c6cb0` (the Task-3 base), through the new fix HEAD.

@@ -142,7 +142,7 @@ The hard ceiling is `content_height × scale ≤ panel_h_real`. For the bigsign 
 
 ### The `pixel_mapper_config` Remap string is sensitive to chain order
 
-Every entry in the string must correspond to a specific panel position in your data chain — get the order wrong (or rotate one panel 180° to match the rest of the row) and you'll see content split across panels or rendered upside down. The string in `config/config.bigsign.example.toml` matches a 2x4 serpentine starting at the bottom-right with all panels upright; if your panels are mounted differently, you'll need to edit each entry's orientation flag (`n`, `s`, `e`, `w`).
+Every entry in the string must correspond to a specific panel position in your data chain — get the order wrong (or rotate one panel 180° to match the rest of the row) and you'll see content split across panels or rendered upside down. The string in `config/config.bigsign.example.toml` matches a 2x4 serpentine starting at the bottom-right with all panels upright; if your panels are mounted differently, you'll need to edit each entry's orientation flag (`n`, `s`, `e`, `w`). Use [`panel-map`](/tools/panel-map/) to derive and verify the Remap string from your physical layout instead of hand-editing it.
 
 ### Hi-res emoji only render at scale ≥ 2
 
@@ -303,4 +303,6 @@ countdown_date = 2026-09-22
 
 </details>
 
-<RelatedPages slugs={["hardware/smallsign", "concepts/display", "concepts/fonts"]} />
+<RelatedPages
+  slugs={["hardware/smallsign", "concepts/display", "concepts/fonts", "tools/panel-map"]}
+/>

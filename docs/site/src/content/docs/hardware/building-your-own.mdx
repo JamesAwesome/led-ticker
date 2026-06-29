@@ -32,7 +32,9 @@ Anything between those two — three panels in a row, six panels in a
 2x3 grid, a custom non-rectangular layout — is fine; the rgbmatrix
 library and the led-ticker engine don't assume the reference shapes.
 You'll edit the `[display]` block (`rows`, `cols`, `chain_length`,
-`pixel_mapper_config`) to match your wiring.
+`pixel_mapper_config`) to match your wiring. For `pixel_mapper_config`
+specifically, don't hand-write the Remap string — use
+[`panel-map`](/tools/panel-map/) to derive it from your physical layout.
 
 You don't need any of this hardware to start. The
 [`render-demo`](/tools/render-demo/) tool runs the real ticker engine
@@ -185,5 +187,11 @@ If a data widget's `update()` task has died (the tell-tale: its periodic
 turning "is the poller still alive?" into a direct answer.
 
 <RelatedPages
-  slugs={["hardware/smallsign", "hardware/bigsign", "tools/render-demo", "getting-started"]}
+  slugs={[
+    "hardware/smallsign",
+    "hardware/bigsign",
+    "tools/render-demo",
+    "tools/panel-map",
+    "getting-started",
+  ]}
 />

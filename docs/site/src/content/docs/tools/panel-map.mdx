@@ -1,0 +1,341 @@
+---
+title: "Tool: panel-map"
+description: Derive, verify, and calibrate the pixel_mapper_config Remap string for your custom multi-panel layout — without hand-editing.
+---
+
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+`panel-map` turns the `pixel_mapper_config` Remap string derivation loop from
+error-prone hand-editing into a three-step workflow: **reveal** your chain order →
+**derive** the string from a typed grid → **verify** it on the real canvas.
+It is implemented at
+[`scripts/panel_map.py`](https://github.com/jamesawesome/led-ticker/blob/main/scripts/panel_map.py)
+and mirrors the conventions of [`panel-test`](/tools/panel-test/).
+
+Like `panel-test`, `panel-map` reads the `[display]` section of any led-ticker
+config TOML and reuses the same `LedFrame` construction the main app uses — so
+every panel knob (`rows`, `cols`, `chain_length`, `panel_type`, `gpio_slowdown`,
+`rp1_pio`) is exactly what the running ticker would see. Widget config is ignored.
+
+:::caution[Run `panel-test` first]
+If your panels render solid colors wrong — color mis-sequence, garbled bottom
+half, only the first panel lit, visible flicker — that is a **hardware/driver**
+fault (`led_rgb_sequence`, `panel_type`, `gpio_slowdown`) that `panel-map`
+cannot fix. Run [`panel-test`](/tools/panel-test/) and confirm solid Red, Green,
+Blue, White, and Black each render cleanly before reaching for `panel-map`. The
+mapper tool assumes the hardware layer is already working.
+:::
+
+## Bigsign worked example
+
+The bigsign is a 2×4 vertical-serpentine layout: eight P3 32×64 panels, data
+chain entering at the bottom-right, climbing each column bottom-to-top, then
+jumping diagonally to the bottom of the next column to the left. Here is the
+end-to-end walkthrough.
+
+### Step 1 — reveal
+
+Stop the ticker and paint the calibration pattern:
+
+```bash
+docker compose stop
+make panel-map-reveal-docker CONFIG=config/config.bigsign.example.toml
+```
+
+Each physical panel lights up with its chain index (1-based), an up-arrow, a
+bright corner dot in the logical top-left, a border around the slot, and an
+underline directly beneath the digit so that rotated numbers (e.g. a sideways
+`6` or `9`) are never ambiguous — you read the digit relative to its underline,
+not relative to the room.
+
+<!-- TODO(task5): real reveal photo -->
+
+:::note[Photo pending]
+📷 Photo pending — `reveal` pattern on real panels. The photo will show all eight
+panels lit with their chain numbers (1 through 8), the up-arrow, the corner dot,
+and the underline beneath each digit so chain order and orientation are
+unambiguous at a glance.
+:::
+
+### Step 2 — transcribe
+
+Shoot the wall square-on (lights toward you, camera level) and write one
+`<index><flag>` token per panel. **Write the top wall row first, left to right,
+exactly as the panels hang.** For the bigsign — panels numbered 1–8 in
+vertical-serpentine chain order, all installed upright — the grid is:
+
+```text
+8n 6n 4n 2n
+7n 5n 3n 1n
+```
+
+Save that to a file, e.g. `layout.txt`. The `n` flag means each panel is
+oriented normally (arrow up, dot top-left). See the [orientation legend](#orientation-legend)
+below for other flags.
+
+### Step 3 — derive
+
+```bash
+make panel-map-derive LAYOUT=layout.txt CONFIG=config/config.bigsign.example.toml
+```
+
+`derive` prints the Remap string to stdout:
+
+```text
+Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n
+```
+
+Copy that into your `[display]` block:
+
+```toml
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+```
+
+This string matches `config/config.bigsign.example.toml` character-for-character.
+The golden tripwire test keeps them in sync — if `derive` ever diverges, CI fails.
+
+### Step 4 — verify
+
+Paste the string into your config (or supply it directly with `--mapper`) and
+confirm the canvas is coherent:
+
+```bash
+make panel-map-verify-docker CONFIG=config/config.bigsign.example.toml
+# or supply the string directly:
+make panel-map-verify-docker MAPPER="Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+docker compose start
+```
+
+A **correct** mapper produces: a coordinate grid with faint lines landing on
+physical panel seams, `0,0` in the top-left corner, the canvas width in the
+top-right, a large arrow pointing up across the whole canvas, a `TOP` label along
+the top edge, and each panel's expected chain index + orientation marker in the
+right position.
+
+A **wrong** mapper produces a scrambled image — the specific off panel is
+self-identifying via the per-panel diagnostic overlay. See
+[How to read verify](#how-to-read-verify) below.
+
+## Subcommand reference
+
+### `reveal` — chain and orientation calibration
+
+Runs with `pixel_mapper_config` forced to the identity mapping (no panel
+rearrangement), so physical panel `k` in the data cable occupies logical
+position `k` in the frame buffer. Photograph the result and you know the chain
+order and orientation of every panel.
+
+**Host (Pi with rgbmatrix installed):**
+
+```bash
+make panel-map-reveal
+make panel-map-reveal CONFIG=config/config.mysign.toml
+make panel-map-reveal HOLD=5    # hold longer for a steady photo
+```
+
+**Docker (deployed Pi):**
+
+```bash
+docker compose stop
+make panel-map-reveal-docker
+make panel-map-reveal-docker CONFIG=config/config.mysign.toml HOLD=5
+docker compose start
+```
+
+The make targets wrap
+`uv run python scripts/panel_map.py reveal --config $(CONFIG) --hold $(HOLD)`
+— the same `CONFIG=` / `HOLD=` override convention as `make panel-test`.
+
+Per panel slot `k`, `reveal` paints (all via `SetPixel`, never `DrawText`):
+
+- The chain index `k+1` (1-based) as a large BDF digit, centered.
+- An up-arrow — the primary rotation tell.
+- A bright dot in the logical top-left corner — disambiguates 90° vs 270°.
+- A 1 px border around the slot.
+- A short underline directly beneath the digit.
+
+Ctrl-C exits cleanly: a final black frame is swapped on so the panel never
+sticks on the calibration pattern.
+
+| Flag       | Type  | Default                      | Meaning                                                |
+| ---------- | ----- | ---------------------------- | ------------------------------------------------------ |
+| `--config` | path  | `config/config.longboi.toml` | Config TOML to read `[display]` from.                  |
+| `--hold`   | float | `2.0`                        | Seconds between swap ticks (extend for a steady hold). |
+
+### `derive` — string generator (no hardware needed)
+
+Reads the transcribed grid from `--layout FILE` and prints the `Remap:` string
+to stdout. Diagnostics (chain-count mismatch warnings, parse errors) go to
+stderr. No hardware is needed — this step runs on any machine.
+
+```bash
+make panel-map-derive LAYOUT=layout.txt
+make panel-map-derive LAYOUT=layout.txt CONFIG=config/config.mysign.toml
+```
+
+The `CONFIG` argument is used only to read `chain_length × parallel` for a
+sanity check against the cell count in your grid. A mismatch produces a warning
+on stderr but not a hard failure — useful when deriving a layout that differs
+from the loaded config.
+
+`derive` also accepts the grid on stdin (pipe or Ctrl-D) when `--layout` is
+omitted, but the file path is the recommended approach. Over SSH, fumbling
+`Ctrl-D` to end stdin input is a real failure mode.
+
+| Flag       | Type | Default                      | Meaning                                                                 |
+| ---------- | ---- | ---------------------------- | ----------------------------------------------------------------------- |
+| `--config` | path | `config/config.longboi.toml` | Config TOML — read for `chain_length` / `parallel` sanity check only.   |
+| `--layout` | path | stdin                        | Layout file (recommended). One row per wall row, cells `<index><flag>`. |
+
+**Validation messages are plain-language** — for example:
+
+- `"You listed panel 4 twice and never listed panel 5. Each cable position appears exactly once."`
+- `"Row 2 has 3 panels but row 1 has 4. Every wall row needs the same number of cells."`
+- `"'7z' is not a valid cell — expected a number followed by one of: n s e w x."`
+
+### `verify` — coherent full-canvas diagnostic
+
+Applies a candidate mapper and paints a self-diagnosing image across the whole
+finished canvas. A correct mapper produces a coherent image; a wrong one shows
+exactly which panel is off and how.
+
+**Host:**
+
+```bash
+make panel-map-verify
+make panel-map-verify CONFIG=config/config.mysign.toml
+make panel-map-verify MAPPER="Remap:256,64|..."
+```
+
+**Docker:**
+
+```bash
+docker compose stop
+make panel-map-verify-docker CONFIG=config/config.mysign.toml
+make panel-map-verify-docker MAPPER="Remap:256,64|..."
+docker compose start
+```
+
+`verify` paints:
+
+- A coordinate grid: faint lines every `cols` / `rows` pixels — seams should fall exactly on physical panel edges.
+- Corner labels: `0,0` top-left, canvas width top-right, `0,H` bottom-left — instantly exposes flips and axis swaps.
+- A large arrow pointing up across the whole canvas and a short `TOP` label along the top edge.
+- Per-panel diagnostic overlay: each panel shows its expected chain index and orientation marker.
+
+| Flag       | Type   | Default                      | Meaning                                                                                      |
+| ---------- | ------ | ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `--config` | path   | `config/config.longboi.toml` | Config TOML. Uses `pixel_mapper_config` from this file unless `--mapper` overrides.          |
+| `--hold`   | float  | `2.0`                        | Seconds between swap ticks.                                                                  |
+| `--mapper` | string | —                            | Override the mapper string (e.g. paste `derive`'s output directly without editing the TOML). |
+
+## How to read verify
+
+`verify` paints content to the **logical canvas**, and then the rgbmatrix
+hardware mapper rotates each panel's content according to its orientation flag in
+the Remap string. This means orientation errors are visible on the physical
+panels as rotated content — even though the logical canvas itself looks correct.
+
+- **A panel shows the right chain index but it appears in the wrong position on
+  the wall** → that panel's `x,y` coordinates in the Remap string are wrong
+  (chain order error). Fix: update its position in your `layout.txt` and re-run
+  `derive`.
+- **A panel's chain index or arrow looks rotated on the wall** → that panel's
+  orientation flag is wrong. The mapper is rotating the panel's content by the
+  flag amount, so a wrong flag makes the per-panel overlay appear rotated.
+  Fix: change the flag for that panel. For `e`/`w` mistakes, the fix is usually
+  a single character swap — see [Flip-and-retry](#flip-and-retry) below.
+
+In both cases: identify the specific panel by its chain index in the overlay,
+correct that one entry, and run `verify` again. You rarely need to re-transcribe
+the whole layout.
+
+## Orientation legend
+
+What you observe on a physical panel after running `reveal` → the flag to write
+in your layout grid.
+
+| What you see on that physical panel | Flag                  | Rotation    |
+| ----------------------------------- | --------------------- | ----------- |
+| Arrow up, dot top-left              | `n`                   | 0° (normal) |
+| Arrow down, dot bottom-right        | `s`                   | 180°        |
+| Arrow right, dot top-right          | `e` or `w` — see note | 270° or 90° |
+| Arrow left, dot bottom-left         | the other of `e`/`w`  | 90° or 270° |
+| (not used in display)               | `x`                   | discard     |
+
+<!-- TODO(task5): pin e/w from hardware spike before merge -->
+
+:::caution[⚠ PENDING HARDWARE VALIDATION — e/w mapping]
+The `n` and `s` rows above are confirmed. The exact visual that each of `e` and
+`w` produces on real hardware — which arrow direction maps to which flag — is
+pinned during the hardware spike before this page ships. Until then: if `verify`
+shows a 90°/270° panel rotated the wrong way, swap `e` ↔ `w` for that panel and
+re-run. It's a 10-second coin-flip, not a re-derive.
+:::
+
+### Flip-and-retry
+
+If a rotated panel still looks wrong after `verify`, the most likely cause is an
+`e`/`w` swap. Fix it in about 10 seconds:
+
+1. Identify the panel by its chain index in the `verify` overlay.
+2. Find that cell in `layout.txt`.
+3. Change `e` → `w` or `w` → `e`.
+4. Re-run `make panel-map-derive LAYOUT=layout.txt` to get the new string.
+5. Re-run `make panel-map-verify-docker MAPPER="..."` to confirm.
+
+You don't need to re-transcribe the whole layout for one orientation fix.
+
+## Transcription tips
+
+### Write it the way it hangs
+
+Stand in front of the wall. Write one `<index><flag>` token per panel —
+**the top wall row first, left to right, exactly as the panels hang**.
+A panel's row and column in the grid are determined by where it sits on the wall,
+not by its cable position or rotation. `derive` re-sorts into chain order
+internally, so you never need to think in chain order — you only describe what
+you see.
+
+### Photo discipline
+
+Shoot the wall square-on: lights toward you, camera level, no angle or tilt.
+A tilted or angled shot can mirror left/right or ambiguate top/bottom,
+introducing transcription errors before you even open a text file.
+
+### Double-digit chains
+
+Chain indices ≥ 10 rendered sideways (on a rotated panel) can be hard to read.
+For the reference builds (up to 8 panels) this is not an issue. For larger walls
+with 10 or more panels, allow extra time reading the `reveal` photo, or label
+the physical panels before shooting.
+
+## Scope and limitations
+
+`derive` computes **uniform-cell rectangular grids**: every wall row has the
+same number of panels, and every panel occupies the same `cols × rows` footprint
+on the canvas.
+
+- `n` and `s` panels are fully supported — 180° rotation doesn't change a
+  panel's footprint.
+- `e` and `w` panels (90°/270°) swap a panel's width and height. A grid that
+  mixes rotated and un-rotated panels may be physically non-rectangular. For
+  such layouts `derive` emits its best-effort guess and prints a warning to
+  stderr. Use `verify` to check every panel's position and orientation, then
+  hand-edit the `e`/`w` entries in the Remap string if needed.
+
+`reveal` and `verify` are **hardware tools**: they need `/dev/mem` access and
+require `sudo` on a bare-metal Pi, or the `--privileged` flag in Docker — the
+same constraints as `panel-test`. The ticker and these tools cannot share the
+matrix at the same time; stop the ticker before running either.
+
+:::note[No demo GIF]
+Like `panel-test`, `panel-map` works at the level of physical LEDs. The `reveal`
+and `verify` patterns don't render meaningfully as GIFs — the value is on real
+hardware. The docs page intentionally has no animated demo; the `reveal` photo
+(once shot) is the visual anchor.
+:::
+
+<RelatedPages
+  slugs={["tools/panel-test", "hardware/bigsign", "hardware/building-your-own", "reference/cli"]}
+/>

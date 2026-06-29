@@ -150,26 +150,31 @@ names. `--config` / `-c` locates the manifest for the `[declared]` check.
 The repo's `Makefile` wraps the common dev commands so you don't have
 to remember the underlying `uv` / `pnpm` / `docker` invocations.
 
-| Target                     | What it does                                                                                                                                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `make dev`                 | `uv sync --extra dev` plus install pre-commit and pre-push hooks.                                                                                                                                            |
-| `make test`                | Run pytest with coverage; sets `PYTHONPATH=tests/stubs` so no real `rgbmatrix` install is needed.                                                                                                            |
-| `make lint`                | Run `ruff check` over `src/` and `tests/`.                                                                                                                                                                   |
-| `make typecheck`           | Run `pyright` over `src/`.                                                                                                                                                                                   |
-| `make format`              | Run `ruff format` over `src/` and `tests/`.                                                                                                                                                                  |
-| `make build-docker`        | Build the production Docker image (single image runs on both Pi 4 and Pi 5).                                                                                                                                 |
-| `make docs-dev`            | Start the Astro Starlight dev server at `http://localhost:4321/` (also rebuilds demo gifs).                                                                                                                  |
-| `make docs-build`          | Build the docs site to `docs/site/dist/`.                                                                                                                                                                    |
-| `make docs-lint`           | Lint the docs site (`prettier --check` plus `astro check`).                                                                                                                                                  |
-| `make docs-format`         | Auto-format the docs site with `prettier`.                                                                                                                                                                   |
-| `make validate`            | Run `led-ticker validate` against a config TOML. Usage: `make validate CONFIG=config/config.toml`.                                                                                                           |
-| `make panel-test`          | Cycle the panel through full-frame R/G/B/White/Black to diagnose hardware/wiring/driver issues. Usage: `make panel-test [CONFIG=config/config.longboi.toml] [HOLD=2]`. See [panel-test](/tools/panel-test/). |
-| `make panel-test-docker`   | Same as `make panel-test`, but runs inside the production Docker image. Stop the running ticker first (`docker compose stop`). Usage: `make panel-test-docker [CONFIG=…] [HOLD=…]`.                          |
-| `make plan-gif`            | Recommend a render `--duration` for a demo and flag a `# render-duration:` header that would clip. Usage: `make plan-gif CONFIG=path/to.toml`. See [gif-plan](/tools/gif-plan/).                             |
-| `make render-demo`         | Render a single demo gif. Usage: `make render-demo CONFIG=path/to.toml OUT=out.gif`.                                                                                                                         |
-| `make render-long-demos`   | Render every long-running widget demo (data-fetch widgets) into `docs/site/public/demos-long/`.                                                                                                              |
-| `make render-long-demo`    | Render one long-running demo by name. Usage: `make render-long-demo NAME=widget-weather`.                                                                                                                    |
-| `make render-pinned-demos` | Render every pinned short-render demo into `docs/site/public/demos-pinned/`.                                                                                                                                 |
+| Target                         | What it does                                                                                                                                                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `make dev`                     | `uv sync --extra dev` plus install pre-commit and pre-push hooks.                                                                                                                                            |
+| `make test`                    | Run pytest with coverage; sets `PYTHONPATH=tests/stubs` so no real `rgbmatrix` install is needed.                                                                                                            |
+| `make lint`                    | Run `ruff check` over `src/` and `tests/`.                                                                                                                                                                   |
+| `make typecheck`               | Run `pyright` over `src/`.                                                                                                                                                                                   |
+| `make format`                  | Run `ruff format` over `src/` and `tests/`.                                                                                                                                                                  |
+| `make build-docker`            | Build the production Docker image (single image runs on both Pi 4 and Pi 5).                                                                                                                                 |
+| `make docs-dev`                | Start the Astro Starlight dev server at `http://localhost:4321/` (also rebuilds demo gifs).                                                                                                                  |
+| `make docs-build`              | Build the docs site to `docs/site/dist/`.                                                                                                                                                                    |
+| `make docs-lint`               | Lint the docs site (`prettier --check` plus `astro check`).                                                                                                                                                  |
+| `make docs-format`             | Auto-format the docs site with `prettier`.                                                                                                                                                                   |
+| `make validate`                | Run `led-ticker validate` against a config TOML. Usage: `make validate CONFIG=config/config.toml`.                                                                                                           |
+| `make panel-test`              | Cycle the panel through full-frame R/G/B/White/Black to diagnose hardware/wiring/driver issues. Usage: `make panel-test [CONFIG=config/config.longboi.toml] [HOLD=2]`. See [panel-test](/tools/panel-test/). |
+| `make panel-test-docker`       | Same as `make panel-test`, but runs inside the production Docker image. Stop the running ticker first (`docker compose stop`). Usage: `make panel-test-docker [CONFIG=…] [HOLD=…]`.                          |
+| `make panel-map-reveal`        | Paint the chain-calibration pattern (no mapper applied) so physical chain order and panel orientation are visible. Usage: `make panel-map-reveal [CONFIG=…] [HOLD=2]`. See [panel-map](/tools/panel-map/).   |
+| `make panel-map-reveal-docker` | Same as `make panel-map-reveal`, but runs inside the production Docker image. Stop the running ticker first.                                                                                                 |
+| `make panel-map-derive`        | Generate a `Remap:` mapper string from a layout file (no hardware needed). Usage: `make panel-map-derive LAYOUT=layout.txt [CONFIG=…]`. See [panel-map](/tools/panel-map/).                                  |
+| `make panel-map-verify`        | Paint a coherent full-canvas diagnostic to verify a mapper string. Usage: `make panel-map-verify [CONFIG=…] [MAPPER="Remap:…"] [HOLD=2]`. See [panel-map](/tools/panel-map/).                                |
+| `make panel-map-verify-docker` | Same as `make panel-map-verify`, but runs inside the production Docker image. Stop the running ticker first.                                                                                                 |
+| `make plan-gif`                | Recommend a render `--duration` for a demo and flag a `# render-duration:` header that would clip. Usage: `make plan-gif CONFIG=path/to.toml`. See [gif-plan](/tools/gif-plan/).                             |
+| `make render-demo`             | Render a single demo gif. Usage: `make render-demo CONFIG=path/to.toml OUT=out.gif`.                                                                                                                         |
+| `make render-long-demos`       | Render every long-running widget demo (data-fetch widgets) into `docs/site/public/demos-long/`.                                                                                                              |
+| `make render-long-demo`        | Render one long-running demo by name. Usage: `make render-long-demo NAME=widget-weather`.                                                                                                                    |
+| `make render-pinned-demos`     | Render every pinned short-render demo into `docs/site/public/demos-pinned/`.                                                                                                                                 |
 
 The `render-long-demos` target only runs locally — the demos make
 live HTTP calls and some need API keys that aren't available in CI.
@@ -209,5 +214,11 @@ The `led-ticker` CLI itself only accepts `--config` / `-c` (and the `validate` s
 The repo ships test stubs for the C-only `rgbmatrix` module so the entire suite runs on macOS / CI without a real Pi. If you invoke `pytest` directly (e.g. from your editor's test runner), set the same env var yourself or the imports in `src/led_ticker/_compat.py` will fail to find the stub `rgbmatrix` and skip / error every test that touches a canvas.
 
 <RelatedPages
-  slugs={["reference/config-options", "tools/validate", "tools/render-demo", "tools/gif-plan"]}
+  slugs={[
+    "reference/config-options",
+    "tools/validate",
+    "tools/render-demo",
+    "tools/gif-plan",
+    "tools/panel-map",
+  ]}
 />

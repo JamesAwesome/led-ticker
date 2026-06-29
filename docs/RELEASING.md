@@ -167,6 +167,16 @@ python -m venv /tmp/verify-rss
 python -m venv /tmp/verify-weather
 /tmp/verify-weather/bin/pip install led-ticker-weather
 /tmp/verify-weather/bin/pip show led-ticker-weather | grep -i requires
+
+# led-ticker-flair
+python -m venv /tmp/verify-flair
+/tmp/verify-flair/bin/pip install led-ticker-flair
+/tmp/verify-flair/bin/pip show led-ticker-flair | grep -i requires
+
+# led-ticker-telnet
+python -m venv /tmp/verify-telnet
+/tmp/verify-telnet/bin/pip install led-ticker-telnet
+/tmp/verify-telnet/bin/pip show led-ticker-telnet | grep -i requires
 ```
 
 ---

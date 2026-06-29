@@ -18,6 +18,7 @@ import aiohttp
 
 from led_ticker import reload as _reload
 from led_ticker import status_board
+from led_ticker._config_scan import plugin_dependency_warning
 from led_ticker._plugin_loader import (
     _guarded_overlay,
     _run_shutdown_hooks,
@@ -609,6 +610,13 @@ async def run(config_path: Path) -> None:
         logging.warning("plugin %r failed to load: %s", ns, err)
 
     config = await asyncio.to_thread(load_config, config_path)
+    _plugin_warning = plugin_dependency_warning(
+        config_path,
+        [info.namespace for info in plugins.loaded],
+        [ns for ns, _err in plugins.failed],
+    )
+    if _plugin_warning:
+        logging.getLogger(__name__).warning(_plugin_warning)
     # Seed the watcher immediately after load so any edit that lands between
     # load and the while-True loop is captured in the seed hash (not absorbed
     # into a stale baseline that would make the first-edit invisible).

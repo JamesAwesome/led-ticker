@@ -5,6 +5,7 @@ from the display process (must not import webui/aiohttp)."""
 
 import re
 import tomllib
+from collections.abc import Iterable
 from pathlib import Path
 
 from led_ticker.app.plugin_cmd import _requirement_key
@@ -123,3 +124,38 @@ def required_plugins(source: dict | str | Path) -> set[str]:
     data = source if isinstance(source, dict) else _load(source)
     nsmap = _namespace_to_package()
     return {nsmap[ns] for ns in _referenced_namespaces(data) if ns in nsmap}
+
+
+def plugin_dependency_warning(
+    config_source: dict | str | Path,
+    loaded_namespaces: Iterable[str],
+    failed_namespaces: Iterable[str],
+) -> str | None:
+    """A one-shot WARNING message when a config needs plugins that aren't
+    loaded, else None. Distinguishes absent (install) from installed-but-failed
+    (fix). All three inputs use plugin NAMESPACES; packages are derived here."""
+    data = config_source if isinstance(config_source, dict) else _load(config_source)
+    nsmap = _namespace_to_package()
+    required = required_plugins(data)
+    installed = {nsmap[ns] for ns in loaded_namespaces if ns in nsmap}
+    failed_pkgs = {nsmap[ns] for ns in failed_namespaces if ns in nsmap}
+    absent = required - installed - failed_pkgs
+    broken = required & failed_pkgs
+    if not absent and not broken:
+        return None
+    lines: list[str] = []
+    if absent:
+        lines.append(
+            "Config references plugins that aren't installed: "
+            + ", ".join(sorted(absent))
+            + " — their widgets/transitions will be skipped. Install them "
+            "(config/requirements-plugins.txt or the web UI Store) and restart."
+        )
+    if broken:
+        lines.append(
+            "Installed but failed to load: "
+            + ", ".join(sorted(broken))
+            + " — fix or remove it (see the plugin-load errors above)."
+        )
+    lines.append("https://docs.ledticker.dev/plugins/")
+    return "\n".join(lines)

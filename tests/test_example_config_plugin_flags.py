@@ -67,3 +67,36 @@ type = "message"
 text = "version 1.5"
 """
     assert required_plugins(_cfg(toml)) == set()
+
+
+from led_ticker._config_scan import plugin_dependency_warning
+
+_RSS_CFG = {"playlist": {"section": [{"widget": [{"type": "rss.feed"}]}]}}
+
+
+def test_warning_absent_plugin_names_package_and_remedy():
+    msg = plugin_dependency_warning(_RSS_CFG, loaded_namespaces=[], failed_namespaces=[])
+    assert msg is not None
+    assert "led-ticker-rss" in msg
+    assert "aren't installed" in msg
+    assert "docs.ledticker.dev/plugins" in msg
+
+
+def test_warning_installed_but_failed_says_fix_not_install():
+    msg = plugin_dependency_warning(
+        _RSS_CFG, loaded_namespaces=[], failed_namespaces=["rss"]
+    )
+    assert msg is not None
+    assert "failed to load" in msg
+    assert "led-ticker-rss" in msg
+
+
+def test_no_warning_when_required_plugin_is_loaded():
+    assert (
+        plugin_dependency_warning(_RSS_CFG, loaded_namespaces=["rss"], failed_namespaces=[])
+        is None
+    )
+
+
+def test_no_warning_for_plugin_free_config():
+    assert plugin_dependency_warning({"display": {"rows": 16}}, [], []) is None

@@ -72,7 +72,12 @@
   .restart-notice { background: #1a1a2a; border: 1px solid #3a3a6a; border-radius: 6px; padding: .75rem 1rem; margin-top: .75rem; font-size: .9rem; display: none; }
   .restart-notice strong { color: #99f; }
 
-  /* Narrow screens (phones): stack the header so nothing overflows off-edge. */
+  /* Tablet + phone: give the (JS-populated, sometimes long) build ref its own
+     row so the top row never crowds — also clears the 641–800px middle zone. */
+  @media (max-width: 800px) {
+    #build-stamp { flex-basis: 100%; margin-left: 0; }
+  }
+  /* Phones: stack the header so nothing overflows off-edge. */
   @media (max-width: 640px) {
     header { gap: .5rem .8rem; padding: .7rem .9rem; }
     /* Token field gets its own full-width row instead of a squeezed 9rem at the edge. */
@@ -80,6 +85,8 @@
     .token-bar input { flex: 1; width: auto; }
     /* Tabs wrap onto their own full-width row(s) — all 5 stay visible, no horizontal scroll. */
     nav { flex-basis: 100%; flex-wrap: wrap; }
+    nav button { padding: .6rem .9rem; }   /* taller, comfier tap targets on touch */
+    .card { overflow-x: auto; }            /* contain any wide table/pre at the card edge */
   }
 </style>
 </head>

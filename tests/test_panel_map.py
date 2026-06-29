@@ -15,7 +15,7 @@ from led_ticker.panel_map import (
     parse_remap_string,
 )
 
-# HARDWARE-VALIDATED (moonbunny bigsign, 2026-06-29). This is the *actual*
+# HARDWARE-VALIDATED on a real bigsign (2026-06-29). This is the *actual*
 # reveal grid photographed off the panel (chain index 1 lands top-left), not a
 # value reverse-engineered from the string. Running `verify` with BIGSIGN_STRING
 # in the same orientation shows a clean reading-order "1 2 3 4 / 5 6 7 8", so
@@ -314,7 +314,7 @@ def test_built_frame_requires_setup_before_drawing():
     get_clean_canvas() WITHOUT frame.setup(), crashing on real hardware with
     BackendNotReadyError. The LedFrame readiness contract requires setup()
     first; this guards the full headless build -> setup -> paint path the
-    scripts rely on. (Discovered on moonbunny hardware, 2026-06-29.)"""
+    scripts rely on. (Discovered on real bigsign hardware, 2026-06-29.)"""
     from led_ticker.app.factories import build_frame_from_config
     from led_ticker.backends import BackendNotReadyError
     from led_ticker.config import DisplayConfig

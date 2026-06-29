@@ -43,12 +43,12 @@ def _hold_loop(frame, canvas, paint, hold):
     try:
         while True:
             paint(canvas)
-            canvas = frame.matrix.SwapOnVSync(canvas)  # constraint #1
+            canvas = frame.swap(canvas)  # constraint #1: capture the new back buffer
             time.sleep(hold)
     except KeyboardInterrupt:
         logging.info("Interrupted — clearing panel.")
         canvas.Fill(0, 0, 0)
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = frame.swap(canvas)
         return 0
 
 

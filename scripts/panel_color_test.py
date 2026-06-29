@@ -82,14 +82,14 @@ def main() -> int:
             name, r, g, b = COLORS[i % n]
             logging.info("[%d/%d] %s (%d, %d, %d)", (i % n) + 1, n, name, r, g, b)
             canvas.Fill(r, g, b)
-            # Constraint #1: SwapOnVSync return value MUST be captured.
-            canvas = frame.matrix.SwapOnVSync(canvas)
+            # Constraint #1: the swap return value MUST be captured.
+            canvas = frame.swap(canvas)
             time.sleep(args.hold)
             i += 1
     except KeyboardInterrupt:
         logging.info("Interrupted — clearing panel.")
         canvas.Fill(0, 0, 0)
-        canvas = frame.matrix.SwapOnVSync(canvas)
+        canvas = frame.swap(canvas)
         return 0
 
 

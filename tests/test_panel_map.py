@@ -274,7 +274,12 @@ def test_built_frame_requires_setup_before_drawing():
     with pytest.raises(BackendNotReadyError):
         frame.get_clean_canvas()
 
-    # After setup(), the build -> canvas -> paint path runs clean.
+    # After setup(), the full build -> canvas -> paint -> swap path runs clean.
+    # This also locks the LedFrame API the scripts call: setup() and
+    # frame.swap() — the scripts previously used the removed
+    # frame.matrix.SwapOnVSync(), which crashed on hardware after the refactor.
     frame.setup()
     canvas = frame.get_clean_canvas()
     paint_reveal(canvas, cols=32, rows=16, chain_length=5, parallel=1)
+    new_canvas = frame.swap(canvas)
+    assert new_canvas is not None

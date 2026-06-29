@@ -61,3 +61,8 @@ def test_ragged_grid_is_plain_language_error():
 def test_bad_flag_is_error():
     with pytest.raises(LayoutError, match="z"):
         parse_layout("1z 2n")
+
+
+def test_flag_only_token_missing_panel_number():
+    with pytest.raises(LayoutError, match="missing its panel number"):
+        parse_layout("s 2n")

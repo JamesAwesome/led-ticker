@@ -8,8 +8,6 @@ See docs.ledticker.dev/tools/panel-map/ for the user-facing workflow and
 docs/superpowers/specs/2026-06-29-panel-map-helper-design.md for the design.
 """
 
-from __future__ import annotations
-
 VALID_FLAGS = ("n", "s", "e", "w", "x")
 
 
@@ -30,16 +28,22 @@ def parse_layout(text: str) -> list[list[tuple[int, str]]]:
         for token in line.split():
             flag = token[-1].lower()
             num = token[:-1]
+            if not num and flag in VALID_FLAGS:
+                raise LayoutError(
+                    f"'{token}' is missing its panel number — write the number "
+                    f"then the flag, e.g. '3{flag}', not '{token}'."
+                )
             if flag not in VALID_FLAGS or not num.isdigit():
                 raise LayoutError(
                     f"'{token}' isn't a valid cell. Each cell is a panel "
                     f"number followed by one of {', '.join(VALID_FLAGS)} "
-                    f"(e.g. '3s'). Got flag '{flag}'."
+                    "(e.g. '3s'). Use n=upright, s=upside-down, "
+                    "e/w=rotated 90°, x=skip."
                 )
             cells.append((int(num), flag))
         rows.append(cells)
     if not rows:
-        raise LayoutError("Empty layout — nothing to derive.")
+        raise LayoutError("Empty layout — no panels to map.")
     width = len(rows[0])
     for i, r in enumerate(rows):
         if len(r) != width:
@@ -75,8 +79,8 @@ def derive_remap_string(
         for c, (idx, flag) in enumerate(row):
             if idx in placement:
                 raise LayoutError(
-                    f"You listed panel {idx} twice. Each cable position "
-                    "appears exactly once."
+                    f"You listed panel {idx} twice. Each panel number must "
+                    "appear exactly once in your grid."
                 )
             placement[idx] = (c * cols, r * rows, flag)
 

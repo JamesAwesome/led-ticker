@@ -1,0 +1,339 @@
+import subprocess
+import sys
+
+import pytest
+
+from led_ticker.backends.headless import HeadlessCanvas
+from led_ticker.panel_map import (
+    DIGITS_3x5,
+    LayoutError,
+    derive_remap_string,
+    draw_index,
+    paint_reveal,
+    paint_verify,
+    parse_layout,
+    parse_remap_string,
+)
+
+# HARDWARE-VALIDATED on a real bigsign (2026-06-29). This is the *actual*
+# reveal grid photographed off the panel (chain index 1 lands top-left), not a
+# value reverse-engineered from the string. Running `verify` with BIGSIGN_STRING
+# in the same orientation shows a clean reading-order "1 2 3 4 / 5 6 7 8", so
+# this grid -> this string is the ground-truth round trip the tool must satisfy.
+BIGSIGN_GRID = "1n 3n 5n 7n\n2n 4n 6n 8n"
+BIGSIGN_STRING = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+
+
+def test_parse_layout_basic():
+    grid = parse_layout("3n 4n\n1s 2e")
+    assert grid == [[(3, "n"), (4, "n")], [(1, "s"), (2, "e")]]
+
+
+def test_derive_reproduces_bigsign_string_exactly():
+    # Golden tripwire: the real config.bigsign.example.toml string, derived from
+    # the hardware-photographed reveal grid (see BIGSIGN_GRID note).
+    out = derive_remap_string(
+        BIGSIGN_GRID, cols=64, rows=32, chain_length=8, parallel=1
+    )
+    assert out == BIGSIGN_STRING
+
+
+def test_derive_emits_in_reverse_chain_order():
+    """RemapMapper consumes the entry list back-to-front: the first string
+    entry feeds the LAST panel in the cable chain. So a left-to-right reveal
+    "1 2 3 4" must emit positions right-to-left (panel 4's slot first)."""
+    out = derive_remap_string(
+        "1n 2n 3n 4n", cols=64, rows=32, chain_length=4, parallel=1
+    )
+    assert out == "Remap:256,32|192,0n|128,0n|64,0n|0,0n"
+
+
+def test_derive_two_by_two_grid():
+    # Reveal grid (chain index per physical cell); entries emit panel 4..1.
+    out = derive_remap_string(
+        "4n 3n\n1n 2n", cols=64, rows=32, chain_length=4, parallel=1
+    )
+    # panel 4 @(0,0), 3 @(64,0), 2 @(64,32), 1 @(0,32) — reverse order.
+    assert out == "Remap:128,64|0,0n|64,0n|64,32n|0,32n"
+
+
+def test_derive_preserves_rotation_flags():
+    # Flags travel with their panels through the reverse emission: panel 2
+    # (flag e) emits first, panel 1 (flag s) last.
+    out = derive_remap_string("1s 2e", cols=64, rows=32, chain_length=2, parallel=1)
+    assert out == "Remap:128,32|64,0e|0,0s"
+
+
+def test_derive_rejects_parallel_greater_than_one():
+    """parallel>1 reverses panels within each chain row, not the whole list —
+    derive must refuse rather than emit a silently-wrong full-reverse string."""
+    with pytest.raises(LayoutError, match="single data chain"):
+        derive_remap_string(
+            "1n 2n\n3n 4n", cols=64, rows=32, chain_length=2, parallel=2
+        )
+
+
+def test_missing_index_is_plain_language_error():
+    with pytest.raises(LayoutError, match="never listed panel 2"):
+        derive_remap_string("1n 3n", cols=64, rows=32, chain_length=3, parallel=1)
+
+
+def test_duplicate_index_is_plain_language_error():
+    with pytest.raises(LayoutError, match="listed panel 1 twice"):
+        derive_remap_string("1n 1n", cols=64, rows=32, chain_length=2, parallel=1)
+
+
+def test_ragged_grid_is_plain_language_error():
+    with pytest.raises(LayoutError, match="same number of cells"):
+        parse_layout("1n 2n 3n\n4n 5n")
+
+
+def test_bad_flag_is_error():
+    with pytest.raises(LayoutError, match="z"):
+        parse_layout("1z 2n")
+
+
+def test_flag_only_token_missing_panel_number():
+    with pytest.raises(LayoutError, match="missing its panel number"):
+        parse_layout("s 2n")
+
+
+# ---------------------------------------------------------------------------
+# Task 2: reveal calibration pattern
+# ---------------------------------------------------------------------------
+
+
+def test_digit_font_has_all_ten_digits():
+    for d in "0123456789":
+        assert d in DIGITS_3x5
+        assert len(DIGITS_3x5[d]) == 5  # five rows
+        assert all(len(row) == 3 for row in DIGITS_3x5[d])  # three cols
+
+
+def test_draw_index_lights_pixels_in_top_left_region():
+    c = HeadlessCanvas(width=64, height=32)
+    draw_index(c, 1, 2, 2, scale=1)
+    assert c.count_nonzero() > 0
+    # nothing painted outside the digit's small bounding box
+    assert c.get_pixel(40, 20) == (0, 0, 0)
+
+
+def test_paint_reveal_lights_every_slot():
+    # smallsign geometry: 5 panels of 32x16
+    c = HeadlessCanvas(width=160, height=16)
+    paint_reveal(c, cols=32, rows=16, chain_length=5, parallel=1)
+    # every 32-wide slot has lit pixels (the border alone guarantees this)
+    for i in range(5):
+        lit = any(
+            c.get_pixel(x, y) != (0, 0, 0)
+            for x in range(i * 32, (i + 1) * 32)
+            for y in range(16)
+        )
+        assert lit, f"slot {i} is blank"
+
+
+def test_paint_reveal_index_differs_between_slots():
+    # The digit pixels for slot 0 ("1") and slot 1 ("2") must differ,
+    # proving each slot draws its own index rather than a constant.
+    c = HeadlessCanvas(width=160, height=16)
+    paint_reveal(c, cols=32, rows=16, chain_length=5, parallel=1)
+    slot0 = [c.get_pixel(x, y) for x in range(0, 32) for y in range(16)]
+    slot1 = [c.get_pixel(x, y) for x in range(32, 64) for y in range(16)]
+    assert slot0 != slot1
+
+
+def test_arrow_does_not_bleed_across_slot_boundary():
+    """Arrow must be bounded within its slot and must have a shaft ≥ 2 px wide.
+
+    Regression for the original 1-px-diagonal arrowhead that spread
+    ``height // 2`` px each side, overflowing into the adjacent slot.
+    """
+    c = HeadlessCanvas(width=160, height=16)
+    paint_reveal(c, cols=32, rows=16, chain_length=5, parallel=1)
+    YELLOW = (255, 255, 0)
+    # Interior slot boundary: slot 0 owns x=0..31; slot 1 owns x=32..63.
+    # No yellow pixel from slot 0's arrow should appear at x=32 or x=33.
+    for boundary_x in (32, 33):
+        for y in range(16):
+            assert c.get_pixel(boundary_x, y) != YELLOW, (
+                f"yellow arrow bleeds into slot 1 at x={boundary_x}, y={y}"
+            )
+    # Arrow shaft must be at least 2 px wide somewhere within slot 0.
+    max_yellow_in_row = max(
+        sum(1 for x in range(32) if c.get_pixel(x, y) == YELLOW) for y in range(16)
+    )
+    assert max_yellow_in_row >= 2, "arrow shaft should be >= 2 px wide in some row"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: verify calibration pattern
+# ---------------------------------------------------------------------------
+
+
+def test_parse_remap_round_trips_bigsign():
+    w, h, entries = parse_remap_string(BIGSIGN_STRING)
+    assert (w, h) == (256, 64)
+    assert len(entries) == 8
+    assert entries[0] == (192, 32, "n")
+    assert entries[7] == (0, 0, "n")
+
+
+def test_parse_remap_rejects_garbage():
+    with pytest.raises(LayoutError):
+        parse_remap_string("not a remap string")
+
+
+def test_paint_verify_draws_reading_order_indices():
+    """Each visible cell is labelled by reading-order position, not by mapper
+    entry — the canvas-keyed design that makes a wrong mapper visibly scramble.
+
+    Bigsign is 4 cols × 2 rows: cell (0,0) → label 1, cell (192,32) → label 8.
+    """
+    c = HeadlessCanvas(width=256, height=64)
+    paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)
+    # cell (0,0) carries reading-order label 1; its index pixels live there
+    cell_first = any(
+        c.get_pixel(x, y) != (0, 0, 0) for x in range(0, 64) for y in range(0, 32)
+    )
+    # cell (192,32) carries reading-order label 8; its index pixels live there
+    cell_last = any(
+        c.get_pixel(x, y) != (0, 0, 0) for x in range(192, 256) for y in range(32, 64)
+    )
+    assert cell_first and cell_last
+    # the two cells render different indices (1 vs 8)
+    region_first = [c.get_pixel(x, y) for x in range(0, 64) for y in range(0, 32)]
+    region_last = [c.get_pixel(x, y) for x in range(192, 256) for y in range(32, 64)]
+    assert region_first != region_last
+
+
+def test_paint_verify_index_digit_within_cell():
+    """Cell (0,0) carries reading-order label "1"; its digit must light pixels
+    within that cell."""
+    c = HeadlessCanvas(width=256, height=64)
+    paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)
+    # The index is drawn in white (255,255,255) starting at (3,2). Assert at
+    # least one white digit pixel falls inside cell (0,0) = [0,64)×[0,32).
+    white_in_cell = any(
+        c.get_pixel(x, y) == (255, 255, 255)
+        for x in range(0, 64)
+        for y in range(0, 32)
+    )
+    assert white_in_cell, "label digit not rendered white inside cell (0,0)"
+
+
+def test_paint_verify_is_mapper_independent():
+    """The painted canvas must be IDENTICAL for any same-size mapper.
+
+    This is the regression guard for the tautology bug: the old design keyed
+    the labels to each mapper's own entry positions, so the hardware routed
+    every panel back to its own number for ANY mapper — diagnosing nothing.
+    The fix keys labels to visible canvas position, so the painted image does
+    not depend on the mapper string at all; the diagnostic lives entirely in
+    how the hardware routes the pixels. Same header → byte-identical canvas.
+    """
+    # BIGSIGN_STRING and the 180°-flipped (broken) mapper share the 256×64
+    # header but list panels in opposite order.
+    flipped = (
+        "Remap:256,64|0,0n|0,32n|64,0n|64,32n|128,0n|128,32n|192,0n|192,32n"
+    )
+    a = HeadlessCanvas(width=256, height=64)
+    b = HeadlessCanvas(width=256, height=64)
+    paint_verify(a, mapper=BIGSIGN_STRING, cols=64, rows=32)
+    paint_verify(b, mapper=flipped, cols=64, rows=32)
+    pixels_a = [a.get_pixel(x, y) for x in range(256) for y in range(64)]
+    pixels_b = [b.get_pixel(x, y) for x in range(256) for y in range(64)]
+    assert pixels_a == pixels_b, (
+        "paint_verify canvas depends on the mapper string — tautology regression"
+    )
+
+
+def test_paint_verify_arrow_does_not_bleed_across_cell_boundary():
+    """Per-cell arrow must be bounded within its visible cell.
+
+    Regression for the old unbounded call: at bigsign geometry (cols=64,
+    rows=32) the old cx=x+cols-max(4,scale*2)=x+56 with default
+    head_half=14 spreads the arrowhead to x+56+13=x+69, 6 px into the
+    adjacent cell.  With the fix, rightmost pixel ≤ x+62.
+
+    The cell at x=64..127, y=32..63 has its own up-arrow.  Neither x=127 (its
+    own right border, painted teal) nor x=128 (start of the next cell, also
+    teal) should be yellow from that arrow.  The next cell's arrow is centred
+    at x=176, far from x=127..128.
+    """
+    c = HeadlessCanvas(width=256, height=64)
+    paint_verify(c, mapper=BIGSIGN_STRING, cols=64, rows=32)
+    YELLOW = (255, 255, 0)
+    for check_x in (127, 128):
+        for y in range(32, 64):
+            assert c.get_pixel(check_x, y) != YELLOW, (
+                f"yellow arrow bleeds at x={check_x}, y={y}"
+            )
+
+
+def test_parse_remap_bad_flag_raises_layout_error():
+    with pytest.raises(LayoutError, match="orientation"):
+        parse_remap_string("Remap:64,32|0,0z")
+
+
+def test_parse_remap_bad_coordinates_raises_layout_error():
+    with pytest.raises(LayoutError, match="coordinates"):
+        parse_remap_string("Remap:64,32|abc,defn")
+
+
+def test_parse_remap_empty_trailing_cell_raises_layout_error():
+    """Trailing pipe must raise LayoutError, not IndexError."""
+    with pytest.raises(LayoutError):
+        parse_remap_string("Remap:256,64|")
+
+
+# ---------------------------------------------------------------------------
+# Task 4: CLI smoke test (no hardware)
+# ---------------------------------------------------------------------------
+
+
+def test_cli_derive_from_stdin_prints_string(tmp_path):
+    # derive reads geometry from --config [display]; use the bundled bigsign example
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "scripts/panel_map.py",
+            "derive",
+            "--config",
+            "config/config.bigsign.example.toml",
+        ],
+        input=BIGSIGN_GRID,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert BIGSIGN_STRING in proc.stdout
+
+
+def test_built_frame_requires_setup_before_drawing():
+    """Regression: the reveal/verify CLI commands built a frame and called
+    get_clean_canvas() WITHOUT frame.setup(), crashing on real hardware with
+    BackendNotReadyError. The LedFrame readiness contract requires setup()
+    first; this guards the full headless build -> setup -> paint path the
+    scripts rely on. (Discovered on real bigsign hardware, 2026-06-29.)"""
+    from led_ticker.app.factories import build_frame_from_config
+    from led_ticker.backends import BackendNotReadyError
+    from led_ticker.config import DisplayConfig
+
+    display = DisplayConfig(
+        rows=16, cols=32, chain_length=5, parallel=1, backend="headless"
+    )
+    frame = build_frame_from_config(display)
+
+    # Drawing before setup() must raise — this is the failure the scripts hit.
+    with pytest.raises(BackendNotReadyError):
+        frame.get_clean_canvas()
+
+    # After setup(), the full build -> canvas -> paint -> swap path runs clean.
+    # This also locks the LedFrame API the scripts call: setup() and
+    # frame.swap() — the scripts previously used the removed
+    # frame.matrix.SwapOnVSync(), which crashed on hardware after the refactor.
+    frame.setup()
+    canvas = frame.get_clean_canvas()
+    paint_reveal(canvas, cols=32, rows=16, chain_length=5, parallel=1)
+    new_canvas = frame.swap(canvas)
+    assert new_canvas is not None

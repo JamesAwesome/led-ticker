@@ -15,6 +15,8 @@ Many pages serve one reader; some serve both. **Name the reader at the top of th
 
 **Voice:** pragmatic, second-person ("you"), concrete, no marketing language. Match the existing tutorial and widget pages. Warmth is welcome — one enthusiastic outcome line per page is plenty — but stay matter-of-fact, never breathless.
 
+**Inclusive language.** Avoid ableist idioms — most often "sanity check" / "sanity test". Use a plain alternative that's usually clearer anyway: "correctness check", "quick check", "smoke test", "cross-check". This applies to docs, code comments, test names, commit messages, and UI copy. (Other common offenders: "crazy/insane" for "surprising", "dummy value" for "placeholder".)
+
 ## 2. Principles
 
 Each principle is one rule plus a one-line "why." Principles 1–10 come from our own persona reviews; 11–16 are borrowed from Adafruit Learn (the last six are new or under-used for us).

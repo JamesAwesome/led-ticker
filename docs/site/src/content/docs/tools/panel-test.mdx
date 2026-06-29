@@ -14,7 +14,7 @@ It reads the `[display]` section of any led-ticker config TOML and reuses the sa
 For a dev laptop or any non-Docker host with the `rgbmatrix` Python bindings installed:
 
 ```bash
-make panel-test                                        # uses config/config.longboi.toml, 2s holds
+make panel-test                                        # uses config/config.toml (this sign's config), 2s holds
 make panel-test CONFIG=config/config.small_sign.toml  # different sign
 make panel-test HOLD=4                                 # slower cycle for a long stare
 ```
@@ -28,10 +28,10 @@ Ctrl-C exits cleanly: the script paints one final black frame and swaps it on, s
 This is what you'll actually run on a deployed sign. The diagnostic and the main ticker cannot share the matrix, so stop the ticker first:
 
 ```bash
-docker compose stop          # or: sudo systemctl stop led-ticker
+docker compose stop
 make panel-test-docker
 # ...observe the panel, Ctrl-C when done...
-docker compose start         # or: sudo systemctl start led-ticker
+docker compose start
 ```
 
 The `panel-test-docker` target runs `docker run --rm -it --privileged --network host` against the existing `led-ticker` image — same privilege flags as `compose.yaml`. The script is bind-mounted from the repo, so iteration on the script itself doesn't require `make build-docker`. The first run does require the image to exist (`make build-docker` once).
@@ -77,5 +77,11 @@ The script has no other arguments. It always cycles R → G → B → W → B an
 - **Not a substitute for `validate`:** `panel-test` cannot tell you anything about your widgets, transitions, or playlist. Use [`validate`](/tools/validate/) for config-layer checks and [`render-demo`](/tools/render-demo/) for widget-layer previews.
 
 <RelatedPages
-  slugs={["hardware/bigsign", "hardware/smallsign", "reference/cli", "tools/validate"]}
+  slugs={[
+    "hardware/bigsign",
+    "hardware/smallsign",
+    "reference/cli",
+    "tools/validate",
+    "tools/panel-map",
+  ]}
 />

@@ -68,6 +68,8 @@ border = {style = "bands", colors = "usa", band_width = 10, speed = -2}
 # Section 3 — RSS headlines from Hacker News (no API key, public feed).
 # The rss.feed widget (led-ticker-rss plugin) scrolls the latest front-page
 # stories. Entered via nyancat.forward so the cat sweeps in fresh news.
+# Needs an internet connection for the live feed; if it's unreachable the
+# section stays blank and the others keep scrolling.
 [[playlist.section]]
 mode = "forever_scroll"
 content_height = 16

@@ -92,7 +92,7 @@ Repeat for each plugin package. Tags are scoped by plugin name so all packages c
 
 For each plugin (example shown for `led-ticker-pool`):
 
-> **Tag format:** `<plugin>-v<version>` using the SHORT plugin name (`pool`, `baseball`, `crypto`, `calendar`, `rss`, `weather`) — NOT the full PyPI package name. This matches the existing tag convention and the allowlist in `scripts/check_release.py`; a full-name tag like `led-ticker-pool-v…` is rejected as an unknown plugin. The `<version>` must equal the plugin's `pyproject.toml` version or the tag-vs-version guard fails the run.
+> **Tag format:** `<plugin>-v<version>` using the SHORT plugin name (`pool`, `baseball`, `crypto`, `calendar`, `rss`, `weather`) — NOT the full PyPI package name. This matches the existing tag convention and the allowlist in the **led-ticker-plugins** repo's `scripts/check_release.py` (that guard lives in the plugins repo, not here); a full-name tag like `led-ticker-pool-v…` is rejected as an unknown plugin. The `<version>` must equal the plugin's `pyproject.toml` version or the tag-vs-version guard fails the run.
 
 1. Confirm the plugin's `pyproject.toml` version (e.g. `pool` is currently `0.1.0`).
 2. On GitHub (`led-ticker-plugins`): **Releases → Draft a new release**.

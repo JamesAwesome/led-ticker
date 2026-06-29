@@ -79,8 +79,11 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 # branch@shortsha(+dirty) — baked into the image as LED_TICKER_BUILD_REF.
 BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo +dirty)
 # hatch-vcs version computed on the host (the image has no .git). Matches the
-# in-build value because hatch-vcs uses setuptools-scm defaults.
-VERSION ?= $(shell uvx --from setuptools-scm python -m setuptools_scm 2>/dev/null)
+# in-build value because hatch-vcs uses setuptools-scm defaults. Strip the
+# +local segment (gSHA.dDATE) so the image's baked package version is
+# deterministic by commit, not by calendar date — the SHA still rides in
+# BUILD_REF (the webui header). A real release builds from a clean tag = X.Y.Z.
+VERSION ?= $(shell uvx --from setuptools-scm python -m setuptools_scm 2>/dev/null | sed 's/+.*//')
 
 build-docker:  ## Build the production Docker image (Pi 4 + Pi 5)
 	docker build -t led-ticker --build-arg BUILD_REF="$(BUILD_REF)" --build-arg SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$(VERSION)" .

@@ -20,6 +20,16 @@ jobs:
         with:
           fetch-depth: 0   # hatch-vcs derives the version from the tag
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - name: Guard — derived version is an exact-tag match (fail before publish)
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          V="$(uvx --from setuptools-scm python -m setuptools_scm)"
+          echo "release tag: $TAG | derived version: $V"
+          # An exact-tag release derives a clean X.Y.Z and the tag is v<that>.
+          # A typo tag (missing 'v'), wrong target commit, or off-tag release
+          # derives a .devN+<local> version PyPI would reject AFTER approval.
+          [ "$TAG" = "v$V" ] || { echo "::error::Tag $TAG != v$V — not an exact-tag release. Refusing to publish."; exit 1; }
       - name: Build sdist + wheel
         run: rm -rf dist && uv build
       - name: Publish to PyPI (Trusted Publishing)

@@ -129,21 +129,22 @@ flags and the long-running pipeline used for data-fetch widgets.
 
 ## Deploying to the Pi
 
-Once your config renders the way you want, push it to a Pi:
+Once your config renders the way you want, push it to a Pi. Deployment is
+**Docker Compose**:
 
 - **Build the production image** with `make build-docker`. The same
   Dockerfile builds for both Pi 4 and Pi 5 — the rgbmatrix library
   detects the SoC at runtime.
-- **Run via systemd**, using the unit file at
-  [`deploy/led-ticker.service`](https://github.com/JamesAwesome/led-ticker/blob/main/deploy/led-ticker.service).
-  It runs `led-ticker --config /opt/led-ticker/config.toml` with
-  `Restart=always`, so the ticker comes back up on power loss.
+- **Run it with `docker compose up -d`.** The `compose.yaml` sets
+  `restart: unless-stopped`, so the ticker comes back up on power loss,
+  and runs `--privileged` for matrix access.
 - **Mount the config read-only**, so a typo in a hot-edit can't crash
-  the ticker into a half-applied state. Compose example:
-  `./config:/code/config:ro`.
+  the ticker into a half-applied state — `compose.yaml` already does this
+  (`./config:/code/config:ro`).
 
-The `deploy/` directory in the repo also has an `install.sh` script
-that wires up the systemd unit on a fresh Pi.
+To take the sign down for a diagnostic (like [`panel-map`](/tools/panel-map/) or
+[`panel-test`](/tools/panel-test/)), `docker compose stop`; bring it back with
+`docker compose start`.
 
 ## Tips
 

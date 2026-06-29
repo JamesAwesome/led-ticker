@@ -14,7 +14,7 @@ It reads the `[display]` section of any led-ticker config TOML and reuses the sa
 For a dev laptop or any non-Docker host with the `rgbmatrix` Python bindings installed:
 
 ```bash
-make panel-test                                        # uses config/config.longboi.toml, 2s holds
+make panel-test                                        # uses config/config.toml (this sign's config), 2s holds
 make panel-test CONFIG=config/config.small_sign.toml  # different sign
 make panel-test HOLD=4                                 # slower cycle for a long stare
 ```

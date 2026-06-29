@@ -40,13 +40,12 @@ validate:  ## Validate a config TOML. Usage: make validate [CONFIG=path/to.toml]
 # Cycle full panel through R/G/B/White/Black for hardware-layer diagnostics.
 # Use this when widgets render wrong but you don't know if it's a config or
 # wiring/driver issue. Reuses [display] from the given config TOML.
-PANEL_CONFIG = $(if $(filter command,$(origin CONFIG)),$(CONFIG),config/config.longboi.toml)
 HOLD ?= 2
 LAYOUT ?=
 
-panel-test:  ## Cycle full panel through R/G/B/W/B. Usage: make panel-test [CONFIG=config/config.longboi.toml] [HOLD=2]
+panel-test:  ## Cycle full panel through R/G/B/W/B. Usage: make panel-test [CONFIG=config/config.toml] [HOLD=2]
 	uv run python scripts/panel_color_test.py \
-	  --config $(PANEL_CONFIG) \
+	  --config $(CONFIG) \
 	  --hold $(HOLD)
 
 # Run the panel-test inside the production Docker image — this is what you'll
@@ -69,7 +68,7 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 	  -v $(PWD)/scripts:/code/scripts:ro \
 	  led-ticker \
 	  python /code/scripts/panel_color_test.py \
-	    --config /code/$(PANEL_CONFIG) \
+	    --config /code/$(CONFIG) \
 	    --hold $(HOLD)
 
 # --- Panel mapping helpers ---

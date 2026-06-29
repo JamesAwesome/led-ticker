@@ -75,6 +75,7 @@ const KIND_ORDER = [
   "color_providers",
   "animations",
   "easing",
+  "backends",
 ] as const;
 const KIND_LABELS: Record<string, string> = {
   widgets: "Widgets",
@@ -85,6 +86,7 @@ const KIND_LABELS: Record<string, string> = {
   color_providers: "Color providers",
   animations: "Animations",
   easing: "Easing",
+  backends: "Backends",
 };
 
 const groups = KIND_ORDER.filter((k) => (entry.provides[k] ?? []).length > 0).map((k) => ({

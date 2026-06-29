@@ -96,3 +96,106 @@ def derive_remap_string(
         entries.append(f"{x},{y}{flag}")
 
     return f"Remap:{width},{height}|" + "|".join(entries)
+
+
+# ---------------------------------------------------------------------------
+# Calibration-pattern drawing helpers
+# ---------------------------------------------------------------------------
+
+# 3x5 bitmap digits. Each entry is 5 rows of 3 chars; '1' = lit.
+DIGITS_3x5: dict[str, list[str]] = {
+    "0": ["111", "101", "101", "101", "111"],
+    "1": ["010", "110", "010", "010", "111"],
+    "2": ["111", "001", "111", "100", "111"],
+    "3": ["111", "001", "111", "001", "111"],
+    "4": ["101", "101", "111", "001", "001"],
+    "5": ["111", "100", "111", "001", "111"],
+    "6": ["111", "100", "111", "101", "111"],
+    "7": ["111", "001", "010", "010", "010"],
+    "8": ["111", "101", "111", "101", "111"],
+    "9": ["111", "101", "111", "001", "111"],
+}
+
+_DIGIT_W = 3
+_DIGIT_H = 5
+
+
+def draw_digit(canvas, ch, x, y, *, scale, r, g, b):  # noqa: PLR0913
+    glyph = DIGITS_3x5[ch]
+    for ry, row in enumerate(glyph):
+        for rx, bit in enumerate(row):
+            if bit == "1":
+                for dy in range(scale):
+                    for dx in range(scale):
+                        canvas.SetPixel(
+                            x + rx * scale + dx, y + ry * scale + dy, r, g, b
+                        )
+
+
+def draw_index(canvas, value, x, y, *, scale=1, r=255, g=255, b=255):  # noqa: PLR0913
+    cx = x
+    for ch in str(value):
+        draw_digit(canvas, ch, cx, y, scale=scale, r=r, g=g, b=b)
+        cx += _DIGIT_W * scale + scale  # one scaled-pixel gap between digits
+
+
+def draw_underline(canvas, x, y, length, r, g, b):  # noqa: PLR0913
+    for dx in range(length):
+        canvas.SetPixel(x + dx, y, r, g, b)
+
+
+def draw_up_arrow(canvas, cx, top_y, height, r, g, b):  # noqa: PLR0913
+    # vertical shaft
+    for dy in range(height):
+        canvas.SetPixel(cx, top_y + dy, r, g, b)
+    # head: two diagonals from the tip
+    for d in range(1, height // 2 + 1):
+        canvas.SetPixel(cx - d, top_y + d, r, g, b)
+        canvas.SetPixel(cx + d, top_y + d, r, g, b)
+
+
+def draw_corner_dot(canvas, x, y, size, r, g, b):  # noqa: PLR0913
+    for dy in range(size):
+        for dx in range(size):
+            canvas.SetPixel(x + dx, y + dy, r, g, b)
+
+
+def draw_border(canvas, x, y, w, h, r, g, b):  # noqa: PLR0913
+    for dx in range(w):
+        canvas.SetPixel(x + dx, y, r, g, b)
+        canvas.SetPixel(x + dx, y + h - 1, r, g, b)
+    for dy in range(h):
+        canvas.SetPixel(x, y + dy, r, g, b)
+        canvas.SetPixel(x + w - 1, y + dy, r, g, b)
+
+
+def paint_reveal(canvas, *, cols, rows, chain_length, parallel):
+    """Paint each raw-chain panel slot with its 1-based chain index, an
+    up-arrow (logical-up), a top-left corner dot, an underline beneath the
+    index (this-way-up cue), and a slot border. Assumes an identity mapper
+    so slot k maps 1:1 to the k-th physical panel in the cable chain.
+    """
+    canvas.Fill(0, 0, 0)
+    # integer scale so the 5-tall digit comfortably fits the slot height
+    scale = max(1, min(cols // 8, rows // 8))
+    for j in range(parallel):
+        for i in range(chain_length):
+            k = j * chain_length + i + 1
+            ox, oy = i * cols, j * rows
+            draw_border(canvas, ox, oy, cols, rows, 0, 80, 80)
+            draw_corner_dot(canvas, ox + 1, oy + 1, max(2, scale), 255, 0, 0)
+            dx, dy = ox + 3, oy + 2
+            draw_index(canvas, k, dx, dy, scale=scale)
+            draw_underline(
+                canvas, dx, dy + _DIGIT_H * scale, _DIGIT_W * scale, 0, 255, 0
+            )
+            # up-arrow on the right side of the slot
+            draw_up_arrow(
+                canvas,
+                ox + cols - max(4, scale * 2),
+                oy + 2,
+                rows - 4,
+                255,
+                255,
+                0,
+            )

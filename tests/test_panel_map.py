@@ -1,8 +1,12 @@
 import pytest
 
+from led_ticker.backends.headless import HeadlessCanvas
 from led_ticker.panel_map import (
+    DIGITS_3x5,
     LayoutError,
     derive_remap_string,
+    draw_index,
+    paint_reveal,
     parse_layout,
 )
 
@@ -66,3 +70,47 @@ def test_bad_flag_is_error():
 def test_flag_only_token_missing_panel_number():
     with pytest.raises(LayoutError, match="missing its panel number"):
         parse_layout("s 2n")
+
+
+# ---------------------------------------------------------------------------
+# Task 2: reveal calibration pattern
+# ---------------------------------------------------------------------------
+
+
+def test_digit_font_has_all_ten_digits():
+    for d in "0123456789":
+        assert d in DIGITS_3x5
+        assert len(DIGITS_3x5[d]) == 5  # five rows
+        assert all(len(row) == 3 for row in DIGITS_3x5[d])  # three cols
+
+
+def test_draw_index_lights_pixels_in_top_left_region():
+    c = HeadlessCanvas(width=64, height=32)
+    draw_index(c, 1, 2, 2, scale=1)
+    assert c.count_nonzero() > 0
+    # nothing painted outside the digit's small bounding box
+    assert c.get_pixel(40, 20) == (0, 0, 0)
+
+
+def test_paint_reveal_lights_every_slot():
+    # smallsign geometry: 5 panels of 32x16
+    c = HeadlessCanvas(width=160, height=16)
+    paint_reveal(c, cols=32, rows=16, chain_length=5, parallel=1)
+    # every 32-wide slot has lit pixels (the border alone guarantees this)
+    for i in range(5):
+        lit = any(
+            c.get_pixel(x, y) != (0, 0, 0)
+            for x in range(i * 32, (i + 1) * 32)
+            for y in range(16)
+        )
+        assert lit, f"slot {i} is blank"
+
+
+def test_paint_reveal_index_differs_between_slots():
+    # The digit pixels for slot 0 ("1") and slot 1 ("2") must differ,
+    # proving each slot draws its own index rather than a constant.
+    c = HeadlessCanvas(width=160, height=16)
+    paint_reveal(c, cols=32, rows=16, chain_length=5, parallel=1)
+    slot0 = [c.get_pixel(x, y) for x in range(0, 32) for y in range(16)]
+    slot1 = [c.get_pixel(x, y) for x in range(32, 64) for y in range(16)]
+    assert slot0 != slot1

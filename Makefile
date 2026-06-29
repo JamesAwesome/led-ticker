@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker rebuild docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker rebuild docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker
 
 # --- Developer Setup ---
 
@@ -42,6 +42,7 @@ validate:  ## Validate a config TOML. Usage: make validate [CONFIG=path/to.toml]
 # wiring/driver issue. Reuses [display] from the given config TOML.
 PANEL_CONFIG = $(if $(filter command,$(origin CONFIG)),$(CONFIG),config/config.longboi.toml)
 HOLD ?= 2
+LAYOUT ?=
 
 panel-test:  ## Cycle full panel through R/G/B/W/B. Usage: make panel-test [CONFIG=config/config.longboi.toml] [HOLD=2]
 	uv run python scripts/panel_color_test.py \
@@ -69,6 +70,44 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 	  led-ticker \
 	  python /code/scripts/panel_color_test.py \
 	    --config /code/$(PANEL_CONFIG) \
+	    --hold $(HOLD)
+
+# --- Panel mapping helpers ---
+#
+# Three-step workflow to build a pixel_mapper_config Remap string:
+#   1. make panel-map-reveal   — photograph the lit chain-index pattern
+#   2. Transcribe the grid into a file (e.g. LAYOUT=/tmp/grid.txt)
+#   3. make panel-map-derive   — prints the Remap string; paste into the config
+#   4. make panel-map-verify   — paint a self-diagnosing pattern with the mapper
+#
+# Stop the running ticker first (same requirement as panel-test-docker).
+# CONFIG and HOLD are shared with the panel-test targets above.
+
+panel-map-reveal:  ## Reveal physical panel layout (no mapper). Usage: make panel-map-reveal [CONFIG=...] [HOLD=2]
+	uv run python scripts/panel_map.py reveal --config $(CONFIG) --hold $(HOLD)
+
+panel-map-verify:  ## Verify a candidate mapper. Usage: make panel-map-verify [CONFIG=...] [HOLD=2]
+	uv run python scripts/panel_map.py verify --config $(CONFIG) --hold $(HOLD)
+
+panel-map-derive:  ## Derive a Remap string from a transcribed grid. Usage: make panel-map-derive CONFIG=... LAYOUT=/tmp/grid.txt
+	uv run python scripts/panel_map.py derive --config $(CONFIG) --layout $(LAYOUT)
+
+panel-map-reveal-docker:  ## Reveal layout inside Docker. Stop the running ticker first.
+	docker run --rm -it --privileged --network host \
+	  -v $(PWD)/config:/code/config:ro \
+	  -v $(PWD)/scripts:/code/scripts:ro \
+	  led-ticker \
+	  python /code/scripts/panel_map.py reveal \
+	    --config /code/$(CONFIG) \
+	    --hold $(HOLD)
+
+panel-map-verify-docker:  ## Verify mapper inside Docker. Stop the running ticker first.
+	docker run --rm -it --privileged --network host \
+	  -v $(PWD)/config:/code/config:ro \
+	  -v $(PWD)/scripts:/code/scripts:ro \
+	  led-ticker \
+	  python /code/scripts/panel_map.py verify \
+	    --config /code/$(CONFIG) \
 	    --hold $(HOLD)
 
 # --- Docker (production image only) ---

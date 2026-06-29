@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 
 from led_ticker.backends.headless import HeadlessCanvas
@@ -227,3 +230,26 @@ def test_parse_remap_empty_trailing_cell_raises_layout_error():
     """Trailing pipe must raise LayoutError, not IndexError."""
     with pytest.raises(LayoutError):
         parse_remap_string("Remap:256,64|")
+
+
+# ---------------------------------------------------------------------------
+# Task 4: CLI smoke test (no hardware)
+# ---------------------------------------------------------------------------
+
+
+def test_cli_derive_from_stdin_prints_string(tmp_path):
+    # derive reads geometry from --config [display]; use the bundled bigsign example
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "scripts/panel_map.py",
+            "derive",
+            "--config",
+            "config/config.bigsign.example.toml",
+        ],
+        input=BIGSIGN_GRID,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert BIGSIGN_STRING in proc.stdout

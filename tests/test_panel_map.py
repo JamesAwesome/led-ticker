@@ -64,6 +64,15 @@ def test_derive_preserves_rotation_flags():
     assert out == "Remap:128,32|64,0e|0,0s"
 
 
+def test_derive_rejects_parallel_greater_than_one():
+    """parallel>1 reverses panels within each chain row, not the whole list —
+    derive must refuse rather than emit a silently-wrong full-reverse string."""
+    with pytest.raises(LayoutError, match="single data chain"):
+        derive_remap_string(
+            "1n 2n\n3n 4n", cols=64, rows=32, chain_length=2, parallel=2
+        )
+
+
 def test_missing_index_is_plain_language_error():
     with pytest.raises(LayoutError, match="never listed panel 2"):
         derive_remap_string("1n 3n", cols=64, rows=32, chain_length=3, parallel=1)

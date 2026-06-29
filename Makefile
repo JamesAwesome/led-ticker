@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker rebuild docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker rebuild docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker panel-map-derive-docker
 
 # --- Developer Setup ---
 
@@ -54,9 +54,9 @@ panel-test:  ## Cycle full panel through R/G/B/W/B. Usage: make panel-test [CONF
 #
 # IMPORTANT: stop the running ticker first or the diagnostic will fight it for
 # the matrix:
-#   docker compose stop       # or: sudo systemctl stop led-ticker
+#   docker compose stop
 #   make panel-test-docker
-#   docker compose start      # or: sudo systemctl start led-ticker
+#   docker compose start
 #
 # --privileged + --network host match compose.yaml so behavior is identical to
 # prod. -it gives the script a TTY so Ctrl-C reaches Python and the black-
@@ -73,14 +73,17 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 
 # --- Panel mapping helpers ---
 #
-# Three-step workflow to build a pixel_mapper_config Remap string:
-#   1. make panel-map-reveal   — photograph the lit chain-index pattern
+# Four-step workflow to build a pixel_mapper_config Remap string. On a deployed
+# sign use the -docker targets (run inside the production image — needs
+# `make build-docker` once). The bare targets are for a dev host with the repo
+# + `uv` installed.
+#   1. make panel-map-reveal-docker   — photograph the lit numbered pattern
 #   2. Transcribe the grid into a file (e.g. LAYOUT=/tmp/grid.txt)
-#   3. make panel-map-derive   — prints the Remap string; paste into the config
-#   4. make panel-map-verify   — paint a self-diagnosing pattern with the mapper
+#   3. make panel-map-derive-docker   — prints the Remap string; paste into config
+#   4. make panel-map-verify-docker   — paint a self-diagnosing pattern with it
 #
-# Stop the running ticker first (same requirement as panel-test-docker).
-# CONFIG and HOLD are shared with the panel-test targets above.
+# Stop the running ticker first (`docker compose stop`) so the diagnostic isn't
+# fighting it for the matrix. CONFIG and HOLD are shared with panel-test above.
 
 panel-map-reveal:  ## Reveal physical panel layout (no mapper). Usage: make panel-map-reveal [CONFIG=...] [HOLD=2]
 	uv run python scripts/panel_map.py reveal --config $(CONFIG) --hold $(HOLD)
@@ -108,6 +111,15 @@ panel-map-verify-docker:  ## Verify mapper inside Docker. Stop the running ticke
 	  python /code/scripts/panel_map.py verify \
 	    --config /code/$(CONFIG) \
 	    --hold $(HOLD) $(if $(MAPPER),--mapper '$(MAPPER)')
+
+# derive needs no hardware (pure compute) — no --privileged/--network. The host
+# LAYOUT file is piped into the container's stdin, which derive reads.
+panel-map-derive-docker:  ## Derive a Remap string inside Docker. Usage: make panel-map-derive-docker CONFIG=... LAYOUT=/tmp/grid.txt
+	docker run --rm -i \
+	  -v $(PWD)/config:/code/config:ro \
+	  -v $(PWD)/scripts:/code/scripts:ro \
+	  led-ticker \
+	  python /code/scripts/panel_map.py derive --config /code/$(CONFIG) < $(LAYOUT)
 
 # --- Docker (production image only) ---
 

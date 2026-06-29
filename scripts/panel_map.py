@@ -111,11 +111,12 @@ def _cmd_verify(args, display):
             "verify needs a candidate Remap string to check, but none was "
             "given (no MAPPER=/--mapper, and no pixel_mapper_config in the "
             "config).\n"
-            "Mapping for the first time? Do these in order:\n"
-            "  1. make panel-map-reveal — light the panels, photograph the wall\n"
+            "Mapping for the first time? On a deployed sign use the -docker\n"
+            "targets (build once with `make build-docker`), in order:\n"
+            "  1. make panel-map-reveal-docker — light + photograph the wall\n"
             "  2. transcribe what you see into a grid file (e.g. /tmp/grid.txt)\n"
-            "  3. make panel-map-derive LAYOUT=/tmp/grid.txt — prints a Remap string\n"
-            "  4. make panel-map-verify MAPPER='Remap:...' — paste the string here\n"
+            "  3. make panel-map-derive-docker LAYOUT=/tmp/grid.txt — the string\n"
+            "  4. make panel-map-verify-docker MAPPER='Remap:...' — paste it here\n"
             "Full walkthrough: https://docs.ledticker.dev/tools/panel-map/"
         )
         return 2

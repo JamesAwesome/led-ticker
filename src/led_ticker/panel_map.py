@@ -68,6 +68,18 @@ def derive_remap_string(
     orientation = flag. Entries are emitted in REVERSE chain order (panel N
     first, panel 1 last) — see the emission loop for why.
     """
+    # The reverse-emission below is the single-chain (parallel=1) reversal. A
+    # parallel>1 raw matrix reverses panels *within each chain row*, not the
+    # whole list, so a full reverse would emit a silently-wrong string. Refuse
+    # rather than mislead — `reveal` accepts parallel, so this is the asymmetry
+    # to fail loudly on until a multi-chain build exists to validate against.
+    if parallel != 1:
+        raise LayoutError(
+            f"derive supports a single data chain (parallel=1), but this config "
+            f"has parallel={parallel}. A multi-chain matrix reverses panels "
+            "within each chain row, which this tool doesn't model yet — "
+            "hand-edit the Remap string for that layout."
+        )
     grid = parse_layout(text)
     g_rows = len(grid)
     g_cols = len(grid[0])

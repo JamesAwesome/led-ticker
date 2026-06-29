@@ -631,7 +631,7 @@ async def test_play_scroll_over_text_overlays_gif(tmp_path, mocker, bigsign_canv
         f"text at target_tick={target_tick} should be white; got "
         f"{captured[target_tick]}"
     )
-    # Sanity: outside the text band the gif still shows on the same
+    # Check: outside the text band the gif still shows on the same
     # tick. Need to inspect it; re-run with a different inspector.
     assert real.height > 12  # bigsign canvas, just keep test marker
 

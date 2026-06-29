@@ -49,7 +49,7 @@ def test_maybe_wrap_engages_when_content_height_smaller_than_panel():
         led_rows=32, led_cols=64, led_chain_length=8, led_pixel_mapper_config="U-mapper"
     )
     canvas = frame.get_clean_canvas()
-    assert canvas.height == 64  # sanity-check the test fixture
+    assert canvas.height == 64  # check the test fixture
     result = _maybe_wrap(canvas, scale=1, content_height=16)
     assert isinstance(result, ScaledCanvas)
     assert result.scale == 1

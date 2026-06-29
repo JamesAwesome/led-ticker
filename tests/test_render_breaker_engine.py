@@ -93,7 +93,7 @@ def test_expand_sources_filters_disabled_stories_in_container():
     b.trip(story_bad, ValueError("x"))
 
     container = _FakeContainer([story_good, story_bad])
-    # sanity: isinstance gate in _expand_sources fires
+    # check: isinstance gate in _expand_sources fires
     assert isinstance(container, Container)
 
     result = _expand_sources([container], breaker=b)

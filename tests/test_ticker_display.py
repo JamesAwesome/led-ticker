@@ -598,7 +598,7 @@ class TestScrollOneByOne:
             f"the widget per tick but isn't calling "
             f"_advance_frame_if_supported — animated providers freeze."
         )
-        # Sanity: should match the draw call count (one advance per draw).
+        # Check: should match the draw call count (one advance per draw).
         assert widget._advance_frame_count == widget.draw.call_count
 
 

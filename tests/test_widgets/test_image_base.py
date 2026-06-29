@@ -114,7 +114,7 @@ class TestFieldSurface:
         )
 
     def test_dummy_image_constructs_with_every_user_kwarg(self):
-        """Sanity: the base class accepts every documented kwarg in
+        """Check: the base class accepts every documented kwarg in
         a single construction. Catches type-shape regressions (e.g.
         changing `text: str` to `text: int`)."""
         from led_ticker.fonts import FONT_DEFAULT
@@ -563,7 +563,7 @@ class TestFieldSurfaceMatchesTwoRow:
     }
 
     def test_two_row_message_has_all_per_row_fields(self):
-        """Sanity check that TwoRowMessage exposes the same per-row
+        """Correctness check that TwoRowMessage exposes the same per-row
         field set we expect on _BaseImageWidget. Tests the source
         of truth: if these drift, the consistency check below fails
         too."""
@@ -1153,7 +1153,7 @@ class TestImageBorderField:
         # Use a tiny test PNG already shipped with the repo if any;
         # otherwise the field default is observable on the class
         # without instantiation.
-        assert StillImage.__attrs_attrs__  # sanity: attrs class
+        assert StillImage.__attrs_attrs__  # check: attrs class
         names = [a.name for a in StillImage.__attrs_attrs__]
         assert "border" in names, (
             f"StillImage missing inherited `border` field; fields: {names}"

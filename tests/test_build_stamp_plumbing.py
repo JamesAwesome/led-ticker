@@ -34,5 +34,6 @@ def test_dockerfile_accepts_pretend_version_before_install():
 def test_makefile_and_compose_pass_pretend_version():
     mk = (REPO / "Makefile").read_text()
     cf = (REPO / "compose.yaml").read_text()
-    assert "--build-arg SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE" in mk
-    assert "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE: ${SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE:-}" in cf
+    pretend_arg = "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE"
+    assert f"--build-arg {pretend_arg}" in mk
+    assert f"{pretend_arg}: ${{{pretend_arg}:-}}" in cf

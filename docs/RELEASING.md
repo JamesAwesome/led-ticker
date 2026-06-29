@@ -73,16 +73,18 @@ Plugins declare `led-ticker-core` as a dependency, so **core must be on PyPI bef
 
 ### Step 1: Publish `led-ticker-core` (core)
 
-1. Confirm `pyproject.toml` at the root of `led-ticker` has `version = "2.0.0"` (or whichever version you intend to publish).
-2. Merge the release branch to `main`.
-3. On GitHub: **Releases → Draft a new release**.
-   - Tag: `v2.0.0`
-   - Target: `main`
-   - Title: `v2.0.0`
+`led-ticker-core` uses hatch-vcs: the package version is derived from the git tag — no `pyproject.toml` edit is needed or correct. The tag **is** the version.
+
+1. Merge the release branch to `main`.
+2. On GitHub: **Releases → Draft a new release**.
+   - Tag: `v2.2.0` (create new tag, target `main`; `v2.0.0`/`v2.1.0` already exist)
+   - Title: `v2.2.0`
    - Click **Publish release**.
-4. The `publish.yml` workflow fires, builds the distribution, and **pauses for approval** at the `release` environment gate.
-5. Go to **Actions → the running workflow → Review deployments** → approve.
-6. Wait for the job to complete, then verify: <https://pypi.org/project/led-ticker-core/>.
+3. The `publish.yml` workflow fires, builds the distribution from the tag-derived version, and **pauses for approval** at the `release` environment gate.
+4. Go to **Actions → the running workflow → Review deployments** → approve.
+5. Wait for the job to complete, then verify: <https://pypi.org/project/led-ticker-core/>.
+
+Untagged builds (e.g. `main` between releases) report a version like `2.0.1.dev4+gabcdef0` — that's expected and correct.
 
 ### Step 2: Publish each plugin
 
@@ -90,7 +92,7 @@ Repeat for each plugin package. Tags are scoped by plugin name so all packages c
 
 For each plugin (example shown for `led-ticker-pool`):
 
-> **Tag format:** `<plugin>-v<version>` using the SHORT plugin name (`pool`, `baseball`, `crypto`, `calendar`, `rss`, `weather`) — NOT the full PyPI package name. This matches the existing tag convention and the allowlist in `scripts/check_release.py`; a full-name tag like `led-ticker-pool-v…` is rejected as an unknown plugin. The `<version>` must equal the plugin's `pyproject.toml` version or the tag-vs-version guard fails the run.
+> **Tag format:** `<plugin>-v<version>` using the SHORT plugin name (`pool`, `baseball`, `crypto`, `calendar`, `rss`, `weather`) — NOT the full PyPI package name. This matches the existing tag convention and the allowlist in the **led-ticker-plugins** repo's `scripts/check_release.py` (that guard lives in the plugins repo, not here); a full-name tag like `led-ticker-pool-v…` is rejected as an unknown plugin. The `<version>` must equal the plugin's `pyproject.toml` version or the tag-vs-version guard fails the run.
 
 1. Confirm the plugin's `pyproject.toml` version (e.g. `pool` is currently `0.1.0`).
 2. On GitHub (`led-ticker-plugins`): **Releases → Draft a new release**.
@@ -167,8 +169,11 @@ python -m venv /tmp/verify-weather
 
 PyPI forbids re-uploading a file for an existing version. If a release has an error:
 
-1. Bump the version in the relevant `pyproject.toml` (e.g. `2.0.0` → `2.0.1`).
-2. Create a new GitHub Release with a matching tag (e.g. `v2.0.1` for core, `pool-v0.1.1` for a plugin — short plugin name).
-3. The tag-vs-version guard in the workflow checks that the tag version matches `pyproject.toml` — a mismatch fails the build before any upload is attempted.
+**For `led-ticker-core`** (hatch-vcs, tag-driven):
+1. Create a new GitHub Release with a higher version tag (e.g. `v2.0.1`). The package version is derived from the tag — no `pyproject.toml` edit needed.
+
+**For plugins** (static versions in their `pyproject.toml`):
+1. Bump the version in the relevant `plugins/<name>/pyproject.toml` (e.g. `0.1.0` → `0.1.1`).
+2. Create a new GitHub Release with a matching tag (e.g. `pool-v0.1.1` — short plugin name). The tag-vs-version guard in the plugins workflow checks that the tag version matches `pyproject.toml` — a mismatch fails the build before any upload is attempted.
 
 There is no way to overwrite or delete an already-published version on PyPI. Plan releases accordingly and use the approval gate (section B) to catch mistakes before the upload runs.

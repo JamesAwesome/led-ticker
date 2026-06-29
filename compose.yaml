@@ -20,6 +20,7 @@ services:
       context: .
       args:
         BUILD_REF: ${BUILD_REF:-}
+        SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE: ${SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE:-}
     container_name: led-ticker
     restart: unless-stopped
     privileged: true        # needed for GPIO access on the HAT
@@ -46,6 +47,7 @@ services:
       context: .
       args:
         BUILD_REF: ${BUILD_REF:-}
+        SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE: ${SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE:-}
     container_name: led-ticker-webui
     restart: unless-stopped
     command: ["led-ticker", "webui", "--config", "/code/config/config.toml"]

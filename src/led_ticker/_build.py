@@ -9,23 +9,25 @@ Resolved in priority order:
 2. git at runtime, for non-Docker installs that run from a checkout (the
    systemd/venv deploy in ``deploy/led-ticker.service``, or local dev) —
    ``branch@shortsha`` (+``dirty``).
-3. ``"unknown"`` — neither applies (e.g. a bare ``docker compose build`` not run
-   through ``make rebuild``, or a PyPI install). Deploy with ``make rebuild`` to
-   stamp the commit.
+3. The installed package version (``importlib.metadata``) — for a PyPI or bare
+   Docker install.  Because the version is VCS-derived (hatch-vcs), it carries
+   the short SHA on untagged builds, e.g. ``2.2.1.dev3+gabc1234``.
+4. ``"unknown"`` — none of the above applies.
 """
 
 import functools
 import os
 import subprocess
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 
 def build_ref() -> str:
-    # The literal "unknown" / empty env is "not set" — fall through to git.
+    # The literal "unknown" / empty env is "not set" — fall through.
     env = os.environ.get("LED_TICKER_BUILD_REF", "").strip()
     if env and env != "unknown":
         return env
-    return _git_ref() or "unknown"
+    return _git_ref() or _package_version() or "unknown"
 
 
 @functools.cache
@@ -54,3 +56,15 @@ def _git_ref() -> str | None:
     except OSError, subprocess.SubprocessError:
         return None  # git not installed / timed out
     return f"{branch.stdout.strip()}@{sha.stdout.strip()}{'+dirty' if dirty else ''}"
+
+
+@functools.cache
+def _package_version() -> str | None:
+    """The installed VCS-derived version of ``led-ticker-core`` (carries the
+    short SHA on untagged builds, e.g. ``2.2.1.dev3+gabc1234``) — the last-resort
+    identity for a PyPI / bare-docker install with no env stamp and no checkout.
+    """
+    try:
+        return version("led-ticker-core")
+    except PackageNotFoundError:
+        return None

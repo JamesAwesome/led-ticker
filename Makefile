@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker rebuild try setup docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker panel-map-derive-docker
+.PHONY: dev hooks test lint typecheck format clean build-docker rebuild try try-down setup docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker panel-map-derive-docker
 
 # --- Developer Setup ---
 
@@ -142,8 +142,11 @@ rebuild:  ## Stamped rebuild + recreate ALL services incl. the webui sidecar
 	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$(VERSION)" COMPOSE_PROFILES=webui docker compose up -d --build --force-recreate
 
 try:  ## Try led-ticker with NO hardware: headless engine + webui preview at http://localhost:8080
-	@echo "building + starting (first build takes a minute)... then open http://localhost:8080 and click the live preview  (stop: Ctrl-C, then docker compose -f compose.try.yaml -p led-ticker-try down)"
+	@echo "building + starting (first build takes a minute)... then open http://localhost:8080 and click the live preview  (stop: Ctrl-C, then make try-down)"
 	docker compose -f compose.try.yaml -p led-ticker-try up --build
+
+try-down:  ## Stop + remove the try-it containers (and its tmpfs volume)
+	docker compose -f compose.try.yaml -p led-ticker-try down -v
 
 # Default mode for make setup (override with MODE=try).
 MODE ?= deploy

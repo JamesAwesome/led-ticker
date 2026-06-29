@@ -60,6 +60,8 @@ practical draw is roughly 30-40% of the theoretical max.
 | Smallsign       | 5V × ~150A      | 5V × **10A**   |
 | Bigsign         | 5V × ~980A      | 5V × **60A**   |
 
+The theoretical max assumes every LED is full-white at the same instant — that never happens in practice. Text, emoji, and animations light only a fraction of the panel at any moment, so the practical supply has ample headroom.
+
 A 5V / 10A brick covers the smallsign with comfortable headroom; the
 bigsign wants a 5V / 30-60A supply with thick busbars (split across
 multiple injection points if your panels have multiple power inputs).
@@ -84,7 +86,7 @@ make try    # build + start; open http://localhost:8080 → live preview tab
 ```
 
 `make try` starts a headless engine and the web UI in Docker. Stop with
-`Ctrl-C` then `docker compose -f compose.try.yaml -p led-ticker-try down`.
+`Ctrl-C` then `make try-down`.
 
 **GIF renderer (Python dev path)** — render any config to a GIF at panel
 resolution, useful for CI, scripted demos, and configs with live-data
@@ -182,7 +184,9 @@ goes in `config/local/` (also gitignored) and is referenced in TOML as
 
 ### The rgbmatrix library is hardcoded to a fork in the Dockerfile
 
-The Dockerfile pins [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/JamesAwesome/rpi-rgb-led-matrix) — our fork of `hzeller/rpi-rgb-led-matrix`. It tracks upstream's Pi 5 RP1 support ([hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886)) and adds three patches the engine depends on: a GCC-10 build fix, a Pillow shim, and a **SubFill Python binding that upstream doesn't ship**. Because of that last one, stock upstream is not a drop-in replacement. If you `apt install` or `pip install` a different rgbmatrix on the Pi outside the Docker image — or check out upstream `hzeller/master` and `make install` it — your Pi will diverge from what the engine was tested against, and you'll spend an afternoon chasing flicker that isn't a config bug. Run via the Docker image, or rebuild from source against the pinned fork.
+If you deploy via Docker (the recommended path), you don't need to do anything — the image already builds the correct fork.
+
+For source builds: the Dockerfile pins [`jamesawesome/rpi-rgb-led-matrix`](https://github.com/JamesAwesome/rpi-rgb-led-matrix) — our fork of `hzeller/rpi-rgb-led-matrix`. It tracks upstream's Pi 5 RP1 support ([hzeller#1886](https://github.com/hzeller/rpi-rgb-led-matrix/pull/1886)) and adds three patches the engine depends on: a GCC-10 build fix, a Pillow shim, and a **SubFill Python binding that upstream doesn't ship**. Because of that last one, stock upstream is not a drop-in replacement. If you `apt install` or `pip install` a different rgbmatrix on the Pi outside the Docker image — or check out upstream `hzeller/master` and `make install` it — your Pi will diverge from what the engine was tested against, and you'll spend an afternoon chasing flicker that isn't a config bug. Rebuild from source against the pinned fork.
 
 ### USB-C "5V 3A" power supplies aren't dedicated panel supplies
 

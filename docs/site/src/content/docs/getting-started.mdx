@@ -10,6 +10,8 @@ config — RSS, weather, custom messages, animated transitions, and more.
 One toolchain (Docker) covers everything: try it on your laptop with no
 hardware, then deploy the same image to a Pi when your panels arrive.
 
+Not sure led-ticker is the right fit? → [Why led-ticker?](/why-led-ticker/)
+
 :::tip[Want a step-by-step walkthrough?]
 This page is the 5-minute orientation. For a guided build-a-config tutorial
 (brand font, logo, hi-res emoji, transitions), see the
@@ -39,12 +41,18 @@ sudo usermod -aG docker $USER
 
 ## Quickstart A — Try it on your laptop (no hardware)
 
-Get a live preview of led-ticker running on your laptop in one command:
+**~2 minutes, Docker only.** You'll see a browser tab showing your sign rendering live in a simulated panel — no hardware needed.
+
+Open a terminal (Terminal on macOS; PowerShell or WSL on Windows), then:
 
 ```bash
+# Check Docker is installed first:
+docker --version
+
+# Clone (downloads the repo) + start:
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
-make try
+make try   # make is a standard task runner, pre-installed on macOS/Linux
 ```
 
 `make try` builds the image and starts a headless display engine plus the
@@ -54,12 +62,12 @@ web UI — no panel, no Pi. Open **http://localhost:8080** and click the
 To stop: press `Ctrl-C`, then run:
 
 ```bash
-docker compose -f compose.try.yaml -p led-ticker-try down
+make try-down
 ```
 
 ## Quickstart B — Deploy to your Pi
 
-Once your Pi is wired up with a HUB75 panel and Adafruit HAT or Bonnet:
+**~20 minutes, hardware required.** On your Raspberry Pi, once it is wired up with a HUB75 panel and Adafruit HAT or Bonnet:
 
 **1. Clone and run setup:**
 
@@ -70,7 +78,9 @@ make setup
 ```
 
 `make setup` checks Docker, seeds `config/config.toml` from the smallsign
-example, seeds a `.env` stub, and brings the stack up.
+example, seeds a `.env` stub, and brings the stack up. The example config
+works out of the box — bring the stack up first and confirm the sign is
+running; you can edit `config.toml` later once it is.
 
 **2. Copy the right example config:**
 
@@ -85,7 +95,7 @@ cp config/config.bigsign.example.toml config/config.toml
 Not sure which fits? See
 [Choosing a sign size](/hardware/building-your-own/#choosing-a-sign-size).
 
-**3. Bring up the stack** (after editing `config.toml`):
+**3. Bring up the stack:**
 
 ```bash
 docker compose up -d --build
@@ -96,7 +106,9 @@ automatically on power loss or crash.
 
 **4. Panel bring-up** — after wiring, run
 [`make panel-test`](/tools/panel-test/) to rule out any wiring, driver,
-or RGB-order problems. Then use the
+or RGB-order problems. Before running `panel-test`, make sure `config.toml`
+has the correct `[display]` values for `chain_length`, `rows`, and `cols` —
+`panel-test` reads them. Then use the
 [`panel-map`](/tools/panel-map/) workflow to derive the
 `pixel_mapper_config` Remap string for your panel layout.
 
@@ -127,9 +139,10 @@ and is referenced as `path = "local/<file>"` in your TOML.
 
 ## Develop without hardware
 
-The [`render-demo`](/tools/render-demo/) tool runs the real ticker engine
-against a software stub and writes each config to a GIF, so you can
-iterate on your config before buying a single panel:
+For a live browser preview, use Quickstart A above. The
+[`render-demo`](/tools/render-demo/) tool is for iterating on configs at
+the command line and generating GIFs — it runs the real ticker engine
+against a software stub and writes each config to a GIF:
 
 ```bash
 make dev       # install Python dev deps (requires uv)

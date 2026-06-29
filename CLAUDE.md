@@ -233,7 +233,7 @@ led-ticker is extensible via plugins; the first-party plugins (`pool.monitor`; t
 
 - **Public surface:** plugins import ONLY from `led_ticker.plugin` (the curated re-export module). Never import `led_ticker.<internal>` from a plugin. `led_ticker.plugin.__all__` is the contract; adding to it is an API change.
 - **Registration:** a plugin ships a `register(api)` function under the `led_ticker.plugins` entry-point group; `api.widget("name")(cls)` (and the sibling `transition`/`emoji`/`font`/… surfaces) register into a namespaced registry (`<plugin>.<name>`, e.g. `pool.monitor`). `API_VERSION` gates compatibility.
-- **Install:** plugins are installed from `config/requirements-plugins.txt` (copied from `.example`), constraint-based (`-c <frozen core deps>`, NOT `--no-deps`) so they may bring new deps but can't move core's pinned versions — the Docker build writes `/code/constraints-core.txt`; `deploy/install.sh` freezes to a temp file. Entry points auto-register at startup; the `[plugins]` config block only controls loading/disable, not installation.
+- **Install:** plugins are installed from `config/requirements-plugins.txt` (copied from `.example`), constraint-based (`-c <frozen core deps>`, NOT `--no-deps`) so they may bring new deps but can't move core's pinned versions — the Docker build writes `/code/constraints-core.txt`; `plugin_reconcile.py` installs against that constraints file at container startup. Entry points auto-register at startup; the `[plugins]` config block only controls loading/disable, not installation.
 - **Validation:** a widget plugin may define `validate_config(cls, cfg) -> list[str]` (pre-coercion); it runs inside `validate_widget_cfg`.
 - **Error isolation:** a plugin that fails to import/register is skipped with a logged error (recorded in `LoadedPlugins.failed`) — a broken plugin must never crash the app or freeze the display. Don't add plugin-load paths that propagate.
 - **Python 3.14 / PEP 649:** no `from __future__ import annotations` in plugin source (same rule as core).
@@ -308,7 +308,7 @@ User-facing reference: <https://docs.ledticker.dev/reference/config-options/>.
 - Single image runs on both Pi 4 and Pi 5. The rgbmatrix library is hardcoded to `jamesawesome/rpi-rgb-led-matrix` (default branch `main`) — Pi5 RP1 support (hzeller#1886, merged upstream) plus three patches: GCC10 anonymous-param fix (`pio_rp1.c`), Pillow shim (`graphics.py`), SubFill Python binding (`core.pyx`). The library detects the SoC at runtime and selects the BCM2711 GPIO backend (Pi 4) or the RP1 PIO/RIO backend (Pi 5). The pre-RP1 codebase is preserved on the `pi4_legacy` branch.
 - On the Pi 5, the RP1 RIO backend is the default; `--led-rp1-pio=1` forces the low-CPU PIO backend (renamed from `--led-rp1-rio`, June 2026). For chain length ≥ 2 with flicker, raise `gpio_slowdown` from 2 to 3+.
 - Config mounted read-only for the display service: `./config:/code/config:ro`. The webui sidecar is a read-only service EXCEPT for the token-gated `PUT /api/config` editor (validate → conflict-check → backup → atomic write); it writes `config.toml` and nothing else, and the display process applies the change via hot-reload. The webui's config volume must be mounted `:rw`; the display service's mount stays `:ro`.
-- Systemd: `deploy/led-ticker.service`. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.
+- Deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.
 
 ### Hardware quick reference
 

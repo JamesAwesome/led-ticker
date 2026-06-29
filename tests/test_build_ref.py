@@ -11,7 +11,7 @@ def test_env_wins(monkeypatch):
 
 
 def test_git_fallback_when_env_unset(monkeypatch):
-    # Non-Docker from a checkout (systemd/venv, dev): fall back to git.
+    # Running from a checkout (local dev / custom supervisor): fall back to git.
     monkeypatch.delenv("LED_TICKER_BUILD_REF", raising=False)
     monkeypatch.setattr(_build, "_git_ref", lambda: "feat/y@def5678")
     assert build_ref() == "feat/y@def5678"

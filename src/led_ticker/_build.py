@@ -6,9 +6,8 @@ Resolved in priority order:
    ``make build-docker`` / ``make rebuild`` and passed into the image as a build
    arg (the Dockerfile sets it as ``ENV``). The literal ``"unknown"`` and empty
    values are treated as not-set.
-2. git at runtime, for non-Docker installs that run from a checkout (the
-   systemd/venv deploy in ``deploy/led-ticker.service``, or local dev) —
-   ``branch@shortsha`` (+``dirty``).
+2. git at runtime, when running from a checkout (local dev or a custom
+   supervisor) — ``branch@shortsha`` (+``dirty``).
 3. The installed package version (``importlib.metadata``) — for a PyPI or bare
    Docker install.  Because the version is VCS-derived (hatch-vcs), it carries
    the short SHA on untagged builds, e.g. ``2.2.1.dev3+gabc1234``.

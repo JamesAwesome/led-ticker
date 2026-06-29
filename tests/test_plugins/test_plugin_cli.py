@@ -292,7 +292,7 @@ def test_install_defaults_to_config_dir_without_explicit_config(
     tmp_path, fakepip, monkeypatch
 ):
     # No explicit --config -> the canonical config/requirements-plugins.txt,
-    # not the cwd (so Docker/install.sh actually read it).
+    # not the cwd (so Docker reads it from the config volume).
     monkeypatch.chdir(tmp_path)
     plugin_cmd.cmd_install(
         "pool",

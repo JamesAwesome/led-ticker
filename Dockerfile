@@ -59,6 +59,11 @@ RUN pip install --no-cache-dir -e ".[dev]" \
 
 # Layer 3: app source (rebuilds on any code change — but fast, no pip)
 COPY . /code/
+# Version for the in-image build: the container has no .git, so the host
+# computes the hatch-vcs version and passes it (setuptools-scm reads this env
+# and skips git). See Makefile/compose. Empty -> scm fallback (bare dev build).
+ARG SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE=
+ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE=$SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE
 RUN pip install --no-deps .
 
 # Build stamp — branch@shortsha, computed on the host by `make build-docker` /

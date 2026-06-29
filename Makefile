@@ -78,12 +78,15 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 
 # branch@shortsha(+dirty) — baked into the image as LED_TICKER_BUILD_REF.
 BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo +dirty)
+# hatch-vcs version computed on the host (the image has no .git). Matches the
+# in-build value because hatch-vcs uses setuptools-scm defaults.
+VERSION ?= $(shell uvx --from setuptools-scm python -m setuptools_scm 2>/dev/null)
 
 build-docker:  ## Build the production Docker image (Pi 4 + Pi 5)
-	docker build -t led-ticker --build-arg BUILD_REF="$(BUILD_REF)" .
+	docker build -t led-ticker --build-arg BUILD_REF="$(BUILD_REF)" --build-arg SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$(VERSION)" .
 
 rebuild:  ## Stamped rebuild + recreate ALL services incl. the webui sidecar
-	BUILD_REF="$(BUILD_REF)" COMPOSE_PROFILES=webui docker compose up -d --build --force-recreate
+	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$(VERSION)" COMPOSE_PROFILES=webui docker compose up -d --build --force-recreate
 
 # --- Cleanup ---
 

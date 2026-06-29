@@ -30,8 +30,7 @@
 #   The sign's gitignored config/config.toml must reference installed plugin
 #   widgets — both files need updating and a restart at deploy time.
 #
-# First-party data plugins are on PyPI — install them by name.
-# Homage sprite-trail plugins are NOT on PyPI; use the git subdirectory form.
+# All first-party plugins are on PyPI — install them by name.
 
 # Pool water-temperature widget (type = "pool.monitor"):
 led-ticker-pool

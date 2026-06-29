@@ -59,6 +59,17 @@ make try   # make is a standard task runner, pre-installed on macOS/Linux
 web UI — no panel, no Pi. Open **http://localhost:8080** and click the
 **live preview** tab to see the sign rendering in your browser.
 
+Both of those are **plugins** baked into the try image: the scrolling
+[Hacker News](https://news.ycombinator.com/) headlines come from the `rss.feed`
+widget, and the Nyan Cat sweep between sections is an animated transition — no
+API keys or `.env` needed (the headlines just need an internet connection).
+Browse the [plugin catalog](/plugins/available/) for weather, sports scores,
+crypto, calendars, and more. To try a different plugin, add its package to
+`config/requirements-plugins.try.txt`, reference its widget or transition in
+`config/config.try.example.toml`, then re-run `make try`. (On a real deploy
+it's simpler still — `led-ticker plugin add <name>` + `docker compose restart`,
+no rebuild.)
+
 To stop: press `Ctrl-C`, then run:
 
 ```bash
@@ -153,6 +164,7 @@ open preview.gif   # macOS; xdg-open on Linux
 ## Next steps
 
 - **Build a config:** [Sections and modes](/concepts/sections-and-modes/) → [Widgets](/widgets/) → [Transitions](/transitions/)
+- **Add plugins:** [Available plugins](/plugins/available/) — RSS, weather, sports scores, crypto, calendars, and more
 - **Buy / build hardware:** [Building your own](/hardware/building-your-own/) → [Smallsign](/hardware/smallsign/) or [Bigsign](/hardware/bigsign/)
 - **Reference:** [`[display]` and section knobs](/reference/config-options/) · [CLI](/reference/cli/)
 

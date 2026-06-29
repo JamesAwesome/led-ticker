@@ -1,13 +1,14 @@
 # Try-it config — headless, no hardware; open the webui preview.
 #
-# Use this with Dockerfile.try (or `docker compose --profile try up`) to run
-# led-ticker on any computer without a Raspberry Pi or LED panels. The engine
-# renders frames in memory via the headless backend; the webui preview at
-# http://localhost:8080 lets you watch the sign live in a browser.
+# Use this with Dockerfile.try (or `make try`) to run led-ticker on any computer
+# without a Raspberry Pi or LED panels. The engine renders frames in memory via
+# the headless backend; the webui preview at http://localhost:8080 lets you watch
+# the sign live in a browser.
 #
-# All built-in widgets, transitions, borders, and emoji work headless.
-# Plugins (rss.feed, weather.current, baseball.*, etc.) require a separate
-# install — the core install here is plugin-free.
+# This config showcases two baked-in plugins (no API keys needed):
+#   - rss.feed  (led-ticker-rss)   — scrolling headlines from a public RSS feed
+#   - nyancat.* (led-ticker-flair) — Nyan Cat sprite-trail transitions
+# Both are installed from config/requirements-plugins.try.txt inside the image.
 #
 # Full config-options reference: https://docs.ledticker.dev/reference/config-options/
 
@@ -49,14 +50,33 @@ text = "No hardware needed — watch in the browser."
 font_color = "color_cycle"
 border = {style = "bands", colors = "candy_cane", band_width = 8}
 
-# Section 2 — entered via the between_sections wipe; USA-banded chasing ring.
+# Section 2 — entered via a Nyan Cat sprite-trail transition (nyancat.forward
+# from the led-ticker-flair plugin). The lowres 12×10 pixel-art cat works at
+# this geometry (160×16, scale=1) — no bigsign/scaled canvas required.
 [[playlist.section]]
 mode = "swap"
 content_height = 16
 hold_time = 5
+entry_transition = "nyancat.forward"
 
 [[playlist.section.widget]]
 type = "message"
 text = "Open http://localhost:8080 to preview the sign live."
 font_color = "rainbow"
 border = {style = "bands", colors = "usa", band_width = 10, speed = -2}
+
+# Section 3 — RSS headlines from Hacker News (no API key, public feed).
+# The rss.feed widget (led-ticker-rss plugin) scrolls the latest front-page
+# stories. Entered via nyancat.forward so the cat sweeps in fresh news.
+# Needs an internet connection for the live feed; if it's unreachable the
+# section stays blank and the others keep scrolling.
+[[playlist.section]]
+mode = "forever_scroll"
+content_height = 16
+entry_transition = "nyancat.forward"
+
+[[playlist.section.widget]]
+type = "rss.feed"
+feed_url = "https://hnrss.org/frontpage"
+max_stories = 8
+font_color = "color_cycle"

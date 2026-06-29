@@ -72,6 +72,7 @@ def main() -> int:
         logging.warning("config coerce: %s", w.message)
 
     frame = build_frame_from_config(config.display)
+    frame.setup()  # builds the matrix + drops privileges; required before drawing
     canvas = frame.get_clean_canvas()
 
     n = len(COLORS)

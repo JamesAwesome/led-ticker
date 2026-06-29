@@ -253,3 +253,28 @@ def test_cli_derive_from_stdin_prints_string(tmp_path):
     )
     assert proc.returncode == 0, proc.stderr
     assert BIGSIGN_STRING in proc.stdout
+
+
+def test_built_frame_requires_setup_before_drawing():
+    """Regression: the reveal/verify CLI commands built a frame and called
+    get_clean_canvas() WITHOUT frame.setup(), crashing on real hardware with
+    BackendNotReadyError. The LedFrame readiness contract requires setup()
+    first; this guards the full headless build -> setup -> paint path the
+    scripts rely on. (Discovered on moonbunny hardware, 2026-06-29.)"""
+    from led_ticker.app.factories import build_frame_from_config
+    from led_ticker.backends import BackendNotReadyError
+    from led_ticker.config import DisplayConfig
+
+    display = DisplayConfig(
+        rows=16, cols=32, chain_length=5, parallel=1, backend="headless"
+    )
+    frame = build_frame_from_config(display)
+
+    # Drawing before setup() must raise — this is the failure the scripts hit.
+    with pytest.raises(BackendNotReadyError):
+        frame.get_clean_canvas()
+
+    # After setup(), the build -> canvas -> paint path runs clean.
+    frame.setup()
+    canvas = frame.get_clean_canvas()
+    paint_reveal(canvas, cols=32, rows=16, chain_length=5, parallel=1)

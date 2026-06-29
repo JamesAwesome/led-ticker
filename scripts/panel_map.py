@@ -56,6 +56,7 @@ def _cmd_reveal(args, display):
     # Force identity mapper so the canvas is the raw data chain.
     d = dataclasses.replace(display, pixel_mapper_config="")
     frame = build_frame_from_config(d)
+    frame.setup()  # builds the matrix + drops privileges; required before drawing
     canvas = frame.get_clean_canvas()
     logging.info(
         "reveal: %d panels (chain_length=%d parallel=%d), no mapper. "
@@ -114,6 +115,7 @@ def _cmd_verify(args, display):
     frame = build_frame_from_config(
         dataclasses.replace(display, pixel_mapper_config=mapper)
     )
+    frame.setup()  # builds the matrix + drops privileges; required before drawing
     canvas = frame.get_clean_canvas()
     logging.info("verify: applying mapper %r", mapper)
 

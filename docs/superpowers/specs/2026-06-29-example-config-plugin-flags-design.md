@@ -91,32 +91,56 @@ The four adopted changes — now baked into the components below:
    the review's suggested `PluginInfo.dist_name` addition — one mapping
    mechanism, not two.)
 
+A **second** adversarial review verified all of the above against the code
+(reproduced the derivation table with `tomllib`; confirmed `requirement()` is
+bare-pypi so `_requirement_key` normalizes versions away; confirmed
+`config_references` extracts with no import cycle / no aiohttp; confirmed the
+banner data shapes). It was **go, change-first (precision only)** — those edits
+are folded into the components below: the catalog filter lives in
+`required_plugins` while the shared walk stays unfiltered (the Store needs
+non-catalog namespaces for `in_use_by`); `[display] backend` is a bare-string
+top-level special case, not part of the dotted recursion; the fixtures rule
+forces correct headers onto **three** dev fixtures (not one); the
+catalog-completeness meta-test runs on the unfiltered namespace set; a unit test
+covers the top-level `[transitions]` surface; and the pip-name guarantee carries
+a "assumes pypi-package sources" caveat.
+
 ## Components
 
 ### 1. Shared config-scan module + `required_plugins()`
 
 **Extract** `config_references()` (today in `src/led_ticker/webui/store.py`,
 pure, covered by `tests/test_webui_purity.py`) into a dependency-light shared
-module — `src/led_ticker/_config_scan.py` (needs only `tomllib` + the catalog;
-**must not** import `webui`/aiohttp, so the display process can use it). Update
-`webui/store.py` to import from there (no behavior change for the Store).
+module — `src/led_ticker/_config_scan.py` (transitively needs only `tomllib` +
+`plugins_catalog` + `plugin_cmd`; **must not** import `webui`/aiohttp, so the
+display process can use it — verified no import cycle). Update `webui/store.py`
+to import from there.
 
-Generalize the recursive walk so that, for every mapping it visits, it collects
-plugin-namespaced references from:
+The shared walk stays **unfiltered** — it returns *all* referenced namespaces
+(catalog **and** non-catalog). This is load-bearing for the Store:
+`build_store` (`store.py:202-204`) iterates `active − catalog_namespaces` and
+looks up `refs.get(ns)` to compute `in_use_by` for **externally-installed**
+plugins. Pushing the catalog filter into the walk would silently break that. The
+**catalog filter lives only in `required_plugins()`** (below).
 
-- `type` values (widgets, and any nested object carrying a `type`);
-- the transition keys `transition` / `entry_transition` / `widget_transition`,
-  in **both** string form (`transition = "x.y"`) and table form
-  (`[…transition] type = "x.y"`);
-- the top-level `[transitions]` `default` / `between_sections` values
-  (the surface `config_references` currently excludes);
-- `[display] backend`;
-- inline `:ns.slug:` emoji tokens in any string (already handled).
+Generalize the shared walk to also collect, beyond what it does today (`type`
+values on any nested mapping; the `transition`/`entry_transition`/
+`widget_transition` keys in string and `{type=…}` table form; inline `:ns.slug:`
+emoji):
 
-A reference "counts" only when its namespace is a known catalog namespace
-(`{e.namespace for e in load_catalog().entries}`) — dotted non-plugin values
-like `"1.5"` or a hypothetical core `a.b` fall through, matching the existing
-`plugin_hint` identifier check.
+- the top-level `[transitions]` `default` / `between_sections` string values
+  (the dotted surface `config_references` currently excludes); and
+- **`[display] backend`** — a dedicated **top-level special case**, NOT part of
+  the dotted recursion. A backend value is a *bare* namespace
+  (`backend = "telnet"`, or the built-ins `backend = "rgbmatrix"` /
+  `"headless"`), so the walk's `"." in value` dotted logic never reaches it. The
+  scan matches **exactly** `data["display"]["backend"]` as a bare string and
+  emits that namespace (the catalog filter in `required_plugins` then keeps only
+  catalog backends like `telnet`; built-ins fall through). Scope it to that one
+  key so a free-text value elsewhere that happens to equal `rss`/`pool` can't
+  over-count. (Sharp edge to note in code: if a *future* catalog namespace ever
+  equals a built-in backend name, this bare match would false-flag — none
+  collide today; only `telnet` is a catalog backend.)
 
 ```python
 # _config_scan.py
@@ -124,19 +148,28 @@ def required_plugins(source: dict | str | Path) -> set[str]:
     """Packages a config requires, from its ACTIVE (uncommented) plugin refs.
     Parses with tomllib (comments excluded for free); never builds widgets, so
     it works whether or not the plugins are installed. Returns canonical pip
-    package names (flair's four namespaces collapse to led-ticker-flair)."""
+    package names (flair's four namespaces collapse to led-ticker-flair).
+
+    Calls the unfiltered shared walk, then keeps only namespaces present in the
+    catalog map and maps them to packages. Non-plugin dotted values ("1.5", a
+    core a.b) and non-catalog namespaces fall through."""
 ```
 
 - **Namespace→package** comes from `load_catalog()` —
   `{e.namespace: _requirement_key(e.requirement()) for e in load_catalog().entries}`
   (the same expression `webui/store.py` already uses to collapse flair). No hand
   map. A meta-test (below) keeps the catalog itself complete.
-- **Output:** set of pip package names (deduped).
+- **Output:** set of pip package names (deduped). **Caveat to note in code:** the
+  "pip package name" guarantee holds because every catalog source is currently a
+  `pypi` package with `version=None`; if a first-party plugin ever switches to a
+  git/`#subdirectory` source, `_requirement_key` returns a dedup *key*, not a
+  pip-installable name, and headers/banner would render that. Assert/comment that
+  the derivation assumes pypi-package sources.
 - **Known remaining gap (now narrow):** plugin-registered *borders / color
   providers / animations / fonts* referenced by namespaced value in inline
   tables. No first-party plugin ships those as a primary surface today; the
   runtime `plugin_hint` still catches them at load. (Emoji and the `telnet`
-  backend, called out by the review, are now *covered*, not gaps.)
+  backend, called out by the first review, are now *covered*, not gaps.)
 
 ### 2. Startup banner (the "warn")
 
@@ -200,8 +233,11 @@ tripwire) given today's uncommented usage:
 | `config.bigsign.example.toml`          | `led-ticker-baseball, led-ticker-rss` (weather is commented → prose note, not the line) |
 | `config.firebird.example.toml`         | `led-ticker-flair`                       |
 | `config.try.example.toml`              | `led-ticker-flair, led-ticker-rss`       |
-| `config.showroom-bigsign.example.toml` | computed                                 |
-| `config.bigsign.firebird.example.toml` | computed                                 |
+| `config.showroom-bigsign.example.toml` | `led-ticker-flair, led-ticker-weather`   |
+| `config.bigsign.firebird.example.toml` | `none`                                   |
+
+(All six verified by reproducing `required_plugins` with `tomllib`; the
+implementer should still re-run rather than trust the table.)
 
 ### 4. Tripwire test (`tests/test_example_config_plugin_flags.py`)
 
@@ -212,10 +248,15 @@ tripwire) given today's uncommented usage:
   plugin-free-starter guard the earlier review asked for).
 - **Fixtures rule:** iterate all `config/*.example.toml`; the header is not
   required on non-starters, but any file with non-empty `required_plugins(file)`
-  MUST carry a correct line. This now correctly requires
-  `config.hires_emoji_test.example.toml` to declare **both**
-  `led-ticker-flair` (from its `:pokeball.ball:` emoji) and `led-ticker-weather`
-  — the case that broke the draft.
+  MUST carry a correct line. **This forces a header onto three dev fixtures**
+  (verified by reproducing the derivation), not just one — the implementer must
+  add all three or the tripwire fails on first run:
+  - `config.hires_emoji_test.example.toml` → `led-ticker-flair, led-ticker-weather`
+    (`weather.current` type + `:pokeball.ball:` emoji — the case that broke the draft);
+  - `config.hires_transitions_test.example.toml` → `led-ticker-baseball, led-ticker-flair`
+    (table-form `type = "pacman.forward"`, `baseball.roll…`);
+  - `config.presentation_test.example.toml` → `led-ticker-rss, led-ticker-weather`
+    (active `rss.feed` + `weather.current`).
 - A starter missing the line entirely fails.
 - **Failure message:** on mismatch, print the symmetric difference and the exact
   canonical line to paste — e.g. `header is missing {led-ticker-flair}; has
@@ -226,9 +267,13 @@ tripwire) given today's uncommented usage:
   treated as malformed (fail with hint); multiple `# requires-plugins:` lines →
   fail ("exactly one expected").
 
-- **Catalog-completeness meta-test:** assert every namespace the example configs
-  actually reference resolves through `load_catalog()` (guards the "someone
-  added a plugin namespace the catalog/​scan doesn't know" case end-to-end).
+- **Catalog-completeness meta-test:** must run against the **unfiltered** walk
+  output (raw referenced namespaces), NOT `required_plugins()` — the latter
+  already drops non-catalog namespaces, so asserting *its* output resolves
+  through `load_catalog()` is vacuously green-by-construction. Asserting the
+  unfiltered set against the catalog is what actually catches "someone added
+  `type = "foo.bar"` to an example but forgot `foo` in the catalog." (Zero
+  unknown namespaces today, so it passes now.)
 
 ### 5. `setup.sh` static tip
 
@@ -258,9 +303,13 @@ config TOML ──tomllib──► _config_scan.required_plugins() ──► {pi
   - `required_plugins()` units: plugin-free → empty; string-form `rss.feed` +
     `nyancat.forward` → `{led-ticker-rss, led-ticker-flair}`; **table-form**
     transition (`[…transition] type="pacman.forward"`) → `{led-ticker-flair}`;
-    inline `:pokeball.ball:` emoji → `{led-ticker-flair}`; `[display]
-    backend="telnet"` → `{led-ticker-telnet}`; commented-only plugin usage →
-    empty; non-plugin dotted value (`"1.5"`, core `a.b`) → empty.
+    **top-level `[transitions]`** (a config whose *only* plugin ref is
+    `between_sections = "nyancat.alternating"`) → `{led-ticker-flair}` (the
+    added surface — no shipped fixture exercises it non-redundantly, so it needs
+    a dedicated unit); inline `:pokeball.ball:` emoji → `{led-ticker-flair}`;
+    `[display] backend="telnet"` → `{led-ticker-telnet}` and `backend="headless"`
+    (built-in) → empty; commented-only plugin usage → empty; non-plugin dotted
+    value (`"1.5"`, core `a.b`) → empty.
   - Header == derived across the six STARTERS; `config.example.toml` ⇒ empty +
     `none`.
   - Fixtures rule across all `config/*.example.toml` (incl. the

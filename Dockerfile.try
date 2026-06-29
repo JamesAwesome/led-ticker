@@ -25,7 +25,21 @@ FROM python:3.14-bookworm
 WORKDIR /code
 COPY pyproject.toml README.md ./
 COPY src ./src
-RUN pip install --no-cache-dir .
+# Install core from source, then snapshot its transitive dependency versions as
+# constraints so the plugin install below can't move a version core locked.
+# led-ticker-core itself is EXCLUDED from those constraints: the source build
+# versions as 0.0.0 (no .git SCM tag in the Docker build context) and the plugins
+# require `led-ticker-core>=2.x`, so pip resolves that from PyPI — the try image
+# runs the latest matching PyPI RELEASE of core, plus the source's bundled config.
+# That's intentional for an evaluation try (you see the released code). To preview
+# uncommitted local core changes, use `make dev` and run led-ticker directly.
+RUN pip install --no-cache-dir . \
+ && pip list --format=freeze | grep -v '^led-ticker-core==' > /code/constraints-core.txt
+# Install curated keyless plugins for the try-it showcase.
+# COPY is its own layer so editing requirements-plugins.try.txt busts exactly
+# this layer on the next `make try` (--build), without re-installing core.
+COPY config/requirements-plugins.try.txt ./config/requirements-plugins.try.txt
+RUN pip install --no-cache-dir -c /code/constraints-core.txt -r config/requirements-plugins.try.txt
 # Bake the committed try config (so a bare `docker run` with no mount works).
 # compose's `try` profile mounts ./config and runs against the same committed
 # file, so a fresh clone needs no config/config.toml (which is gitignored).

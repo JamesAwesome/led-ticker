@@ -61,23 +61,24 @@ unambiguous at a glance.
 
 ### Step 2 — transcribe
 
-Shoot the wall square-on (lights toward you, camera level) and write one
-`<index><flag>` token per panel. **Write the top wall row first, left to right,
-exactly as the panels hang — transcribe the numbers as you see them, even when
-they look out of order. Do not rotate the photo to make them count up.** For the
-bigsign — panels numbered 1–8 in vertical-serpentine chain order, all installed
-upright — chain index 1 lands at the top-left and the grid reads:
+Shoot the wall square-on (lights toward you, camera level). `reveal` lights each
+panel with a number — write one `<number><flag>` token per panel. **Write the top
+wall row first, left to right, exactly as the panels hang — transcribe the numbers
+as you see them, even when they look out of order. Do not rotate the photo to make
+them count up.** For the bigsign (8 panels, all installed upright) the wall reads:
 
 ```text
 1n 3n 5n 7n
 2n 4n 6n 8n
 ```
 
-(That this looks scrambled is expected: the data chain snakes through the wall,
-so consecutive chain indices are not physically adjacent. `derive` untangles it.)
-Save that to a file, e.g. `layout.txt`. The `n` flag means each panel is
-oriented normally (arrow up, dot top-left). See the [orientation legend](#orientation-legend)
-below for other flags.
+These numbers are `reveal`'s own labels, not your cable order — they run opposite
+to it (here `reveal` paints `1` on the panel farthest down the chain, `8` on the
+cable-entry panel). That's fine: you never have to reconcile them with your wiring.
+Transcribe what you see and `derive` untangles the snake for you. Save that to a
+file, e.g. `layout.txt`. The `n` flag means each panel is oriented normally (arrow
+up, dot top-left). See the [orientation legend](#orientation-legend) below for
+other flags.
 
 ### Step 3 — derive
 

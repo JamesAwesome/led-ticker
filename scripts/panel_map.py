@@ -1,14 +1,13 @@
-"""panel-map: derive and visually verify a pixel_mapper_config Remap string.
+"""panel-map — derive and verify a pixel_mapper_config Remap string.
 
-Three subcommands:
-  reveal  Paint each panel with its chain index + orientation markers, with
-          NO mapper applied, so a photo reveals the physical layout. (hardware)
-  derive  Turn the transcribed ASCII grid into a Remap string. (no hardware)
-  verify  Apply a candidate mapper and paint a coherent, self-diagnosing
-          pattern so a wrong mapper is visibly (and per-panel) obvious. (hardware)
+  reveal   Paint each panel with its chain index + orientation markers (NO
+           mapper applied) so a photo reveals the physical layout. [hardware]
+  derive   Turn the transcribed ASCII grid into a Remap string. [no hardware]
+  verify   Apply a candidate mapper and paint a self-diagnosing pattern so a
+           wrong mapper is visibly, per-panel obvious. [hardware]
 
-See docs.ledticker.dev/tools/panel-map/ for the full workflow. Run
-panel-test FIRST to rule out the hardware layer (RGB sequence / FM6126A).
+Full workflow + orientation legend: docs.ledticker.dev/tools/panel-map/
+Run `make panel-test` first to rule out wiring/driver problems.
 """
 
 from __future__ import annotations
@@ -125,15 +124,32 @@ def _cmd_verify(args, display):
 
 
 def _parse_args():
-    p = argparse.ArgumentParser(description=__doc__)
+    p = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pr = sub.add_parser(
         "reveal",
         parents=[_CONFIG_PARENT],
         help="Paint chain index + orientation, no mapper.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Run `make panel-test` first to confirm your panels light up cleanly"
+            " with solid colors. If colors look wrong there, fix that before using"
+            " panel-map — it can't help with wiring/driver problems."
+        ),
     )
-    pr.add_argument("--hold", type=float, default=2.0)
+    pr.add_argument(
+        "--hold",
+        type=float,
+        default=2.0,
+        help=(
+            "Repaint interval in seconds (default: 2.0)."
+            " Press Ctrl-C to stop and clear the panel."
+        ),
+    )
     pr.set_defaults(func=_cmd_reveal)
 
     pd = sub.add_parser(
@@ -145,7 +161,10 @@ def _parse_args():
         "--layout",
         type=Path,
         default=None,
-        help="File with the transcribed grid. Omit to read stdin.",
+        help=(
+            "File with the transcribed grid (one cell per panel, e.g. '3n' '1s';"
+            " top wall row first). Omit to read the grid from stdin."
+        ),
     )
     pd.set_defaults(func=_cmd_derive)
 
@@ -154,7 +173,15 @@ def _parse_args():
         parents=[_CONFIG_PARENT],
         help="Apply a candidate mapper, paint a diagnostic pattern.",
     )
-    pv.add_argument("--hold", type=float, default=2.0)
+    pv.add_argument(
+        "--hold",
+        type=float,
+        default=2.0,
+        help=(
+            "Repaint interval in seconds (default: 2.0)."
+            " Press Ctrl-C to stop and clear the panel."
+        ),
+    )
     pv.add_argument(
         "--mapper",
         default=None,

@@ -90,7 +90,7 @@ panel-map-verify:  ## Verify a candidate mapper. Usage: make panel-map-verify [C
 	uv run python scripts/panel_map.py verify --config $(CONFIG) --hold $(HOLD)
 
 panel-map-derive:  ## Derive a Remap string from a transcribed grid. Usage: make panel-map-derive CONFIG=... LAYOUT=/tmp/grid.txt
-	uv run python scripts/panel_map.py derive --config $(CONFIG) --layout $(LAYOUT)
+	uv run python scripts/panel_map.py derive --config $(CONFIG) $(if $(LAYOUT),--layout $(LAYOUT))
 
 panel-map-reveal-docker:  ## Reveal layout inside Docker. Stop the running ticker first.
 	docker run --rm -it --privileged --network host \

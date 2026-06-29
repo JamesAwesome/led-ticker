@@ -1,0 +1,14 @@
+# Curated keyless plugin set for the led-ticker try-it image (Dockerfile.try).
+# Both plugins work with zero API keys — no .env needed.
+#
+# To change what the try image includes: edit this file, then re-run `make try`
+# (which runs `--build`) and Docker will pick up the change on the next build.
+#
+# Pinned with == so `make try` always builds a reproducible image.
+
+# RSS/Atom feed headlines — type = "rss.feed" (no API key needed; feed_url is public)
+led-ticker-rss==0.2.1
+
+# Sprite-trail transitions: nyancat / pokeball / pacman / sailor_moon
+# (transition = "nyancat.forward" etc.)
+led-ticker-flair==0.1.1

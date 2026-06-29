@@ -27,6 +27,8 @@ A few of the things a config can put on the wall — every cell links to the pag
 
 ## Quick start
 
+Run it straight from a clone for local development and config work:
+
 ```bash
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
@@ -35,7 +37,7 @@ cp config/config.example.toml config/config.toml  # or config.bigsign.example.to
 led-ticker --config config/config.toml
 ```
 
-For hardware setup, BOM, and wiring diagrams see [docs.ledticker.dev/hardware/building-your-own](https://docs.ledticker.dev/hardware/building-your-own/).
+**Installing for real?** The [Getting started guide](https://docs.ledticker.dev/getting-started/) is the complete walkthrough — install via Docker, preview configs on your laptop with no hardware attached, then deploy the same image to a Raspberry Pi in under five minutes. For the physical build — BOM, wiring, and panel-tuning — see [building your own](https://docs.ledticker.dev/hardware/building-your-own/).
 
 ## Configuration
 

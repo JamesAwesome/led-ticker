@@ -17,6 +17,7 @@ from led_ticker.plugins_catalog import (
 
 def test_bundled_catalog_loads_and_is_v4():
     from led_ticker.plugins_catalog import SCHEMA_VERSION
+
     assert SCHEMA_VERSION == 4
     cat = load_catalog()
     assert isinstance(cat, Catalog)
@@ -151,6 +152,7 @@ def test_pokeball_provides_transitions_and_emoji():
 
 def test_telnet_provides_a_backend():
     from led_ticker.plugins_catalog import _SURFACE_KINDS
+
     assert "backends" in _SURFACE_KINDS
     cat = load_catalog()
     telnet = cat.get("telnet")

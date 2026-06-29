@@ -114,3 +114,26 @@ def test_paint_reveal_index_differs_between_slots():
     slot0 = [c.get_pixel(x, y) for x in range(0, 32) for y in range(16)]
     slot1 = [c.get_pixel(x, y) for x in range(32, 64) for y in range(16)]
     assert slot0 != slot1
+
+
+def test_arrow_does_not_bleed_across_slot_boundary():
+    """Arrow must be bounded within its slot and must have a shaft ≥ 2 px wide.
+
+    Regression for the original 1-px-diagonal arrowhead that spread
+    ``height // 2`` px each side, overflowing into the adjacent slot.
+    """
+    c = HeadlessCanvas(width=160, height=16)
+    paint_reveal(c, cols=32, rows=16, chain_length=5, parallel=1)
+    YELLOW = (255, 255, 0)
+    # Interior slot boundary: slot 0 owns x=0..31; slot 1 owns x=32..63.
+    # No yellow pixel from slot 0's arrow should appear at x=32 or x=33.
+    for boundary_x in (32, 33):
+        for y in range(16):
+            assert c.get_pixel(boundary_x, y) != YELLOW, (
+                f"yellow arrow bleeds into slot 1 at x={boundary_x}, y={y}"
+            )
+    # Arrow shaft must be at least 2 px wide somewhere within slot 0.
+    max_yellow_in_row = max(
+        sum(1 for x in range(32) if c.get_pixel(x, y) == YELLOW) for y in range(16)
+    )
+    assert max_yellow_in_row >= 2, "arrow shaft should be >= 2 px wide in some row"

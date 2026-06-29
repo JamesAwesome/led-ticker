@@ -120,7 +120,7 @@ _DIGIT_W = 3
 _DIGIT_H = 5
 
 
-def draw_digit(canvas, ch, x, y, *, scale, r, g, b):  # noqa: PLR0913
+def _draw_digit(canvas, ch, x, y, *, scale, r, g, b):  # noqa: PLR0913
     glyph = DIGITS_3x5[ch]
     for ry, row in enumerate(glyph):
         for rx, bit in enumerate(row):
@@ -135,7 +135,7 @@ def draw_digit(canvas, ch, x, y, *, scale, r, g, b):  # noqa: PLR0913
 def draw_index(canvas, value, x, y, *, scale=1, r=255, g=255, b=255):  # noqa: PLR0913
     cx = x
     for ch in str(value):
-        draw_digit(canvas, ch, cx, y, scale=scale, r=r, g=g, b=b)
+        _draw_digit(canvas, ch, cx, y, scale=scale, r=r, g=g, b=b)
         cx += _DIGIT_W * scale + scale  # one scaled-pixel gap between digits
 
 
@@ -144,14 +144,28 @@ def draw_underline(canvas, x, y, length, r, g, b):  # noqa: PLR0913
         canvas.SetPixel(x + dx, y, r, g, b)
 
 
-def draw_up_arrow(canvas, cx, top_y, height, r, g, b):  # noqa: PLR0913
-    # vertical shaft
-    for dy in range(height):
-        canvas.SetPixel(cx, top_y + dy, r, g, b)
-    # head: two diagonals from the tip
-    for d in range(1, height // 2 + 1):
-        canvas.SetPixel(cx - d, top_y + d, r, g, b)
-        canvas.SetPixel(cx + d, top_y + d, r, g, b)
+def draw_up_arrow(canvas, cx, top_y, height, r, g, b, *, shaft_w=1, head_half=None):  # noqa: PLR0913
+    """Paint a solid filled up-arrow centred on *cx*.
+
+    *shaft_w* sets the shaft width in pixels (default 1; use ≥ 2 for legibility
+    at mounting distance).  *head_half* controls the arrowhead depth: at row *d*
+    from the tip (0 = topmost pixel) the head spans ``2d + 1`` pixels, so the
+    base width is ``2*(head_half-1)+1``.  Defaults to ``height // 2``.
+
+    Callers in ``paint_reveal`` compute *head_half* so every pixel stays
+    strictly inside the slot boundary.
+    """
+    if head_half is None:
+        head_half = height // 2
+    # filled arrowhead triangle: rows top_y .. top_y+head_half-1
+    for d in range(head_half):
+        for ix in range(-d, d + 1):
+            canvas.SetPixel(cx + ix, top_y + d, r, g, b)
+    # filled shaft: rows top_y+head_half .. top_y+height-1
+    shaft_left = cx - shaft_w // 2
+    for dy in range(head_half, height):
+        for dx in range(shaft_w):
+            canvas.SetPixel(shaft_left + dx, top_y + dy, r, g, b)
 
 
 def draw_corner_dot(canvas, x, y, size, r, g, b):  # noqa: PLR0913
@@ -183,19 +197,33 @@ def paint_reveal(canvas, *, cols, rows, chain_length, parallel):
             k = j * chain_length + i + 1
             ox, oy = i * cols, j * rows
             draw_border(canvas, ox, oy, cols, rows, 0, 80, 80)
-            draw_corner_dot(canvas, ox + 1, oy + 1, max(2, scale), 255, 0, 0)
+            draw_corner_dot(canvas, ox + 1, oy + 1, max(3, scale), 255, 0, 0)
             dx, dy = ox + 3, oy + 2
             draw_index(canvas, k, dx, dy, scale=scale)
-            draw_underline(
-                canvas, dx, dy + _DIGIT_H * scale, _DIGIT_W * scale, 0, 255, 0
+            # Fix 3: underline spans the full rendered width of str(k)
+            index_w = len(str(k)) * (_DIGIT_W * scale + scale) - scale
+            draw_underline(canvas, dx, dy + _DIGIT_H * scale, index_w, 0, 255, 0)
+            # Fix 1: solid, bounded up-arrow on the right side of the slot.
+            # Place the arrow centre at 3/4 of slot width and compute head_half
+            # so every pixel stays within [ox, ox+cols) with ≥1 px from the border.
+            shaft_h = rows - 4
+            shaft_w = max(2, shaft_h // 8)
+            arrow_cx = ox + cols * 3 // 4
+            digit_end_x = dx + index_w  # x past the last digit pixel
+            right_bound = ox + cols - 2  # 1-px slot border + 1-px breathing room
+            left_bound = digit_end_x + 2  # 2-px gap after index digits
+            # head at row d spans cx±d; require cx+(head_half-1) ≤ right_bound
+            head_half = max(
+                1, min(right_bound - arrow_cx + 1, arrow_cx - left_bound + 1)
             )
-            # up-arrow on the right side of the slot
             draw_up_arrow(
                 canvas,
-                ox + cols - max(4, scale * 2),
+                arrow_cx,
                 oy + 2,
-                rows - 4,
+                shaft_h,
                 255,
                 255,
                 0,
+                shaft_w=shaft_w,
+                head_half=head_half,
             )

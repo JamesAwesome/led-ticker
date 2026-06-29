@@ -3,7 +3,7 @@
 This runbook covers the one-time setup required before any package can be published, the first-publish sequence (core then plugins), and the procedure for subsequent releases.
 
 **Who:** the repository owner (`JamesAwesome`).  
-**Packages:** `led-ticker-core` (core, `led-ticker` repo) + six plugin packages (`led-ticker-pool`, `led-ticker-baseball`, `led-ticker-crypto`, `led-ticker-calendar`, `led-ticker-rss`, `led-ticker-weather`) in the `led-ticker-plugins` repo.
+**Packages:** `led-ticker-core` (core, `led-ticker` repo) + eight plugin packages (`led-ticker-pool`, `led-ticker-baseball`, `led-ticker-crypto`, `led-ticker-calendar`, `led-ticker-rss`, `led-ticker-weather`, `led-ticker-flair`, `led-ticker-telnet`) in the `led-ticker-plugins` repo. Both core and every plugin are **tag-driven** (hatch-vcs): the git tag is the version — no `pyproject.toml` version edit is needed or correct.
 
 ---
 
@@ -33,6 +33,8 @@ A *pending* Trusted Publisher creates the PyPI project automatically on the firs
 | `led-ticker-calendar` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
 | `led-ticker-rss` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
 | `led-ticker-weather` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
+| `led-ticker-flair` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
+| `led-ticker-telnet` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
 
 ---
 
@@ -92,28 +94,32 @@ Repeat for each plugin package. Tags are scoped by plugin name so all packages c
 
 For each plugin (example shown for `led-ticker-pool`):
 
-> **Tag format:** `<plugin>-v<version>` using the SHORT plugin name (`pool`, `baseball`, `crypto`, `calendar`, `rss`, `weather`) — NOT the full PyPI package name. This matches the existing tag convention and the allowlist in the **led-ticker-plugins** repo's `scripts/check_release.py` (that guard lives in the plugins repo, not here); a full-name tag like `led-ticker-pool-v…` is rejected as an unknown plugin. The `<version>` must equal the plugin's `pyproject.toml` version or the tag-vs-version guard fails the run.
+> **Tag format:** `<plugin>-v<version>` using the SHORT plugin name (`pool`, `baseball`, `crypto`, `calendar`, `rss`, `weather`, `flair`, `telnet`) — NOT the full PyPI package name. This matches the tag convention and the allowlist in the **led-ticker-plugins** repo's `scripts/check_release.py` (that guard lives in the plugins repo, not here); a full-name tag like `led-ticker-pool-v…` is rejected as an unknown plugin. Each plugin is **tag-driven** (hatch-vcs): the `<version>` in the tag *becomes* the published version — there is no `pyproject.toml` version to match. Use a strictly PEP 440-normalized `X.Y.Z` (a non-normalized tag like `…-v0.2.01` builds `0.2.1` and the publish guard refuses it). The tag must sit exactly on the commit you release — an off-tag Release derives a `.devN+local` version the guard blocks before any upload.
 
-1. Confirm the plugin's `pyproject.toml` version (e.g. `pool` is currently `0.1.0`).
+1. Pick the next version for the plugin (higher than its latest `<plugin>-v*` tag).
 2. On GitHub (`led-ticker-plugins`): **Releases → Draft a new release**.
-   - Tag: `pool-v0.1.0`
+   - Tag: `pool-v0.1.2` (create new, target `main`)
    - Target: `main`
-   - Title: `led-ticker-pool 0.1.0`
+   - Title: `led-ticker-pool 0.1.2`
    - Click **Publish release**.
-3. The `publish.yml` workflow inspects the tag prefix, resolves to the `plugins/pool/` directory, builds, and pauses for approval.
+3. The `publish.yml` workflow inspects the tag prefix, resolves to the `plugins/pool/` directory, builds (deriving the version from the tag), guards that the built wheel + sdist carry the tag version, and pauses for approval.
 4. Approve via **Actions → Review deployments**.
 5. Verify: <https://pypi.org/project/led-ticker-pool/>.
 
-Tag prefixes for each plugin:
+Tag prefix (short name) for each plugin — append the version you're releasing (`<prefix>-v<X.Y.Z>`):
 
-| Package | Release tag (short name + current version) |
+| Package | Tag prefix |
 |---|---|
-| `led-ticker-pool` | `pool-v0.1.0` |
-| `led-ticker-baseball` | `baseball-v0.1.0` |
-| `led-ticker-crypto` | `crypto-v0.2.0` |
-| `led-ticker-calendar` | `calendar-v0.1.0` |
-| `led-ticker-rss` | `rss-v0.2.0` |
-| `led-ticker-weather` | `weather-v0.2.0` |
+| `led-ticker-pool` | `pool-v…` |
+| `led-ticker-baseball` | `baseball-v…` |
+| `led-ticker-crypto` | `crypto-v…` |
+| `led-ticker-calendar` | `calendar-v…` |
+| `led-ticker-rss` | `rss-v…` |
+| `led-ticker-weather` | `weather-v…` |
+| `led-ticker-flair` | `flair-v…` |
+| `led-ticker-telnet` | `telnet-v…` |
+
+> **First-time publish for a plugin** (e.g. `telnet`'s first release): the PyPI **pending** Trusted Publisher must be registered (section A.2) *before* the first Release, or the upload 403s and the project won't auto-create.
 
 ---
 
@@ -172,8 +178,7 @@ PyPI forbids re-uploading a file for an existing version. If a release has an er
 **For `led-ticker-core`** (hatch-vcs, tag-driven):
 1. Create a new GitHub Release with a higher version tag (e.g. `v2.0.1`). The package version is derived from the tag — no `pyproject.toml` edit needed.
 
-**For plugins** (static versions in their `pyproject.toml`):
-1. Bump the version in the relevant `plugins/<name>/pyproject.toml` (e.g. `0.1.0` → `0.1.1`).
-2. Create a new GitHub Release with a matching tag (e.g. `pool-v0.1.1` — short plugin name). The tag-vs-version guard in the plugins workflow checks that the tag version matches `pyproject.toml` — a mismatch fails the build before any upload is attempted.
+**For plugins** (hatch-vcs, tag-driven — same model as core):
+1. Create a new GitHub Release with a higher version tag (e.g. `pool-v0.1.2` — short plugin name). The version is derived from the tag; no `pyproject.toml` edit is needed. The publish workflow's guard asserts the built wheel + sdist carry the tag version before any upload.
 
 There is no way to overwrite or delete an already-published version on PyPI. Plan releases accordingly and use the approval gate (section B) to catch mistakes before the upload runs.

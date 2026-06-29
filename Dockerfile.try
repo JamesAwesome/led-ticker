@@ -26,7 +26,10 @@ WORKDIR /code
 COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir .
-COPY config/config.try.example.toml /code/config/config.toml
+# Bake the committed try config (so a bare `docker run` with no mount works).
+# compose's `try` profile mounts ./config and runs against the same committed
+# file, so a fresh clone needs no config/config.toml (which is gitignored).
+COPY config/config.try.example.toml /code/config/config.try.example.toml
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
-CMD ["led-ticker", "--config", "/code/config/config.toml"]
+CMD ["led-ticker", "--config", "/code/config/config.try.example.toml"]

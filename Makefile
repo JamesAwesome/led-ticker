@@ -92,8 +92,8 @@ rebuild:  ## Stamped rebuild + recreate ALL services incl. the webui sidecar
 	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$(VERSION)" COMPOSE_PROFILES=webui docker compose up -d --build --force-recreate
 
 try:  ## Try led-ticker with NO hardware: headless engine + webui preview at http://localhost:8080
-	docker compose --profile try up --build
-	@echo "open http://localhost:8080 and click the live preview  (stop: Ctrl-C, then docker compose --profile try down)"
+	docker compose -f compose.try.yaml -p led-ticker-try up --build
+	@echo "open http://localhost:8080 and click the live preview  (stop: Ctrl-C, then docker compose -f compose.try.yaml -p led-ticker-try down)"
 
 # --- Cleanup ---
 

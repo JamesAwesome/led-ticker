@@ -33,49 +33,6 @@ services:
       - path: ./.env
         required: false     # repo may not have .env if no API keys are needed
 
-  # Try-it engine — headless, laptop-friendly, no GPIO/hardware needed.
-  # Runs the led-ticker display engine using the built-in headless backend;
-  # writes status.json + preview.bin to the shared try-status volume so the
-  # try-webui sidecar can serve the live preview at http://localhost:8080.
-  #
-  # Start with: docker compose --profile try up --build   (or: make try)
-  # Stop with:  Ctrl-C, then docker compose --profile try down
-  try-engine:
-    profiles: ["try"]
-    image: led-ticker-try
-    build:
-      context: .
-      dockerfile: Dockerfile.try
-    container_name: led-ticker-try-engine
-    restart: unless-stopped
-    volumes:
-      - ./config:/code/config:ro
-      - try-status:/run/led-ticker   # engine writes status.json + preview.bin here
-    env_file:
-      - path: ./.env
-        required: false
-
-  # Try-it webui — reads the engine's preview.bin from try-status and serves
-  # the live browser preview at http://localhost:8080.
-  try-webui:
-    profiles: ["try"]
-    image: led-ticker-try
-    build:
-      context: .
-      dockerfile: Dockerfile.try
-    container_name: led-ticker-try-webui
-    restart: unless-stopped
-    command: ["led-ticker", "webui", "--config", "/code/config/config.toml"]
-    ports:
-      - "8080:8080"
-    volumes:
-      # rw so the web config editor can write config.toml; the engine still mounts :ro
-      - ./config:/code/config:rw
-      - try-status:/run/led-ticker   # reads engine's status.json + preview.bin
-    env_file:
-      - path: ./.env
-        required: false
-
   # Web status UI — unprivileged sidecar, same image. Reads the status.json
   # the display process publishes; serves http://<pi>:8080.
   # Opt-in via compose profile so a plain `docker compose up -d` changes
@@ -124,11 +81,3 @@ volumes:
       device: tmpfs
       o: size=1m
   ticker-plugins:
-  # Separate tmpfs for the try profile — isolated from the deploy's ticker-status
-  # so a running Pi deploy and a laptop try session can't share or stomp the volume.
-  try-status:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-      o: size=1m

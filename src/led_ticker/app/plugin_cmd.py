@@ -173,8 +173,8 @@ _ADD_HINT = (
     "(no rebuild needed)."
 )
 _REMOVE_HINT = (
-    "The plugin uninstalls on next startup — Docker: `docker compose restart`. "
-    "The manifest is the source of truth: anything not listed is removed."
+    "The plugin uninstalls on next startup — run `docker compose restart` "
+    "(no rebuild needed). Manifest is authoritative: anything not listed is removed."
 )
 
 

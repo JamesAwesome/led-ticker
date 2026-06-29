@@ -29,14 +29,14 @@ docker compose restart             # installs/uninstalls on the next start — n
 `add` / `remove` only edit a host file, so run them **on the host** from your project root (where `config/` lives) — not inside the container. Don't reach for `docker compose exec led-ticker led-ticker plugin add …`: the container mounts `./config` read-only, so the write fails. If you run led-ticker purely via Docker and have no host `led-ticker` command, edit `config/requirements-plugins.txt` by hand — it's the same manifest.
 :::
 
-**Bare-metal / dev** — `install` does the same manifest edit **and** pip-installs into your active virtualenv immediately (with `uninstall` to reverse it):
+**Dev / source checkout** — `install` does the same manifest edit **and** pip-installs into your active virtualenv immediately (with `uninstall` to reverse it):
 
 ```bash
 led-ticker plugin install pool     # add + pip install now
 led-ticker plugin uninstall pool   # remove + pip uninstall
 ```
 
-All of these resolve a catalog name to a pip source (git or PyPI), or take a raw pip spec (`git+https://…` / a PyPI requirement) like `pip` itself. Run from your project root so the manifest lands in `config/requirements-plugins.txt` (the only one the Docker build and `deploy/install.sh` read); pass `--config <path>` for a non-standard layout. See the [CLI reference](/reference/cli/#led-ticker-plugin) for all flags. `led-ticker plugin list` marks each plugin `[declared]` (in the manifest) and `[installed]` (in this environment), so you can confirm what the next restart will include.
+All of these resolve a catalog name to a pip source (git or PyPI), or take a raw pip spec (`git+https://…` / a PyPI requirement) like `pip` itself. Run from your project root so the manifest lands in `config/requirements-plugins.txt` (the file the Docker build and startup reconcile read); pass `--config <path>` for a non-standard layout. See the [CLI reference](/reference/cli/#led-ticker-plugin) for all flags. `led-ticker plugin list` marks each plugin `[declared]` (in the manifest) and `[installed]` (in this environment), so you can confirm what the next restart will include.
 
 Under the hood, `requirements-plugins.txt` is just a pip requirements file, so you can also edit it by hand:
 
@@ -131,7 +131,7 @@ New to it? The four-page [**authoring guide**](/plugins/authoring/01-scaffold/) 
 
 ## If something goes wrong
 
-- **`'pool.monitor' looks like a plugin widget, but no 'pool' plugin is loaded. Install it with `led-ticker plugin install pool``** at validate/startup → the plugin isn't installed. The same hint appears for any namespaced name that doesn't resolve — a transition, border, color provider, or animation. On Docker, run `led-ticker plugin add pool` then `docker compose restart`; on bare-metal/dev, `led-ticker plugin install pool`. Either way, `led-ticker plugin status` confirms what's registered.
+- **`'pool.monitor' looks like a plugin widget, but no 'pool' plugin is loaded. Install it with `led-ticker plugin install pool``** at validate/startup → the plugin isn't installed. The same hint appears for any namespaced name that doesn't resolve — a transition, border, color provider, or animation. On Docker, run `led-ticker plugin add pool` then `docker compose restart`; from a source checkout, run `led-ticker plugin install pool`. Either way, `led-ticker plugin status` confirms what's registered.
 - **A plugin's widget shows `--`, dim values, or raises at startup** → that's the plugin's own runtime/config issue (e.g. pool needs `INFLUXDB_TOKEN`); check the plugin's README. A plugin that fails to _load_ is skipped with a logged error and never crashes the display.
 
 ## Available plugins

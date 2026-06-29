@@ -74,16 +74,26 @@ either, let alone five or eight.
 ## Software-first development
 
 You can develop a complete led-ticker config without owning a single
-panel. The repo ships a Python test stub that simulates the rgbmatrix
-library, plus a renderer that turns any config into a gif at panel
-resolution.
+panel. Two paths — pick whichever fits your workflow:
 
-Install dev deps once:
+**Browser preview (Docker, no Python needed)** — the fastest way to see
+the sign rendering:
+
+```bash
+make try    # build + start; open http://localhost:8080 → live preview tab
+```
+
+`make try` starts a headless engine and the web UI in Docker. Stop with
+`Ctrl-C` then `docker compose -f compose.try.yaml -p led-ticker-try down`.
+
+**GIF renderer (Python dev path)** — render any config to a GIF at panel
+resolution, useful for CI, scripted demos, and configs with live-data
+widgets:
 
 ```bash
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
-make dev
+make dev        # install Python dev deps (requires uv)
 ```
 
 Run the test suite — no hardware, no Docker:
@@ -93,8 +103,8 @@ make test
 ```
 
 `make test` automatically sets `PYTHONPATH=tests/stubs` so the stub
-canvas stands in for the real one. The full suite is ~580 tests and
-finishes in ~15 seconds.
+canvas stands in for the real one. The full suite is ~1450 tests and
+finishes in ~2 minutes.
 
 Render any config to a gif at panel resolution:
 
@@ -130,21 +140,43 @@ flags and the long-running pipeline used for data-fetch widgets.
 ## Deploying to the Pi
 
 Once your config renders the way you want, push it to a Pi. Deployment is
-**Docker Compose**:
+**Docker Compose** — one command and the sign is running:
 
-- **Build the production image** with `make build-docker`. The same
-  Dockerfile builds for both Pi 4 and Pi 5 — the rgbmatrix library
-  detects the SoC at runtime.
-- **Run it with `docker compose up -d`.** The `compose.yaml` sets
-  `restart: unless-stopped`, so the ticker comes back up on power loss,
-  and runs `--privileged` for matrix access.
-- **Mount the config read-only**, so a typo in a hot-edit can't crash
-  the ticker into a half-applied state — `compose.yaml` already does this
-  (`./config:/code/config:ro`).
+```bash
+make setup      # Docker preflight + config/.env seed + bring-up (first time)
+# or, on subsequent deploys:
+docker compose up -d --build
+```
 
-To take the sign down for a diagnostic (like [`panel-map`](/tools/panel-map/) or
-[`panel-test`](/tools/panel-test/)), `docker compose stop`; bring it back with
-`docker compose start`.
+`make setup` (or `make setup MODE=deploy`) checks that Docker is installed,
+seeds `config/config.toml` and `.env` if they don't exist yet, and runs
+`docker compose up -d`. After that, a plain `docker compose up -d --build`
+is enough for every subsequent deploy.
+
+Key behaviors built into `compose.yaml`:
+
+- `restart: unless-stopped` — the ticker comes back up on power loss or crash.
+- Config mounted read-only (`./config:/code/config:ro`) — a typo in a
+  hot-edit can't crash the ticker into a half-applied state.
+- Hot-reload is on by default: edit `config/config.toml` on the host and
+  most changes (sections, widgets, schedule) take effect within one playlist
+  cycle — no restart needed.
+
+**Panel bring-up** — after wiring up the hardware and the first boot:
+
+1. Run [`make panel-test`](/tools/panel-test/) to cycle the panel through
+   solid R/G/B/White/Black. If colors are missing or wrong, check your wiring
+   and the `led_rgb_sequence` config knob before going further.
+2. Use the [`panel-map`](/tools/panel-map/) reveal → derive → verify workflow
+   to build the `pixel_mapper_config` Remap string for your exact panel layout.
+
+To take the sign down for a diagnostic, `docker compose stop`; bring it back
+with `docker compose start`.
+
+**Repo hygiene** — your running `config/config.toml` is gitignored (it's
+yours to customize per sign). Private media — images, GIFs, custom fonts —
+goes in `config/local/` (also gitignored) and is referenced in TOML as
+`path = "local/<file>"`.
 
 ## Tips
 
@@ -160,13 +192,19 @@ A phone charger or a generic USB-C brick marketed as 5V 3A does not sustain rate
 
 P3 panels at brightness 60+ get warm to the touch within minutes; the smallsign is more forgiving but still climbs over time. For sustained or always-on installs add a fan behind the panels, or design a shroud with airflow gaps. Heat shortens LED lifespan and can warp panel substrates if it accumulates with no ventilation.
 
-### Bare-metal install on Python 3.14
+### Running from a source checkout (dev / evaluation)
 
-:::note[Prefer Docker on the Pi]
-The Docker image ships every wheel pre-built. A bare-metal `pip install` on
-the Pi may compile some dependencies from source — piwheels does not provide
-aarch64 wheels and its cp314 armv7l coverage is incomplete as of mid-2026.
-Prefer the Docker deploy, or expect a longer first install on bare metal.
+If you want to run led-ticker directly from a Python virtualenv rather than
+Docker — for development, custom patches, or experimentation — install the
+package and its deps with `make dev` (which runs `uv sync --extra dev`), then
+invoke `led-ticker --config config/config.toml` directly.
+
+:::note[Wheels on the Pi]
+A source-checkout install on the Pi may compile some dependencies from source
+— piwheels does not provide aarch64 wheels and its cp314 armv7l coverage is
+incomplete as of mid-2026. The Docker image ships every wheel pre-built, so
+the first `docker compose up --build` is typically faster than a bare
+`pip install` on the Pi.
 :::
 
 ## Inspecting the running async loop (Python 3.14+)
@@ -177,7 +215,7 @@ widget (`run_monitor_loop`) and the optional busy-light HTTP server. On Python
 changes or restart:
 
 ```bash
-# pid of the led-ticker process (inside the container or on bare metal)
+# pid of the led-ticker process (inside the container or in a dev checkout)
 python -m asyncio pstree <pid>
 # flat list with awaited-by edges
 python -m asyncio ps <pid>

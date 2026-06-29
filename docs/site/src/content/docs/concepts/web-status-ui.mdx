@@ -9,7 +9,7 @@ import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
 
 The web status UI is a browser dashboard you open while the sign is running. By default it's read-only, with token-gated editing (the config editor and the plugin Store). It shows you what the sign is displaying right now, lets you inspect the live config with secrets redacted, validate a config against the real sign before deploying it, and browse the fonts, images, and emoji available in your config directory.
 
-**What you'll need:** a running led-ticker sign with the Docker or bare-metal setup from [Getting started](/getting-started/). No additional accounts, API keys, or hardware changes required.
+**What you'll need:** a running led-ticker sign set up from [Getting started](/getting-started/). No additional accounts, API keys, or hardware changes required.
 
 ## What's on the dashboard
 
@@ -46,7 +46,7 @@ The Store tab lists every plugin in the [catalog](/plugins/available/) and shows
 
 **A token is required to install or remove.** Browsing the Store is open, but any write action returns 401 without a valid token. Set `LED_TICKER_WEB_TOKEN` in your `.env` (see [Auth](#auth) below).
 
-**Changes take effect on the next restart** — the same as editing `config/requirements-plugins.txt` by hand. The Store writes the manifest for you and shows a "pending restart" banner once there is a queued change. If `allow_restart = true` is set in your `[web]` block, the banner also shows a **Restart to apply** button — click it and the display process exits cleanly, then your process supervisor (Docker or systemd) brings it back with the new plugins loaded. If `allow_restart` is not set, the banner shows a copyable command you can run yourself:
+**Changes take effect on the next restart** — the same as editing `config/requirements-plugins.txt` by hand. The Store writes the manifest for you and shows a "pending restart" banner once there is a queued change. If `allow_restart = true` is set in your `[web]` block, the banner also shows a **Restart to apply** button — click it and the display process exits cleanly, then Docker's `restart: unless-stopped` brings it back with the new plugins loaded. If `allow_restart` is not set, the banner shows a copyable command you can run yourself:
 
 ```bash
 docker compose restart
@@ -110,7 +110,7 @@ The Status tab includes a **live preview** panel that shows the actual content o
 **If the preview is stuck on "waking the preview…":**
 
 - Confirm the display process is running with a `[web]` block in `config.toml` (see [Enabling it](#enabling-it) below). A process started before `[web]` was added needs a restart.
-- Check that the `ticker-status` volume (Docker) or `/run/led-ticker/` directory (bare metal) is shared between the display process and the sidecar — the preview frame file lands there.
+- Check that the `ticker-status` named volume is shared between the display process and the sidecar — the preview frame file lands in `/run/led-ticker/` inside both containers.
 - If the sidecar and display process are on different versions, the display process may predate the live preview feature. Rebuild or reinstall both to the same version.
 
 ## Architecture
@@ -162,31 +162,6 @@ COMPOSE_PROFILES=webui docker compose up -d
 
 Open `http://<pi-hostname>.local:8080` in a browser.
 
-### Bare metal (systemd)
-
-1. Add `[web]` to your `config.toml`.
-2. Install the sidecar service (one-time):
-
-   ```bash
-   sudo cp deploy/led-ticker-webui.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now led-ticker-webui
-   ```
-
-3. Check it started:
-
-   ```bash
-   sudo systemctl status led-ticker-webui
-   ```
-
-The sidecar runs as an ephemeral unprivileged user provisioned by systemd (`DynamicUser=yes`) — no `useradd` step required. It reads `status.json` from `/run/led-ticker/` — that directory is created by the display process on startup, so the sidecar may log a brief "missing" state until the display process has run at least once.
-
-<Aside type="note">
-  The sidecar service is intentionally **not** set as `After=led-ticker.service`. Both services
-  degrade gracefully without the other; coupling start order would prevent the sidecar from serving
-  the "display is down" diagnostic exactly when it matters most.
-</Aside>
-
 ## Auth
 
 By default the dashboard is open — appropriate for a trusted home LAN. To add a shared token, set `LED_TICKER_WEB_TOKEN` in your `.env`:
@@ -234,7 +209,7 @@ The Config tab reports **"applied live"** when the running display picked up the
   candidate config before saving.
 </Aside>
 
-**Deploy note.** The webui container must be able to write the host-bind-mounted `config.toml`. In `compose.yaml` the webui service mounts the config directory `:rw` (the display service still mounts it `:ro`). On bare metal, confirm the user running `led-ticker webui` has write permission to the config directory. If the Pi's config directory is owned by root and the sidecar runs as an unprivileged user, `chown` the directory or add the sidecar user to the owning group.
+**Deploy note.** In `compose.yaml` the webui service mounts the config directory `:rw` (the display service still mounts it `:ro`) — this is what lets the editor write `config.toml` from inside the container.
 
 ## Restarting the display process
 
@@ -245,7 +220,7 @@ The web UI can trigger that restart for you. When `allow_restart = true` is set 
 1. Confirms the action (a brief in-button countdown lets you cancel).
 2. Posts to `/api/restart` — a token must be configured and supplied (the same token that gates config saves); with no token configured the endpoint returns 403.
 3. The display process detects the signal on its next loop pass and exits cleanly (`sys.exit(0)`).
-4. Your process supervisor brings the display back. On Docker, `restart: unless-stopped` handles this automatically. On bare metal with systemd, `Restart=always` (or `on-success`) does the same.
+4. Docker's `restart: unless-stopped` brings the display back automatically.
 
 **The panel goes dark for roughly 5–10 seconds** while the process exits and restarts. This is expected — it is not a reboot of the Pi, and the sign resumes where it left off once the display process is back.
 
@@ -260,10 +235,10 @@ allow_restart = true   # enables the Restart to apply button in the web UI`}
 The `config/config.example.toml` shipped with the project sets `allow_restart = true` in its commented-out `[web]` block — uncomment the whole block to get the button alongside the other defaults.
 
 <Aside type="caution">
-  **Bare metal: set up a supervisor before enabling this.** If you enable `allow_restart` without a
-  supervisor configured to restart the process, clicking the button leaves the sign dark. On bare
-  metal, confirm your systemd unit has `Restart=always` or `Restart=on-success` before flipping this
-  on. On Docker, `restart: unless-stopped` is already set in `compose.yaml`.
+  `restart: unless-stopped` is already set in `compose.yaml`, so Docker deployments restart
+  automatically. If you are running led-ticker from a source checkout without a process supervisor,
+  clicking the button will leave the sign dark until you restart it manually — set up a supervisor
+  or leave `allow_restart` at its default `false`.
 </Aside>
 
 ## What it does not do
@@ -273,7 +248,7 @@ The `config/config.example.toml` shipped with the project sets `allow_restart = 
 
 ## Which build is deployed?
 
-The dashboard header shows the deployed build, as `branch@sha`. Use it to confirm both containers are running the code you expect. It resolves to the first of: the ref stamped into the Docker image at build time (`make rebuild` / `make build-docker` compute it and pass it in), or — for a non-Docker install running from a checkout (the systemd/venv deploy, or local dev) — the ref read from Git at runtime.
+The dashboard header shows the deployed build, as `branch@sha`. Use it to confirm both containers are running the code you expect. It resolves to the first of: the ref stamped into the Docker image at build time (`make rebuild` / `make build-docker` compute it and pass it in), or — for a non-Docker install running from a source checkout (local dev) — the ref read from Git at runtime.
 
 - **`build unknown`** — neither applied: the image wasn't built through `make rebuild` (a bare `docker compose build` doesn't stamp the commit), and it isn't running from a Git checkout. Deploy with **`make rebuild`** to stamp it. The sign still runs correctly; `unknown` is a label, not an error.
 - **`⚠ webui build …`** — the webui sidecar is on a different build than the display process. This happens when you rebuild with a plain `docker compose up -d --build`: the image is updated but the profile-gated webui container is left on the old one. Run `make rebuild` to bring both containers to the same image at once.
@@ -282,11 +257,11 @@ The dashboard header shows the deployed build, as `branch@sha`. Use it to confir
 
 **The page doesn't load at all (connection refused)** — The sidecar isn't running. On Docker, the `webui` service only starts when the `webui` compose profile is enabled — check `docker compose ps`; if the container is absent, start with `COMPOSE_PROFILES=webui docker compose up -d`. If the container exists but is restarting, check `docker compose logs webui` — a missing `[web]` block in `config.toml` makes the subcommand exit with a message naming the fix.
 
-**"Status: missing" on the Status tab** — The display process has not written `status.json` yet. Confirm the display process is running (`docker compose ps` or `systemctl status led-ticker`) and that both processes share the same `status_path` (default `/run/led-ticker/status.json`). On bare metal, `/run/led-ticker/` is created by the display process — if the display process has never started, the directory does not exist yet.
+**"Status: missing" on the Status tab** — The display process has not written `status.json` yet. Confirm the display process is running (`docker compose ps`) and that both processes share the same `status_path` (default `/run/led-ticker/status.json`). The directory `/run/led-ticker/` is created by the display process on startup — if the display process has never started, the directory does not exist yet.
 
 **"engine stalled?" on the live indicator** — The display process is running (status keeps publishing) but the render loop has stopped swapping frames. This is rare; check `docker compose logs led-ticker` for a stuck widget or transition, and restart the display service.
 
-**"Status: stale" on the Status tab** — The display process wrote a status file but has not updated it recently. This usually means the process crashed or was stopped. Check `docker compose logs led-ticker` or `journalctl -u led-ticker`.
+**"Status: stale" on the Status tab** — The display process wrote a status file but has not updated it recently. This usually means the process crashed or was stopped. Check `docker compose logs led-ticker`.
 
 **Browser shows nothing / 401** — A token is set in `[web]`. Add `?token=<your-token>` to the URL, or configure your browser extension / bookmark with the `X-Web-Token` header.
 

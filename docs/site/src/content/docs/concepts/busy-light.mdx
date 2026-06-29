@@ -41,7 +41,7 @@ size = 4`}
 
 ## Toggling it
 
-On bare metal, the file path is literal:
+When running from a source checkout, the file path is literal:
 
 ```bash
 touch ~/.busy     # light ON  (within poll_interval)
@@ -118,7 +118,7 @@ curl "http://PI-HOST:8081/busy?token=change-me"
         - "8081:8081"
   ```
 
-- **Bare-metal / systemd deploy:** the process binds the host port directly — no mapping needed; just make sure no host firewall blocks it.
+- **Source-checkout / dev:** the process binds the host port directly — no mapping needed; just make sure no host firewall blocks it.
 
 ### TTL (auto-clear)
 

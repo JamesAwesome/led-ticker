@@ -54,18 +54,14 @@ With `hot_reload = false`, the display process ignores `config.toml` modificatio
 - **ERROR** — rejected: `config reload rejected: <validation error>` (the new config failed validation; the running config is unchanged).
 
 ```bash
-# Docker
 docker compose logs -f led-ticker | grep reload
-
-# Bare metal
-journalctl -u led-ticker -f | grep reload
 ```
 
 **Web status UI** — the Status tab's **Last config reload** card shows the timestamp, whether it succeeded, the error message on failure, and which fields (if any) need a restart. The card is hidden until the first reload attempt after startup. See [Web status UI](/concepts/web-status-ui/#status-tab--snapshot-fields) for the full `last_reload` field shape.
 
 ## In Docker
 
-The `config` directory is mounted read-only (`./config:/code/config:ro`), which does not prevent the Pi's own editor from updating the host file — the container sees the change through the bind mount. Hot-reload works the same way in Docker as on bare metal.
+The `config` directory is mounted read-only (`./config:/code/config:ro`), which does not prevent the Pi's own editor from updating the host file — the container sees the change through the bind mount. Hot-reload works the same way in Docker as when running from a source checkout.
 
 <Aside type="tip">
   Use `led-ticker validate config.toml` (or the web UI's Validate tab) to confirm a candidate config
@@ -78,6 +74,6 @@ The `config` directory is mounted read-only (`./config:/code/config:ro`), which 
 - Confirm `hot_reload = false` is not set in your `[display]` block.
 - Check that the file's modification time actually changed — some editors write to a temp file and rename; that still changes `mtime` and triggers a reload. A few (rare) setups write in place without updating `mtime` — `touch config.toml` forces a check.
 - The reload runs between cycles, not mid-render, so it may take up to one full playlist cycle to appear (a few seconds to a minute depending on hold times and widget count).
-- Check `docker compose logs led-ticker` or `journalctl -u led-ticker` for a `reload rejected` line — that means the new config failed validation and the old one is still running.
+- Check `docker compose logs led-ticker` for a `reload rejected` line — that means the new config failed validation and the old one is still running.
 
 <RelatedPages slugs={["concepts/web-status-ui", "reference/config-options", "reference/cli"]} />

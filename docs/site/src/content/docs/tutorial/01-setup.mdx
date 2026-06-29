@@ -33,11 +33,19 @@ don't need the 8-panel rig to follow along; only the panel knobs differ.
 
 **What you'll need:**
 
-- A laptop (macOS or Linux; Windows via WSL or Git Bash)
-- The repository cloned and `make dev` run (both covered below)
-- No LED panel or Raspberry Pi — everything previews via `make render-demo`
+- A laptop (macOS, Linux, or Windows)
+- [Docker](https://docs.docker.com/get-docker/) — for `make try` (optional but the fastest path to a live preview)
+- Or: the repository cloned and `make dev` run for the GIF-renderer path (both covered below)
+- No LED panel or Raspberry Pi — everything previews in Docker or via `make render-demo`
 
 ## Prerequisites
+
+:::note[On a Raspberry Pi or an older system?]
+Use the Docker path (`make try` / `make setup`) — it handles Python for you.
+The `make dev` path here needs Python 3.14 on your machine
+([python.org/downloads](https://www.python.org/downloads/); install uv with
+`pip install uv`).
+:::
 
 You'll need the following installed before you start:
 
@@ -98,10 +106,10 @@ to ignore for now; the laptop renderer skips them silently.
 ## What this chapter doesn't cover
 
 This tutorial stays on the laptop renderer throughout. Deploying to a real Pi —
-building the `rgbmatrix` C library, wiring up the HAT, running the systemd
-service — is covered separately in
-[Building your own](/hardware/building-your-own/). Come back to that guide once
-you've finished the five chapters and have a config you're happy with.
+wiring up the HAT, running `make setup`, and the panel bring-up workflow — is
+covered separately in [Building your own](/hardware/building-your-own/). Come
+back to that guide once you've finished the five chapters and have a config
+you're happy with.
 
 ## What's next
 

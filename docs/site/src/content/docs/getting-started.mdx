@@ -1,104 +1,161 @@
 ---
 title: Getting started
-description: Install led-ticker, point it at a config, watch a sign light up — with or without hardware on hand.
+description: Install led-ticker on Docker, preview configs on your laptop with no hardware, and deploy to a Raspberry Pi — start in under 5 minutes.
 ---
 
 import RelatedPages from "../../components/RelatedPages.astro";
 
 led-ticker drives RGB LED matrix panels from a Raspberry Pi via a TOML
 config — RSS, weather, custom messages, animated transitions, and more.
-You don't need any hardware to start: the same engine runs against a
-test stub and renders configs to GIFs you can preview on a laptop.
+One toolchain (Docker) covers everything: try it on your laptop with no
+hardware, then deploy the same image to a Pi when your panels arrive.
 
-:::tip[Want more hand-holding?]
-This page is the 5-minute orientation. If you'd rather walk through building a complete config from scratch (with a brand font, custom logo, hi-res emoji, transitions), see the [Tutorial](/tutorial/01-setup/) — it walks through the same arc at a slower, hand-held pace.
+Not sure led-ticker is the right fit? → [Why led-ticker?](/why-led-ticker/)
+
+:::tip[Want a step-by-step walkthrough?]
+This page is the 5-minute orientation. For a guided build-a-config tutorial
+(brand font, logo, hi-res emoji, transitions), see the
+[Tutorial](/tutorial/01-setup/) — it walks the same arc at a slower pace.
 :::
 
-:::tip[No hardware?]
-You can preview any config as a GIF on your laptop — build a config and
-watch it run before buying a single panel. After `make dev`, run
-`make render-demo CONFIG=config/config.example.toml OUT=preview.gif` to
-render at native panel resolution; see [render-demo](/tools/render-demo/)
-for the full software-first workflow.
-:::
+**What you'll need:**
 
-## Install
+- A laptop (macOS, Linux, or Windows) for the laptop quickstart
+- A Raspberry Pi + HUB75 panels + Adafruit HAT/Bonnet for the Pi deploy
+- [Docker](https://docs.docker.com/get-docker/) — the single tool that covers both
 
-Requires Python 3.14+ and [uv](https://docs.astral.sh/uv/) (the package
-manager these commands use). Install uv with `pip install uv` or
-`brew install uv`.
+## Step 1 — Install Docker
+
+**Linux / Raspberry Pi:**
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+# Log out and back in (or: newgrp docker) for the group change to take effect.
+```
+
+**macOS / Windows:** install [Docker Desktop](https://docs.docker.com/get-docker/).
+
+`docker compose` v2 ships with modern Docker — the old standalone
+`docker-compose` command is not required.
+
+## Quickstart A — Try it on your laptop (no hardware)
+
+**~2 minutes, Docker only.** You'll see a browser tab showing your sign rendering live in a simulated panel — no hardware needed.
+
+Open a terminal (Terminal on macOS; PowerShell or WSL on Windows), then:
+
+```bash
+# Check Docker is installed first:
+docker --version
+
+# Clone (downloads the repo) + start:
+git clone https://github.com/JamesAwesome/led-ticker.git
+cd led-ticker
+make try   # make is a standard task runner, pre-installed on macOS/Linux
+```
+
+`make try` builds the image and starts a headless display engine plus the
+web UI — no panel, no Pi. Open **http://localhost:8080** and click the
+**live preview** tab to see the sign rendering in your browser.
+
+To stop: press `Ctrl-C`, then run:
+
+```bash
+make try-down
+```
+
+## Quickstart B — Deploy to your Pi
+
+**~20 minutes, hardware required.** On your Raspberry Pi, once it is wired up with a HUB75 panel and Adafruit HAT or Bonnet:
+
+**1. Clone and run setup:**
 
 ```bash
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
-make dev
+make setup
 ```
 
-`make dev` installs the Python dependencies via `uv` and sets up the
-test stub for laptop development. No `rgbmatrix` C library required at
-this stage — it's only needed on the actual Pi.
+`make setup` checks Docker, seeds `config/config.toml` from the smallsign
+example, seeds a `.env` stub, and brings the stack up. The example config
+works out of the box — bring the stack up first and confirm the sign is
+running; you can edit `config.toml` later once it is.
 
-## Configure
-
-Pick the example config matching what you have (or want to build):
+**2. Copy the right example config:**
 
 ```bash
-# Smallsign reference: Pi 4 + 5x32x16 panels = 160x16 logical canvas
+# Smallsign: Pi 4 + 5× 16×32 panels = 160×16 logical canvas
 cp config/config.example.toml config/config.toml
 
-# Bigsign reference: Pi 5 + 8x P3 32x64 panels = 256x64 logical canvas
+# Bigsign: Pi 5 + 8× P3 32×64 panels = 256×64 logical canvas
 cp config/config.bigsign.example.toml config/config.toml
 ```
 
-Not sure which fits your setup? See
-[Choosing a sign size](/hardware/building-your-own/#choosing-a-sign-size)
-— anything between the two reference builds works; you'll edit the
-`[display]` block to match your panels.
+Not sure which fits? See
+[Choosing a sign size](/hardware/building-your-own/#choosing-a-sign-size).
 
-A config is a list of **sections**, each containing **widgets** and a
-**mode** (`forever_scroll`, `swap`, or `infini_scroll`). To understand
-what to put in `config.toml` before editing, skim
-[Sections and modes](/concepts/sections-and-modes/) and the
-[message widget](/widgets/message/) page — the two most-used building
-blocks.
-
-## Validate
+**3. Bring up the stack:**
 
 ```bash
-led-ticker validate config/config.toml
-```
-
-A clean config prints `No issues found.` and exits 0. Errors and
-warnings print with their fix suggestions — see
-[`led-ticker validate`](/tools/validate/) for details and the
-[Validation rules](/pitfalls/) page for the full rule list.
-
-## Run
-
-Pick the path that matches where you are:
-
-```bash
-# Local laptop preview (no hardware needed):
-make render-demo CONFIG=config/config.toml OUT=preview.gif
-open preview.gif   # macOS; xdg-open on Linux
-
-# On the Pi (real panels):
-led-ticker --config config/config.toml
-
-# On the Pi via Docker (production deploy):
 docker compose up -d --build
 ```
 
-The `led-ticker` binary requires the `rgbmatrix` C library and real
-hardware — running it on macOS or a non-Pi Linux machine will fail at
-import. Use `make render-demo` for everything pre-deployment.
+`restart: unless-stopped` in `compose.yaml` brings the ticker back up
+automatically on power loss or crash.
+
+**4. Panel bring-up** — after wiring, run
+[`make panel-test`](/tools/panel-test/) to rule out any wiring, driver,
+or RGB-order problems. Before running `panel-test`, make sure `config.toml`
+has the correct `[display]` values for `chain_length`, `rows`, and `cols` —
+`panel-test` reads them. Then use the
+[`panel-map`](/tools/panel-map/) workflow to derive the
+`pixel_mapper_config` Remap string for your panel layout.
+
+**5. Optional: web UI** — add a `[web]` block to `config.toml`, then:
+
+```bash
+COMPOSE_PROFILES=webui docker compose up -d
+```
+
+Open `http://<pi-hostname>.local:8080` for a live dashboard, config
+editor, and plugin Store.
+
+## Configure
+
+A config is a list of **sections**, each containing **widgets** and a
+**mode** (`forever_scroll`, `swap`, or `infini_scroll`). Before editing,
+skim [Sections and modes](/concepts/sections-and-modes/) and the
+[message widget](/widgets/message/) page — the two most-used building
+blocks.
+
+```bash
+# Validate any config before deploying
+led-ticker validate config/config.toml
+```
+
+Private media (GIFs, images, fonts) goes in `config/local/` (gitignored)
+and is referenced as `path = "local/<file>"` in your TOML.
+
+## Develop without hardware
+
+For a live browser preview, use Quickstart A above. The
+[`render-demo`](/tools/render-demo/) tool is for iterating on configs at
+the command line and generating GIFs — it runs the real ticker engine
+against a software stub and writes each config to a GIF:
+
+```bash
+make dev       # install Python dev deps (requires uv)
+make render-demo CONFIG=config/config.example.toml OUT=preview.gif
+open preview.gif   # macOS; xdg-open on Linux
+```
 
 ## Next steps
 
-- **Build a config from scratch:** [Sections and modes](/concepts/sections-and-modes/) → [Widgets](/widgets/) → [Transitions](/transitions/)
-- **Buy / build the hardware:** [Building your own](/hardware/building-your-own/) → [Smallsign](/hardware/smallsign/) or [Bigsign](/hardware/bigsign/)
+- **Build a config:** [Sections and modes](/concepts/sections-and-modes/) → [Widgets](/widgets/) → [Transitions](/transitions/)
+- **Buy / build hardware:** [Building your own](/hardware/building-your-own/) → [Smallsign](/hardware/smallsign/) or [Bigsign](/hardware/bigsign/)
 - **Reference:** [`[display]` and section knobs](/reference/config-options/) · [CLI](/reference/cli/)
 
 <RelatedPages
-  slugs={["concepts/sections-and-modes", "widgets/message", "hardware/building-your-own"]}
+  slugs={["tutorial/01-setup", "concepts/sections-and-modes", "hardware/building-your-own"]}
 />

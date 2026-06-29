@@ -60,7 +60,7 @@ Manage plugins. Two pairs of verbs: **`add` / `remove`** edit the manifest
 (`config/requirements-plugins.txt`) only — the **Docker** path, where a
 `docker compose restart` triggers a startup reconcile that installs from the
 manifest (no rebuild) — and **`install` / `uninstall`** also run pip, for
-bare-metal/dev. (The old `led-ticker plugins` is a deprecated alias of
+dev / source-checkout installs. (The old `led-ticker plugins` is a deprecated alias of
 `plugin status`.)
 
 ```bash
@@ -69,7 +69,7 @@ led-ticker plugin add pool          # + line in requirements-plugins.txt (no pip
 led-ticker plugin remove pool       # − line (no pip)
 docker compose restart              # installs/uninstalls on the next start — no rebuild
 
-# Bare-metal / dev: also pip-install now
+# Dev / source checkout: also pip-install now
 led-ticker plugin install pool      # add + pip install
 led-ticker plugin uninstall pool    # remove + pip uninstall
 
@@ -108,7 +108,7 @@ The bundled pool/baseball/crypto entries currently pin to `@main`, so the defaul
 ("pinned") and `--unpinned` write the same `@main` reference today — pass a tagged
 pip spec (e.g. `…@v1.2.0`) for a fixed production pin until the catalog ships tags.
 
-### `plugin install` / `plugin uninstall` (manifest + pip — bare-metal)
+### `plugin install` / `plugin uninstall` (manifest + pip — dev / source checkout)
 
 `install` does what `add` does **and** pip-installs the requirement under
 led-ticker's core dependency constraints (a plugin can pull new libraries but

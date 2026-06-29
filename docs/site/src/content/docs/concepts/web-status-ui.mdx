@@ -23,9 +23,19 @@ Five tabs, one URL (`http://<pi>:8080`):
 | **Inventory** | Fonts, image/gif assets, and emoji slugs found in the config directory.                                                                                            |
 | **Store**     | Browse and install catalog plugins. Browsing is open; installing or removing requires a token.                                                                     |
 
+<img
+  src="/web-status-ui/status.png"
+  alt="The web UI Status tab — a live browser preview of the sign, the now-playing widget, section health, and the loaded plugins, with the sign's hostname blurred."
+/>
+
 ### Validate tab
 
 The Validate tab offers two paths:
+
+<img
+  src="/web-status-ui/validate.png"
+  alt="The web UI Validate tab — a dropdown of config files plus a text area for pasting a candidate config to validate against the running sign."
+/>
 
 - **Validate file** — a dropdown lists every `.toml` in the config directory. Select one and click **Validate file** to run `led-ticker validate` server-side on the real file. Validation happens on the Pi, so results are exact and secrets never leave the device.
 - **Load redacted copy** — fills the text area with the selected file's content with secrets replaced by `•••`, then shows a caveat that `•••` values may validate differently than the real file. Use this when you want to inspect or hand-edit the config before re-validating; use **Validate file** when you just need a pass/fail answer.
@@ -36,6 +46,11 @@ The text area is still there for pasting a config you haven't saved to a file ye
 
 The Inventory tab shows what the sidecar can see in the config directory (capped at 500 assets):
 
+<img
+  src="/web-status-ui/inventory.png"
+  alt="The web UI Inventory tab — lists of the fonts, image and gif assets (with file sizes), and emoji slugs found in the config directory."
+/>
+
 - **Fonts** — user fonts from `config/fonts/` (which take precedence over bundled ones) and the bundled BDF and hires fonts included with led-ticker.
 - **Assets** — image and gif files (`config/`, recursively) with their file size.
 - **Emoji** — core slugs and hires-only slugs baked into the installed package. Plugin emoji (such as `:baseball.ball:`) appear only while the display process is running — the sidecar itself never loads plugins, so the names come from `status.json` published by the display process.
@@ -43,6 +58,11 @@ The Inventory tab shows what the sidecar can see in the config directory (capped
 ### Store tab
 
 The Store tab lists every plugin in the [catalog](/plugins/available/) and shows each one's current state — whether it is active, queued for the next restart, or available to install. Click **Install** to add a plugin or **Remove** to drop one.
+
+<img
+  src="/web-status-ui/store.png"
+  alt="The web UI Store tab — the plugin catalog with each plugin's state (active, queued, or available) and Install or Remove buttons."
+/>
 
 **A token is required to install or remove.** Browsing the Store is open, but any write action returns 401 without a valid token. Set `LED_TICKER_WEB_TOKEN` in your `.env` (see [Auth](#auth) below).
 

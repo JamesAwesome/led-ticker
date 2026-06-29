@@ -28,10 +28,10 @@ Ctrl-C exits cleanly: the script paints one final black frame and swaps it on, s
 This is what you'll actually run on a deployed sign. The diagnostic and the main ticker cannot share the matrix, so stop the ticker first:
 
 ```bash
-docker compose stop          # or: sudo systemctl stop led-ticker
+docker compose stop
 make panel-test-docker
 # ...observe the panel, Ctrl-C when done...
-docker compose start         # or: sudo systemctl start led-ticker
+docker compose start
 ```
 
 The `panel-test-docker` target runs `docker run --rm -it --privileged --network host` against the existing `led-ticker` image — same privilege flags as `compose.yaml`. The script is bind-mounted from the repo, so iteration on the script itself doesn't require `make build-docker`. The first run does require the image to exist (`make build-docker` once).

@@ -199,9 +199,8 @@ docker compose up -d
 
 The compose file mounts `./config` read-only into the container so
 you edit the TOML on the host and the container picks it up on
-restart. For systemd-managed deployments (auto-start on boot,
-auto-restart on crash), see `deploy/led-ticker.service` and the
-companion `deploy/install.sh` in the repo.
+restart. Its `restart: unless-stopped` policy brings the ticker back
+up automatically on boot and after a crash.
 
 ## Tips
 

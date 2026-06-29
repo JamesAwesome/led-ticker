@@ -184,10 +184,10 @@ Per panel, `reveal` paints (all via `SetPixel`, never `DrawText`):
 Ctrl-C exits cleanly: a final black frame is swapped on so the panel never
 sticks on the calibration pattern.
 
-| Flag       | Type  | Default                              | Meaning                                                |
-| ---------- | ----- | ------------------------------------ | ------------------------------------------------------ |
-| `--config` | path  | `config/config.bigsign.example.toml` | Config TOML to read `[display]` from.                  |
-| `--hold`   | float | `2.0`                                | Seconds between swap ticks (extend for a steady hold). |
+| Flag       | Type  | Default              | Meaning                                                |
+| ---------- | ----- | -------------------- | ------------------------------------------------------ |
+| `--config` | path  | `config/config.toml` | Config TOML to read `[display]` from.                  |
+| `--hold`   | float | `2.0`                | Seconds between swap ticks (extend for a steady hold). |
 
 ### `derive` — string generator (no hardware needed)
 
@@ -205,10 +205,10 @@ host with `uv`, `make panel-map-derive LAYOUT=layout.txt` runs it directly. The
 `CONFIG` argument is read only for `chain_length × parallel`, to sanity-check the
 cell count in your grid — a mismatch warns on stderr but doesn't hard-fail.
 
-| Flag       | Type | Default                              | Meaning                                                                  |
-| ---------- | ---- | ------------------------------------ | ------------------------------------------------------------------------ |
-| `--config` | path | `config/config.bigsign.example.toml` | Config TOML — read for `chain_length` / `parallel` sanity check only.    |
-| `--layout` | path | stdin                                | Layout file (recommended). One row per wall row, cells `<number><flag>`. |
+| Flag       | Type | Default              | Meaning                                                                  |
+| ---------- | ---- | -------------------- | ------------------------------------------------------------------------ |
+| `--config` | path | `config/config.toml` | Config TOML — read for `chain_length` / `parallel` sanity check only.    |
+| `--layout` | path | stdin                | Layout file (recommended). One row per wall row, cells `<number><flag>`. |
 
 **Validation messages are plain-language** — for example:
 
@@ -245,11 +245,11 @@ visible cell `verify` paints:
 - An up-arrow and a red top-left corner dot — a wrong orientation flag rotates
   them.
 
-| Flag       | Type   | Default                              | Meaning                                                                                      |
-| ---------- | ------ | ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `--config` | path   | `config/config.bigsign.example.toml` | Config TOML. Uses `pixel_mapper_config` from this file unless `--mapper` overrides.          |
-| `--hold`   | float  | `2.0`                                | Seconds between swap ticks.                                                                  |
-| `--mapper` | string | —                                    | Override the mapper string (e.g. paste `derive`'s output directly without editing the TOML). |
+| Flag       | Type   | Default              | Meaning                                                                                      |
+| ---------- | ------ | -------------------- | -------------------------------------------------------------------------------------------- |
+| `--config` | path   | `config/config.toml` | Config TOML. Uses `pixel_mapper_config` from this file unless `--mapper` overrides.          |
+| `--hold`   | float  | `2.0`                | Seconds between swap ticks.                                                                  |
+| `--mapper` | string | —                    | Override the mapper string (e.g. paste `derive`'s output directly without editing the TOML). |
 
 ## How to read verify
 

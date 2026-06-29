@@ -33,7 +33,7 @@ _CONFIG_PARENT = argparse.ArgumentParser(add_help=False)
 _CONFIG_PARENT.add_argument(
     "--config",
     type=Path,
-    default=Path("config/config.bigsign.example.toml"),
+    default=Path("config/config.toml"),
     help="Config TOML; only [display] geometry is used.",
 )
 

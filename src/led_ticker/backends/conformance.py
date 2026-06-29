@@ -7,12 +7,19 @@ every backend must pass. External backend authors run:
     run_backend_conformance(lambda: MyBackend(...))
 
 `backend_factory` must return a FRESH, un-setup backend each call.
+
+The suite also verifies the backend is **engine-buildable**: it derives the
+class from the factory and constructs it the way the engine does
+(`cls(width, height, pixel_mapper_config=…)`), so a conformant backend cannot
+TypeError at frame build. RgbMatrixBackend is exempt (the engine special-cases
+its construction).
 """
 
 import contextlib
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from led_ticker.backends import Backend, BackendNotReadyError  # noqa: F401
 from led_ticker.preview import PreviewTee
@@ -121,6 +128,43 @@ def _check_brightness_contract(factory: Callable[[], Backend]) -> None:
     assert b.brightness == 88, "brightness set after setup() must be readable"
 
 
+def _check_engine_buildable(factory: Callable[[], Backend]) -> None:
+    # The engine constructs a non-rgbmatrix backend via a fixed convention —
+    # `backend_cls(width, height, pixel_mapper_config=…)` (app/factories.py
+    # build_frame_from_config). A backend can pass every check above through a
+    # caller-written factory yet TypeError at engine build if its __init__ does
+    # not accept that signature (the gap the telnet review caught). Derive the
+    # class from the factory's instance and construct it the way the engine does,
+    # so a conformant backend is guaranteed buildable.
+    from led_ticker.backends.rgbmatrix import RgbMatrixBackend  # noqa: PLC0415
+
+    # `cls` is Any: we deliberately call its ctor with the engine convention,
+    # which the Backend Protocol's typed __init__ doesn't advertise.
+    cls: Any = type(factory())
+    if cls is RgbMatrixBackend:
+        # The engine special-cases RgbMatrixBackend construction (it does NOT use
+        # the (width, height, pixel_mapper_config) convention). Mirror that
+        # exemption — matching `if backend_cls is RgbMatrixBackend` in factories.py.
+        return
+    try:
+        built = cls(64, 32, pixel_mapper_config="")
+    except TypeError as e:
+        raise AssertionError(
+            f"{cls.__name__} is not engine-buildable: the engine constructs "
+            f"non-rgbmatrix backends as `cls(width, height, pixel_mapper_config=…)` "
+            f"(app/factories.py build_frame_from_config); your __init__ must accept "
+            f"that signature, e.g. `def __init__(self, width, height, *, "
+            f"pixel_mapper_config=''): ...`. ({e})"
+        ) from e
+    assert isinstance(built, Backend), (
+        f"{cls.__name__}(width, height, pixel_mapper_config=…) must return a Backend"
+    )
+    built.setup()
+    assert built.create_canvas() is not None, (
+        f"{cls.__name__} built via the engine convention has a broken create_canvas()"
+    )
+
+
 _CHECKS = [
     _check_protocol,
     _check_swap_returns_new_buffer,
@@ -129,6 +173,7 @@ _CHECKS = [
     _check_wrappability,
     _check_setup_ordering,
     _check_brightness_contract,
+    _check_engine_buildable,
 ]
 
 

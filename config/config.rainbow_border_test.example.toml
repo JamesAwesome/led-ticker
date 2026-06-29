@@ -27,7 +27,7 @@
 #   9. rainbow border + rainbow text — chase against per-char rainbow letters
 #  10. border + bg_color             — yellow bg, black text, rainbow frame
 #  11. tuned: faster + thicker       — speed=8, char_offset=12, thickness=2
-#  12. constant color border         — non-animated red ring (sanity check)
+#  12. constant color border         — non-animated red ring (correctness check)
 #  13. inline table form             — full kwargs in one place for reference
 #  14. two-row + rainbow border      — handle + tagline + frame at scale=2
 #  15. scrolling text + border       — overflow scroll keeps border animating
@@ -373,7 +373,7 @@ border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 
 # ---------------------------------------------------------------------------
 # 12. Constant-color border — solid red ring, no animation.
-#    Sanity check on the non-rainbow path. `frame_invariant=True`
+#    Correctness check on the non-rainbow path. `frame_invariant=True`
 #    means this border never animates — the perimeter holds steady
 #    red while the text inside can do whatever (color_cycle here for
 #    contrast against the static frame).

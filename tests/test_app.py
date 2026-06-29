@@ -775,7 +775,7 @@ class TestConfigureUserFontDir:
         fake_font = fonts_dir / "beloved-sans.otf"
         fake_font.write_bytes(b"not really a font, but lookup is path-only")
 
-        # Sanity: lookup fails before the override.
+        # Check: lookup fails before the override.
         assert hl._find_font_path("beloved-sans") is None
 
         _configure_user_font_dir(config_path.parent)
@@ -1726,7 +1726,7 @@ class TestAppRunDrainLoopTripwire:
         )
 
     async def test_widget_with_coerce_warning_still_reaches_ticker(self):
-        """Sanity case: the SAME assertion must hold when a coerce
+        """Correctness case: the SAME assertion must hold when a coerce
         warning DOES fire. Pre-fix this case worked even with the bug
         (because the engulfed expansion ran inside the drain loop), so
         this test catches a different regression — a future drain loop
@@ -2293,7 +2293,7 @@ class TestUnknownKwargAllowlist:
 
     @pytest.mark.asyncio
     async def test_valid_fields_do_not_raise(self):
-        """Sanity check: a well-formed message config passes the allowlist."""
+        """Correctness check: a well-formed message config passes the allowlist."""
         from led_ticker.app.factories import validate_widget_cfg
 
         cfg = {

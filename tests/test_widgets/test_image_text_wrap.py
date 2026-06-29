@@ -192,7 +192,7 @@ class TestWrapOnWrongWidgetType:
 
     @pytest.mark.asyncio
     async def test_text_wrap_on_gif_accepted(self, tmp_path):
-        """Sanity check — gif accepts the field (regression guard
+        """Correctness check — gif accepts the field (regression guard
         against an over-strict guard that would reject valid usage)."""
         import aiohttp
         from PIL import Image
@@ -317,7 +317,7 @@ class TestWrapRendersMultipleCopies:
 
         ticks = _split_into_ticks(draws)
         assert ticks, "No ticks ran"
-        # Sanity: cumulative count should exceed swap count (would
+        # Check: cumulative count should exceed swap count (would
         # have caught the original "main_text_draws > ticks" cases).
         total_main = sum(1 for t in ticks for x, txt in t if txt == "Hi")
         assert total_main > len(ticks), (

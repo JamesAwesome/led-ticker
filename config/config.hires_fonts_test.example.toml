@@ -5,7 +5,7 @@
 # Exercises the hi-res font path:
 #   - Bundled Inter Regular + Bold at multiple sizes
 #   - User-supplied Beloved Sans (drops gracefully if not present)
-#   - BDF alias on the same widget surface for back-compat sanity
+#   - BDF alias on the same widget surface for back-compat check
 #
 # Bigsign-only — text size assumes 64-row panel.
 # Run: led-ticker --config config/config.hires_fonts_test.example.toml

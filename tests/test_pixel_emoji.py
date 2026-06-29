@@ -73,7 +73,7 @@ def test_draw_with_emoji_runs_on_scaled_canvas_with_emoji(bigsign_canvas):
     advance = draw_with_emoji(
         sc, FONT_SMALL, cursor_pos=0, y=8, color=color, text=":heart: Hi"
     )
-    # emoji advance (8 + 2 padding) + text advance varies, just sanity check
+    # emoji advance (8 + 2 padding) + text advance varies, just correctness check
     assert advance > 0
 
 
@@ -383,7 +383,7 @@ def test_hires_emoji_in_registry(slug):
     assert slug in HIRES_REGISTRY
     h = HIRES_REGISTRY[slug]
     assert h.physical_size == 32
-    # Sanity: hi-res sprites should fill at least 50 pixels (otherwise
+    # Check: hi-res sprites should fill at least 50 pixels (otherwise
     # something's wrong with the generator)
     assert len(h.pixels) > 50, f"{slug} has only {len(h.pixels)} lit pixels"
     # All pixels in bounds
@@ -1409,7 +1409,7 @@ class TestHiresEmojiAtScale1Wrapper:
         return real, wrapped
 
     def test_wrapper_properties(self):
-        """Sanity: scale=1 wrapper with content_height=16 on a 64-px panel."""
+        """Check: scale=1 wrapper with content_height=16 on a 64-px panel."""
         from led_ticker.scaled_canvas import ScaledCanvas
 
         real, wrapped = self._make_wrapped_scale1()

@@ -160,7 +160,7 @@ def _parse_section_field_names(page_text: str, heading: str) -> set[str]:
 
 
 def test_docs_page_exists() -> None:
-    """Sanity check: the page is where the test expects it."""
+    """Correctness check: the page is where the test expects it."""
     assert PAGE_PATH.exists(), f"Reference page not found at {PAGE_PATH}"
 
 

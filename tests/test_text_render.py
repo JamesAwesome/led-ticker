@@ -154,7 +154,7 @@ class TestDrawHiresText:
         expected_logical = -(-real_total // 4)  # ceil-div by scale
         advance = draw_text(wrapped, font, 0, 12, Color(0, 255, 0), "ABC")
         assert advance == expected_logical
-        # Sanity: the advance must NOT equal the raw real-pixel total
+        # Check: the advance must NOT equal the raw real-pixel total
         # (that would be the pre-hotfix bug).
         assert advance < real_total
 

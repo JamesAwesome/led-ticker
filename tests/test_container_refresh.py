@@ -127,7 +127,7 @@ def test_build_ticker_iter_title_prepended_once() -> None:
 
 
 def test_build_ticker_iter_loop_zero_no_title_cycles_widgets() -> None:
-    """Sanity: cycle continues with static widgets across passes."""
+    """Check: cycle continues with static widgets across passes."""
     ticker_iter = _build_ticker_iter(["x", "y"], title=None, loop_count=0)
     pulled = [next(ticker_iter) for _ in range(5)]
     assert pulled == ["x", "y", "x", "y", "x"]

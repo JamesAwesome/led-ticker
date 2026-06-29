@@ -480,7 +480,7 @@ class TestScrollThroughHoldTimeUnification:
             f"{expected_final} ({n_passes} passes × {cycle_width}px); "
             f"got {final_pos}. bottom_width={bottom_width}"
         )
-        # Sanity: must be > 1 pass to verify hold_time actually had effect.
+        # Check: must be > 1 pass to verify hold_time actually had effect.
         assert n_passes >= 2, (
             f"Test setup: expected ≥2 passes from hold_time; only got "
             f"{n_passes} (cycle_width={cycle_width}, hold_ticks={hold_time_ticks}). "

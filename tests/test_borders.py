@@ -196,7 +196,7 @@ class TestRainbowChaseBorder:
         assert RainbowChaseBorder(speed=0, char_offset=0).frame_invariant is True
 
     def test_frame_invariant_false_for_speed_zero_with_nonzero_default(self):
-        """Sanity: any nonzero speed → frame-variant regardless of
+        """Check: any nonzero speed → frame-variant regardless of
         char_offset value."""
         assert RainbowChaseBorder(speed=1, char_offset=0).frame_invariant is False
         assert RainbowChaseBorder(speed=99).frame_invariant is False
@@ -240,7 +240,7 @@ class TestRainbowChaseBorder:
 
     def test_char_offset_zero_uniform_per_frame(self):
         """char_offset=0 means every perimeter pixel shares one hue
-        per frame (synchronized whole-border cycle). Sanity check
+        per frame (synchronized whole-border cycle). Correctness check
         that the formula simplifies correctly."""
         c = _StubCanvas(20, 8)
         RainbowChaseBorder(char_offset=0, speed=4).paint(c, frame_count=0)
@@ -1164,7 +1164,7 @@ class TestLightbulbRainbowCoercion:
 
 
 class TestBandPalettes:
-    """BAND_PALETTES registry sanity — every named palette must be a
+    """BAND_PALETTES registry check — every named palette must be a
     usable bands spec: >= 2 colors, each a valid (r, g, b) tuple."""
 
     def test_expected_palettes_present(self):

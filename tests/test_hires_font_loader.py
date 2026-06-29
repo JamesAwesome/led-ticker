@@ -274,7 +274,7 @@ class TestLoadHiresFont:
         assert 14 < font.glyphs["M"].bearing_y < 22
         # 'g' has a descender; its body sits lower. Should be ~13.
         assert 10 < font.glyphs["g"].bearing_y < 16
-        # Sanity: 'M' rises higher above baseline than 'g'.
+        # Check: 'M' rises higher above baseline than 'g'.
         assert font.glyphs["M"].bearing_y > font.glyphs["g"].bearing_y
 
 

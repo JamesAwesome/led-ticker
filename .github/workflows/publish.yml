@@ -17,9 +17,9 @@ jobs:
     environment: release   # manual approval gate
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0   # hatch-vcs derives the version from the tag
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
-      - name: Guard tag matches pyproject version
-        run: python scripts/check_release_version.py "${{ github.event.release.tag_name }}"
       - name: Build sdist + wheel
         run: rm -rf dist && uv build
       - name: Publish to PyPI (Trusted Publishing)

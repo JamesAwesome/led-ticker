@@ -1,0 +1,35 @@
+# Slim no-hardware "try it on your computer" image.
+#
+# Runs led-ticker fully headless with the built-in headless backend — no
+# rgbmatrix C library compile, no Raspberry Pi hardware required. The webui
+# preview (http://localhost:8080) lets you watch the sign render live in a
+# browser.
+#
+# NOT for hardware deployment. For production use the main Dockerfile, which
+# compiles rpi-rgb-led-matrix and targets a Raspberry Pi.
+#
+# Pattern: mirrors plugins/telnet/Dockerfile.smoke in the led-ticker-plugins
+# monorepo, but installs from source and uses core's headless backend + webui
+# instead of a telnet backend.
+#
+# Build:
+#   docker build -f Dockerfile.try -t led-ticker-try .
+# Run (publish the webui port):
+#   docker run -d --name led-try -p 8080:8080 led-ticker-try
+#   open http://localhost:8080
+# Stop:
+#   docker rm -f led-try
+#
+# Or via compose: make try   (see compose.try.yaml)
+FROM python:3.14-bookworm
+WORKDIR /code
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install --no-cache-dir .
+# Bake the committed try config (so a bare `docker run` with no mount works).
+# compose's `try` profile mounts ./config and runs against the same committed
+# file, so a fresh clone needs no config/config.toml (which is gitignored).
+COPY config/config.try.example.toml /code/config/config.try.example.toml
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8080
+CMD ["led-ticker", "--config", "/code/config/config.try.example.toml"]

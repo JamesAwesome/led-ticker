@@ -62,7 +62,7 @@ def _requirements_path(config_path: Path, config_explicit: bool) -> Path:
 
     When the user passed an explicit ``--config``, the file lives next to it.
     Otherwise default to the canonical ``config/requirements-plugins.txt`` — the
-    only requirements file the Docker build and ``deploy/install.sh`` read — so a
+    only requirements file the Docker build reads — so a
     bare ``led-ticker plugin install pool`` from the project root does the right
     thing instead of dropping the file in the cwd.
     """
@@ -169,8 +169,8 @@ def _update_requirements(path: Path, requirement: str) -> str | None:
 
 _SPEC_MARKERS = ("git+", "://", "@", "==", ">=", "<=", "~=", "!=", "/", "[", " ")
 _ADD_HINT = (
-    "The plugin installs on next startup — Docker: `docker compose restart` "
-    "(no rebuild needed); bare-metal: restart the service or re-run install.sh."
+    "The plugin installs on next startup — run `docker compose restart` "
+    "(no rebuild needed)."
 )
 _REMOVE_HINT = (
     "The plugin uninstalls on next startup — Docker: `docker compose restart`. "
@@ -179,13 +179,13 @@ _REMOVE_HINT = (
 
 
 def _config_warning(req_path: Path) -> str | None:
-    """A warning when the manifest isn't under a 'config/' dir (Docker/install.sh
-    only read config/requirements-plugins.txt), else None."""
+    """A warning when the manifest isn't under a 'config/' dir (Docker only
+    reads config/requirements-plugins.txt), else None."""
     if req_path.parent.name == "config":
         return None
     return (
-        f"note: {req_path} is not under a 'config/' directory — Docker and "
-        "deploy/install.sh read config/requirements-plugins.txt. Run from your "
+        f"note: {req_path} is not under a 'config/' directory — Docker "
+        "reads config/requirements-plugins.txt. Run from your "
         "project root or pass --config config/config.toml."
     )
 

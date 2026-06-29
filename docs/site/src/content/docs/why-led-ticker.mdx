@@ -56,6 +56,28 @@ AWTRIX3 turns a ~$50 Ulanzi TC001 (ESP32, 32×8 pixel matrix) into a capable clo
 
 led-ticker's sweet spot is large, bright, multi-panel HUB75 signs that drive their own news, weather, crypto, sports, and calendar feeds from a TOML config — fully open, self-hosted, no cloud, no smart-home backend, no subscription. If that matches what you're building, start with [Getting started](/getting-started/) or jump straight to [building your own sign](/hardware/building-your-own/).
 
+## Common questions
+
+### Does led-ticker run on a Raspberry Pi 5?
+
+Yes — and on the Pi 4. One build runs on both: the underlying `rpi-rgb-led-matrix` driver detects the board at runtime and selects the matching GPIO backend (BCM2711 on the Pi 4, RP1 on the Pi 5). The [hardware pages](/hardware/building-your-own/) cover the small per-board tuning each one wants.
+
+### Do I need to know Python to use it?
+
+No. You describe what the sign shows in a [TOML](/reference/config-options/) config file — sections, widgets, transitions — and no code runs that you wrote. Python only enters the picture if you want to [write a plugin](/plugins/authoring/01-scaffold/) to add a new widget or live-data source.
+
+### Can I try it without buying any hardware?
+
+Yes. The same engine runs against a software stub and renders a config to a GIF on your laptop, so you can build and preview a whole sign before buying a single panel. The [Getting started](/getting-started/) page walks through the no-hardware path.
+
+### Can led-ticker replace a Tidbyt?
+
+It depends on the sign you want. For a small, finished desk appliance with an app-store experience, a [Tidbyt](https://tidbyt.com/) — or [tronbyt](https://github.com/tronbyt/server) to self-host one cloud-free — is the better buy. led-ticker is the better fit when you want a large, custom, multi-panel sign that fetches and rotates its own feeds with no separate backend or subscription.
+
+### How much does it cost to build a sign?
+
+A reference build lands in the low hundreds of dollars, mostly the HUB75 panels and the Raspberry Pi driving them. The [hardware pages](/hardware/building-your-own/) list the exact parts for the small (160×16) and big (256×64) reference builds so you can price your own before committing.
+
 ---
 
 _Comparisons reflect the landscape as of mid-2026._

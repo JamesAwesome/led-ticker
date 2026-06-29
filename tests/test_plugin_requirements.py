@@ -66,15 +66,8 @@ def test_dockerfile_does_not_bake_plugins():
     )
 
 
-def test_install_sh_installs_plugin_requirements():
-    install_sh = (REPO_ROOT / "deploy" / "install.sh").read_text()
-    assert "config/requirements-plugins.txt" in install_sh, (
-        "install.sh should install the live requirements-plugins.txt"
-    )
-    # constrained to core versions (so plugins can't move the core stack)
-    assert "pip list --format=freeze" in install_sh, (
-        "install.sh should generate a core constraints file"
-    )
-    assert "pip install -c" in install_sh, (
-        "install.sh plugin install should use the constraints file"
-    )
+# test_install_sh_installs_plugin_requirements was removed in the
+# systemd/bare-metal path drop (Task A1).  The constrained-install invariants
+# it covered are now enforced by test_dockerfile_does_not_bake_plugins
+# (Dockerfile layer) and the plugin_reconcile runtime path.
+# The bare-metal deploy files were deleted in the same commit.

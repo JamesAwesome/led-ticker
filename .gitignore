@@ -143,13 +143,15 @@ settings.env
 # Worktrees
 .worktrees/
 
-# Per-host runtime config (each Pi maintains its own config.toml).
-# Use config.example.toml or config.bigsign.example.toml as a starting point.
+# --- Operator (per-host) content — never committed ---
+# Your running config (copy from a config/*.example.toml to start):
 config/config.toml
-config/config.*.production.toml
-config/config.pool_bigsign.toml
+# Installed plugins manifest + user fonts (per-host):
 config/requirements-plugins.txt
 config/fonts/
+# Your private configs + media live here (mounted into the container via ./config):
+config/local/
+!config/local/.gitkeep
 .vscode/
 .superpowers/
 

@@ -231,6 +231,14 @@ stale_after = 14400  # 4 hours
 # location = "New York"
 # units = "imperial"
 
+# --- Images and media ---
+# Bundled sample art lives in config/assets/ and is referenced as
+# path = "assets/<file>" (e.g. path = "assets/phoenix.gif").
+# Your own media goes in config/local/ (gitignored), referenced as
+# path = "local/<file>" (e.g. path = "local/logo.gif").
+# The entire config/ directory is mounted into the container, so both
+# locations resolve correctly at runtime.
+
 # Busy light — a persistent corner dot that lights up while a local file
 # exists. The dot composites over every section and transition. (Real
 # calendar/Slack sources are a future addition behind the same overlay.)
@@ -259,7 +267,6 @@ stale_after = 14400  # 4 hours
 # DOCKER (the usual deploy): the compose.yaml webui service sits behind the
 # `webui` compose profile — start with `COMPOSE_PROFILES=webui docker compose up -d`
 # (or add COMPOSE_PROFILES=webui to your .env to make it sticky).
-# Bare-metal: enable led-ticker-webui.service (see deploy/led-ticker-webui.service).
 # Docs: https://docs.ledticker.dev/concepts/web-status-ui/
 #
 # [web]
@@ -269,4 +276,4 @@ stale_after = 14400  # 4 hours
 # status_path = "/run/led-ticker/status.json"   # default works in Docker too (shared volume mounts here)
 # allow_restart = true   # enables the "Restart to apply" button in the web UI; requires a process supervisor
 #                        # to bring the display back — Docker's `restart: unless-stopped` (shipped in compose.yaml)
-#                        # or systemd `Restart=always` on bare metal. Defaults to false.
+#                        # handles this automatically. Defaults to false.

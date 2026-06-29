@@ -73,6 +73,12 @@ Editing an **exact PyPI pin** (`led-ticker-pool==0.1.0` → `==0.2.0`) and resta
 
 Changing an **unpinned** line, a **range** spec (`>=`, `~=`), or a **git/URL source** (e.g. retargeting `@main` or a moved branch) is _not_ reliably detected on a restart — the namespace is unchanged and the reconcile can't tell whether the upstream source moved, so it leaves the installed copy alone (and logs an INFO saying so). To force a refresh of a non-pinned source, reset the plugin volume (see [reset all plugins](#removing-a-plugin) below). Pinning to a tag or commit SHA avoids this entirely and is recommended for production signs.
 
+### Production deployments
+
+For a production sign, pin **every** plugin to an immutable tag or commit SHA — not `@main`, a moving branch, or a floating range. A moving source is not re-detected on restart (see [Changing a plugin's version or source](#changing-a-plugins-version-or-source) above), and an immutable pin makes each deploy reproducible.
+
+Your `config/requirements-plugins.txt` and `config.toml` are **gitignored and per-sign** — upstream changes never rewrite them for you. When a plugin's catalog name, package, or a widget/transition `type` changes (a pack consolidation, a rename), reconcile both files on each sign at deploy: the manifest line, and any affected `type = "…"` in the config. Run `led-ticker validate config.toml` to catch a stale type before it reaches the panel.
+
 ## Removing a plugin
 
 Delete the line from `config/requirements-plugins.txt` and restart:

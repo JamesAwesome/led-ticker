@@ -50,6 +50,17 @@ Pages that describe the outside world (alternatives, "why use this") carry copy 
 4. **Cite outside claims.** Any factual claim about a third-party tool gets a source link or footnote.
 5. **Links to alternatives are informational, not upsell.** A competitor's GitHub link for honest comparison is fine; affiliate/buy links are not (see "No product upsell" below).
 
+### Search & discoverability (SEO)
+
+The docs site is how people find led-ticker. Most SEO is already handled by the build (Starlight auto-generates the sitemap, canonical URLs, and per-page meta tags; the site ships `SoftwareApplication` JSON-LD and an `/llms.txt` export). What's left is a content discipline — keep these true page by page so the automation has good material to work with. Most of these are SEO *re-framings* of principles we already follow (cross-linking, failure/recovery, honesty), not new work.
+
+1. **Every page carries a `description` frontmatter.** One sentence, ~70–155 characters, leading with the concrete thing the page is about ("Install led-ticker, point it at a config…"), not marketing. It becomes the search snippet and the social-card text — a missing or vague one wastes the highest-CTR real estate Google gives you. (All pages currently have one; don't be the page that breaks the streak.)
+2. **Phrase FAQ and troubleshooting headings as the question a reader would type.** `## Does it run on a Raspberry Pi 5?`, not `## Hardware support`; answer in the first one or two sentences under the heading. Question-shaped headings are what featured snippets and AI answer-engines (AI Overviews, ChatGPT, etc.) extract verbatim — and they dovetail with the symptom-first "if it doesn't work" box (principle 13). This is the SEO payoff of writing for the reader's actual question instead of our internal taxonomy.
+3. **Descriptive anchor text, never bare URLs or "click here".** Link `[the two-row widget](/widgets/two_row/)`, not `<https://…>` or "see [here]". Anchor text tells search engines (and screen readers) what's on the other end; a bare URL or "here" tells them nothing.
+4. **Captions double as image alt text.** `DemoGif` uses the `caption` as the `alt` when no explicit `alt` is given, so write captions that describe the *content* ("A `message` widget with rainbow per-character coloring"), not the mechanics ("a gif"). This is the only alt text most demo images will ever get.
+5. **Keep slugs and page paths stable and descriptive.** Starlight derives the URL from the file path, so `widgets/two_row.mdx` → `/widgets/two_row/`. Renaming or moving a published page breaks inbound links and accumulated ranking — if you must, add a redirect rather than letting the old URL 404.
+6. **Don't hand-roll structured data per page.** The site-wide `SoftwareApplication` JSON-LD is enough; per-page `FAQPage`/`HowTo` schema no longer earns rich results for a project site (Google restricted those to gov/health in 2023) and just adds drift surface. The question-phrased heading from rule 2 does the work on its own.
+
 ### Do NOT copy (from Adafruit)
 
 - **No product upsell / buy-now links** in prose — we're open source. Link hardware once on the Hardware pages, never mid-tutorial.
@@ -70,6 +81,7 @@ The technical-writer reviewer runs this against each completed docs task. Aim fo
 - [ ] Code bound to a tested source where feasible (no silent drift).
 - [ ] Local "if it doesn't work" troubleshooting where relevant; error copy is blameless (cause → fix).
 - [ ] Cross-links instead of duplication; a next-step CTA at the bottom.
+- [ ] SEO: a keyword-led `description` frontmatter (~70–155 chars, no marketing); FAQ/troubleshooting headings phrased as the reader's question with the answer in the first sentence; descriptive anchor text (no bare URLs / "click here"); image captions describe content (they become alt text); slug stable + descriptive (§2 "Search & discoverability").
 - [ ] Builds clean (`make docs-build`) + lint clean (`make docs-lint`); fences balanced.
 - [ ] Tone consistent + matter-of-fact (no upsell, no breathless marketing, no release-history framing).
 - [ ] If the page describes external tools: each alternative is steelmanned, claims are sourced + evergreen, and the page recommends the right tool for wrong-fit cases.

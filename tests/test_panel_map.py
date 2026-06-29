@@ -15,7 +15,12 @@ from led_ticker.panel_map import (
     parse_remap_string,
 )
 
-BIGSIGN_GRID = "8n 6n 4n 2n\n7n 5n 3n 1n"
+# HARDWARE-VALIDATED (moonbunny bigsign, 2026-06-29). This is the *actual*
+# reveal grid photographed off the panel (chain index 1 lands top-left), not a
+# value reverse-engineered from the string. Running `verify` with BIGSIGN_STRING
+# in the same orientation shows a clean reading-order "1 2 3 4 / 5 6 7 8", so
+# this grid -> this string is the ground-truth round trip the tool must satisfy.
+BIGSIGN_GRID = "1n 3n 5n 7n\n2n 4n 6n 8n"
 BIGSIGN_STRING = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
 
 
@@ -25,31 +30,38 @@ def test_parse_layout_basic():
 
 
 def test_derive_reproduces_bigsign_string_exactly():
-    # Golden tripwire: the real config.bigsign.example.toml string.
+    # Golden tripwire: the real config.bigsign.example.toml string, derived from
+    # the hardware-photographed reveal grid (see BIGSIGN_GRID note).
     out = derive_remap_string(
         BIGSIGN_GRID, cols=64, rows=32, chain_length=8, parallel=1
     )
     assert out == BIGSIGN_STRING
 
 
-def test_derive_single_row_of_four():
+def test_derive_emits_in_reverse_chain_order():
+    """RemapMapper consumes the entry list back-to-front: the first string
+    entry feeds the LAST panel in the cable chain. So a left-to-right reveal
+    "1 2 3 4" must emit positions right-to-left (panel 4's slot first)."""
     out = derive_remap_string(
         "1n 2n 3n 4n", cols=64, rows=32, chain_length=4, parallel=1
     )
-    assert out == "Remap:256,32|0,0n|64,0n|128,0n|192,0n"
+    assert out == "Remap:256,32|192,0n|128,0n|64,0n|0,0n"
 
 
 def test_derive_two_by_two_grid():
-    # chain enters bottom-left, runs bottom row then top row right-to-left
+    # Reveal grid (chain index per physical cell); entries emit panel 4..1.
     out = derive_remap_string(
         "4n 3n\n1n 2n", cols=64, rows=32, chain_length=4, parallel=1
     )
-    assert out == "Remap:128,64|0,32n|64,32n|64,0n|0,0n"
+    # panel 4 @(0,0), 3 @(64,0), 2 @(64,32), 1 @(0,32) — reverse order.
+    assert out == "Remap:128,64|0,0n|64,0n|64,32n|0,32n"
 
 
 def test_derive_preserves_rotation_flags():
+    # Flags travel with their panels through the reverse emission: panel 2
+    # (flag e) emits first, panel 1 (flag s) last.
     out = derive_remap_string("1s 2e", cols=64, rows=32, chain_length=2, parallel=1)
-    assert out == "Remap:128,32|0,0s|64,0e"
+    assert out == "Remap:128,32|64,0e|0,0s"
 
 
 def test_missing_index_is_plain_language_error():

@@ -63,14 +63,18 @@ unambiguous at a glance.
 
 Shoot the wall square-on (lights toward you, camera level) and write one
 `<index><flag>` token per panel. **Write the top wall row first, left to right,
-exactly as the panels hang.** For the bigsign — panels numbered 1–8 in
-vertical-serpentine chain order, all installed upright — the grid is:
+exactly as the panels hang — transcribe the numbers as you see them, even when
+they look out of order. Do not rotate the photo to make them count up.** For the
+bigsign — panels numbered 1–8 in vertical-serpentine chain order, all installed
+upright — chain index 1 lands at the top-left and the grid reads:
 
 ```text
-8n 6n 4n 2n
-7n 5n 3n 1n
+1n 3n 5n 7n
+2n 4n 6n 8n
 ```
 
+(That this looks scrambled is expected: the data chain snakes through the wall,
+so consecutive chain indices are not physically adjacent. `derive` untangles it.)
 Save that to a file, e.g. `layout.txt`. The `n` flag means each panel is
 oriented normally (arrow up, dot top-left). See the [orientation legend](#orientation-legend)
 below for other flags.

@@ -65,7 +65,8 @@ def derive_remap_string(
     """Compute the full Remap string from a transcribed grid.
 
     For each cell at grid (row, col): target x = col*cols, y = row*rows,
-    orientation = flag. Entries are emitted in chain-index order 1..N.
+    orientation = flag. Entries are emitted in REVERSE chain order (panel N
+    first, panel 1 last) — see the emission loop for why.
     """
     grid = parse_layout(text)
     g_rows = len(grid)
@@ -85,13 +86,32 @@ def derive_remap_string(
             placement[idx] = (c * cols, r * rows, flag)
 
     n = g_rows * g_cols
-    entries: list[str] = []
+    # Validate every panel 1..N is present before emitting anything.
     for k in range(1, n + 1):
         if k not in placement:
             raise LayoutError(
                 f"You never listed panel {k} (the grid has {n} cells and "
                 f"its numbers must be 1..{n}, each once)."
             )
+
+    # Emit entries in REVERSE chain order (panel N first, panel 1 last).
+    #
+    # The C RemapMapper indexes its entry list by *reversed* chain position:
+    #     panel_col = chain - x/panel_width - 1   // first chain panel = last entry
+    # so the FIRST entry in the string is consumed by the LAST panel in the
+    # cable chain. Emitting forward (panel 1 first) produces a mapper that is
+    # 180°-rotated on a centrally-symmetric layout — which is exactly why the
+    # bigsign golden test, reverse-engineered from the working string under the
+    # forward assumption, agreed with itself yet disagreed with the panel.
+    # Hardware-validated against the bigsign reveal+verify photos, 2026-06-29:
+    # reveal grid "1 3 5 7 / 2 4 6 8" -> the production config string.
+    #
+    # This is the parallel=1 (single electrical chain) reversal, which covers
+    # every reference build. A parallel>1 raw matrix reverses columns *within*
+    # each chain row, not the whole list — out of scope until a multi-chain
+    # build exists to validate it against.
+    entries: list[str] = []
+    for k in range(n, 0, -1):
         x, y, flag = placement[k]
         entries.append(f"{x},{y}{flag}")
 

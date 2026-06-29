@@ -253,8 +253,8 @@ so it carries specific load:
 - **Open with the `panel-test`-first prerequisite** (rule out the hardware
   layer before reaching for the mapper tool).
 - **Lead with the bigsign as a worked end-to-end example** — the same grid the
-  golden tripwire uses (`8n 6n 4n 2n` / `7n 5n 3n 1n`) → its known string →
-  `verify`. One concrete walkthrough beats abstract prose.
+  golden tripwire uses (`1n 3n 5n 7n` / `2n 4n 6n 8n`, hardware-validated) → its
+  known string → `verify`. One concrete walkthrough beats abstract prose.
 - **A real `reveal` photo** of a panel wall showing the numbers/underlines/
   arrows/dots, sitting next to the typed grid and the string it produced. Unlike
   `panel-test` (whose solid colors don't photograph meaningfully), `reveal` is
@@ -281,15 +281,26 @@ relevant `RelatedPages` blocks.
 
 - **Golden tripwire:** the bigsign grid
   ```
-  8n 6n 4n 2n
-  7n 5n 3n 1n
+  1n 3n 5n 7n
+  2n 4n 6n 8n
   ```
   reproduces the `config.bigsign.example.toml` Remap string
   (`Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n`)
-  **character-for-character**. Derivation of this grid from the string: chain
-  panel 1 → `(192,32)` = rightmost column, bottom text row; panel 8 → `(0,0)` =
-  leftmost column, top text row. This binds the tool to the one known-good
+  **character-for-character**. This binds the tool to the one known-good
   real-world string and doubles as a worked example for the docs page.
+
+  > **CORRECTION (2026-06-29, hardware-validated).** The original spec listed
+  > this grid as `8n 6n 4n 2n / 7n 5n 3n 1n`, reverse-engineered from the
+  > string under the assumption that string entry *k* = the physical position
+  > of chain panel *k*. That assumption is wrong: the C `RemapMapper` indexes
+  > its entry list by **reversed** chain position (`panel_col = chain - x/pw -
+  > 1`), so the first string entry feeds the *last* cable panel. On bigsign's
+  > centrally-symmetric 4×2 layout the two conventions yield the identical
+  > string, so the circular test passed while `derive` shipped a 180°-inverted
+  > result. The real reveal photo shows chain index 1 at the **top-left**
+  > (`1n 3n 5n 7n / 2n 4n 6n 8n`); `derive` now emits entries in reverse chain
+  > order, turning that grid into the production string. Tripwire:
+  > `test_derive_emits_in_reverse_chain_order`.
 - Single-row-of-4, 2×2 grid, and n/s-rotation cases.
 - Error cases: missing index, duplicate index, ragged grid, bad flag,
   count-vs-`chain_length` mismatch.

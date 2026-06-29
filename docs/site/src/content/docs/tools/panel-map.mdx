@@ -202,13 +202,14 @@ make panel-map-derive-docker LAYOUT=layout.txt CONFIG=config/config.mysign.toml
 
 The `-docker` target pipes your `layout.txt` into the image's stdin; on a dev
 host with `uv`, `make panel-map-derive LAYOUT=layout.txt` runs it directly. The
-`CONFIG` argument is read only for `chain_length × parallel`, to sanity-check the
-cell count in your grid — a mismatch warns on stderr but doesn't hard-fail.
+`CONFIG` argument is read only for `chain_length × parallel`, as a correctness
+check on the cell count in your grid — a mismatch warns on stderr but doesn't
+hard-fail.
 
-| Flag       | Type | Default              | Meaning                                                                  |
-| ---------- | ---- | -------------------- | ------------------------------------------------------------------------ |
-| `--config` | path | `config/config.toml` | Config TOML — read for `chain_length` / `parallel` sanity check only.    |
-| `--layout` | path | stdin                | Layout file (recommended). One row per wall row, cells `<number><flag>`. |
+| Flag       | Type | Default              | Meaning                                                                    |
+| ---------- | ---- | -------------------- | -------------------------------------------------------------------------- |
+| `--config` | path | `config/config.toml` | Config TOML — read for `chain_length` / `parallel` correctness check only. |
+| `--layout` | path | stdin                | Layout file (recommended). One row per wall row, cells `<number><flag>`.   |
 
 **Validation messages are plain-language** — for example:
 

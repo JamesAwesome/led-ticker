@@ -5,9 +5,11 @@ description: Derive, verify, and calibrate the pixel_mapper_config Remap string 
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-`panel-map` turns the `pixel_mapper_config` Remap string derivation loop from
-error-prone hand-editing into a three-step workflow: **reveal** your chain order →
-**derive** the string from a typed grid → **verify** it on the real canvas.
+Wiring custom panels means hand-deriving a `pixel_mapper_config` Remap string — which panel is first in the cable chain, where each lands, how each is rotated. The usual loop is edit → photograph random text → guess → repeat.
+
+`panel-map` turns that derivation loop from error-prone hand-editing into a
+four-step workflow: **reveal** your chain order → **transcribe** the grid →
+**derive** the string → **verify** it on the real canvas.
 It is implemented at
 [`scripts/panel_map.py`](https://github.com/jamesawesome/led-ticker/blob/main/scripts/panel_map.py)
 and mirrors the conventions of [`panel-test`](/tools/panel-test/).
@@ -157,10 +159,10 @@ Per panel slot `k`, `reveal` paints (all via `SetPixel`, never `DrawText`):
 Ctrl-C exits cleanly: a final black frame is swapped on so the panel never
 sticks on the calibration pattern.
 
-| Flag       | Type  | Default                      | Meaning                                                |
-| ---------- | ----- | ---------------------------- | ------------------------------------------------------ |
-| `--config` | path  | `config/config.longboi.toml` | Config TOML to read `[display]` from.                  |
-| `--hold`   | float | `2.0`                        | Seconds between swap ticks (extend for a steady hold). |
+| Flag       | Type  | Default                              | Meaning                                                |
+| ---------- | ----- | ------------------------------------ | ------------------------------------------------------ |
+| `--config` | path  | `config/config.bigsign.example.toml` | Config TOML to read `[display]` from.                  |
+| `--hold`   | float | `2.0`                                | Seconds between swap ticks (extend for a steady hold). |
 
 ### `derive` — string generator (no hardware needed)
 
@@ -182,10 +184,10 @@ from the loaded config.
 omitted, but the file path is the recommended approach. Over SSH, fumbling
 `Ctrl-D` to end stdin input is a real failure mode.
 
-| Flag       | Type | Default                      | Meaning                                                                 |
-| ---------- | ---- | ---------------------------- | ----------------------------------------------------------------------- |
-| `--config` | path | `config/config.longboi.toml` | Config TOML — read for `chain_length` / `parallel` sanity check only.   |
-| `--layout` | path | stdin                        | Layout file (recommended). One row per wall row, cells `<index><flag>`. |
+| Flag       | Type | Default                              | Meaning                                                                 |
+| ---------- | ---- | ------------------------------------ | ----------------------------------------------------------------------- |
+| `--config` | path | `config/config.bigsign.example.toml` | Config TOML — read for `chain_length` / `parallel` sanity check only.   |
+| `--layout` | path | stdin                                | Layout file (recommended). One row per wall row, cells `<index><flag>`. |
 
 **Validation messages are plain-language** — for example:
 
@@ -223,11 +225,11 @@ docker compose start
 - A large arrow pointing up across the whole canvas and a short `TOP` label along the top edge.
 - Per-panel diagnostic overlay: each panel shows its expected chain index and orientation marker.
 
-| Flag       | Type   | Default                      | Meaning                                                                                      |
-| ---------- | ------ | ---------------------------- | -------------------------------------------------------------------------------------------- |
-| `--config` | path   | `config/config.longboi.toml` | Config TOML. Uses `pixel_mapper_config` from this file unless `--mapper` overrides.          |
-| `--hold`   | float  | `2.0`                        | Seconds between swap ticks.                                                                  |
-| `--mapper` | string | —                            | Override the mapper string (e.g. paste `derive`'s output directly without editing the TOML). |
+| Flag       | Type   | Default                              | Meaning                                                                                      |
+| ---------- | ------ | ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `--config` | path   | `config/config.bigsign.example.toml` | Config TOML. Uses `pixel_mapper_config` from this file unless `--mapper` overrides.          |
+| `--hold`   | float  | `2.0`                                | Seconds between swap ticks.                                                                  |
+| `--mapper` | string | —                                    | Override the mapper string (e.g. paste `derive`'s output directly without editing the TOML). |
 
 ## How to read verify
 

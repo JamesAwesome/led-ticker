@@ -86,8 +86,8 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 panel-map-reveal:  ## Reveal physical panel layout (no mapper). Usage: make panel-map-reveal [CONFIG=...] [HOLD=2]
 	uv run python scripts/panel_map.py reveal --config $(CONFIG) --hold $(HOLD)
 
-panel-map-verify:  ## Verify a candidate mapper. Usage: make panel-map-verify [CONFIG=...] [HOLD=2]
-	uv run python scripts/panel_map.py verify --config $(CONFIG) --hold $(HOLD)
+panel-map-verify:  ## Verify a candidate mapper. Usage: make panel-map-verify [CONFIG=...] [HOLD=2] [MAPPER="Remap:..."]
+	uv run python scripts/panel_map.py verify --config $(CONFIG) --hold $(HOLD) $(if $(MAPPER),--mapper '$(MAPPER)')
 
 panel-map-derive:  ## Derive a Remap string from a transcribed grid. Usage: make panel-map-derive CONFIG=... LAYOUT=/tmp/grid.txt
 	uv run python scripts/panel_map.py derive --config $(CONFIG) $(if $(LAYOUT),--layout $(LAYOUT))
@@ -101,14 +101,14 @@ panel-map-reveal-docker:  ## Reveal layout inside Docker. Stop the running ticke
 	    --config /code/$(CONFIG) \
 	    --hold $(HOLD)
 
-panel-map-verify-docker:  ## Verify mapper inside Docker. Stop the running ticker first.
+panel-map-verify-docker:  ## Verify mapper inside Docker. Stop the running ticker first. Usage: make panel-map-verify-docker [CONFIG=...] [HOLD=2] [MAPPER="Remap:..."]
 	docker run --rm -it --privileged --network host \
 	  -v $(PWD)/config:/code/config:ro \
 	  -v $(PWD)/scripts:/code/scripts:ro \
 	  led-ticker \
 	  python /code/scripts/panel_map.py verify \
 	    --config /code/$(CONFIG) \
-	    --hold $(HOLD)
+	    --hold $(HOLD) $(if $(MAPPER),--mapper '$(MAPPER)')
 
 # --- Docker (production image only) ---
 

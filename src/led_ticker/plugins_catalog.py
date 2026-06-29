@@ -15,7 +15,7 @@ from importlib import resources
 import attrs
 
 _CATALOG_RESOURCE = "plugins_catalog.json"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 _VALID_SOURCE_TYPES = ("git", "pypi")
 
 # Every surface a plugin can register (see led_ticker.plugin PluginAPI).
@@ -29,6 +29,7 @@ _SURFACE_KINDS = (
     "color_providers",
     "animations",
     "easing",
+    "backends",
 )
 
 # Order the install hint picks a "primary" surface in (first non-empty wins).
@@ -41,6 +42,7 @@ _PRIMARY_ORDER = (
     "emoji",
     "fonts",
     "easing",
+    "backends",
 )
 
 
@@ -60,6 +62,7 @@ class PluginProvides:
     color_providers: tuple[str, ...] = ()
     animations: tuple[str, ...] = ()
     easing: tuple[str, ...] = ()
+    backends: tuple[str, ...] = ()
 
     def all_names(self) -> tuple[str, ...]:
         """Every provided name across all kinds, in canonical order."""

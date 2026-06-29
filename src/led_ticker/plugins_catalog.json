@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "plugins": [
     {
       "name": "pool",
@@ -112,6 +112,17 @@
       "provides": { "transitions": ["sailor_moon.forward", "sailor_moon.reverse", "sailor_moon.alternating"] },
       "sources": [
         { "type": "pypi", "package": "led-ticker-flair" }
+      ]
+    },
+    {
+      "name": "telnet",
+      "namespace": "telnet",
+      "summary": "Telnet (ANSI terminal) rendering backend for led-ticker — watch your sign in a terminal.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/telnet",
+      "provides": { "backends": ["telnet"] },
+      "sources": [
+        { "type": "pypi", "package": "led-ticker-telnet" },
+        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "telnet-v0.1.0", "subdirectory": "plugins/telnet" }
       ]
     }
   ]

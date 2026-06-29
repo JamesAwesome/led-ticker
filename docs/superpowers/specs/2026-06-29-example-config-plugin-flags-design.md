@@ -1,6 +1,7 @@
 # Flag plugin dependencies in example configs — design
 
-**Status:** approved (brainstorm 2026-06-29)
+**Status:** approved (brainstorm 2026-06-29); revised after a robustness review
+(2026-06-29) — see "Revision: robustness review" below.
 **Scope:** small, self-contained feature. One spec → one plan → one PR.
 
 ## Problem
@@ -41,7 +42,8 @@ deploy moment.
 - A deploy-time warning that fires on **every** path (including the manual
   bigsign/firebird `cp`), not just `make setup`.
 - One shared derivation of "what plugins does this config require," reused by
-  the warning and the test.
+  the warning and the test — and itself **built on existing infrastructure**,
+  not a parallel reimplementation.
 - Fix the current drift in the existing headers.
 
 ## Non-goals
@@ -53,96 +55,121 @@ deploy moment.
 - Reworking the existing per-widget `plugin_hint` runtime errors (kept as-is;
   the banner complements them).
 
-## Canonical map (single source of truth)
+## Revision: robustness review (the brittleness fixes)
 
-A new module-level constant — `PLUGIN_NAMESPACE_TO_PACKAGE` — maps a plugin
-**namespace** (the segment before the first `.` in a type/transition name) to
-its installable **package**:
+An adversarial review found that the first draft reinvented two pieces of
+existing, drift-guarded infrastructure in a narrower, buggier form, and that its
+tripwire would have forced a shipped config to under-declare a real dependency.
+The four adopted changes — now baked into the components below:
 
-| namespace                                   | package               |
-| ------------------------------------------- | --------------------- |
-| `pool`                                      | `led-ticker-pool`     |
-| `baseball`                                  | `led-ticker-baseball` |
-| `crypto`                                    | `led-ticker-crypto`   |
-| `calendar`                                  | `led-ticker-calendar` |
-| `rss`                                       | `led-ticker-rss`      |
-| `weather`                                   | `led-ticker-weather`  |
-| `nyancat`, `pokeball`, `pacman`, `sailor_moon` | `led-ticker-flair` |
-
-`led-ticker-flair` is the one many-to-one case (four transition namespaces, one
-package). This map is the single SoT; if a first-party plugin namespace is added
-later, it is added here.
-
-**Location:** `src/led_ticker/_plugin_hint.py` (it already owns the
-"namespaced name → plugin" knowledge and is import-light), exported alongside a
-new `required_plugins(...)` helper.
+1. **Map is derived from the catalog, not hand-kept.** `plugins_catalog.json`
+   (`src/led_ticker/plugins_catalog.py`, `SCHEMA_VERSION = 4`, drift-guarded by
+   `tests/test_docs_available_covers_catalog.py`) already maps each plugin
+   `namespace` → its pip `package`, already represents the flair four-namespaces
+   → one-package case, and is the file you *cannot* forget when adding a
+   first-party plugin (CLI + Store read it). Derive namespace→package from
+   `load_catalog()` instead of maintaining a second copy.
+2. **The walk reuses `config_references`, not a new field-list scan.**
+   `webui/store.py:config_references()` is a pure, tested recursive walker that
+   already handles **table-form transitions** (`[playlist.section.transition]`
+   with `type = "pacman.forward"`) and **inline `:ns.slug:` emoji** — both of
+   which the draft's hand-enumerated field walk missed (the table case would
+   have silently under-counted). Extract it to a shared module and extend it to
+   also cover the two surfaces it currently misses: top-level `[transitions]`
+   `default`/`between_sections`, and `[display] backend`.
+3. **Header reflects ACTIVE deps only; commented examples get a prose note.**
+   The enforced `# requires-plugins:` line equals the derived active set. A
+   plugin used only in a *commented* example (e.g. bigsign's commented
+   `weather.current`) is documented with a plain inline human note, not the
+   machine line — the startup banner catches it the moment it's uncommented.
+4. **Banner distinguishes "absent" from "installed but broken."** Map loaded
+   *and* failed plugin namespaces through the same catalog-derived map to package
+   names — `LoadedPlugins.failed` is a list of `(namespace, error)` tuples — so a
+   pip-installed-but-`register()`-crashed plugin is told to *fix*, not *install*.
+   (No `_plugin_loader` change: since the map is catalog-derived it is not a
+   drift vector, so reusing it on the installed side is uniform and simpler than
+   the review's suggested `PluginInfo.dist_name` addition — one mapping
+   mechanism, not two.)
 
 ## Components
 
-### 1. `required_plugins(source) -> set[str]` (derivation helper)
+### 1. Shared config-scan module + `required_plugins()`
 
-- **Input:** a parsed-TOML mapping (`dict`) or a path to a `.toml` file.
-- **Behavior:** parse with `tomllib` (comments are ignored natively), walk every
-  `[[playlist.section]]`'s `title`/`widget` `type` values and section-level
-  `transition` / `entry_transition` / `widget_transition` values, plus the
-  top-level `[transitions]` table values. For each value containing a `.`, take
-  the namespace and, if it is in `PLUGIN_NAMESPACE_TO_PACKAGE`, add the package.
-- **Output:** the set of required **package** names (deduped; flair collapses).
-- Operates on the **parsed structure, never built widgets**, so it works
-  whether or not the plugin is installed (no "unknown type" load error), and
-  commented lines are excluded for free.
-- Pure and import-light (only `tomllib`); reused by both the banner and the
-  test.
+**Extract** `config_references()` (today in `src/led_ticker/webui/store.py`,
+pure, covered by `tests/test_webui_purity.py`) into a dependency-light shared
+module — `src/led_ticker/_config_scan.py` (needs only `tomllib` + the catalog;
+**must not** import `webui`/aiohttp, so the display process can use it). Update
+`webui/store.py` to import from there (no behavior change for the Store).
 
-**Surface scanned:** widget/title `type` and the transition fields
-(`transition` / `entry_transition` / `widget_transition` per section, plus
-`[transitions]` `default` / `between_sections`). This covers the primary surface
-of all seven first-party plugins. **Known, accepted gap:** plugins can also
-register borders, color providers, animations, fonts, and emoji (e.g. flair's
-`:pokeball.ball:` embedded in arbitrary text, or a hypothetical
-`border = "x.y"`). The derivation does **not** scan those — emoji live inside
-free text and color/border values are inline tables, so scanning them reliably
-is disproportionate. In practice a config using flair's emoji almost always also
-uses a flair transition (already counted), and the runtime `plugin_hint` still
-catches any uncounted reference at load. If a first-party plugin ever ships a
-namespaced *border/color/animation* as its primary surface, revisit this.
+Generalize the recursive walk so that, for every mapping it visits, it collects
+plugin-namespaced references from:
 
-Edge cases:
-- A dotted value whose namespace is **not** a known plugin (e.g. a future core
-  namespaced type, or `"1.5"`) contributes nothing.
-- A namespaced value that *is* a known plugin is counted even if the plugin
-  happens to be installed — the function answers "what does this config
-  require," not "what is missing." (Missing-set subtraction is the caller's job;
-  see the banner.)
+- `type` values (widgets, and any nested object carrying a `type`);
+- the transition keys `transition` / `entry_transition` / `widget_transition`,
+  in **both** string form (`transition = "x.y"`) and table form
+  (`[…transition] type = "x.y"`);
+- the top-level `[transitions]` `default` / `between_sections` values
+  (the surface `config_references` currently excludes);
+- `[display] backend`;
+- inline `:ns.slug:` emoji tokens in any string (already handled).
+
+A reference "counts" only when its namespace is a known catalog namespace
+(`{e.namespace for e in load_catalog().entries}`) — dotted non-plugin values
+like `"1.5"` or a hypothetical core `a.b` fall through, matching the existing
+`plugin_hint` identifier check.
+
+```python
+# _config_scan.py
+def required_plugins(source: dict | str | Path) -> set[str]:
+    """Packages a config requires, from its ACTIVE (uncommented) plugin refs.
+    Parses with tomllib (comments excluded for free); never builds widgets, so
+    it works whether or not the plugins are installed. Returns canonical pip
+    package names (flair's four namespaces collapse to led-ticker-flair)."""
+```
+
+- **Namespace→package** comes from `load_catalog()` —
+  `{e.namespace: _requirement_key(e.requirement()) for e in load_catalog().entries}`
+  (the same expression `webui/store.py` already uses to collapse flair). No hand
+  map. A meta-test (below) keeps the catalog itself complete.
+- **Output:** set of pip package names (deduped).
+- **Known remaining gap (now narrow):** plugin-registered *borders / color
+  providers / animations / fonts* referenced by namespaced value in inline
+  tables. No first-party plugin ships those as a primary surface today; the
+  runtime `plugin_hint` still catches them at load. (Emoji and the `telnet`
+  backend, called out by the review, are now *covered*, not gaps.)
 
 ### 2. Startup banner (the "warn")
 
 In `src/led_ticker/app/run.py`, after the config is loaded and the plugin set is
 known:
 
-- `required = required_plugins(config_source)`
-- `installed = {package names of loaded plugins}` — derived from the
-  `LoadedPlugins` handle / entry-point distributions already available at
-  startup (map each loaded plugin's namespace through the same canonical map, or
-  read the distribution name directly if exposed).
-- `missing = required - installed`
-- If `missing` is non-empty, emit **one** `logging.WARNING` roll-up:
+- `cat_map = {e.namespace: _requirement_key(e.requirement()) for e in load_catalog().entries}`
+  (the catalog-derived namespace→package map, shared with `required_plugins`).
+- `required = required_plugins(config_source)` (pip package names).
+- `installed = {cat_map[i.namespace] for i in loaded if i.namespace in cat_map}` —
+  loaded plugins' namespaces mapped to packages (flair's namespaces collapse).
+- `failed_pkgs = {cat_map[ns] for (ns, _err) in LoadedPlugins.failed if ns in cat_map}`
+  — pip-installed but `register()` raised.
+- `absent = required - installed - failed_pkgs`; `broken = required & failed_pkgs`.
+- Emit at most **one** `logging.WARNING` roll-up, wording each case correctly:
 
   > `Config references plugins that aren't installed: led-ticker-baseball,
-  > led-ticker-rss. Their widgets/transitions will be skipped. Install them
-  > (config/requirements-plugins.txt or the web UI Store) and restart —
-  > https://docs.ledticker.dev/plugins/`
+  > led-ticker-rss — their widgets/transitions will be skipped. Install them
+  > (config/requirements-plugins.txt or the web UI Store) and restart.`
+  > …and, if `broken` is non-empty:
+  > `Installed but failed to load: led-ticker-pool — fix or remove it (see the
+  > plugin-load errors above).`
+  > `https://docs.ledticker.dev/plugins/`
 
-- Packages listed sorted, comma-joined. Logged once at startup, not per frame.
-- This is additive: the existing per-widget `plugin_hint` errors still fire; the
-  banner is the up-front roll-up.
+- Packages sorted, comma-joined. Logged once at startup, not per frame. Additive
+  to the existing per-widget `plugin_hint` errors.
 
 ### 3. Standardized `# requires-plugins:` header
 
 Each **user-facing starter** carries a machine-readable line near the top:
 
 ```
-# requires-plugins: led-ticker-rss, led-ticker-baseball
+# requires-plugins: led-ticker-baseball, led-ticker-rss
 ```
 
 or, for a plugin-free config:
@@ -151,48 +178,61 @@ or, for a plugin-free config:
 # requires-plugins: none
 ```
 
-- Packages comma-separated, sorted, lowercase, the canonical `led-ticker-*`
-  names. `none` (literal) for no dependencies.
-- A one-line human pointer may follow (e.g. `# Install via
-  config/requirements-plugins.txt or the web UI Store, then restart. See
-  https://docs.ledticker.dev/plugins/`).
-- Replaces the existing free-text `# ── Plugin dependencies ──` block. The stale
-  "rebuild before running" wording is removed (restart/reconcile model).
+- Canonical form: pip package names, comma-separated, sorted, lowercase. `none`
+  (literal) for no dependencies.
+- A one-line human pointer may follow (install via
+  `config/requirements-plugins.txt` or the web UI Store, then restart; link to
+  docs).
+- **Commented optional examples** get a separate plain prose note, NOT the
+  machine line — e.g. `# (uncomment the weather section below to add current
+  conditions — needs led-ticker-weather)`. The machine line stays equal to the
+  active set.
+- Replaces the existing free-text `# ── Plugin dependencies ──` block; the stale
+  "rebuild before running" wording is removed.
 
-Per-file declared values (derived from current uncommented usage):
+Per-file active values are **computed by the implementer with
+`required_plugins(file)`**, not hand-listed. Expected results (pinned by the
+tripwire) given today's uncommented usage:
 
-| config                                | requires-plugins                              |
-| ------------------------------------- | --------------------------------------------- |
-| `config.example.toml`                 | `none`                                        |
-| `config.bigsign.example.toml`         | derived (currently `led-ticker-baseball, led-ticker-rss`; include `led-ticker-weather` only if its `weather.current` widget is uncommented) |
-| `config.firebird.example.toml`        | `led-ticker-flair`                            |
-| `config.try.example.toml`             | `led-ticker-flair, led-ticker-rss`            |
-| `config.showroom-bigsign.example.toml`| derived                                       |
-| `config.bigsign.firebird.example.toml`| derived                                       |
-
-The implementer computes each value with `required_plugins(file)` rather than
-hand-listing — the table above is the expected result, and the tripwire pins it.
+| config                                 | requires-plugins (active)                |
+| -------------------------------------- | ---------------------------------------- |
+| `config.example.toml`                  | `none`                                   |
+| `config.bigsign.example.toml`          | `led-ticker-baseball, led-ticker-rss` (weather is commented → prose note, not the line) |
+| `config.firebird.example.toml`         | `led-ticker-flair`                       |
+| `config.try.example.toml`              | `led-ticker-flair, led-ticker-rss`       |
+| `config.showroom-bigsign.example.toml` | computed                                 |
+| `config.bigsign.firebird.example.toml` | computed                                 |
 
 ### 4. Tripwire test (`tests/test_example_config_plugin_flags.py`)
 
-- **STARTERS** = the six user-facing configs above (an explicit list constant).
-- For each starter: parse its `# requires-plugins:` line into a set of packages
-  (`none` → empty set); assert it **equals** `required_plugins(path)`. Set
-  equality catches missing, extra, and stale entries.
-- Assert `config.example.toml` derives to the empty set **and** declares
-  `none` — this is also the "starter is plugin-free" guard the earlier review
-  asked for.
-- **Fixtures rule:** for the `*_test.example.toml` / other non-starter example
-  configs, the header is **not required**, but **if** `required_plugins(file)`
-  is non-empty the file MUST still carry a correct `# requires-plugins:` line.
-  (Iterate all `config/*.example.toml`; a plugin-using file without a correct
-  line fails.)
-- A starter missing the line entirely fails (the line is mandatory on starters,
-  `none` included).
+- **STARTERS** = the six user-facing configs above (explicit list constant).
+- For each starter: parse its `# requires-plugins:` line into a package set
+  (`none` → empty); assert it **equals** `required_plugins(path)`.
+- Assert `config.example.toml` derives to empty **and** declares `none` (the
+  plugin-free-starter guard the earlier review asked for).
+- **Fixtures rule:** iterate all `config/*.example.toml`; the header is not
+  required on non-starters, but any file with non-empty `required_plugins(file)`
+  MUST carry a correct line. This now correctly requires
+  `config.hires_emoji_test.example.toml` to declare **both**
+  `led-ticker-flair` (from its `:pokeball.ball:` emoji) and `led-ticker-weather`
+  — the case that broke the draft.
+- A starter missing the line entirely fails.
+- **Failure message:** on mismatch, print the symmetric difference and the exact
+  canonical line to paste — e.g. `header is missing {led-ticker-flair}; has
+  stale {}; set the line to: "# requires-plugins: led-ticker-flair,
+  led-ticker-weather"`. Parsing is lenient (strip whitespace, tolerate a
+  trailing comma, case-insensitive `none`); canonical form is only enforced in
+  the *fix hint*, not required on input. Defined behavior: empty-after-colon →
+  treated as malformed (fail with hint); multiple `# requires-plugins:` lines →
+  fail ("exactly one expected").
+
+- **Catalog-completeness meta-test:** assert every namespace the example configs
+  actually reference resolves through `load_catalog()` (guards the "someone
+  added a plugin namespace the catalog/​scan doesn't know" case end-to-end).
 
 ### 5. `setup.sh` static tip
 
-One static line appended to the existing bigsign `cp` tip, e.g.:
+One static line appended to the existing bigsign `cp` tip:
 
 ```
   Tip: for the bigsign layout, replace it with config/config.bigsign.example.toml
@@ -205,48 +245,57 @@ No TOML parsing, no duplicated map.
 ## Data flow
 
 ```
-config TOML ──tomllib──► required_plugins() ──► {packages}
-                               │                     │
-        (startup) ────────────►│              (test) ►│ == parsed header line
-        installed set ─────────┘
-              │
-          missing set ──► WARNING banner (once)
+config TOML ──tomllib──► _config_scan.required_plugins() ──► {pip packages}
+   (catalog: namespace→package)        │                          │
+                 (startup) ────────────►│                  (test) ►│ == parsed header line
+   loaded/failed namespaces ─cat_map──►│
+                       absent / broken ─► WARNING banner (once)
 ```
 
 ## Testing
 
 - `test_example_config_plugin_flags.py`:
-  - `required_plugins()` unit cases: plugin-free dict → empty; a dict using
-    `rss.feed` + `nyancat.forward` → `{led-ticker-rss, led-ticker-flair}`;
-    commented-only usage (parse a file whose only plugin type is in a comment)
-    → empty; a non-plugin dotted value (`"1.5"`, a core `a.b`) → empty.
-  - Header-vs-derived equality across the six STARTERS.
-  - `config.example.toml` ⇒ empty + `none`.
-  - Fixture rule: any `config/*.example.toml` with non-empty derivation has a
-    matching line.
-- Banner: a unit test asserting that, given a config requiring an uninstalled
-  package and an `installed` set lacking it, the missing set is computed and the
-  warning is logged once (capture with `caplog`); and that when all required
-  packages are installed, nothing is logged.
+  - `required_plugins()` units: plugin-free → empty; string-form `rss.feed` +
+    `nyancat.forward` → `{led-ticker-rss, led-ticker-flair}`; **table-form**
+    transition (`[…transition] type="pacman.forward"`) → `{led-ticker-flair}`;
+    inline `:pokeball.ball:` emoji → `{led-ticker-flair}`; `[display]
+    backend="telnet"` → `{led-ticker-telnet}`; commented-only plugin usage →
+    empty; non-plugin dotted value (`"1.5"`, core `a.b`) → empty.
+  - Header == derived across the six STARTERS; `config.example.toml` ⇒ empty +
+    `none`.
+  - Fixtures rule across all `config/*.example.toml` (incl. the
+    `hires_emoji`/`hires_transitions` counter-examples).
+  - Catalog-completeness meta-test.
+- Banner units (`caplog`): required-but-absent → warning naming the package,
+  once; required-but-`failed` → "installed but failed" wording; all required
+  installed → silent.
+- Reuse guard: a quick assertion that `webui/store.py` still resolves the same
+  references after the extraction (or rely on the existing
+  `test_webui_purity.py` / Store tests).
 
-## Decisions (resolved during brainstorm)
+## Decisions (resolved during brainstorm + review)
 
-- **Warn surface = startup banner**, not `setup.sh` parsing. `setup.sh` only
-  ever seeds the plugin-free smallsign, so a parse-and-warn there would fire
-  ~never and would duplicate the namespace→package map in bash. The banner is in
-  Python, has the loaded config + installed-plugin set, and catches the manual
-  `cp` path. `setup.sh` gets only a static one-line tip.
+- **Warn surface = startup banner**, not `setup.sh` parsing (setup only ever
+  seeds the plugin-free smallsign → would fire ~never and duplicate logic in
+  bash). `setup.sh` gets a static one-line tip.
 - **Header form = machine-readable comment line**, not free prose (brittle to
-  scrape, already drifts) and not a real TOML key (would add a non-functional
-  schema field the loader must special-case).
+  scrape, already drifts) and not a real TOML key (non-functional schema field).
+- **Namespace→package is derived from `load_catalog()`**, not a hand map — the
+  catalog is the existing drift-guarded SoT.
+- **The walk reuses an extracted `config_references`**, not a new field-list
+  scan — a recursive "scan everything, intersect with catalog namespaces" walk
+  is robust to new surfaces; a hardcoded field list is not.
+- **Commented-example deps → prose note**, not the enforced line (keeps the
+  machine line honest about active deps without forbidding optional templates).
 - **File scope = six user-facing starters require the line; dev fixtures exempt
-  unless they use plugins.** Avoids `# requires-plugins: none` noise on 11
-  dev-only fixtures while still catching any unflagged plugin use anywhere.
+  unless they use plugins.**
 
 ## Out of scope / future
 
-- Teaching the existing `plugin_hint` to consume `PLUGIN_NAMESPACE_TO_PACKAGE`
-  (it currently suggests `led-ticker plugin install <namespace>`); a later
-  unification, not needed here.
+- Teaching `plugin_hint` to consume the catalog map (it currently suggests
+  `led-ticker plugin install <namespace>`); a later unification.
 - A `led-ticker plugins-for <config>` CLI subcommand (the banner covers the
   need).
+- Scanning plugin-namespaced borders/color-providers/animations (no first-party
+  plugin ships one as a primary surface yet; runtime hint still catches them).
+</content>

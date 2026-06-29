@@ -1,0 +1,56 @@
+# Try led-ticker with NO hardware — a laptop-friendly headless run + the webui
+# live preview. Fully isolated from the production deploy (compose.yaml): its own
+# compose project (`-p led-ticker-try`) and its own tmpfs volume, so a running Pi
+# deploy and a laptop try session never share or stomp each other's state.
+#
+#   make try                  # build + up (engine + webui); preview at :8080
+#   docker compose -f compose.try.yaml -p led-ticker-try up --build
+#   docker compose -f compose.try.yaml -p led-ticker-try down
+#
+# Uses the committed config/config.try.example.toml (a fresh clone has no
+# config/config.toml — it's gitignored), so this works on any clone with no setup.
+services:
+  # Headless display engine — no GPIO/hardware. Writes status.json + preview.bin
+  # to the shared try-status volume for the webui to serve.
+  try-engine:
+    image: led-ticker-try
+    build:
+      context: .
+      dockerfile: Dockerfile.try
+    container_name: led-ticker-try-engine
+    restart: unless-stopped
+    command: ["led-ticker", "--config", "/code/config/config.try.example.toml"]
+    volumes:
+      - ./config:/code/config:ro
+      - try-status:/run/led-ticker
+    env_file:
+      - path: ./.env
+        required: false
+
+  # Webui sidecar — reads the engine's preview.bin and serves the live browser
+  # preview at http://localhost:8080.
+  try-webui:
+    image: led-ticker-try
+    build:
+      context: .
+      dockerfile: Dockerfile.try
+    container_name: led-ticker-try-webui
+    restart: unless-stopped
+    command: ["led-ticker", "webui", "--config", "/code/config/config.try.example.toml"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/code/config:rw
+      - try-status:/run/led-ticker
+    env_file:
+      - path: ./.env
+        required: false
+
+volumes:
+  # tmpfs (in-RAM) — only holds the small status.json + preview.bin snapshot.
+  try-status:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1m

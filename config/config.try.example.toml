@@ -1,0 +1,62 @@
+# Try-it config — headless, no hardware; open the webui preview.
+#
+# Use this with Dockerfile.try (or `docker compose --profile try up`) to run
+# led-ticker on any computer without a Raspberry Pi or LED panels. The engine
+# renders frames in memory via the headless backend; the webui preview at
+# http://localhost:8080 lets you watch the sign live in a browser.
+#
+# All built-in widgets, transitions, borders, and emoji work headless.
+# Plugins (rss.feed, weather.current, baseball.*, etc.) require a separate
+# install — the core install here is plugin-free.
+#
+# Full config-options reference: https://docs.ledticker.dev/reference/config-options/
+
+[display]
+backend = "headless"          # built-in headless renderer — no rgbmatrix required
+rows = 16
+cols = 32
+chain_length = 5              # 5× 32×16 panels = 160×16 logical canvas (smallsign geometry)
+default_scale = 1
+brightness = 80
+
+[web]
+http_host = "0.0.0.0"
+http_port = 8080
+allow_restart = false
+
+[transitions]
+default = "dissolve"
+duration = 0.6
+easing = "ease_out"
+between_sections = "wipe_left"
+
+# Section 1 — two bordered, animated messages that dissolve into each other.
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 5
+transition = "dissolve"
+
+[[playlist.section.widget]]
+type = "message"
+text = "led-ticker :sun: try it out!"
+font_color = "rainbow"
+border = {style = "bands", colors = "rainbow", band_width = 10}
+
+[[playlist.section.widget]]
+type = "message"
+text = "No hardware needed — watch in the browser."
+font_color = "color_cycle"
+border = {style = "bands", colors = "candy_cane", band_width = 8}
+
+# Section 2 — entered via the between_sections wipe; USA-banded chasing ring.
+[[playlist.section]]
+mode = "swap"
+content_height = 16
+hold_time = 5
+
+[[playlist.section.widget]]
+type = "message"
+text = "Open http://localhost:8080 to preview the sign live."
+font_color = "rainbow"
+border = {style = "bands", colors = "usa", band_width = 10, speed = -2}

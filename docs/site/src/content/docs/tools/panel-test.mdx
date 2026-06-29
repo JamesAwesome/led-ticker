@@ -38,6 +38,11 @@ The `panel-test-docker` target runs `docker run --rm -it --privileged --network 
 
 ## What it does
 
+<img
+  src="/panel-test/rgb-cycle.gif"
+  alt="A bigsign panel on a wall cycling through full-frame red, green, blue, white, then black on real hardware, with the colors reflecting off the floor below."
+/>
+
 The script cycles indefinitely through this sequence:
 
 | #   | Color | RGB             | What you should see                                        |
@@ -73,7 +78,6 @@ The script has no other arguments. It always cycles R → G → B → W → B an
 ## Notes
 
 - **`sudo` on the host path (host path only):** the rgbmatrix C library needs `/dev/mem` access. On a Pi running the host (non-Docker) path you'll need `sudo uv run python scripts/panel_color_test.py …` (or just `sudo make panel-test`). The Docker path handles this via `--privileged` — Docker users don't need `sudo`.
-- **No GIF demo:** test patterns don't render meaningfully as GIFs — the value of this tool is on physical LEDs. The docs page intentionally has no demo image.
 - **Not a substitute for `validate`:** `panel-test` cannot tell you anything about your widgets, transitions, or playlist. Use [`validate`](/tools/validate/) for config-layer checks and [`render-demo`](/tools/render-demo/) for widget-layer previews.
 
 <RelatedPages

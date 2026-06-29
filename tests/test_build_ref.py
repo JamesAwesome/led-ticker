@@ -22,13 +22,35 @@ def test_literal_unknown_env_falls_through(monkeypatch):
     # in the image that resolves to "unknown" — deploy via `make rebuild`.
     monkeypatch.setenv("LED_TICKER_BUILD_REF", "unknown")
     monkeypatch.setattr(_build, "_git_ref", lambda: None)
+    monkeypatch.setattr(_build, "_package_version", lambda: None)
     assert build_ref() == "unknown"
 
 
 def test_unknown_when_no_env_no_git(monkeypatch):
     monkeypatch.delenv("LED_TICKER_BUILD_REF", raising=False)
     monkeypatch.setattr(_build, "_git_ref", lambda: None)
+    monkeypatch.setattr(_build, "_package_version", lambda: None)
     assert build_ref() == "unknown"
+
+
+def test_package_version_when_no_env_no_git(monkeypatch):
+    # PyPI / bare-docker install: fall back to the VCS-derived release version.
+    monkeypatch.delenv("LED_TICKER_BUILD_REF", raising=False)
+    monkeypatch.setattr(_build, "_git_ref", lambda: None)
+    monkeypatch.setattr(_build, "_package_version", lambda: "2.2.1.dev3+gabc1234")
+    assert build_ref() == "2.2.1.dev3+gabc1234"
+
+
+def test_unknown_only_when_nothing(monkeypatch):
+    monkeypatch.delenv("LED_TICKER_BUILD_REF", raising=False)
+    monkeypatch.setattr(_build, "_git_ref", lambda: None)
+    monkeypatch.setattr(_build, "_package_version", lambda: None)
+    assert build_ref() == "unknown"
+
+
+def test_package_version_resolves_in_env():
+    v = _build._package_version()
+    assert v is not None and v != "0.0.0", v
 
 
 def test_git_ref_resolves_in_this_checkout():

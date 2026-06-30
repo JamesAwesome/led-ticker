@@ -21,7 +21,7 @@ between_sections = "cut"
 
 # --- wipe_random (default color pool) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_random"
 transition_duration = 0.8
 hold_time = 3
@@ -41,7 +41,7 @@ text = "should never repeat direction"
 
 # --- wipe_random (custom color pool) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_random"
 transition_colors = [[255, 80, 0], [180, 0, 255], [0, 200, 255]]
 transition_duration = 0.8
@@ -62,7 +62,7 @@ text = "custom pool done"
 
 # --- push_random ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_random"
 transition_duration = 0.6
 hold_time = 3
@@ -82,7 +82,7 @@ text = "push_random done"
 
 # --- restart marker ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2
 loop_count = 1
 

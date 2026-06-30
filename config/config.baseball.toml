@@ -28,7 +28,7 @@ between_sections = {type = "baseball.roll_alternating", duration = 2.0}
 
 # --- baseball (long text) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll"
 transition_duration = 2.0
 hold_time = 4
@@ -48,7 +48,7 @@ text = "baseball DONE"
 
 # --- baseball (short text) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll"
 transition_duration = 2.0
 hold_time = 4
@@ -68,7 +68,7 @@ text = "baseball short DONE"
 
 # --- baseball.roll_reverse ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll_reverse"
 transition_duration = 2.0
 hold_time = 4
@@ -84,7 +84,7 @@ text = "Play ball!"
 
 # --- restart ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3
 loop_count = 1
 

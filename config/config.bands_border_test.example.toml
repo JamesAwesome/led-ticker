@@ -87,7 +87,7 @@ between_sections = "cut"
 #    revolution ≈ 32s. Later sections diverge from this.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -107,7 +107,7 @@ border = {style = "bands", colors = "candy_cane"}
 #    expected, reads as a woven texture).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -130,7 +130,7 @@ border = {style = "bands", colors = "rasta", band_width = 12, thickness = 2}
 #     mid-edge drift is a regression (the proportional-mapping shear bug).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -149,7 +149,7 @@ border = {style = "bands", colors = "rasta", band_width = 12, thickness = 2, ali
 #    negative offsets on real hardware.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -169,7 +169,7 @@ border = {style = "bands", colors = "usa", speed = -2}
 #    different effects. band_width=10 makes the blocks easy to see.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -188,7 +188,7 @@ border = {style = "bands", colors = "rainbow", band_width = 10}
 #    custom sequences.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -207,7 +207,7 @@ border = {style = "bands", colors = [[0, 146, 70], [255, 255, 255], [206, 43, 55
 #    bands creep, the frame_invariant property regressed.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -225,7 +225,7 @@ border = {style = "bands", colors = "christmas", speed = 0, band_width = 10}
 #    orange text, orange/purple bands marching the frame.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -245,7 +245,7 @@ border = {style = "bands", colors = "halloween", band_width = 10}
 #    it frames the SIGN edge, not the logical 128×32 canvas.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 hold_time = 7.0
@@ -270,7 +270,7 @@ border = {style = "bands", colors = "candy_cane", band_width = 8}
 # 9. Countdown + bands — border field on TickerCountdown.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -292,7 +292,7 @@ border = {style = "bands", colors = "usa", band_width = 8}
 #     the engine redraw contract.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 loop_count = 1
 transition = "cut"
@@ -313,7 +313,7 @@ border = {style = "bands", colors = "rasta", band_width = 10}
 #     to the same band positions when the typewriter restarts).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 loop_count = 3
 transition = "cut"
@@ -333,7 +333,7 @@ border = {style = "bands", colors = "candy_cane", band_width = 8}
 #     per-tick loop: the phoenix holds while the bands march.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -354,7 +354,7 @@ border = {style = "bands", colors = "rasta", band_width = 10}
 #     redraw cost.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -374,7 +374,7 @@ border = {style = "bands", colors = "christmas", speed = 0, band_width = 10}
 #     §12's (engine cadence, not gif-frame cadence).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 3
 transition = "cut"

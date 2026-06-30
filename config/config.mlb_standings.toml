@@ -30,10 +30,10 @@ duration = 0.5
 easing = "ease_out"
 between_sections = {type = "baseball.roll_alternating", duration = 2.0}
 
-# --- MLB Standings (swap mode) ---
+# --- MLB Standings (slideshow mode) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_left"
 transition_duration = 0.5
 hold_time = 6
@@ -51,10 +51,10 @@ title = "MLB Standings"
 top_n = 3
 timezone = "America/New_York"
 
-# --- MLB Scores (swap mode) ---
+# --- MLB Scores (slideshow mode) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6

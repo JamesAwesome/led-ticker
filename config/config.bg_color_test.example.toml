@@ -13,7 +13,7 @@
 #   8. Section with NO bg_color (control — should still render normally)
 #
 # Run on the bigsign with: led-ticker --config config/config.bg_color_test.example.toml
-# Each section holds for ~6s in swap mode so the bg is easy to eyeball.
+# Each section holds for ~6s in slideshow mode so the bg is easy to eyeball.
 
 [display]
 rows = 32
@@ -40,7 +40,7 @@ between_sections = "cut"
 #    → Whole panel is navy. Yellow text sits on the navy field.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 bg_color = [26, 59, 142]    # navy
 
@@ -54,7 +54,7 @@ font_color = [255, 220, 70] # yellow
 #    → Section says navy, widget says deep purple. Panel should be PURPLE.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 bg_color = [26, 59, 142]    # navy (would apply if widget didn't override)
 
@@ -69,7 +69,7 @@ bg_color = [85, 26, 139]    # deep purple — overrides section navy
 #    → Top half magenta, bottom half teal, with text in each band.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 # content_height ceiling on bigsign at scale=4 is 16 (16×4=64 = panel real
 # height). Using 20 here would push the wrapper into negative _y_offset
@@ -92,7 +92,7 @@ bottom_bg_color = [0, 120, 130] # teal
 #      (not alpha-transparency).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 bg_color = [180, 60, 0]     # burnt orange
 
@@ -107,7 +107,7 @@ hold_time = 6.0
 #    → Phoenix silhouette over the bg color via alpha-transparent regions.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 bg_color = [10, 130, 80]    # forest green
 
@@ -123,7 +123,7 @@ hold_time = 6.0
 #      show bg color.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 bg_color = [255, 230, 0]    # bright yellow
 
@@ -140,7 +140,7 @@ play_count = 3
 #      (visually identical to no-bg, but the Fill path runs).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 bg_color = [200, 0, 0]      # red — but widget overrides
 
@@ -156,7 +156,7 @@ bg_color = [0, 0, 0]        # explicit black overrides red
 #      different from before this feature landed, something regressed.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 # no bg_color at section or widget level
 

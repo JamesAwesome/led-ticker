@@ -32,7 +32,7 @@ between_sections = "cut"
 
 # 1. Inter Regular at 24px (default size)
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 loop_count = 1
 
@@ -45,7 +45,7 @@ loop_count = 1
 
 # 2. Inter Bold at 36px
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 loop_count = 1
 
@@ -58,7 +58,7 @@ loop_count = 1
 
 # 3. Inter Regular at 40px (large display)
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 loop_count = 1
 
@@ -79,7 +79,7 @@ loop_count = 1
 #    stroke of `n`/`u`/etc. Use `font_threshold = 80` for the regular
 #    weight. The Bold weight has fat strokes and survives the default.
 # [[playlist.section]]
-# mode = "swap"
+# mode = "slideshow"
 # hold_time = 3.0
 # loop_count = 1
 #
@@ -97,7 +97,7 @@ loop_count = 1
 #     Reg thr=80 + Bold thr=128, Regular gets fatter than Bold (the
 #     lower threshold's antialiased pixels add weight). Keep them paired.
 # [[playlist.section]]
-# mode = "swap"
+# mode = "slideshow"
 # hold_time = 3.0
 # loop_count = 1
 #
@@ -111,7 +111,7 @@ loop_count = 1
 
 # 5. BDF baseline (current 6x12 path) for visual comparison
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 loop_count = 1
 

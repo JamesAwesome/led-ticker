@@ -20,7 +20,7 @@
 #   6. transparent phoenix + scroll-under marquee (text walks BEHIND phoenix)
 #   7. heart-tunnel backdrop + scroll_over marquee (white text on top)
 #   8. stretch heart + scroll_over knockout text (black/LEDs-off cutout)
-#   9. mode=swap with title + phoenix image (tests title+image dispatch)
+#   9. mode=slideshow with title + phoenix image (tests title+image dispatch)
 #  10. text_valign=top + scroll text scrolling left-to-right
 #
 # Copy to config.toml on the bigsign Pi:
@@ -59,7 +59,7 @@ between_sections = "dissolve"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -75,7 +75,7 @@ hold_time = 5.0
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -91,7 +91,7 @@ hold_time = 5.0
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -107,7 +107,7 @@ hold_time = 5.0
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -127,7 +127,7 @@ hold_time = 5.0
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -150,7 +150,7 @@ hold_time = 5.0
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -173,7 +173,7 @@ text_loops = 2  # marquee crosses panel at least twice before transitioning
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -198,7 +198,7 @@ text_loops = 1
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -215,7 +215,7 @@ scroll_speed_ms = 50
 text_loops = 1
 
 # ---------------------------------------------------------------------------
-# Section 9 — title + image via mode = "swap"
+# Section 9 — title + image via mode = "slideshow"
 #
 # Title displays first, dissolves into the phoenix. Same dispatch path
 # as gif Section 11 — `_show_one` calls `_play_widget` because
@@ -224,7 +224,7 @@ text_loops = 1
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.0  # title hold before dissolving into image
 transition = "dissolve"
@@ -250,7 +250,7 @@ hold_time = 5.0
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -283,7 +283,7 @@ text_loops = 1
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6

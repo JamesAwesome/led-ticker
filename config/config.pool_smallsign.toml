@@ -40,7 +40,7 @@ gpio_slowdown = 2
 hardware_mapping = "adafruit-hat"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5
 loop_count = 0  # infinite — soak test
 

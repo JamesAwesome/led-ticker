@@ -54,7 +54,7 @@ size = 4
 #     moving content and persists through the push_left transition. ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8
 loop_count = 1
 
@@ -63,7 +63,7 @@ type = "message"
 text = "Busy light smoke test - toggle config/.busy"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8
 loop_count = 1
 

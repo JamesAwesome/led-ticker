@@ -65,7 +65,7 @@ between_sections = "dissolve"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 loop_count = 1
 transition = "sailor_moon.forward"
@@ -86,7 +86,7 @@ font_color = "rainbow"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 loop_count = 1
 transition = "dissolve"
@@ -109,7 +109,7 @@ font_color = {style = "gradient", from = [255, 90, 140], to = [255, 200, 80]}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 loop_count = 1
 transition = "pokeball.alternating"
@@ -137,7 +137,7 @@ font_color = "rainbow"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "wipe_alternating"
@@ -162,7 +162,7 @@ animation = {style = "typewriter", frames_per_char = 4}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5.0
 loop_count = 1
 transition = "dissolve"
@@ -189,7 +189,7 @@ font_color = [255, 100, 160]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 loop_count = 1
@@ -232,7 +232,7 @@ bottom_font_size = 14
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "nyancat.forward"
@@ -261,7 +261,7 @@ font_color_temp = [255, 255, 255]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5.0
 loop_count = 1
 transition = "dissolve"
@@ -288,7 +288,7 @@ border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 1.0
 transition = "pacman.alternating"
@@ -321,7 +321,7 @@ text_loops = 1
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 3
 hold_time = 2.0
 transition = "cut"
@@ -347,7 +347,7 @@ border = "rainbow"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 loop_count = 1
 transition = "sailor_moon.reverse"
@@ -384,7 +384,7 @@ font_color = [180, 200, 255]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "nyancat.alternating"

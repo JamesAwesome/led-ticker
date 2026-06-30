@@ -23,7 +23,7 @@ delay = 3
 
 # --- push_left ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_left"
 hold_time = 4
 loop_count = 1
@@ -42,7 +42,7 @@ text = "push_left DONE"
 
 # --- push_right ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_right"
 hold_time = 4
 loop_count = 1
@@ -61,7 +61,7 @@ text = "push_right DONE"
 
 # --- push_up ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_up"
 hold_time = 4
 loop_count = 1
@@ -80,7 +80,7 @@ text = "push_up DONE"
 
 # --- push_down ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_down"
 hold_time = 4
 loop_count = 1
@@ -99,7 +99,7 @@ text = "push_down DONE"
 
 # --- color_flash ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "color_flash"
 hold_time = 4
 loop_count = 1
@@ -118,7 +118,7 @@ text = "color_flash DONE"
 
 # --- color_flash (custom red) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "color_flash"
 transition_color = [255, 0, 0]
 hold_time = 4
@@ -138,7 +138,7 @@ text = "red flash DONE"
 
 # --- cut ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "cut"
 hold_time = 4
 loop_count = 1
@@ -157,7 +157,7 @@ text = "cut DONE"
 
 # --- wipe_left (sweep moves toward the left) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_left"
 hold_time = 4
 loop_count = 1
@@ -176,7 +176,7 @@ text = "wipe_left DONE"
 
 # --- wipe_right (sweep moves toward the right) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_right"
 hold_time = 4
 loop_count = 1
@@ -195,7 +195,7 @@ text = "wipe_right DONE"
 
 # --- dissolve ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "dissolve"
 hold_time = 4
 loop_count = 1
@@ -214,7 +214,7 @@ text = "dissolve DONE"
 
 # --- split ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "split"
 hold_time = 4
 loop_count = 1
@@ -233,7 +233,7 @@ text = "split DONE"
 
 # --- wipe_up ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_up"
 hold_time = 4
 loop_count = 1
@@ -252,7 +252,7 @@ text = "wipe_up DONE"
 
 # --- wipe_down ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_down"
 hold_time = 4
 loop_count = 1
@@ -271,7 +271,7 @@ text = "wipe_down DONE"
 
 # --- nyancat ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "nyancat.forward"
 transition_duration = 2.0
 hold_time = 4
@@ -291,7 +291,7 @@ text = "nyancat DONE"
 
 # --- nyancat_reverse ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "nyancat.reverse"
 transition_duration = 2.0
 hold_time = 4
@@ -311,7 +311,7 @@ text = "nyancat_reverse DONE"
 
 # --- scroll ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "scroll"
 transition_duration = 4.0
 hold_time = 4
@@ -331,7 +331,7 @@ text = "scroll DONE"
 
 # --- push_alternating ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_alternating"
 hold_time = 4
 loop_count = 1
@@ -358,7 +358,7 @@ text = "push_alternating DONE"
 
 # --- wipe_alternating ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_alternating"
 hold_time = 4
 loop_count = 1
@@ -385,7 +385,7 @@ text = "wipe_alternating DONE"
 
 # --- restart ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3
 loop_count = 1
 

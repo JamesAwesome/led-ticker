@@ -30,7 +30,7 @@ between_sections = {type = "sailor_moon.alternating", duration = 2.0}
 # --- Messages (sailor_moon transition) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "sailor_moon.alternating"
 transition_duration = 2.0
 hold_time = 4

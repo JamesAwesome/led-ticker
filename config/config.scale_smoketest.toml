@@ -60,7 +60,7 @@ between_sections = "cut"
 # --- scale = 4 (default bigsign; 8-logical emoji — must stay inline) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 4
 content_height = 16
 hold_time = 8
@@ -76,7 +76,7 @@ font_threshold = 80
 # --- scale = 3 (arbitrary scale; 10-logical emoji — newly exact) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 3
 content_height = 21
 hold_time = 8
@@ -92,7 +92,7 @@ font_threshold = 80
 # --- scale = 2 (the original bug; 16-logical emoji) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 hold_time = 8
@@ -108,7 +108,7 @@ font_threshold = 80
 # --- scale = 1 (plain full-panel canvas; low-res 8×8 emoji) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 1
 content_height = 64
 hold_time = 8
@@ -124,7 +124,7 @@ font_threshold = 80
 # --- two_row at scale = 2 (held top + bottom; inline emoji in each row) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 hold_time = 8
@@ -143,7 +143,7 @@ top_font_size = 16
 # Requires WEATHERAPI_KEY in .env.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 hold_time = 8

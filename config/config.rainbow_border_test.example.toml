@@ -110,7 +110,7 @@ between_sections = "cut"
 #    the chase advance smoothly at engine 50ms cadence over the hold.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -130,7 +130,7 @@ border = "rainbow"
 #    border holds steady red while the still hangs.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -152,7 +152,7 @@ border = [220, 50, 50]
 #    regressed.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -180,7 +180,7 @@ border = "rainbow"
 #    — if it looks slower or jerkier, the cadence refactor regressed.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 3
 transition = "cut"
@@ -203,7 +203,7 @@ border = "rainbow"
 #    the 3 inner loop iterations (no snap back to phase 0).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 3
 transition = "cut"
@@ -233,7 +233,7 @@ border = "rainbow"
 #    surviving the bordered render path.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -263,7 +263,7 @@ border = "rainbow"
 #    systems on one panel.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 3
 transition = "cut"
@@ -294,7 +294,7 @@ border = "rainbow"
 #    this is what tunables in later sections diverge from.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -316,7 +316,7 @@ border = "rainbow"
 #    sweep at default speeds.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -336,7 +336,7 @@ border = "rainbow"
 #    as cut-out negative (black), border chases rainbow around the edge.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -358,7 +358,7 @@ border = "rainbow"
 #    inline table into showroom §8.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -379,7 +379,7 @@ border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 #    contrast against the static frame).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -399,7 +399,7 @@ border = [220, 50, 50]
 #    per-section without remembering the exact knob names.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "cut"
@@ -424,7 +424,7 @@ border = {style = "rainbow", speed = 4, char_offset = 6, thickness = 1}
 #    showcase here is the border + two-row composition.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 hold_time = 7.0
@@ -459,7 +459,7 @@ border = "rainbow"
 #    section, something in the engine's redraw contract regressed.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 loop_count = 1
 transition = "cut"
@@ -489,7 +489,7 @@ border = "rainbow"
 #     ≈ 9s (3s × 3 loops).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 loop_count = 3
 transition = "cut"
@@ -522,7 +522,7 @@ border = [80, 200, 255]
 #     its own counter following its own restart_on_visit policy.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 loop_count = 3
 transition = "cut"
@@ -556,7 +556,7 @@ border = "rainbow"
 #     retype. Independence verified by visual inspection.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 loop_count = 3
 transition = "cut"
@@ -591,7 +591,7 @@ border = "rainbow"
 #     the caption has clear panel space on the left to type into.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6
 loop_count = 3
 transition = "cut"

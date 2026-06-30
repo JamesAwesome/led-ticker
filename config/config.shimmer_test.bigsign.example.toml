@@ -44,7 +44,7 @@ between_sections = "dissolve"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 2
 
@@ -74,7 +74,7 @@ font_color = "shimmer"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 2
 
@@ -103,7 +103,7 @@ font_color = {style = "shimmer", shimmer = "gold"}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 2
 
@@ -133,7 +133,7 @@ font_color = {style = "shimmer", shimmer = "cyan"}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 2
 
@@ -164,7 +164,7 @@ font_color = {style = "shimmer", base = "blue", shimmer = "white"}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 2
 
@@ -195,7 +195,7 @@ font_color = {style = "shimmer", base = [30, 10, 0], shimmer = "gold", speed = 2
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 10.0
 loop_count = 2
 
@@ -225,7 +225,7 @@ font_color = {style = "shimmer", base = [10, 30, 10], shimmer = [180, 255, 180],
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 2
 
@@ -256,7 +256,7 @@ font_color = {style = "shimmer", base = [35, 15, 0], shimmer = [255, 200, 120], 
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 10.0
 loop_count = 2
 scale = 2
@@ -301,7 +301,7 @@ bottom_font_size = 14
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 2
 scale = 2
@@ -331,7 +331,7 @@ font_color = "shimmer"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 2
 

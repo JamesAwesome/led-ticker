@@ -135,6 +135,7 @@ class TokenizedField:
             if not is_emoji_slug(slug) and slug not in self._candidate_ids:
                 self._candidate_ids.append(slug)
         self._last_versions: dict[str, int] = {}
+        self._last_registry_id: int = 0   # id() of the last registry resolved against
         self._cached: str = text
         self._first: bool = True
 
@@ -149,10 +150,13 @@ class TokenizedField:
             cid: (s.version if (s := registry.get(cid)) is not None else -1)
             for cid in self._candidate_ids
         }
-        if not self._first and versions == self._last_versions:
+        registry_id = id(registry)
+        same_registry = registry_id == self._last_registry_id
+        if not self._first and same_registry and versions == self._last_versions:
             return self._cached, False
         self._first = False
         self._last_versions = versions
+        self._last_registry_id = registry_id
 
         def _sub(match: re.Match[str]) -> str:
             slug = match.group()[1:-1]

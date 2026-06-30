@@ -130,3 +130,22 @@ def test_source_colliding_with_emoji_name_is_left_for_emoji():
     f = TokenizedField(":heart:")
     reg = _reg(StaticSource(id="heart", value="X"))
     assert f.resolve(reg) == (":heart:", False)
+
+
+def test_resolve_reresolves_when_registry_object_changes():
+    # Hot-reload installs a FRESH DataRegistry; sources start at version=1
+    # after their first refresh. A surviving TokenizedField must NOT use its
+    # stale cached text when handed the new registry object, even if the new
+    # registry's version numbers happen to match the saved _last_versions.
+    reg_a = _reg(StaticSource(id="x", value="a"))   # refresh → version=1
+    f = TokenizedField(":x:")
+    assert f.resolve(reg_a) == ("a", True)
+    assert f.resolve(reg_a) == ("a", False)          # same registry: fast-path
+
+    reg_b = _reg(StaticSource(id="x", value="NEWVAL"))  # fresh registry, also version=1
+    # Version dict would be {'x': 1} == {'x': 1} → stale code returns ("a", False)
+    result_text, result_changed = f.resolve(reg_b)
+    assert result_text == "NEWVAL", (
+        f"Expected 'NEWVAL' from new registry, got {result_text!r}"
+    )
+    assert result_changed is True

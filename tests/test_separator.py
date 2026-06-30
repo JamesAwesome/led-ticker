@@ -86,3 +86,17 @@ def test_render_circle_uses_provider_color_via_frame():
     spec = SeparatorSpec(kind="circle", color=RGB_WHITE, size=8)
     render_separator(canvas, x=1, frame=0, spec=spec)
     assert real.SetPixel.called
+
+
+def test_resolve_rgb_accepts_color_provider():
+    """The provider path (.red/.green/.blue) — the basis for Phase 2's
+    rainbow/gradient separator colors — resolves correctly."""
+    from unittest.mock import MagicMock
+
+    from led_ticker.separator import _resolve_rgb
+
+    provider = MagicMock()
+    color_obj = MagicMock(red=255, green=0, blue=128)
+    provider.color_for.return_value = color_obj
+    assert _resolve_rgb(provider, frame=5) == (255, 0, 128)
+    provider.color_for.assert_called_once_with(5, 0, 1)

@@ -41,7 +41,7 @@ DEFAULT_CIRCLE_SPEC = SeparatorSpec(kind="circle", color=RGB_WHITE, size=8)
 
 
 @functools.cache
-def _build_circle_offsets(radius_physical: int) -> list[tuple[int, int]]:
+def _build_circle_offsets(radius_physical: int) -> tuple[tuple[int, int], ...]:
     offsets: list[tuple[int, int]] = []
     r_sq = radius_physical * radius_physical
     for dy in range(-radius_physical, radius_physical + 1):
@@ -50,7 +50,7 @@ def _build_circle_offsets(radius_physical: int) -> list[tuple[int, int]]:
             dx_max += 1
         for dx in range(-dx_max, dx_max + 1):
             offsets.append((dx, dy))
-    return offsets
+    return tuple(offsets)  # immutable; safe to cache
 
 
 def _resolve_rgb(color: Any, frame: int) -> ColorTuple:

@@ -3719,3 +3719,30 @@ async def test_rule57_separator_color_on_scroll_transition_allowed(conf):
         """
     result = await validate_config(conf(cfg))
     assert not any(e.rule == 57 for e in result.errors)
+
+
+async def test_rule57_separator_color_on_between_sections_errors(conf):
+    """The global between_sections home (not a section attribute) is covered,
+    and the location string is asserted (closes review M1 + M2)."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [transitions]
+        between_sections = { type = "dissolve", separator_color = [80, 80, 80] }
+
+        [[playlist.section]]
+        mode = "slideshow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    errs = [e for e in result.errors if e.rule == 57]
+    assert errs, "rule 57 should fire on a non-scroll between_sections"
+    assert "between_sections" in errs[0].location

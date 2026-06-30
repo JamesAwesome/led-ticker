@@ -11,7 +11,7 @@ Any text-bearing widget can embed a **value token** — a `:name:` placeholder t
 ```
 text = "Open 9–5  :clock.now:"
 text = "Happy :date.today:!"
-text = "Breathe. Move. Rise."    # no token — works exactly as before
+text = "Breathe. Move. Rise."    # no token — plain string
 ```
 
 Tokens share the same `:slug:` syntax as [inline emoji](/assets/emoji/). An unknown `:slug:` renders as literal text (including the colons), so adding a `[[source]]` block is the only way to activate a token — a typo stays visible rather than silently disappearing.
@@ -46,7 +46,7 @@ type = "static"
 value = "Breathe. Move. Rise."`}
 />
 
-The `id` becomes the token name. It must match the `:slug:` pattern (`[a-z_][a-z0-9_.]*`) — lowercase letters, digits, underscores, and dots. A dot in the name (like `clock.now`) is fine; it is just part of the name and has no special meaning.
+The `id` becomes the token name. It must match the pattern `[a-z_][a-z0-9_.]*` — lowercase letters, digits, underscores, and dots — to be usable as a `:token:`. An id that doesn't match the pattern is accepted, but the `:...:` placeholder won't be recognized at display time and renders as literal text instead. A dot in the name (like `clock.now`) is fine; it is just part of the name and has no special meaning.
 
 ## Using tokens in widgets
 

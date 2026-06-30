@@ -39,7 +39,7 @@ On each tick the engine:
 2. **redraws** the current widget onto the canvas at its new frame;
 3. **pushes** the finished frame to the panel (below), then sleeps until the next tick.
 
-A section's **mode** decides how its widgets are shown — held in place (`swap`) or scrolling — and for how long; **[transitions](/transitions/)** play the animation between one widget or section and the next. (An effect whose output doesn't change with the frame skips the per-tick redraw — see [frame counters](/reference/frame-counters/).)
+A section's **mode** decides how its widgets are shown — held in place (`slideshow`) or scrolling — and for how long; **[transitions](/transitions/)** play the animation between one widget or section and the next. (An effect whose output doesn't change with the frame skips the per-tick redraw — see [frame counters](/reference/frame-counters/).)
 
 ## The canvas
 
@@ -49,7 +49,7 @@ That's the short version — [Display](/concepts/display/) covers scaling, the `
 
 ## Reaching the panel
 
-When a frame is ready, the engine calls **`LedFrame.swap()`** — the buffer swap, unrelated to the `swap` section mode above — which does two things in order:
+When a frame is ready, the engine calls **`LedFrame.swap()`** — the buffer swap, unrelated to the `slideshow` section mode above — which does two things in order:
 
 1. runs every registered **overlay hook** — paint functions that draw _over_ whatever's on screen, every frame, like the [busy light](/concepts/busy-light/)'s status dot;
 2. performs a **double-buffered swap**: the new frame is sent to the panel while the next one is drawn off-screen, so the display never tears or flickers mid-update.

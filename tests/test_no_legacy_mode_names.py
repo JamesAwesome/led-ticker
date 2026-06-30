@@ -18,6 +18,9 @@ Allowlisted survivors (intentional):
 The grep covers:
   - mode value patterns: mode = "swap", forever_scroll, infini_scroll
   - Any bare occurrence of forever_scroll / infini_scroll
+  - Prose/backtick form: `swap`, `forever_scroll`, `infini_scroll` in docs
+    (docs-only pattern so Python string literals like n.func.attr == "swap"
+     and test-recording strings like order.append("swap") are not flagged)
   - Excluded from the check: the allowlisted files above and docs/superpowers/
 """
 
@@ -43,11 +46,16 @@ _ALLOWLIST = frozenset(
 _EXCLUDED_DIR_PREFIXES: tuple[str, ...] = (
     # archived plans — old names are historical refs, not live config:
     "docs/superpowers",
+    # agent task reports — historical records, not live content:
+    ".superpowers",
     # build output; regenerated from live sources already checked:
     "docs/site/dist",
+    # third-party npm packages bundled with the docs site:
+    "docs/site/node_modules",
     ".git",
 )
 
+# Patterns applied to ALL text files.
 _PATTERNS = [
     # mode value as a TOML assignment
     re.compile(r'mode\s*=\s*"swap"'),
@@ -55,6 +63,19 @@ _PATTERNS = [
     re.compile(r"\bforever_scroll\b"),
     re.compile(r"\binfini_scroll\b"),
 ]
+
+# Patterns applied ONLY to docs/markdown files (.md, .mdx).
+# Catches prose leaks like `swap` mode / `forever_scroll` / `infini_scroll`
+# written as backtick-quoted or double-quoted mode names.
+# Scoped to docs to avoid false-positives from Python string literals that
+# legitimately contain "swap" as a method/attribute name (e.g.
+# n.func.attr == "swap" in AST tests, order.append("swap") in frame tests).
+_DOCS_PATTERNS = [
+    re.compile(r'[`"](swap|forever_scroll|infini_scroll)[`"]'),
+]
+
+# File suffixes that are prose/docs (eligible for _DOCS_PATTERNS).
+_DOCS_SUFFIXES = frozenset({".md", ".mdx"})
 
 
 def _all_text_files() -> list[Path]:
@@ -110,8 +131,11 @@ def test_no_legacy_mode_names_in_live_tree():
         except OSError:
             continue
 
+        is_docs = path.suffix.lower() in _DOCS_SUFFIXES
+        patterns = _PATTERNS + (_DOCS_PATTERNS if is_docs else [])
+
         for lineno, line in enumerate(text.splitlines(), start=1):
-            for pattern in _PATTERNS:
+            for pattern in patterns:
                 if pattern.search(line):
                     rel = str(path.relative_to(_REPO_ROOT))
                     violations.append(f"  {rel}:{lineno}: {line.strip()}")

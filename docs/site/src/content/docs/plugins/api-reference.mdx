@@ -208,7 +208,7 @@ Plugin authors register a backend with **`api.backend(name)`** from inside their
 
 | Name                               | What it is                                                                                                                                                                                          |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Backend`                          | The rendering-backend protocol (`setup`, `create_canvas`, `swap`, `brightness`); `brightness` is buffered before `setup()` and live after                                                           |
+| `Backend`                          | The rendering-backend protocol (`setup()`, `create_canvas()`, `swap()`, `brightness()`); `brightness` is buffered before `setup()` and live after                                                   |
 | `BackendNotReadyError`             | Raised when a canvas/swap/brightness op is attempted before `setup()`                                                                                                                               |
 | `register_backend(name)`           | **Internal / built-in use only** (plugin authors use `api.backend()` — it auto-namespaces). Class decorator registering a backend under a bare `name` (selectable via `[display] backend = "name"`) |
 | `run_backend_conformance(factory)` | Run the importable conformance suite (the hardware-rendering constraints) against backends from `factory`                                                                                           |

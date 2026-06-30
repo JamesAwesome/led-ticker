@@ -54,6 +54,9 @@ if [ "$dist" = "0" ]; then
 else
     # Match setuptools-scm guess-next-dev: bump the last numeric component of
     # the base, then append .dev<distance>.  2.4.0 + 3 commits -> 2.4.1.dev3
+    # Assumes numeric vX.Y.Z release tags. A pre-release tag (e.g. v3.0.0rc1)
+    # with commits past it would make `last` non-numeric and the arithmetic
+    # below error out — loudly (the build then fails the guard), not silently.
     last="${base##*.}"   # 0
     prefix="${base%.*}"  # 2.4
     next=$((last + 1))   # 1

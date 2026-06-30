@@ -135,8 +135,7 @@ BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git re
 # inside each recipe means a missing version aborts that build loudly.
 
 build-docker:  ## Build the production image only (no start; used by the *-docker diagnostics)
-	@git fetch --tags --quiet 2>/dev/null || true; \
-	VER="$$(sh scripts/compute-version.sh)" || exit 1; \
+	@VER="$$(sh scripts/compute-version.sh)" || exit 1; \
 	docker build -t led-ticker \
 	  --build-arg BUILD_REF="$(BUILD_REF)" \
 	  --build-arg SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" .

@@ -4,67 +4,12 @@ Combines the catalog, the manifest, status.json, and config references into
 the payload the Store tab renders. Verified pure by tests/test_webui_purity.py.
 """
 
-import re
-import tomllib
 from pathlib import Path
 from typing import Any
 
+from led_ticker._config_scan import config_references
 from led_ticker.app.plugin_cmd import _declared_keys, _requirement_key
 from led_ticker.plugins_catalog import Catalog, CatalogEntry, load_catalog
-
-_TRANSITION_KEYS = ("transition", "entry_transition", "widget_transition")
-
-# Inline emoji token in widget text, e.g. ":pokeball.ball:".  A namespaced slug
-# carries a dot; the namespace is the leading segment.  Matches the slug grammar
-# used by pixel_emoji (lowercase, digits, underscore, dotted sub-paths).
-_EMOJI_TOKEN = re.compile(r":([a-z0-9_]+)\.[a-z0-9_.]+:")
-
-
-def config_references(config_path: Path) -> dict[str, list[dict[str, str]]]:
-    try:
-        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    except OSError, tomllib.TOMLDecodeError, UnicodeDecodeError:
-        return {}
-    out: dict[str, list[dict[str, str]]] = {}
-
-    def add(ns_source: str, section: str) -> None:
-        if "." in ns_source:
-            ns = ns_source.split(".")[0]
-            out.setdefault(ns, []).append({"section": section, "type": ns_source})
-
-    def add_emoji_refs(text: str, section: str) -> None:
-        # An inline :ns.slug: token (e.g. :pokeball.ball:) means the config
-        # depends on the plugin that PROVIDES that emoji — so removing it would
-        # leave the slug with no renderer.  Record the namespace.
-        for m in _EMOJI_TOKEN.finditer(text):
-            out.setdefault(m.group(1), []).append(
-                {"section": section, "type": m.group(0)}
-            )
-
-    def walk(obj: object, section: str) -> None:
-        if isinstance(obj, dict):
-            title = obj.get("title")
-            sec = title.get("text") if isinstance(title, dict) else section
-            sec = sec if isinstance(sec, str) and sec else section
-            t = obj.get("type")
-            if isinstance(t, str):
-                add(t, sec)
-            for key in _TRANSITION_KEYS:
-                v = obj.get(key)
-                if isinstance(v, str):
-                    add(v, sec)
-            for v in obj.values():
-                if isinstance(v, str):
-                    add_emoji_refs(v, sec)
-                walk(v, sec)
-        elif isinstance(obj, list):
-            for v in obj:
-                if isinstance(v, str):
-                    add_emoji_refs(v, section)
-                walk(v, section)
-
-    walk(data, "config")
-    return out
 
 
 def _active_namespaces(status: dict[str, Any]) -> set[str]:

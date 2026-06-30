@@ -1,12 +1,6 @@
-# ── Plugin dependencies ───────────────────────────────────────────────
-# Requires these led-ticker plugins. Install via
-# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
-# and rebuild before running:
-#   led-ticker-flair     nyancat / pokeball / pacman / sailor_moon transitions (forward / .reverse / .alternating)
-#   led-ticker-baseball  baseball.roll*
-# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
-# flair, and the foundational transitions need no plugins.
-# ──────────────────────────────────────────────────────────────────────
+# requires-plugins: led-ticker-baseball, led-ticker-flair
+# Install via config/requirements-plugins.txt (or the web UI Store), then restart.
+# See https://docs.ledticker.dev/plugins/
 
 # led-ticker hi-res transitions smoke test config
 #

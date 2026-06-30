@@ -12,6 +12,10 @@
 #
 # Full config-options reference: https://docs.ledticker.dev/reference/config-options/
 
+# requires-plugins: led-ticker-flair, led-ticker-rss
+# Install via config/requirements-plugins.txt (or the web UI Store), then restart.
+# See https://docs.ledticker.dev/plugins/
+
 [display]
 backend = "headless"          # built-in headless renderer — no rgbmatrix required
 rows = 16

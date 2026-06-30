@@ -1,13 +1,6 @@
-# ── Plugin dependencies ───────────────────────────────────────────────
-# Requires these led-ticker plugins. Install via
-# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
-# and rebuild before running:
-#   led-ticker-rss       rss.feed
-#   led-ticker-weather   weather.current (commented example)
-#   led-ticker-baseball  baseball.scores
-# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
-# flair, and the foundational transitions need no plugins.
-# ──────────────────────────────────────────────────────────────────────
+# requires-plugins: led-ticker-baseball, led-ticker-rss
+# Install via config/requirements-plugins.txt (or the web UI Store), then restart.
+# See https://docs.ledticker.dev/plugins/
 
 # led-ticker bigsign configuration — 256×64 canvas
 #
@@ -199,6 +192,7 @@ final_hold_hours = 6
 # fit = "pillarbox"
 
 # --- Weather (optional) ---
+# (uncomment the weather section below to add current conditions — needs led-ticker-weather)
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
 # location can be a city name, zip code, or "lat,lon".
 #

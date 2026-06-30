@@ -109,6 +109,7 @@ if [ "$MODE" = "deploy" ]; then
         ok "Created config/config.toml from config/config.example.toml (smallsign defaults)."
         say "  Tip: for the bigsign layout, replace it with config/config.bigsign.example.toml"
         say "         cp config/config.bigsign.example.toml config/config.toml"
+        say "       (that config uses plugins — you'll get an install prompt at startup; see its header)"
     else
         ok "config/config.toml already exists — skipping."
     fi

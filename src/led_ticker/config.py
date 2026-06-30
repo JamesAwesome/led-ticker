@@ -85,6 +85,13 @@ class TransitionConfig:
     # {style=...}. Honored ONLY by type="scroll"; the validator rejects it on
     # other transition types. Raw/uncoerced here; _build_trans_obj coerces it.
     separator_color: list[int] | str | dict[str, Any] | None = None
+    # The scroll transition's separator GLYPH (Phase 2b). `None` = the default
+    # dot. An explicit "" renders nothing (gap only). `separator_font` /
+    # `separator_font_size` pick the glyph's font (same resolution as widget
+    # fonts). Honored ONLY by type="scroll".
+    separator: str | None = None
+    separator_font: str | None = None
+    separator_font_size: int | None = None
     # Non-built-in keys from a plugin transition's TOML table (e.g. {type=
     # "pokeball.forward", show_pikachu=false} -> extra={"show_pikachu": False}).
     # Passed to the plugin transition's constructor; empty for built-in transitions.
@@ -392,6 +399,9 @@ _BUILTIN_TRANSITION_KEYS: frozenset[str] = frozenset(
         "transition_colors",
         "transition_fps",
         "separator_color",
+        "separator",
+        "separator_font",
+        "separator_font_size",
     }
 )
 
@@ -549,6 +559,9 @@ def _parse_transition(
         colors=colors,
         transition_fps=raw.get("transition_fps", default.transition_fps),
         separator_color=raw.get("separator_color"),
+        separator=raw.get("separator"),
+        separator_font=raw.get("separator_font"),
+        separator_font_size=raw.get("separator_font_size"),
         extra=extra,
     )
 

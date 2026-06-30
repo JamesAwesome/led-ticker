@@ -73,3 +73,36 @@ def test_resolve_rgb_accepts_color_provider():
     provider.color_for.return_value = color_obj
     assert _resolve_rgb(provider, frame=5) == (255, 0, 128)
     provider.color_for.assert_called_once_with(5, 0, 1)
+
+
+def test_render_circle_geometry_at_scale4():
+    """Circle lands in the expected physical bounding box with correct pixel
+    count — restores the geometry coverage lost when the direct
+    _draw_hires_circle tests were removed."""
+    real = MagicMock()
+    real.width, real.height = 256, 64
+    canvas = ScaledCanvas(real, scale=4, content_height=16)
+
+    render_separator(canvas, x=1, frame=0, spec=DEFAULT_CIRCLE_SPEC)
+
+    coords = {(c.args[0], c.args[1]) for c in real.SetPixel.call_args_list}
+    xs = [x for x, _ in coords]
+    ys = [y for _, y in coords]
+    # x=1 (pad), radius_physical=16 -> center_x = 1*4+16 = 20 -> x in [4, 36]
+    # y_offset_real=0, center_y = (16*4)//2 = 32 -> y in [16, 48]
+    assert min(xs) >= 4 and max(xs) <= 36, f"x out of [4,36]: {min(xs)}..{max(xs)}"
+    assert min(ys) >= 16 and max(ys) <= 48, f"y out of [16,48]: {min(ys)}..{max(ys)}"
+    assert 760 <= len(coords) <= 850, f"disk pixel count {len(coords)} out of range"
+
+
+def test_render_circle_color_applied_uniformly():
+    real = MagicMock()
+    real.width, real.height = 256, 64
+    canvas = ScaledCanvas(real, scale=4, content_height=16)
+    spec = SeparatorSpec(kind="circle", color=(225, 48, 108), size=8)
+
+    render_separator(canvas, x=1, frame=0, spec=spec)
+
+    for call in real.SetPixel.call_args_list:
+        _, _, r, g, b = call.args
+        assert (r, g, b) == (225, 48, 108)

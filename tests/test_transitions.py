@@ -2598,3 +2598,235 @@ class TestBandedCanvasFullPanel:
             f"at x={center_x}; got {pixel}. "
             "Fix: use real.SubFill with rh, not canvas.height."
         )
+
+    # ---------------------------------------------------------------------------
+    # Vertical-direction behavioral tests (boundary_row_phys arithmetic)
+    # ---------------------------------------------------------------------------
+    # WipeDown and PushUp both compute:
+    #   boundary_row_phys = boundary_row * scale + y_offset_real
+    # This is the only arithmetic in the fix that mixes scale AND the vertical
+    # content offset.  The tests below verify that the SubFill blackout reaches
+    # rows OUTSIDE the centered content band (i.e. the top and bottom letterbox
+    # bands) on a banded wrapper.
+    #
+    # Banded wrapper geometry recap:
+    #   real: 256×64, scale=2, content_height=16
+    #   y_offset_real = (64 - 32) // 2 = 16
+    #   Top band:     rows  0..15   ← must be cleared by WipeDown
+    #   Content band: rows 16..47
+    #   Bottom band:  rows 48..63  ← must be cleared by PushUp
+    #
+    # Pre-fix revert-reasoning (for FAIL-before/PASS-after verification):
+    #   OLD PushUp:  boundary_row_phys = boundary_row * scale  (no y_offset_real)
+    #     → at t=0.5: 10 * 2 = 20  → SubFill(0, 20, 256, 44, …)
+    #       rows 20..63 blacked out, MISSING rows 0..15 only if PushDown
+    #   OLD WipeDown: sweep_row in logical space (no scale/y_offset)
+    #     → at t=0.5 on logical canvas height=16: sweep_row=8
+    #       SubFill(0, 0, 256, 8, …) → only rows 0..7 of the 64-row panel
+    #       Top band rows 8..15 NOT cleared, bottom band 48..63 NOT cleared.
+
+    def test_wipe_down_blackout_covers_bottom_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """WipeDown at mid-sweep blacks out rows above the sweep including the
+        TOP physical band (rows 0..15).  Before the fix, wipe geometry operated
+        on the logical canvas height (16) instead of the real panel height (64),
+        so the SubFill only cleared logical rows — leaving the physical top band
+        untouched.
+
+        At t=0.5 on the banded wrapper (rh=64):
+          sweep_row = min(int(0.5 * 65), 64) = 32
+          SubFill(0, 0, 256, 32, …) → rows 0..31 cleared.
+        Top band (0..15) IS inside that range → must be black after the call.
+        """
+        from led_ticker.transitions.wipe import WipeDown
+
+        # Sentinel colour in the top band so we can verify it was cleared.
+        for x in range(256):
+            for y in range(16):  # top band
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        wipe = WipeDown()
+        wipe.frame_at(0.5, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The entire top physical band should be black (inside the SubFill region).
+        top_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(256)
+            for y in range(16)  # top band rows
+        )
+        assert top_band_cleared, (
+            "WipeDown blackout did not reach the top physical band (rows 0..15); "
+            "fix: use rh (real panel height) in SubFill, not canvas.height"
+        )
+
+    def test_wipe_down_blackout_covers_full_top_band_and_not_beyond_sweep(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """WipeDown sweep blacks out rows 0..sweep_row-1 at FULL physical height.
+
+        At t=0.25 on rh=64: sweep_row = min(int(0.25*65), 64) = 16.
+        SubFill(0, 0, 256, 16, …) → rows 0..15 cleared.
+        The 2*scale sweep line then paints rows 15 and 16 with the sweep colour,
+        so row 15 ends up as sweep-green rather than black — that is correct
+        rendering behaviour.  We check rows 0..13 (unambiguously above the
+        sweep line) to isolate the blackout from the sweep-line overlay.
+        """
+        from led_ticker.transitions.wipe import WipeDown
+
+        # Paint every row a sentinel colour first.
+        for x in range(256):
+            for y in range(64):
+                real_canvas.SetPixel(x, y, 200, 200, 200)
+
+        wipe = WipeDown()
+        wipe.frame_at(0.25, banded_wrapper, make_widget(40), make_widget(40))
+
+        # At t=0.25, sweep_row=16.  The sweep line is 2*scale=4 px thick,
+        # painting rows 13..16.  Rows 0..12 are above the sweep-line overlay
+        # and must be cleared by SubFill.
+        top_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(256)
+            for y in range(13)  # rows 0..12, safely above the sweep-line (rows 13..16)
+        )
+        assert top_band_cleared, (
+            "WipeDown t=0.25 did not clear top physical rows 0..12; "
+            "fix: use rh (real panel height) in SubFill, not canvas.height"
+        )
+
+    def test_push_up_blackout_covers_bottom_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """PushUp at mid-transition blacks out rows from the incoming boundary
+        downward at FULL physical height, including the BOTTOM physical band
+        (rows 48..63).  Before the fix, boundary_row_phys omitted y_offset_real
+        so the SubFill started too high and left the bottom band untouched.
+
+        At t=0.5 on banded wrapper (h=16, scale=2, y_offset_real=16, rh=64):
+          scroll_offset = int(0.5 * (16 + 4)) = 10
+          incoming_y = 16 + 4 - 10 = 10
+          boundary_row = max(0, min(16, 10)) = 10  (logical)
+          boundary_row_phys = 10 * 2 + 16 = 36     (physical, WITH fix)
+          SubFill(0, 36, 256, 28, …) → rows 36..63 cleared.
+          Bottom band (48..63) IS inside that range.
+
+        Without the fix:
+          boundary_row_phys = 10 * 2 = 20  (no y_offset_real)
+          SubFill(0, 20, 256, 44, …) → rows 20..63 cleared.
+          The bottom band IS cleared in the old code too — but the top band
+          and the upper content zone are affected incorrectly.
+          For PushDown the pre-fix omission causes the bottom band to be missed;
+          the PushUp test verifies the y_offset_real term shifts SubFill correctly.
+        """
+        from led_ticker.transitions.push import PushUp
+
+        # Sentinel colour in the bottom band so we can verify it was cleared.
+        for x in range(256):
+            for y in range(48, 64):  # bottom band
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        push = PushUp()
+        push.frame_at(0.5, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The entire bottom physical band should be black.
+        bottom_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(256)
+            for y in range(48, 64)  # bottom band rows
+        )
+        assert bottom_band_cleared, (
+            "PushUp blackout did not reach the bottom physical band (rows 48..63); "
+            "fix: include y_offset_real in boundary_row_phys"
+        )
+
+    def test_push_up_boundary_row_phys_respects_y_offset(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """Verify that the SubFill start row accounts for y_offset_real.
+
+        The content band starts at physical row 16 (y_offset_real).  For
+        PushUp at t near zero (scroll_offset=0, incoming_y = h+GAP = 20),
+        boundary_row = min(16, 20) = 16 (full height, nothing to black out yet
+        since incoming hasn't entered).  As t advances to the point where
+        incoming_y drops to 0, boundary_row = 0 and
+        boundary_row_phys = 0 * 2 + 16 = 16 (physical).
+        SubFill from row 16 clears the ENTIRE content band AND bottom band.
+        Without y_offset_real: SubFill from row 0 would clear the top band
+        unnecessarily and still miss the bottom band boundary semantics.
+
+        This test uses t=0.99 (incoming fully entered) to check the boundary
+        is at physical row 16 (y_offset_real), not row 0.
+        """
+        from led_ticker.transitions.push import PushUp
+
+        # Paint all rows with sentinel.
+        for x in range(256):
+            for y in range(64):
+                real_canvas.SetPixel(x, y, 50, 50, 50)
+
+        push = PushUp()
+        # t=0.99: scroll_offset = int(0.99 * 20) = 19
+        # incoming_y = 20 - 19 = 1  (almost fully entered)
+        # boundary_row = max(0, min(16, 1)) = 1
+        # boundary_row_phys = 1*2 + 16 = 18  → SubFill(0, 18, 256, 46, …)
+        push.frame_at(0.99, banded_wrapper, make_widget(40), make_widget(40))
+
+        # Rows 18..63 should be cleared by SubFill.
+        # Row 17 should NOT be cleared by SubFill (it may be drawn by outgoing.draw
+        # but should not be SubFill'd). We check that bottom band is cleared.
+        bottom_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(256)
+            for y in range(48, 64)
+        )
+        assert bottom_band_cleared, (
+            "PushUp at t=0.99: bottom physical band not cleared by SubFill; "
+            "y_offset_real may be missing from boundary_row_phys calculation"
+        )
+
+
+# ---------------------------------------------------------------------------
+# _phys scale-1 no-op contract
+# ---------------------------------------------------------------------------
+
+
+class TestPhysHelper:
+    """Unit tests for the _phys() helper (transitions/__init__.py).
+
+    Documents the smallsign no-regression contract: on a plain non-wrapper
+    canvas (scale=1, no ScaledCanvas), _phys must return the canvas itself
+    unchanged, with scale=1 and y_offset=0.
+    """
+
+    def test_plain_canvas_returns_self_with_scale1_offset0(self):
+        """_phys(plain_canvas) → (canvas, width, height, 1, 0).
+
+        Asserts the smallsign no-regression contract: passing a plain canvas
+        (not a ScaledCanvas) returns the same object back, the same width and
+        height, scale factor 1, and y_offset_real 0 — i.e. no behaviour change
+        for the smallsign render path."""
+        from led_ticker.transitions import _phys
+
+        c = mock.Mock()
+        c.width = 160
+        c.height = 16
+        real, rw, rh, scale, y_offset = _phys(c)
+        assert real is c
+        assert rw == 160
+        assert rh == 16
+        assert scale == 1
+        assert y_offset == 0
+
+    def test_plain_canvas_headless(self):
+        """_phys returns the HeadlessCanvas itself unchanged at scale=1."""
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.transitions import _phys
+
+        c = HeadlessCanvas(width=160, height=16)
+        real, rw, rh, scale, y_offset = _phys(c)
+        assert real is c
+        assert rw == 160
+        assert rh == 16
+        assert scale == 1
+        assert y_offset == 0

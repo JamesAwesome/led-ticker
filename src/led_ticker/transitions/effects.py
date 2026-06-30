@@ -168,6 +168,13 @@ class Scroll(_OutgoingScaleSweep):
     The bullet (" * ") separates the two texts visually.
 
     Recommended: transition_duration = 4.0, easing = "linear".
+
+    Note: Scroll inherits _OutgoingScaleSweep for `scale_switch_at = 1.0`
+    but deliberately does NOT use `_phys` or physical-resolution geometry.
+    There is no persistent sweep bar or blackout edge — content scrolls
+    seamlessly, and `run_transition` already `Clear()`s the full real panel
+    before each `frame_at` call. Using logical canvas dimensions here is
+    intentional and correct; do not "fix" this to use `_phys`.
     """
 
     def __init__(self, **kwargs: Any) -> None:

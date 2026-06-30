@@ -297,9 +297,12 @@ async def run_transition(
 
     # `scale_switch_at` controls when the canvas is re-wrapped at incoming_scale.
     # Default 0.5 (dissolve behavior): outgoing fades out at its scale, incoming
-    # fades in at its own scale.  Wipe-style sprite transitions (e.g. sailor moon)
-    # set this to 0.0 so the canvas is at incoming_scale from the very first frame
-    # — the wand sprite stays physically consistent and there is no snap midway.
+    # fades in at its own scale.  Hard-edged transitions that inherit
+    # `_OutgoingScaleSweep` set this to 1.0 so the whole sweep renders at the
+    # outgoing scale and the size change only lands on the final arriving frame.
+    # The scale_switch_at <= 0.0 early-switch path is public surface for plugin
+    # transitions (historically used by wand/sprite-trail families); no in-core
+    # transition currently sets it below the default.
     scale_switch_at: float = getattr(transition, "scale_switch_at", 0.5)
 
     if needs_switch and scale_switch_at <= 0.0:

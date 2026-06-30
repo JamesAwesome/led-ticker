@@ -201,7 +201,7 @@ async def test_apply_reload_evicts_changed_keeps_unchanged(tmp_path):
         respawned.append(cfg)
         return "NEW_SCHEDULE_TASK"
 
-    new_sched, restart = await rl._apply_reload(
+    new_sched, _new_src_task, restart = await rl._apply_reload(
         b,
         old_config=a,
         widget_cache=widget_cache,
@@ -258,7 +258,7 @@ async def test_apply_reload_reports_restart_required(tmp_path):
     async def fake_respawn(old_task, cfg):
         return None
 
-    _, restart = await rl._apply_reload(
+    _, _new_src_task, restart = await rl._apply_reload(
         b,
         old_config=a,
         widget_cache={},
@@ -268,3 +268,217 @@ async def test_apply_reload_reports_restart_required(tmp_path):
         respawn_schedule=fake_respawn,
     )
     assert "display.rows" in restart
+
+
+# ---------------------------------------------------------------------------
+# Task 8: source-registry hot-reload tests
+# ---------------------------------------------------------------------------
+
+_DISPLAY_WITH_SOURCE = (
+    _DISPLAY
+    + "[[source]]\nid = \"clock.now\"\ntype = \"clock\"\n\n"
+)
+_DISPLAY_WITH_SOURCE_B = (
+    _DISPLAY
+    + "[[source]]\nid = \"brand.tag\"\ntype = \"static\"\nvalue = \"hello\"\n\n"
+)
+_SECTION = '[[playlist.section]]\nmode = "slideshow"\n'
+
+
+async def test_apply_reload_swaps_registry_atomically(tmp_path):
+    """After _apply_reload the global registry is a NEW object (not the old one)."""
+    from led_ticker.sources import DataRegistry, get_data_registry, set_data_registry
+
+    # Seed an "old" registry as the global
+    old_reg = DataRegistry()
+    set_data_registry(old_reg)
+
+    a = load_config(_write(tmp_path / "a.toml", _DISPLAY_WITH_SOURCE + _SECTION))
+    b = load_config(_write(tmp_path / "b.toml", _DISPLAY_WITH_SOURCE_B + _SECTION))
+
+    async def fake_respawn(old_task, cfg):
+        return None
+
+    await rl._apply_reload(
+        b,
+        old_config=a,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=RenderBreaker(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+        source_refresh_task=None,
+    )
+
+    new_reg = get_data_registry()
+    assert new_reg is not old_reg, "registry must be a new object, not the old one"
+    # The new registry must contain the source from config B, not config A
+    assert new_reg.get("brand.tag") is not None
+    assert new_reg.get("clock.now") is None
+
+
+async def test_apply_reload_cancels_old_ticker_and_spawns_new(tmp_path):
+    """Old source-refresh task is cancelled; a new one is spawned."""
+    from led_ticker.sources import DataRegistry, get_data_registry, set_data_registry
+
+    old_reg = DataRegistry()
+    set_data_registry(old_reg)
+
+    a = load_config(_write(tmp_path / "a.toml", _DISPLAY_WITH_SOURCE + _SECTION))
+    b = load_config(_write(tmp_path / "b.toml", _DISPLAY_WITH_SOURCE_B + _SECTION))
+
+    old_refresh_task = asyncio.ensure_future(asyncio.sleep(3600))
+
+    async def fake_respawn(old_task, cfg):
+        return None
+
+    _new_sched, new_src_task, _ = await rl._apply_reload(
+        b,
+        old_config=a,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=RenderBreaker(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+        source_refresh_task=old_refresh_task,
+    )
+
+    await asyncio.sleep(0)  # let cancellation propagate
+    assert old_refresh_task.cancelled(), "old source-refresh task must be cancelled"
+
+    # A new Task handle is returned and is not the old one
+    assert new_src_task is not None
+    assert new_src_task is not old_refresh_task
+    new_src_task.cancel()  # clean up
+
+    # The new registry must have been spawned a refresh task (verify via registry)
+    assert get_data_registry().get("brand.tag") is not None
+
+
+async def test_apply_reload_removed_source_absent_from_new_registry(tmp_path):
+    """A source id removed in new config must not appear in the new registry."""
+    from led_ticker.sources import DataRegistry, get_data_registry, set_data_registry
+
+    old_reg = DataRegistry()
+    set_data_registry(old_reg)
+
+    a = load_config(_write(tmp_path / "a.toml", _DISPLAY_WITH_SOURCE + _SECTION))
+    # Config B has NO [[source]] blocks
+    b = load_config(_write(tmp_path / "b.toml", _DISPLAY + _SECTION))
+
+    async def fake_respawn(old_task, cfg):
+        return None
+
+    await rl._apply_reload(
+        b,
+        old_config=a,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=RenderBreaker(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+        source_refresh_task=None,
+    )
+
+    new_reg = get_data_registry()
+    # Removed source id must not appear in the new registry
+    assert new_reg.get("clock.now") is None
+
+
+async def test_apply_reload_no_sources_still_works(tmp_path):
+    """A reload with no [[source]] blocks at all completes without crashing."""
+    from led_ticker.sources import DataRegistry, get_data_registry, set_data_registry
+
+    old_reg = DataRegistry()
+    set_data_registry(old_reg)
+
+    a = load_config(_write(tmp_path / "a.toml", _DISPLAY + _SECTION))
+    b = load_config(_write(tmp_path / "b.toml", _DISPLAY + _SECTION))
+
+    async def fake_respawn(old_task, cfg):
+        return None
+
+    # Must not raise
+    await rl._apply_reload(
+        b,
+        old_config=a,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=RenderBreaker(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+        source_refresh_task=None,
+    )
+
+    new_reg = get_data_registry()
+    # A brand-new empty registry is swapped in
+    assert new_reg is not old_reg
+    assert list(new_reg.ids()) == []
+
+
+async def test_apply_reload_bad_source_type_does_not_crash(tmp_path):
+    """CRITICAL crash-safety: if build_source raises (e.g. unknown source type),
+    _apply_reload must NOT raise, the global registry must remain the old one
+    (identity unchanged), and the old refresh task must NOT be cancelled.
+
+    This is the runtime safety net for live reloads where validate is opt-in.
+    Fails before the fix (ValueError propagates); passes after.
+    """
+    import types
+
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import DataRegistry, get_data_registry, set_data_registry
+
+    # Seed an "old" registry as the global
+    old_reg = DataRegistry()
+    set_data_registry(old_reg)
+
+    # Build a base config via load_config, then inject a bad SourceConfig
+    # directly — bypassing load_config so validation doesn't block it.
+    base_cfg = load_config(_write(tmp_path / "base.toml", _DISPLAY + _SECTION))
+    bad_source = SourceConfig(id="bad.src", type="no_such_type")
+    # Construct a new_config with the bad source spliced in (SimpleNamespace wraps it
+    # so _apply_reload's new_config.sources iteration hits our planted bad entry).
+    new_config = types.SimpleNamespace(
+        sections=base_cfg.sections,
+        sources=[bad_source],
+        display=base_cfg.display,
+        busy_light=base_cfg.busy_light,
+        plugins=base_cfg.plugins,
+        web=getattr(base_cfg, "web", None),
+    )
+
+    old_refresh_task = asyncio.ensure_future(asyncio.sleep(3600))
+
+    async def fake_respawn(old_task, cfg):
+        return "SCHEDULE_TASK"
+
+    # Must NOT raise despite the unknown source type
+    new_sched, returned_src_task, _ = await rl._apply_reload(
+        new_config,
+        old_config=base_cfg,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=RenderBreaker(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+        source_refresh_task=old_refresh_task,
+    )
+
+    # Registry identity must be unchanged — old registry kept live
+    assert get_data_registry() is old_reg, (
+        "bad source type must NOT swap in a new (empty) registry"
+    )
+
+    # Old refresh task must NOT be cancelled — it's still the live ticker
+    await asyncio.sleep(0)
+    assert not old_refresh_task.cancelled(), (
+        "old source-refresh task must remain live after a failed source rebuild"
+    )
+
+    # The returned task handle must be the original (unchanged) so the caller
+    # can still cancel it on the next reload
+    assert returned_src_task is old_refresh_task
+
+    # Cleanup
+    old_refresh_task.cancel()

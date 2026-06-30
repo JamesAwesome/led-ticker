@@ -1,0 +1,191 @@
+# Inline value tokens — bigsign smoke test (256×64)
+#
+# Exercises the v1 inline-value-token feature end-to-end alongside a broad slice
+# of the rendering engine, so it can be eyeballed on real bigsign hardware.
+#
+# What to look for:
+#   - :clock.now: / :clock.full: / :date.today: / :brand.tagline: resolve to live
+#     values inside ordinary widget text (NOT separate widgets).
+#   - The HELD clock updates live during a hold; a scrolling/typewriter token does
+#     NOT jitter mid-motion (the resolution-freeze model).
+#   - All three section modes (slideshow / ticker / one_at_a_time), color providers
+#     (rainbow / gradient / color_cycle / shimmer), a rainbow border, a typewriter
+#     reveal, a two-row widget, a countdown, and per-section transitions.
+#   - The web UI is enabled — open http://<pi>:8080 for status / live preview / Store.
+#
+# Copy to config.toml on the bigsign Pi (or run headless via `make try`). Core-only
+# (no plugins required). Reference: https://docs.ledticker.dev/concepts/value-tokens/
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+gpio_slowdown = 3
+pwm_bits = 8
+show_refresh_rate = true
+
+# --- Web UI (status / live preview / config editor / Store) ---
+# Open on the LAN with no token for smoke convenience; set a token (or
+# LED_TICKER_WEB_TOKEN) before exposing it beyond a trusted network.
+[web]
+http_host = "0.0.0.0"
+http_port = 8080
+allow_restart = true
+
+[title]
+delay = 4
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = "dissolve"
+
+# --- Live-value sources (the token registry) ---
+# Each id is referenced as :id: in any widget text field.
+[[source]]
+id = "clock.now"
+type = "clock"
+format = "%-I:%M %p"          # "9:01 AM" — constant-ish width, updates each minute
+
+[[source]]
+id = "clock.full"
+type = "clock"
+format = "%-I:%M:%S %p"        # ticking seconds — visibly live
+
+[[source]]
+id = "date.today"
+type = "date"
+format = "%A, %b %-d"          # "Monday, Jun 30"
+
+[[source]]
+id = "brand.tagline"
+type = "static"
+value = "Breathe. Move. Rise."
+
+# ============================================================
+# Section 1 — slideshow: held widgets, one at a time.
+# The held clock should TICK while it sits on screen.
+# ============================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4.0
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Inline Tokens"
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "message"
+text = ":brand.tagline:"
+font_color = "rainbow"
+border = "rainbow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "It's :clock.now:"
+font_color = [120, 220, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = ":date.today:"
+font_color = {style = "gradient", from = [255, 90, 0], to = [255, 220, 0]}
+
+# ============================================================
+# Section 2 — ticker: all widgets in one continuous stream.
+# The ticking-seconds clock scrolls past as part of the crawl.
+# ============================================================
+[[playlist.section]]
+mode = "ticker"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = "Live Crawl"
+font_color = "color_cycle"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Now: :clock.full: :sun:"
+font_color = {style = "gradient", from = [0, 200, 255], to = [180, 0, 255]}
+
+[[playlist.section.widget]]
+type = "message"
+text = ":date.today: :heart:"
+font_color = "rainbow"
+
+[[playlist.section.widget]]
+type = "message"
+text = ":brand.tagline: :star:"
+font_color = "shimmer"
+
+# ============================================================
+# Section 3 — one_at_a_time: each scrolls fully off before the next.
+# ============================================================
+[[playlist.section]]
+mode = "one_at_a_time"
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "One at a time — the time is :clock.now:"
+font_color = "color_cycle"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Each line clears before the next  ::  :date.today:"
+font_color = {style = "shimmer", base = "white", shimmer = "gold"}
+
+# ============================================================
+# Section 4 — two-row: held top (live clock) + scrolling bottom.
+# Tests per-row tokens + the bottom-row scroll freeze.
+# ============================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6.0
+scale = 2          # 128px logical: top clock fits, the long bottom row still scrolls
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":clock.now:"
+top_color = "rainbow"
+bottom_text = ":date.today: — :brand.tagline: — welcome to the bigsign :fire:"
+bottom_color = [0, 230, 160]
+
+# ============================================================
+# Section 5 — countdown at scale=2 (32px content, centered bands).
+# ============================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4.0
+scale = 2
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Days to New Year"
+countdown_date = 2027-01-01      # native TOML date (unquoted)
+font_color = [255, 255, 255]
+border = {style = "bands", colors = "usa", band_width = 8}
+
+# ============================================================
+# Section 6 — typewriter reveal of a token, on its own bg, with a wipe entry.
+# The revealed clock must not garble mid-type (typewriter freeze).
+# ============================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 5.0
+bg_color = [10, 10, 30]
+transition = "wipe_right"
+
+[[playlist.section.widget]]
+type = "message"
+text = "Type… it's :clock.now:"
+font_color = [255, 215, 0]
+animation = "typewriter"

@@ -50,6 +50,7 @@ from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import get_text_width, safe_scale
 from led_ticker.fonts import FONT_SMALL, font_line_height_logical
 from led_ticker.pixel_emoji import EMOJI_PATTERN, draw_with_emoji, measure_width
+from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
@@ -162,6 +163,16 @@ class TwoRowMessage(FrameAwareBase):
     _top_width: int = attrs.field(init=False, default=-1)
     _bottom_width: int = attrs.field(init=False, default=-1)
 
+    # Inline-value-token state. Built in __attrs_post_init__ on the RAW
+    # text for each row. `_has_emoji` stays on the raw text because emoji
+    # slugs survive token substitution. `_resolved_top` / `_resolved_bottom`
+    # cache the last substituted strings; on a non-token field they remain
+    # identical to the raw text and the widget is byte-identical to today.
+    _top_token: TokenizedField | None = attrs.field(init=False, default=None)
+    _bottom_token: TokenizedField | None = attrs.field(init=False, default=None)
+    _resolved_top: str = attrs.field(init=False, default="")
+    _resolved_bottom: str = attrs.field(init=False, default="")
+
     @property
     def wraps_forever(self) -> bool:
         """Engine cooperation signal: when True, ticker.py's
@@ -186,6 +197,15 @@ class TwoRowMessage(FrameAwareBase):
             self.top_color = _ConstantColor(self.top_color)
         if not hasattr(self.bottom_color, "color_for"):
             self.bottom_color = _ConstantColor(self.bottom_color)
+
+        # Inline-value-token setup. Build a TokenizedField for each row on the
+        # RAW text; seed _resolved_* to the raw strings so the first draw() has
+        # a sane cached value even before the first registry hit. A field with
+        # no tokens has has_tokens=False and is a no-op on every resolve call.
+        self._top_token = TokenizedField(self.top_text)
+        self._bottom_token = TokenizedField(self.bottom_text)
+        self._resolved_top = self.top_text
+        self._resolved_bottom = self.bottom_text
         if self.top_center is not None:
             # `top_center` is a backwards-compat alias for `top_align`. Old
             # configs used `top_center=True/False` before `top_align` existed.
@@ -283,6 +303,52 @@ class TwoRowMessage(FrameAwareBase):
             self.bottom_text_separator_color = _ConstantColor(
                 self.bottom_text_separator_color
             )
+
+    def _resolve_tokens(self) -> None:
+        """Resolve both row tokens against the live registry (when not frozen).
+
+        Called at the top of draw() when `_resolution_locked` is False. On
+        `changed`, invalidates the matching width cache(s) so the next measure
+        re-decides hold-vs-scroll / centering. Width caches are separate:
+        `_top_width` tracks top alignment; `_bottom_width` tracks bottom-row
+        overflow. Both are invalidated if needed to keep measurement current.
+
+        No-op for rows with no tokens (`has_tokens == False`), so a non-token
+        TwoRowMessage is byte-identical to today.
+        """
+        if self._resolution_locked:
+            return
+        reg = get_data_registry()
+        if self._top_token is not None and self._top_token.has_tokens:
+            resolved, changed = self._top_token.resolve(reg)
+            if changed:
+                self._resolved_top = resolved
+                # Invalidate top width so alignment re-centers on the new value.
+                self._top_width = -1
+        if self._bottom_token is not None and self._bottom_token.has_tokens:
+            resolved, changed = self._bottom_token.resolve(reg)
+            if changed:
+                self._resolved_bottom = resolved
+                # Invalidate bottom width so overflow re-decides on the new value.
+                self._bottom_width = -1
+
+    def resolve_tokens_now(self) -> None:
+        """Force a token resolve + invalidate both width caches.
+
+        Called by the engine immediately BEFORE a scroll's `stop_pos` is
+        computed so the scroll measures the current value; resolution is then
+        locked (`_resolution_locked`) for the scroll loop so a 1 Hz source
+        tick can't move the width mid-scroll (constraints #6/#7). No-op for
+        non-token widgets."""
+        reg = get_data_registry()
+        if self._top_token is not None and self._top_token.has_tokens:
+            resolved, _ = self._top_token.resolve(reg)
+            self._resolved_top = resolved
+            self._top_width = -1
+        if self._bottom_token is not None and self._bottom_token.has_tokens:
+            resolved, _ = self._bottom_token.resolve(reg)
+            self._resolved_bottom = resolved
+            self._bottom_width = -1
 
     def _font_for_row(self, row_index: int) -> Font:
         """Resolve the font for a row, falling back to `self.font`."""
@@ -413,6 +479,10 @@ class TwoRowMessage(FrameAwareBase):
             font_color,
         )  # widget is meant for swap mode; y_offset/transitions ignored
 
+        # Resolve inline value tokens (when not frozen). For a non-token
+        # widget this is a no-op — byte-identical to today.
+        self._resolve_tokens()
+
         canvas_height = getattr(canvas, "height", 16)
 
         top_h, bottom_h = resolve_band_heights(canvas_height, self.top_row_height)
@@ -481,13 +551,15 @@ class TwoRowMessage(FrameAwareBase):
 
         # Measure widths now that we have the canvas + row cap (so hi-res
         # vs. low-res fallback matches what `draw_with_emoji` will do).
+        # Use the RESOLVED strings so measurement reflects the current
+        # substituted value, not the raw token template.
         if self._top_width < 0:
             self._top_width = measure_width(
-                top_font, self.top_text, canvas, top_emoji_cap
+                top_font, self._resolved_top, canvas, top_emoji_cap
             )
         if self._bottom_width < 0:
             self._bottom_width = measure_width(
-                bottom_font, self.bottom_text, canvas, bottom_emoji_cap
+                bottom_font, self._resolved_bottom, canvas, bottom_emoji_cap
             )
 
         # Pass providers (not materialized colors) to draw_with_emoji
@@ -538,7 +610,7 @@ class TwoRowMessage(FrameAwareBase):
                 top_x,
                 top_text_y,
                 top_emoji_y,
-                self.top_text,
+                self._resolved_top,
                 self.top_color,
                 "top_color",
                 top_emoji_cap,
@@ -560,7 +632,7 @@ class TwoRowMessage(FrameAwareBase):
                     x,
                     bottom_text_y,
                     bottom_emoji_y,
-                    self.bottom_text,
+                    self._resolved_bottom,
                     self.bottom_color,
                     "bottom_color",
                     bottom_emoji_cap,
@@ -582,7 +654,7 @@ class TwoRowMessage(FrameAwareBase):
             top_x,
             top_text_y,
             self.top_color,
-            self.top_text,
+            self._resolved_top,
             emoji_y=top_emoji_y,
             max_emoji_height=top_emoji_cap,
             frame=self.frame_for("top_color"),
@@ -617,7 +689,7 @@ class TwoRowMessage(FrameAwareBase):
             bottom_x,
             bottom_text_y,
             self.bottom_color,
-            self.bottom_text,
+            self._resolved_bottom,
             emoji_y=bottom_emoji_y,
             max_emoji_height=bottom_emoji_cap,
             frame=self.frame_for("bottom_color"),

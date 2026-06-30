@@ -413,6 +413,246 @@ class TestTypewriterPlusPerCharProvider:
         )
 
 
+class TestTickerMessageInlineTokens:
+    """Inline value-token substitution + the resolution-freeze model
+    (spec §4 / §4a). A non-token message is byte-identical to today;
+    a token message substitutes the live source value, re-measures on a
+    held tick when the value width changes, and freezes resolution while
+    paused (transition compositing) or mid-typewriter-reveal."""
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for src in sources:
+            src.refresh()
+            reg.add(src)
+        set_data_registry(reg)
+        return reg
+
+    @staticmethod
+    def _stub(width=160, height=16):
+        from rgbmatrix import _StubCanvas
+
+        return _StubCanvas(width=width, height=height)
+
+    def test_non_token_message_byte_identical(self):
+        """Regression guard: a message with no source tokens renders the
+        exact same pixels regardless of registry state."""
+        from led_ticker.widgets.message import TickerMessage
+
+        # Empty registry — no sources declared.
+        self._registry()
+        w = TickerMessage(text="HELLO WORLD", font_color=RGB_WHITE)
+        assert w._token is not None and w._token.has_tokens is False
+        c1 = self._stub()
+        w.draw(c1)
+        # A fresh widget + fresh canvas must produce the same lit pixels.
+        w2 = TickerMessage(text="HELLO WORLD", font_color=RGB_WHITE)
+        c2 = self._stub()
+        w2.draw(c2)
+        assert c1.count_nonzero() == c2.count_nonzero()
+        assert c1.count_nonzero() > 0
+
+    def test_substitutes_token_on_draw(self):
+        """`:brand.tag:` renders the source value, not the literal token.
+        Compared against a literal control message of the same text."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        self._registry(StaticSource(id="brand.tag", value="HELLO"))
+        w = TickerMessage(text="x :brand.tag: y", font_color=RGB_WHITE)
+        c_tok = self._stub()
+        w.draw(c_tok)
+
+        # Control: a literal message of the substituted string.
+        self._registry()  # empty registry so control has no tokens
+        control = TickerMessage(text="x HELLO y", font_color=RGB_WHITE)
+        c_lit = self._stub()
+        control.draw(c_lit)
+
+        # Same substituted text → same lit-pixel count and same width.
+        assert c_tok.count_nonzero() == c_lit.count_nonzero()
+        assert w._resolved_text == "x HELLO y"
+
+    def test_unknown_token_falls_through_to_literal(self):
+        """A token with no matching source renders as the literal `:slug:`
+        (existing intentional behavior)."""
+        from led_ticker.widgets.message import TickerMessage
+
+        self._registry()  # nothing declared
+        w = TickerMessage(text=":not.declared:", font_color=RGB_WHITE)
+        c = self._stub()
+        w.draw(c)
+        assert w._resolved_text == ":not.declared:"
+
+    def test_rewidths_when_value_width_changes_while_held(self):
+        """A held redraw (not locked) picks up a new value, re-measures,
+        and re-centers."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        src = StaticSource(id="t", value="9:59")
+        self._registry(src)
+        w = TickerMessage(text=":t:", font_color=RGB_WHITE)
+        w.draw(self._stub())
+        first = w._content_width
+        assert first > 0
+
+        src.value = "10:0000"  # wider value
+        src.refresh()
+        w.draw(self._stub())  # held redraw — not locked
+        assert w._content_width != first, (
+            "held redraw should re-measure when the token value width changes"
+        )
+        assert w._resolved_text == "10:0000"
+
+    def test_unchanged_value_keeps_cached_width(self):
+        """Steady state: an unchanged value does not invalidate the width
+        cache (no needless reflow)."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        src = StaticSource(id="t", value="STABLE")
+        self._registry(src)
+        w = TickerMessage(text=":t:", font_color=RGB_WHITE)
+        w.draw(self._stub())
+        first = w._content_width
+        src.refresh()  # same value → version does not move
+        w.draw(self._stub())
+        assert w._content_width == first
+
+    def test_pause_frame_locks_resolution(self):
+        """C1: pause_frame() freezes resolution — a version bump while
+        paused returns the cached value; resume_frame() releases it."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        src = StaticSource(id="t", value="a")
+        self._registry(src)
+        w = TickerMessage(text=":t:", font_color=RGB_WHITE)
+        w.draw(self._stub())  # cache "a"
+        assert w._resolved_text == "a"
+        width_a = w._content_width
+
+        w.pause_frame()
+        assert w._resolution_locked is True
+        src.value = "bbbbb"
+        src.refresh()  # version moves while locked
+        w.draw(self._stub())
+        # Still "a" — resolution frozen; width unchanged.
+        assert w._resolved_text == "a"
+        assert w._content_width == width_a
+
+        w.resume_frame()
+        assert w._resolution_locked is False
+        w.draw(self._stub())
+        # Now the new value applies.
+        assert w._resolved_text == "bbbbb"
+        assert w._content_width != width_a
+
+    def test_per_char_color_flows_across_substituted_value(self):
+        """A per-char provider (rainbow-like) iterates the SUBSTITUTED
+        characters — token text gets hues like any other text, and
+        total_chars is anchored to the substituted length."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        self._registry(StaticSource(id="t", value="WXYZ"))
+
+        class _TrackingProvider:
+            per_char = True
+
+            def __init__(self):
+                self.calls = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        w = TickerMessage(text=":t:", font_color=provider)
+        w.draw(self._stub())
+        # 4 substituted chars → 4 per-char calls, contiguous indices,
+        # total_chars == 4 (the substituted length, not the raw ":t:").
+        assert len(provider.calls) == 4
+        assert [c[1] for c in provider.calls] == [0, 1, 2, 3]
+        assert all(c[2] == 4 for c in provider.calls)
+
+    def test_typewriter_token_slice_stable_mid_reveal(self):
+        """I3: a value change mid-typewriter-reveal does NOT corrupt the
+        slice (resolution is frozen for the reveal), AND per-char hue
+        total_chars counts the substituted string."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        src = StaticSource(id="t", value="ABCDE")
+        self._registry(src)
+
+        class _TrackingProvider:
+            per_char = True
+
+            def __init__(self):
+                self.calls = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        w = TickerMessage(
+            text=":t:", font_color=provider, animation=Typewriter(frames_per_char=3)
+        )
+        w._frame_count = 3  # ~2 chars revealed
+        w.draw(self._stub())
+        # Reveal locked to "ABCDE".
+        assert w._anim_resolution_lock is True
+        assert w._resolved_text == "ABCDE"
+
+        # Source value width changes mid-reveal — must NOT affect the
+        # frozen reveal string.
+        src.value = "ZZZZZZZZZZ"
+        src.refresh()
+        provider.calls.clear()
+        w._frame_count = 6  # more chars revealed, still from "ABCDE"
+        w.draw(self._stub())
+        assert w._resolved_text == "ABCDE", (
+            "typewriter reveal must stay frozen to the start-of-reveal value"
+        )
+        # total_chars anchored to the substituted reveal string (5), not
+        # raw ":t:" (3) and not the changed value (10).
+        assert provider.calls, "per-char provider should have been called"
+        assert all(c[2] == 5 for c in provider.calls), (
+            f"total_chars should anchor to substituted reveal length 5; "
+            f"got {[c[2] for c in provider.calls]!r}"
+        )
+
+        # On the next VISIT the lock clears and the current value applies.
+        w.reset_frame()
+        assert w._anim_resolution_lock is False
+
+    def test_resolve_tokens_now_invalidates_width(self):
+        """`resolve_tokens_now()` forces a resolve + width invalidate even
+        when the value width is unchanged (engine pre-scroll hook)."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        src = StaticSource(id="t", value="HI")
+        self._registry(src)
+        w = TickerMessage(text=":t:", font_color=RGB_WHITE)
+        w.draw(self._stub())
+        assert w._content_width > 0
+        w.resolve_tokens_now()
+        assert w._content_width == -1  # invalidated
+        assert w._resolved_text == "HI"
+
+
 class TestTickerCountdownColorProvider:
     def test_constructor_wraps_raw_color_in_constant_provider(self):
         from datetime import date

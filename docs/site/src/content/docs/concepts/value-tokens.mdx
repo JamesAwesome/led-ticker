@@ -1,0 +1,155 @@
+---
+title: Value tokens
+description: "Embed live clock, date, and static text in any widget's message using the :id: token syntax — no plugin required."
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+Any text-bearing widget can embed a **value token** — a `:name:` placeholder that resolves to a live string at display time. Declare the source once at the top of your config; reference it anywhere in a `text =` field (or `top_text`, `bottom_text`, overlay text on image/gif widgets).
+
+```
+text = "Open 9–5  :clock.now:"
+text = "Happy :date.today:!"
+text = "Breathe. Move. Rise."    # no token — plain string
+```
+
+Tokens share the same `:slug:` syntax as [inline emoji](/assets/emoji/). An unknown `:slug:` renders as literal text (including the colons), so adding a `[[source]]` block is the only way to activate a token — a typo stays visible rather than silently disappearing.
+
+## Declaring a source with `[[source]]`
+
+Each value token needs a matching `[[source]]` block at the top level of your `config.toml` (alongside `[display]`, `[transitions]`, etc. — not nested inside `[[playlist.section]]`).
+
+<TomlExample
+  title="Clock token — 12-hour time with AM/PM"
+  code={`[[source]]
+id = "clock.now"          # the token name → use :clock.now: in text fields
+type = "clock"
+format = "%-I:%M %p"      # strftime — "9:01 AM", "12:30 PM"
+timezone = "America/New_York"   # IANA name; omit to follow the Pi's system clock`}
+/>
+
+<TomlExample
+  title="Date token — day of week"
+  code={`[[source]]
+id = "date.today"
+type = "date"
+format = "%A"             # "Monday", "Tuesday", …
+timezone = "America/New_York"`}
+/>
+
+<TomlExample
+  title="Static token — fixed text that never changes"
+  code={`[[source]]
+id = "brand.tagline"
+type = "static"
+value = "Breathe. Move. Rise."`}
+/>
+
+The `id` becomes the token name. It must match the pattern `[a-z_][a-z0-9_.]*` — lowercase letters, digits, underscores, and dots — to be usable as a `:token:`. An id that doesn't match the pattern is accepted, but the `:...:` placeholder won't be recognized at display time and renders as literal text instead. A dot in the name (like `clock.now`) is fine; it is just part of the name and has no special meaning.
+
+## Using tokens in widgets
+
+Reference a declared source by its `id`, wrapped in colons, in any `text =` field on a `message`, `two_row`, `gif`, or `image` widget:
+
+<TomlExample
+  title="Clock + date in a message widget"
+  code={`[[source]]
+id = "clock.now"
+type = "clock"
+format = "%-I:%M %p"
+timezone = "America/New_York"
+
+[[source]]
+id = "date.today"
+type = "date"
+format = "%A"
+timezone = "America/New_York"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 10
+
+[[playlist.section.widget]]
+type = "message"
+text = ":date.today: :clock.now:"
+font_color = [255, 183, 3]`}
+/>
+
+Tokens compose with everything else on the widget — `font_color = "rainbow"`, `animation = "typewriter"`, `border = "rainbow"`, inline emoji. The token is substituted before layout, so the rest of the pipeline sees a plain string.
+
+## The three source types
+
+### `clock` — live wall-clock time
+
+`format` is a [Python `strftime` format string](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes). Common patterns:
+
+| Format        | Output                        |
+| ------------- | ----------------------------- |
+| `"%-I:%M %p"` | `9:01 AM`                     |
+| `"%I:%M %p"`  | `09:01 AM` (zero-padded hour) |
+| `"%H:%M"`     | `21:01` (24-hour)             |
+| `"%I:%M"`     | `09:01` (12-hour, no AM/PM)   |
+
+`timezone` is an IANA timezone name (e.g. `"America/New_York"`, `"Europe/London"`, `"Asia/Tokyo"`). Omit it and the token follows the Pi's system clock — a fresh Pi is often UTC, so set the timezone explicitly.
+
+### `date` — calendar date
+
+Same as `clock` but formatted for dates. Common patterns:
+
+| Format        | Output       |
+| ------------- | ------------ |
+| `"%A"`        | `Monday`     |
+| `"%B %-d"`    | `June 30`    |
+| `"%m/%d"`     | `06/30`      |
+| `"%a %-d %b"` | `Mon 30 Jun` |
+
+`timezone` works the same as for `clock`.
+
+### `static` — fixed text
+
+`value` is a plain string that never changes. It is the simplest source and a good way to keep a reusable phrase in one place and reference it from multiple widgets.
+
+```toml
+[[source]]
+id = "studio.name"
+type = "static"
+value = "Firebird Yoga"
+
+# then in any widget:
+# text = ":studio.name: · Breathe. Move. Rise."
+```
+
+## How live updates work
+
+The display engine refreshes all synchronous sources (clock, date, static) once per second. A source's value is compared to the previous tick — if it changed, the internal version counter increments and any widget that references that source rebuilds its display string and recalculates its layout. Widgets with no tokens are untouched.
+
+**Constant-width formats** (`%H:%M`, `%I:%M %p`) produce a value the same pixel width every tick, so the panel never reflowing mid-hold. **Variable-width formats** (`%A` — "Monday" vs "Saturday") reflow at most once per value change (per minute or per day), cleanly at the widget's next hold tick.
+
+During scrolling, transitions, and typewriter reveals, resolution is frozen — if a value changes mid-scroll, the new value takes effect at the next hold rather than interrupting the in-flight animation.
+
+## Resolution order: emoji wins, then source, then literal
+
+If a `:slug:` matches an emoji in the [emoji registry](/assets/emoji/), it renders as a pixel-art sprite — the emoji takes priority over any source with the same name. The validator (`make validate`) rejects a `[[source]]` `id` equal to an existing emoji slug, so this collision cannot occur in a valid config.
+
+An `:unknown:` slug that matches neither an emoji nor a declared source renders as literal text (`:unknown:`). This is intentional — a missing or misspelled source name stays visible so you can spot it at a glance.
+
+## What's in v1
+
+The `clock`, `date`, and `static` source types ship built-in — no plugin required. The plugin API (`api.source`) is available for authors who want to add custom sources; polled async sources (live weather, prices) are the natural next step for a plugin and are not part of the built-in set.
+
+## Tips
+
+### Zero-pad the hour to avoid reflowing
+
+`%H:%M` (24-hour, `09:01`) and `%I:%M` (12-hour with leading zero, `09:01`) keep the time string a fixed pixel width. `%-I:%M` (no leading zero, `9:01`) gives a narrower string for single-digit hours — fine in `slideshow` hold, but the message will reflow at 10:00 when the hour gains a digit.
+
+### Multiple `[[source]]` blocks are fine
+
+Each block declares one source. Define as many as you need; they are all global across every section.
+
+### Tokens work in `ticker` and `one_at_a_time` modes too
+
+`ticker` and `one_at_a_time` sections scroll widgets continuously. Tokens resolve normally — the value used is whatever the source holds at the moment the widget is drawn. A per-minute date or AM/PM flip takes effect the next time the widget passes through the visible area.
+
+<RelatedPages slugs={["assets/emoji", "concepts/sections-and-modes", "widgets/message"]} />

@@ -1158,6 +1158,237 @@ def test_two_row_band_split_honors_content_height_at_scale_1():
     )
 
 
+class TestInlineValueTokens:
+    """Inline value-token substitution for TwoRowMessage (spec §4/§4a).
+
+    Tripwires:
+    - top_text token resolves + renders.
+    - bottom_text token resolves + renders.
+    - bottom-row width tripwire: value-width change invalidates _bottom_width.
+    - mid-scroll lock: _resolution_locked holds during bottom-row scroll.
+    - Non-token two_row is byte-identical to today (regression guard).
+    """
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for src in sources:
+            src.refresh()
+            reg.add(src)
+        set_data_registry(reg)
+        return reg
+
+    @staticmethod
+    def _stub(width=160, height=16):
+        from rgbmatrix import _StubCanvas
+
+        return _StubCanvas(width=width, height=height)
+
+    def test_non_token_two_row_byte_identical(self):
+        """Regression guard: a TwoRowMessage with no source tokens renders
+        byte-identical pixels regardless of registry state."""
+        from led_ticker.fonts import FONT_SMALL
+
+        self._registry()  # empty registry
+        w1 = TwoRowMessage(top_text="HELLO", bottom_text="WORLD", font=FONT_SMALL)
+        c1 = self._stub()
+        w1.draw(c1)
+
+        w2 = TwoRowMessage(top_text="HELLO", bottom_text="WORLD", font=FONT_SMALL)
+        c2 = self._stub()
+        w2.draw(c2)
+
+        assert c1.count_nonzero() == c2.count_nonzero()
+        assert c1.count_nonzero() > 0
+
+    def test_top_text_token_resolves_and_renders(self):
+        """`:brand.tag:` in top_text renders the source value, not literal."""
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import StaticSource
+
+        self._registry(StaticSource(id="brand.tag", value="ACME"))
+        w = TwoRowMessage(
+            top_text=":brand.tag:", bottom_text="hello", font=FONT_SMALL
+        )
+        c_tok = self._stub()
+        w.draw(c_tok)
+
+        # Control: literal substituted string.
+        self._registry()
+        control = TwoRowMessage(top_text="ACME", bottom_text="hello", font=FONT_SMALL)
+        c_lit = self._stub()
+        control.draw(c_lit)
+
+        assert c_tok.count_nonzero() == c_lit.count_nonzero()
+        assert w._resolved_top == "ACME"
+
+    def test_bottom_text_token_resolves_and_renders(self):
+        """`:promo.copy:` in bottom_text renders the source value."""
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import StaticSource
+
+        self._registry(StaticSource(id="promo.copy", value="SALE"))
+        w = TwoRowMessage(
+            top_text="brand", bottom_text=":promo.copy:", font=FONT_SMALL
+        )
+        c_tok = self._stub()
+        w.draw(c_tok)
+
+        self._registry()
+        control = TwoRowMessage(top_text="brand", bottom_text="SALE", font=FONT_SMALL)
+        c_lit = self._stub()
+        control.draw(c_lit)
+
+        assert c_tok.count_nonzero() == c_lit.count_nonzero()
+        assert w._resolved_bottom == "SALE"
+
+    def test_bottom_width_invalidated_on_value_width_change(self):
+        """Tripwire: when the bottom-row token value changes width while held,
+        _bottom_width is invalidated so the next visit's overflow decision
+        uses the updated measurement."""
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="t", value="AB")
+        self._registry(src)
+        w = TwoRowMessage(top_text="top", bottom_text=":t:", font=FONT_SMALL)
+        w.draw(self._stub())
+        first_bottom_width = w._bottom_width
+        assert first_bottom_width > 0
+
+        src.value = "ABCDEFGHIJKLMNOP"  # much wider
+        src.refresh()
+        # Held redraw (not locked) — should re-resolve + invalidate
+        w.draw(self._stub())
+        assert w._bottom_width != first_bottom_width, (
+            "bottom held redraw should re-measure when the token value width changes"
+        )
+        assert w._resolved_bottom == "ABCDEFGHIJKLMNOP"
+
+    def test_top_width_invalidated_on_top_value_width_change(self):
+        """Tripwire: when the top-row token value changes width while held,
+        _top_width is invalidated so alignment re-centers."""
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="t", value="X")
+        self._registry(src)
+        w = TwoRowMessage(top_text=":t:", bottom_text="bottom", font=FONT_SMALL)
+        w.draw(self._stub())
+        first_top_width = w._top_width
+        assert first_top_width > 0
+
+        src.value = "XXXXXXXXXXXXXXXXXX"  # much wider
+        src.refresh()
+        w.draw(self._stub())
+        assert w._top_width != first_top_width, (
+            "top held redraw should re-measure when the top token value width changes"
+        )
+        assert w._resolved_top == "XXXXXXXXXXXXXXXXXX"
+
+    def test_pause_frame_locks_both_row_resolutions(self):
+        """C1: pause_frame() freezes resolution for BOTH rows — a version
+        bump while paused returns the cached values; resume releases it."""
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import StaticSource
+
+        top_src = StaticSource(id="ts", value="AAA")
+        bot_src = StaticSource(id="bs", value="BBB")
+        self._registry(top_src, bot_src)
+        w = TwoRowMessage(
+            top_text=":ts:", bottom_text=":bs:", font=FONT_SMALL
+        )
+        w.draw(self._stub())
+        assert w._resolved_top == "AAA"
+        assert w._resolved_bottom == "BBB"
+
+        w.pause_frame()
+        assert w._resolution_locked is True
+
+        top_src.value = "ZZZZZ"
+        bot_src.value = "YYYYY"
+        top_src.refresh()
+        bot_src.refresh()
+        w.draw(self._stub())
+
+        # Still cached values — both rows frozen.
+        assert w._resolved_top == "AAA"
+        assert w._resolved_bottom == "BBB"
+
+        w.resume_frame()
+        assert w._resolution_locked is False
+        w.draw(self._stub())
+
+        assert w._resolved_top == "ZZZZZ"
+        assert w._resolved_bottom == "YYYYY"
+
+    def test_mid_scroll_lock_via_resolution_locked(self):
+        """The engine sets _resolution_locked=True before the scroll loop;
+        assert that a version bump while locked does NOT change _resolved_bottom.
+        (The engine hook is _lock_resolution_if_supported; we test the widget
+        behavior directly here — the engine integration is tested via ticker tests.)"""
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="t", value="scroll me")
+        self._registry(src)
+        w = TwoRowMessage(top_text="T", bottom_text=":t:", font=FONT_SMALL)
+        w.draw(self._stub())
+        assert w._resolved_bottom == "scroll me"
+
+        # Simulate engine locking for scroll.
+        w._resolution_locked = True
+        src.value = "CHANGED"
+        src.refresh()
+        w.draw(self._stub(), cursor_pos=-20)  # simulate scroll frame
+        assert w._resolved_bottom == "scroll me", (
+            "_resolution_locked must prevent re-resolution mid-scroll"
+        )
+
+        # Unlock — value picks up.
+        w._resolution_locked = False
+        w.draw(self._stub())
+        assert w._resolved_bottom == "CHANGED"
+
+    def test_resolve_tokens_now_invalidates_both_widths(self):
+        """`resolve_tokens_now()` forces resolve + invalidates _top_width
+        and _bottom_width for the engine's pre-scroll hook."""
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import StaticSource
+
+        self._registry(
+            StaticSource(id="ts", value="A"),
+            StaticSource(id="bs", value="B"),
+        )
+        w = TwoRowMessage(top_text=":ts:", bottom_text=":bs:", font=FONT_SMALL)
+        w.draw(self._stub())
+        assert w._top_width > 0
+        assert w._bottom_width > 0
+
+        w.resolve_tokens_now()
+        assert w._top_width == -1  # invalidated
+        assert w._bottom_width == -1  # invalidated
+
+    def test_emoji_in_top_text_preserved_through_substitution(self):
+        """An emoji slug in top_text that also has a token in the same field:
+        emoji slugs survive substitution (left intact by TokenizedField)."""
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import StaticSource
+
+        self._registry(StaticSource(id="t.val", value="OPEN"))
+        w = TwoRowMessage(
+            top_text=":star: :t.val:",
+            bottom_text="bottom",
+            font=FONT_SMALL,
+        )
+        w.draw(self._stub())
+        # The resolved top text must keep the emoji slug intact.
+        assert ":star:" in w._resolved_top
+        assert "OPEN" in w._resolved_top
+
+
 class TestRowLayout:
     def test_hires_sprite_anchors_within_full_band(self):
         """Original bug from PR #42: with top_row_height=16 at

@@ -433,6 +433,29 @@ class Ticker:
         if hasattr(widget, "advance_frame"):
             widget.advance_frame(visit_id=self._current_visit)
 
+    @staticmethod
+    def _resolve_now_if_supported(widget: Any) -> None:
+        """Force a widget to resolve its inline value tokens + invalidate
+        its width cache, if it supports the hook.
+
+        Called immediately BEFORE a scroll's `stop_pos` is computed so the
+        scroll measures the current value; resolution is then locked for
+        the loop so a 1 Hz source update can't move the width mid-scroll
+        (constraints #6/#7). Quietly no-ops on widgets without tokens."""
+        fn = getattr(widget, "resolve_tokens_now", None)
+        if callable(fn):
+            fn()
+
+    @staticmethod
+    def _lock_resolution_if_supported(widget: Any, locked: bool) -> None:
+        """Set/clear a widget's `_resolution_locked` freeze flag if present.
+
+        Duck-typed parallel to the `pause_frame`/`resume_frame` freeze —
+        used by the scroll branch (where transitions don't run) to freeze
+        token re-resolution for the scroll loop and release it after."""
+        if hasattr(widget, "_resolution_locked"):
+            widget._resolution_locked = locked
+
     def _maybe_restart(self) -> None:
         """Poll the restart_check callback once. If it returns True, raise
         RestartRequested so the engine unwinds promptly for a web-UI restart.
@@ -603,6 +626,13 @@ class Ticker:
         """
         pos = 0
         bg_color = getattr(ticker_obj, "bg_color", None)
+        # Resolve inline value tokens against the live registry once, up
+        # front, so the initial draw's `cursor_pos` (which decides hold-vs-
+        # scroll and feeds `stop_pos`) is measured against the CURRENT
+        # value. The scroll-overflow branch below then locks resolution so
+        # a mid-scroll 1 Hz update can't move the width and strand the
+        # scroll (constraints #6/#7). No-op for non-token widgets.
+        self._resolve_now_if_supported(ticker_obj)
         reset_canvas(canvas, bg_color)
         canvas, cursor_pos = self._safe_draw(ticker_obj, canvas, pos)
 
@@ -612,6 +642,16 @@ class Ticker:
         loop = asyncio.get_running_loop()
 
         if getattr(ticker_obj, "forces_offscreen_scroll", False) is True:
+            # Token resolution + geometry: the top-of-function
+            # `_resolve_now_if_supported` (L635) already resolved against the
+            # current value, and the `_safe_draw` call (L637) that followed
+            # recomputed `_bottom_width` from the resolved text.  Do NOT
+            # resolve again here — `resolve_tokens_now()` unconditionally sets
+            # `_bottom_width = -1`, so a second call with no intervening draw
+            # leaves `_bottom_width` at -1 and makes `cycle_width` and `stop`
+            # wrong (strands the scroll at ~-canvas.width instead of the
+            # correct ~-(canvas.width + real_bottom_width)).  The lock below
+            # prevents mid-scroll re-resolution (constraints #6/#7).
             bottom_width = getattr(ticker_obj, "_bottom_width", 0)
             cycle_width = canvas.width + bottom_width
             hold_time_ticks = (
@@ -627,35 +667,53 @@ class Ticker:
                 else loops_floor
             )
             stop = -(n_passes * cycle_width)
-            while pos > stop:
-                self._maybe_restart()
-                t0 = loop.time()
-                pos -= 1
-                self._advance_frame_if_supported(ticker_obj)
-                reset_canvas(canvas, bg_color)
-                canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
-                canvas = _swap(canvas, self.frame)
-                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
+            self._lock_resolution_if_supported(ticker_obj, True)
+            try:
+                while pos > stop:
+                    self._maybe_restart()
+                    t0 = loop.time()
+                    pos -= 1
+                    self._advance_frame_if_supported(ticker_obj)
+                    reset_canvas(canvas, bg_color)
+                    canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
+                    canvas = _swap(canvas, self.frame)
+                    await asyncio.sleep(
+                        max(0.0, self.scroll_speed - (loop.time() - t0))
+                    )
+            finally:
+                self._lock_resolution_if_supported(ticker_obj, False)
             return canvas, cursor_pos, pos
 
         if getattr(ticker_obj, "wraps_forever", False) is True:
+            # Same resolution-freeze pattern as the forces_offscreen_scroll and
+            # generic overflow branches: resolve first so the entry cycle_width
+            # and n_ticks floor are measured against the current value, then
+            # lock so a 1 Hz source tick can't change _bottom_width mid-wrap
+            # (which would de-sync the seamless tile scroll).
+            self._resolve_now_if_supported(ticker_obj)
             n_ticks = max(1, int(hold_time / self.scroll_speed))
             loops_floor = getattr(ticker_obj, "bottom_text_loops", 0)
             if isinstance(loops_floor, bool) or not isinstance(loops_floor, int):
                 loops_floor = 0
             tick = 0
-            while tick < n_ticks:
-                self._maybe_restart()
-                t0 = loop.time()
-                self._advance_frame_if_supported(ticker_obj)
-                reset_canvas(canvas, bg_color)
-                canvas, cycle_width = self._safe_draw(ticker_obj, canvas, pos)
-                if tick == 0 and loops_floor > 0 and cycle_width > 0:
-                    n_ticks = max(n_ticks, loops_floor * cycle_width)
-                canvas = _swap(canvas, self.frame)
-                pos -= 1
-                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
-                tick += 1
+            self._lock_resolution_if_supported(ticker_obj, True)
+            try:
+                while tick < n_ticks:
+                    self._maybe_restart()
+                    t0 = loop.time()
+                    self._advance_frame_if_supported(ticker_obj)
+                    reset_canvas(canvas, bg_color)
+                    canvas, cycle_width = self._safe_draw(ticker_obj, canvas, pos)
+                    if tick == 0 and loops_floor > 0 and cycle_width > 0:
+                        n_ticks = max(n_ticks, loops_floor * cycle_width)
+                    canvas = _swap(canvas, self.frame)
+                    pos -= 1
+                    await asyncio.sleep(
+                        max(0.0, self.scroll_speed - (loop.time() - t0))
+                    )
+                    tick += 1
+            finally:
+                self._lock_resolution_if_supported(ticker_obj, False)
             return canvas, cursor_pos, pos
 
         if cursor_pos > canvas.width:
@@ -666,16 +724,27 @@ class Ticker:
                 )
 
             padding = get_widget_padding(ticker_obj, default=0)
-            stop_pos = -(cursor_pos - canvas.width) + padding
-            while pos > stop_pos:
-                self._maybe_restart()
-                t0 = loop.time()
-                pos -= 1
-                self._advance_frame_if_supported(ticker_obj)
-                reset_canvas(canvas, bg_color)
-                canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
-                canvas = _swap(canvas, self.frame)
-                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
+            # Freeze inline-token resolution for the scroll loop: `stop_pos`
+            # is captured once from the entry width, and the loop discards
+            # the per-tick cursor_pos. A mid-scroll re-measure would strand
+            # the scroll and clip the tail (constraints #6/#7). A version
+            # that bumped mid-scroll applies on the next held tick / visit.
+            self._lock_resolution_if_supported(ticker_obj, True)
+            try:
+                stop_pos = -(cursor_pos - canvas.width) + padding
+                while pos > stop_pos:
+                    self._maybe_restart()
+                    t0 = loop.time()
+                    pos -= 1
+                    self._advance_frame_if_supported(ticker_obj)
+                    reset_canvas(canvas, bg_color)
+                    canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
+                    canvas = _swap(canvas, self.frame)
+                    await asyncio.sleep(
+                        max(0.0, self.scroll_speed - (loop.time() - t0))
+                    )
+            finally:
+                self._lock_resolution_if_supported(ticker_obj, False)
 
             if not continuous:
                 n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)

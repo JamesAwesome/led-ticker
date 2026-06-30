@@ -257,6 +257,339 @@ class TestSwapAndScrollOverflow:
         )
 
 
+class TestSwapAndScrollTokenFreeze:
+    """Inline-value-token resolution-freeze tripwires (spec §4a).
+
+    C2 (scroll freeze): a token value width change DURING a scroll must
+    NOT alter the in-flight `stop_pos` / clip the tail — the new value
+    applies on the next pass. C1 is unit-tested on TickerMessage in
+    test_message.py (pause_frame locks resolution); here we also assert
+    the engine's scroll branch sets `_resolution_locked` for the loop.
+    """
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for src in sources:
+            src.refresh()
+            reg.add(src)
+        set_data_registry(reg)
+        return reg
+
+    async def test_scroll_freeze_value_change_does_not_change_stop_pos(
+        self, no_sleep
+    ):
+        """C2: a source value bumping mid-scroll does not change the
+        in-flight `stop_pos`. The scroll completes against the entry width;
+        the wider new value applies on the next pass."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        canvas = _StubCanvas(width=160, height=16)
+        # Entry value overflows 160px (long enough to scroll).
+        src = StaticSource(id="t", value="SCROLLER " * 6)
+        self._registry(src)
+        widget = TickerMessage(text=":t:", font_color=RGB_WHITE)
+
+        # Frame whose swap returns the SAME real canvas; on the first
+        # scroll swap, balloon the source value far wider. If the freeze
+        # leaks, the loop re-measures against the new value and `stop_pos`
+        # (returned scroll_pos) moves.
+        frame = mock.Mock()
+        swaps = {"n": 0}
+
+        def _swap(c):
+            swaps["n"] += 1
+            if swaps["n"] == 2:  # first scroll-loop swap (1 = initial draw)
+                src.value = "SCROLLER " * 60  # 10x wider
+                src.refresh()
+            return c
+
+        frame.swap.side_effect = _swap
+
+        # Measure the entry width independently for the expected stop_pos.
+        probe = TickerMessage(text=":t:", font_color=RGB_WHITE)
+        probe.resolve_tokens_now()
+        _, entry_cursor = probe.draw(_StubCanvas(width=160, height=16))
+
+        ticker = Ticker(monitors=[], frame=frame)
+        _, cursor_pos, scroll_pos = await ticker._swap_and_scroll(
+            canvas, widget, hold_time=0.0
+        )
+
+        # stop_pos must reflect the ENTRY width (cursor_pos captured once),
+        # NOT the ballooned mid-scroll value. Formula includes the widget's
+        # padding (TickerMessage default 6) per constraint #7.
+        expected_stop = -(cursor_pos - canvas.width) + widget.padding
+        assert scroll_pos == expected_stop, (
+            f"scroll freeze leaked: stop_pos {scroll_pos} != entry-width "
+            f"stop_pos {expected_stop}. A mid-scroll value change must not "
+            f"move stop_pos (constraints #6/#7)."
+        )
+        # And cursor_pos itself was the entry measurement, not the wider one.
+        assert cursor_pos == entry_cursor, (
+            f"entry cursor_pos drifted: {cursor_pos} != probe {entry_cursor}"
+        )
+
+    async def test_scroll_branch_locks_and_releases_resolution(self, no_sleep):
+        """The engine locks `_resolution_locked` for the scroll loop and
+        releases it afterward (so the next visit / held tick re-resolves)."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        canvas = _StubCanvas(width=160, height=16)
+        src = StaticSource(id="t", value="LONG VALUE " * 8)
+        self._registry(src)
+
+        # A provider that records the widget's lock flag every draw tick
+        # (color_for runs inside draw, after the scroll branch sets the
+        # lock). Avoids patching the slotted attrs `draw` method.
+        lock_states = []
+
+        class _LockProbe:
+            per_char = False
+            frame_invariant = True
+
+            def __init__(self):
+                self.widget = None
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+
+                if self.widget is not None:
+                    lock_states.append(self.widget._resolution_locked)
+                return Color(255, 255, 255)
+
+        probe = _LockProbe()
+        widget = TickerMessage(text=":t:", font_color=probe)
+        probe.widget = widget
+
+        frame = mock.Mock()
+        frame.swap.side_effect = lambda c: c
+
+        ticker = Ticker(monitors=[], frame=frame)
+        await ticker._swap_and_scroll(canvas, widget, hold_time=0.0)
+
+        # During the scroll loop the flag was True at least once...
+        assert any(lock_states), "resolution was never locked during scroll"
+        # ...and it is released after the call returns.
+        assert widget._resolution_locked is False, (
+            "scroll branch must release the resolution lock in finally"
+        )
+
+
+class TestTwoRowScrollBranchesFreeze:
+    """F2 tripwire: ``forces_offscreen_scroll`` and ``wraps_forever`` branches
+    in ``_swap_and_scroll`` must lock token resolution for their scroll loops,
+    mirroring the generic overflow-scroll branch (L704/L719).
+
+    Without the lock a source value that changes width mid-scroll causes
+    TwoRowMessage to recompute ``cycle_width`` inside ``draw()`` while the
+    engine's ``stop`` / ``n_passes`` was captured once at entry, desynchronising
+    position (constraints #6/#7 corruption).
+    """
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for src in sources:
+            src.refresh()
+            reg.add(src)
+        set_data_registry(reg)
+        return reg
+
+    async def test_forces_offscreen_scroll_locks_resolution(self, no_sleep):
+        """F2a (forces_offscreen_scroll / scroll_through): the scroll loop
+        must hold ``_resolution_locked=True`` for all ticks so a mid-scroll
+        source bump cannot re-measure ``_bottom_width`` and make ``cycle_width``
+        inside ``draw()`` jump mid-pass (visual position jitter).
+
+        We verify by probing ``_resolve_tokens`` — when locked it returns
+        immediately without touching ``_bottom_width``, so we assert the lock
+        flag is set during the loop and released after.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        canvas = _StubCanvas(width=160, height=16)
+        src = StaticSource(id="score.live", value="12 " * 3)
+        self._registry(src)
+
+        widget = TwoRowMessage(
+            top_text="SCORE",
+            bottom_text=":score.live:",
+            bottom_text_scroll="scroll_through",
+        )
+
+        lock_states = []
+        orig_resolve = type(widget)._resolve_tokens
+
+        def spy_resolve(self):
+            lock_states.append(self._resolution_locked)
+            orig_resolve(self)
+
+        type(widget)._resolve_tokens = spy_resolve  # type: ignore[method-assign]
+
+        frame = mock.Mock()
+        frame.swap.side_effect = lambda c: c
+
+        ticker = Ticker(monitors=[], frame=frame)
+        try:
+            await ticker._swap_and_scroll(canvas, widget, hold_time=0.0)
+        finally:
+            type(widget)._resolve_tokens = orig_resolve  # type: ignore[method-assign]
+
+        # The loop must have locked resolution for at least some ticks.
+        assert any(lock_states), (
+            "F2a: forces_offscreen_scroll loop never locked _resolution_locked. "
+            "A mid-scroll source bump can change _bottom_width → cycle_width "
+            "inside draw(), causing position jitter. Wrap the loop in "
+            "_lock_resolution_if_supported (mirror the generic overflow "
+            "branch at L704/L719)."
+        )
+        # After the call the lock must be released.
+        assert widget._resolution_locked is False, (
+            "F2a: forces_offscreen_scroll branch must release _resolution_locked"
+        )
+
+    async def test_wraps_forever_locks_resolution(self, no_sleep):
+        """F2b (wraps_forever / bottom_text_wrap): resolution must be locked
+        for the wrap-forever tick loop so a mid-wrap source bump does NOT
+        change cycle_width between ticks.
+
+        We verify the lock flag is held during the loop by probing via the
+        ``_resolve_tokens`` call that runs at the top of every ``draw()``.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        canvas = _StubCanvas(width=160, height=16)
+        src = StaticSource(id="wrap.val", value="ABC " * 5)
+        self._registry(src)
+
+        widget = TwoRowMessage(
+            top_text="TOP",
+            bottom_text=":wrap.val:",
+            bottom_text_wrap=True,
+        )
+
+        lock_states = []
+        orig_resolve = type(widget)._resolve_tokens
+
+        def spy_resolve(self):
+            lock_states.append(self._resolution_locked)
+            orig_resolve(self)
+
+        type(widget)._resolve_tokens = spy_resolve  # type: ignore[method-assign]
+
+        frame = mock.Mock()
+        frame.swap.side_effect = lambda c: c
+
+        ticker = Ticker(monitors=[], frame=frame)
+        try:
+            await ticker._swap_and_scroll(canvas, widget, hold_time=0.1)
+        finally:
+            type(widget)._resolve_tokens = orig_resolve  # type: ignore[method-assign]
+
+        # The loop must have locked resolution for at least some ticks.
+        assert any(lock_states), (
+            "F2b: wraps_forever loop never locked _resolution_locked. "
+            "Wrap the loop body in _lock_resolution_if_supported "
+            "(mirror the generic overflow branch at L704/L719)."
+        )
+        # After the call the lock must be released.
+        assert widget._resolution_locked is False, (
+            "F2b: wraps_forever branch must release _resolution_locked in finally"
+        )
+
+    async def test_forces_offscreen_scroll_correct_geometry(self, no_sleep):
+        """F2c (geometry tripwire): a tokened scroll_through two_row widget
+        with a bottom value WIDER than the canvas must produce the correct
+        ``cycle_width`` and scroll all the way to the correct ``stop`` position.
+
+        Regression for the bug introduced by the redundant second
+        ``_resolve_now_if_supported`` call in the ``forces_offscreen_scroll``
+        branch: that call sets ``_bottom_width = -1`` with no intervening draw,
+        so the engine computed::
+
+            cycle_width = canvas.width + (-1) = 159   # WRONG
+            stop        = -(1 * 159) = -159            # WRONG
+
+        and the scroll stranded at pos ~ -159 instead of the correct::
+
+            cycle_width = canvas.width + real_bottom_width   # e.g. 160+270=430
+            stop        = -(1 * 430) = -430                  # CORRECT
+
+        The test asserts final ``pos`` (the third element of the return tuple)
+        equals the expected ``stop`` computed from the widget's actual
+        ``_bottom_width`` after the initial draw resolved it.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        # A canvas 160px wide — matches the smallsign default.
+        canvas = _StubCanvas(width=160, height=16)
+
+        # Source value wider than 160 px.  Exact px value is measured below
+        # from _bottom_width; we only need it bigger than canvas.width (160).
+        wide_value = "TEAM A vs TEAM B  12 - 7  HALFTIME  END OF 4TH  OVERTIME  "
+        src = StaticSource(id="scroll.score", value=wide_value)
+        self._registry(src)
+
+        widget = TwoRowMessage(
+            top_text="LIVE",
+            bottom_text=":scroll.score:",
+            bottom_text_scroll="scroll_through",
+        )
+
+        frame = mock.Mock()
+        frame.swap.side_effect = lambda c: c
+
+        ticker = Ticker(monitors=[], frame=frame)
+        # hold_time=0 → n_passes=1 (loops_floor default), so stop = -(cycle_width)
+        _, _, final_pos = await ticker._swap_and_scroll(canvas, widget, hold_time=0.0)
+
+        # After the initial draw _bottom_width must be > 0 and > canvas.width
+        # (the source value is wider than 160 px).
+        real_bw = widget._bottom_width
+        assert real_bw > 0, (
+            f"_bottom_width should be positive after draw; got {real_bw}. "
+            "Did the source resolve?"
+        )
+        assert real_bw > canvas.width, (
+            f"Test setup failure: bottom text ({real_bw}px) must exceed "
+            f"canvas width ({canvas.width}px) for this test to be meaningful."
+        )
+
+        expected_cycle = canvas.width + real_bw
+        expected_stop = -expected_cycle  # hold_time=0 → n_passes=1
+
+        assert final_pos == expected_stop, (
+            f"F2c: scroll_through geometry wrong — final pos={final_pos}, "
+            f"expected stop={expected_stop} (canvas.width={canvas.width} + "
+            f"real_bottom_width={real_bw}). "
+            f"If final_pos == -(canvas.width - 1) = {-(canvas.width - 1)}, "
+            f"the redundant second _resolve_now_if_supported call is back: "
+            f"it sets _bottom_width=-1 so cycle_width = canvas.width + (-1) "
+            f"and the scroll strands short of the correct stop."
+        )
+
+
 class TestSwapAndScrollSkipInitialDraw:
     """Regression: _swap_and_scroll(skip_initial_draw=True) skips the FIRST
     SwapOnVSync because the caller (a transition or a scroll-between) just

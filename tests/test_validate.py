@@ -3529,3 +3529,253 @@ text = "hi"
                 f"rule 54 must not fire for valid mode={mode!r}; "
                 f"got errors={[(e.rule, e.message) for e in result.errors]}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Rule 56: [[source]] block validation
+# ---------------------------------------------------------------------------
+
+_SOURCE_BASE = """\
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3
+
+[[playlist.section.widget]]
+type = "message"
+text = "hello"
+"""
+
+
+class TestRule56Sources:
+    """Rule 56: [[source]] blocks are validated at config-load time.
+
+    Rules:
+    - duplicate id → error
+    - id equal to an emoji slug → error (collision with emoji-wins precedence)
+    - unknown type → error
+    - clock/date: malformed `format` (strftime raises) → error
+    - clock/date: invalid `timezone` (ZoneInfoNotFoundError) → error
+    - static: missing `value` → error
+    - valid sources produce NO rule-56 error
+    """
+
+    async def test_duplicate_source_id_is_error(self, conf):
+        """Two [[source]] blocks sharing the same id → rule-56 error."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "mytoken"
+            type = "static"
+            value = "hello"
+
+            [[source]]
+            id = "mytoken"
+            type = "static"
+            value = "world"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for duplicate id; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "mytoken" in rule_56[0].message
+
+    async def test_source_id_equal_to_emoji_slug_is_error(self, conf):
+        """A source id that matches an emoji slug → rule-56 error (collision)."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "sun"
+            type = "static"
+            value = "sunny"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for emoji-slug collision; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "sun" in rule_56[0].message
+
+    async def test_unknown_source_type_is_error(self, conf):
+        """An unrecognised source type → rule-56 error naming the type."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "mytoken"
+            type = "banana_source"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for unknown type; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "banana_source" in rule_56[0].message
+
+    async def test_clock_malformed_format_is_error(self, conf, monkeypatch):
+        """clock source with a format string that strftime rejects → rule-56 error.
+
+        strftime leniency varies by platform (macOS ignores unknown directives;
+        Linux raises). We patch led_ticker.validate._strftime_test — a thin
+        module-level wrapper around datetime.now().strftime — so the test is
+        platform-independent without patching the immutable C datetime type.
+        """
+        bad_fmt = "%Q_bad_sentinel"
+
+        import led_ticker.validate as _validate_mod
+
+        def _raising_strftime(fmt: str) -> None:
+            if fmt == bad_fmt:
+                raise ValueError("Invalid format directive")
+
+        monkeypatch.setattr(_validate_mod, "_strftime_test", _raising_strftime)
+
+        cfg = _SOURCE_BASE + textwrap.dedent(f"""\
+
+            [[source]]
+            id = "clk"
+            type = "clock"
+            format = "{bad_fmt}"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for malformed format; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+
+    async def test_date_malformed_format_is_error(self, conf, monkeypatch):
+        """date source with a format string that strftime rejects → rule-56 error."""
+        bad_fmt = "%Q_bad_sentinel"
+
+        import led_ticker.validate as _validate_mod
+
+        def _raising_strftime(fmt: str) -> None:
+            if fmt == bad_fmt:
+                raise ValueError("Invalid format directive")
+
+        monkeypatch.setattr(_validate_mod, "_strftime_test", _raising_strftime)
+
+        cfg = _SOURCE_BASE + textwrap.dedent(f"""\
+
+            [[source]]
+            id = "dt"
+            type = "date"
+            format = "{bad_fmt}"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for malformed date format; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+
+    async def test_clock_invalid_timezone_is_error(self, conf):
+        """clock source with a timezone that ZoneInfo can't find → rule-56 error."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "clk"
+            type = "clock"
+            timezone = "Not/A/Timezone"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for invalid timezone; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "Not/A/Timezone" in rule_56[0].message
+
+    async def test_date_invalid_timezone_is_error(self, conf):
+        """date source with an invalid timezone → rule-56 error."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "dt"
+            type = "date"
+            timezone = "Fake/Zone"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for invalid date timezone; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+
+    async def test_static_missing_value_is_error(self, conf):
+        """static source with no `value` key → rule-56 error."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "mytoken"
+            type = "static"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for missing static value; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "mytoken" in rule_56[0].message
+
+    async def test_valid_static_source_no_error(self, conf):
+        """A fully-valid static [[source]] produces no rule-56 errors."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "greeting"
+            type = "static"
+            value = "hello world"
+            """)
+        result = await validate_config(conf(cfg))
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56 == [], (
+            f"valid static source should not trigger rule 56; got: {rule_56}"
+        )
+
+    async def test_valid_clock_source_no_error(self, conf):
+        """A valid clock [[source]] with a good format and timezone → no rule-56."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "clk"
+            type = "clock"
+            format = "%H:%M"
+            timezone = "America/New_York"
+            """)
+        result = await validate_config(conf(cfg))
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56 == [], (
+            f"valid clock source should not trigger rule 56; got: {rule_56}"
+        )
+
+    async def test_no_undeclared_token_warning(self, conf):
+        """A widget text referencing an undeclared :token: produces NO rule-56 error.
+
+        Literal fallback is intentional; we do NOT warn on unknown tokens.
+        """
+        cfg = _SOURCE_BASE.replace(
+            'text = "hello"', 'text = ":undeclared_token_xyz:"'
+        )
+        result = await validate_config(conf(cfg))
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56 == [], (
+            f"undeclared token should NOT trigger rule 56; got: {rule_56}"
+        )

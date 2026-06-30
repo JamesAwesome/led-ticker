@@ -226,7 +226,8 @@ def _patched_reload(monkeypatch):
     )
 
     async def _fake_apply(*a, **k):
-        return ("SCHED", [])  # (schedule_task, restart_required)
+        # (schedule_task, source_refresh_task, restart_required)
+        return ("SCHED", None, [])
 
     monkeypatch.setattr(run_mod._reload, "_apply_reload", _fake_apply, raising=True)
 
@@ -251,6 +252,7 @@ async def test_detect_no_change_returns_none(_patched_reload):
         widget_tasks={},
         render_breaker=None,
         schedule_task=None,
+        source_refresh_task=None,
         led_frame=None,
     )
     assert res is None
@@ -272,6 +274,7 @@ async def test_detect_applies_valid_reload(monkeypatch, _patched_reload):
         widget_tasks={},
         render_breaker=None,
         schedule_task=None,
+        source_refresh_task=None,
         led_frame=None,
     )
     assert res is not None
@@ -296,6 +299,7 @@ async def test_detect_rejected_reload_returns_none_records_failure(
         widget_tasks={},
         render_breaker=None,
         schedule_task=None,
+        source_refresh_task=None,
         led_frame=None,
     )
     assert res is None
@@ -316,6 +320,7 @@ async def test_detect_transient_returns_none_no_record(monkeypatch, _patched_rel
         widget_tasks={},
         render_breaker=None,
         schedule_task=None,
+        source_refresh_task=None,
         led_frame=None,
     )
     assert res is None
@@ -407,6 +412,7 @@ async def test_per_section_reload_swaps_config_and_restarts_cycle(monkeypatch):
         config=new_cfg,
         default_section_trans=sentinel_trans,
         schedule_task=sentinel_sched,
+        source_refresh_task=None,
     )
 
     seen_configs: list = []

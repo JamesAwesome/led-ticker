@@ -2,6 +2,7 @@
 
 import contextlib
 import copy
+import datetime
 import json
 import math
 import tempfile
@@ -63,6 +64,16 @@ class MigrationError(Exception):
 
 
 VALID_MODES: frozenset[str] = frozenset({"slideshow", "ticker", "one_at_a_time", "gif"})
+
+
+def _strftime_test(fmt: str) -> None:
+    """Try formatting the current time with `fmt`.
+
+    Raises ValueError (or platform-specific error) when `fmt` is invalid.
+    Isolated as a module-level function so tests can monkeypatch it portably —
+    datetime.datetime is a C type whose methods cannot be patched directly.
+    """
+    datetime.datetime.now().strftime(fmt)
 
 
 # Maps substrings in exception messages to (rule, fix) pairs.
@@ -159,6 +170,158 @@ async def _run_build_checks(
             for w in widget_warnings:
                 warnings.append((f"section[{i}].widget[{j}]", w))
     return issues, warnings, migrations
+
+
+def _check_sources(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 56: validate [[source]] blocks.
+
+    Errors:
+    - duplicate `id` across blocks
+    - `id` equal to a registered emoji slug (collision; emoji wins in resolution order)
+    - unknown `type` (not in core or plugin registry)
+    - clock/date: `format` that strftime rejects
+    - clock/date: `timezone` that ZoneInfo cannot find
+    - static: missing `value`
+    """
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    from led_ticker.app.factories import get_source_class
+    from led_ticker.pixel_emoji import is_emoji_slug
+    from led_ticker.sources import ClockSource, DateSource, StaticSource
+
+    issues: list[ValidationIssue] = []
+    seen_ids: set[str] = set()
+
+    for src in config.sources:
+        loc = f"source[{src.id!r}]"
+
+        # Duplicate id
+        if src.id in seen_ids:
+            issues.append(
+                ValidationIssue(
+                    rule=56,
+                    location=loc,
+                    severity="error",
+                    message=(
+                        f"Duplicate [[source]] id {src.id!r} — each source must "
+                        f"have a unique id."
+                    ),
+                    fix=(
+                        f"Give each [[source]] block a distinct id. "
+                        f"Rename one of the {src.id!r} blocks."
+                    ),
+                )
+            )
+            continue  # Don't type-check the duplicate; avoid duplicate errors
+
+        seen_ids.add(src.id)
+
+        # id collides with an emoji slug
+        if is_emoji_slug(src.id):
+            issues.append(
+                ValidationIssue(
+                    rule=56,
+                    location=loc,
+                    severity="error",
+                    message=(
+                        f"[[source]] id {src.id!r} is also a registered emoji slug. "
+                        f"Emoji resolution takes priority over source tokens — a "
+                        f"widget using :{src.id}: will render the emoji, not the "
+                        f"source value."
+                    ),
+                    fix=(
+                        f"Rename the source to a non-emoji id "
+                        f"(e.g. id = \"my_{src.id}\")."
+                    ),
+                )
+            )
+            # Fall through: still check type / format / tz for this source
+
+        # Unknown type
+        try:
+            cls = get_source_class(src.type)
+        except ValueError:
+            issues.append(
+                ValidationIssue(
+                    rule=56,
+                    location=loc,
+                    severity="error",
+                    message=(
+                        f"Unknown [[source]] type {src.type!r}. "
+                        f"Core types: clock, date, static. "
+                        f"Plugin types are namespaced (e.g. 'myplugin.weather')."
+                    ),
+                    fix=(
+                        f"Set type to a known source type, or install the plugin "
+                        f"that provides {src.type!r}."
+                    ),
+                )
+            )
+            continue  # No further per-type checks possible
+
+        # Per-type checks
+        if cls in (ClockSource, DateSource):
+            fmt = src.raw.get("format", "%H:%M")
+            try:
+                _strftime_test(fmt)
+            except Exception as exc:
+                issues.append(
+                    ValidationIssue(
+                        rule=56,
+                        location=f"{loc}.format",
+                        severity="error",
+                        message=(
+                            f"[[source]] {src.id!r} format {fmt!r} is not a "
+                            f"valid strftime pattern: {exc}"
+                        ),
+                        fix=(
+                            "Use a valid strftime format string, e.g. "
+                            '"%H:%M" for hours:minutes or "%b %d" for month+day.'
+                        ),
+                    )
+                )
+
+            tz = src.raw.get("timezone")
+            if tz is not None:
+                try:
+                    ZoneInfo(tz)
+                except (ZoneInfoNotFoundError, ValueError, KeyError):
+                    issues.append(
+                        ValidationIssue(
+                            rule=56,
+                            location=f"{loc}.timezone",
+                            severity="error",
+                            message=(
+                                f"[[source]] {src.id!r} timezone {tz!r} is not a "
+                                f"valid IANA timezone name."
+                            ),
+                            fix=(
+                                "Use an IANA timezone name like 'America/New_York', "
+                                "'Europe/London', or 'UTC'. "
+                                "Leave it out to use the system local time."
+                            ),
+                        )
+                    )
+
+        elif cls is StaticSource:
+            if "value" not in src.raw:
+                issues.append(
+                    ValidationIssue(
+                        rule=56,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f"[[source]] {src.id!r} (type='static') is missing "
+                            f"the required `value` field."
+                        ),
+                        fix=(
+                            f'Add `value = "..."` to the [[source]] block with '
+                            f'id = {src.id!r}.'
+                        ),
+                    )
+                )
+
+    return issues
 
 
 def _check_static(config: AppConfig) -> list[ValidationIssue]:
@@ -1957,6 +2120,9 @@ async def validate_config(
 
     # Phase 1b: Static dict checks (rules enforced in widget constructors)
     errors.extend(_check_static(config))
+
+    # Phase 1b (cont.): Rule 56 — [[source]] block validation.
+    errors.extend(_check_sources(config))
 
     # Phase 1b (cont.): Rule 39 — transition name registry check.
     # Always runs (not just --strict): a typo in a transition name always

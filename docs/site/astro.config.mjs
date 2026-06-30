@@ -190,6 +190,7 @@ export default defineConfig({
             { label: "Fonts", link: "/concepts/fonts/" },
             { label: "Config hot-reload", link: "/concepts/hot-reload/" },
             { label: "Sections and modes", link: "/concepts/sections-and-modes/" },
+            { label: "Value tokens", link: "/concepts/value-tokens/" },
             { label: "Web status UI", link: "/concepts/web-status-ui/" },
           ],
         },

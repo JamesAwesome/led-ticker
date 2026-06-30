@@ -73,6 +73,17 @@ class FrameAwareBase:
     _frame_paused: bool = attrs.field(init=False, default=False)
     _effect_frames: dict[str, int] = attrs.field(init=False, factory=dict)
     _visit_owner: int | None = attrs.field(init=False, default=None)
+    # Inline-value-token resolution freeze (parallel to the frame-counter
+    # freeze above). When True, a token-bearing widget must NOT re-resolve
+    # its text against the live source registry — it reuses its cached
+    # substituted string. The freeze keeps content width stable during
+    # scroll / transition compositing / typewriter reveal, where a
+    # mid-flight value change would strand the scroll math (constraints
+    # #6/#7) or corrupt a composited frame. Held redraws keep this False
+    # so a live clock updates during a hold. Set by pause_frame() and the
+    # engine's scroll-branch lock; cleared by resume_frame(). Widgets
+    # without tokens ignore it entirely.
+    _resolution_locked: bool = attrs.field(init=False, default=False)
 
     def __new__(cls, *args: object, **kwargs: object) -> FrameAwareBase:
         if cls is not FrameAwareBase and "__attrs_attrs__" not in cls.__dict__:
@@ -119,11 +130,19 @@ class FrameAwareBase:
     def pause_frame(self) -> None:
         """Stop advancing the frame counters — used by `run_transition`
         so an outgoing widget mid-typewriter (etc.) doesn't keep
-        ticking while it's only being re-rendered for compositing."""
+        ticking while it's only being re-rendered for compositing.
+
+        Also FREEZES inline-value-token resolution (`_resolution_locked`)
+        so the 1 Hz source ticker can't change a participating widget's
+        content width while it is being composited for a transition
+        (the C1 hole). Rides the existing pause/resume seam — no new
+        call sites in `run_transition` / `_scroll_between`."""
         self._frame_paused = True
+        self._resolution_locked = True
 
     def resume_frame(self) -> None:
         self._frame_paused = False
+        self._resolution_locked = False
 
     def reset_frame(self) -> None:
         """Visit-entry reset. The primary counter always resets;

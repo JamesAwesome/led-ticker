@@ -43,6 +43,7 @@ from led_ticker.fonts import (
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled
+from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._image_fit import (
@@ -252,6 +253,23 @@ class _BaseImageWidget(FrameAwareBase):
     # Cached at validation time (text is invariant for the widget's
     # lifetime); avoids re-running EMOJI_PATTERN.search per tick.
     _has_emoji_cached: bool = attrs.field(init=False, default=False)
+
+    # ------------------------------------------------------------------
+    # Inline-value-token state (parallel to TickerMessage / TwoRowMessage).
+    # One TokenizedField per text field; `_resolved_*` hold the latest
+    # substituted strings (cached between resolve calls).  The emoji
+    # presence cache above uses the RAW text — emoji slugs survive token
+    # substitution, so the emoji render path must still fire regardless.
+    # `_anim_resolution_lock` freezes resolution for the duration of a
+    # typewriter reveal (mirrors TickerMessage._anim_resolution_lock).
+    # ------------------------------------------------------------------
+    _token_text: TokenizedField | None = attrs.field(init=False, default=None)
+    _token_top: TokenizedField | None = attrs.field(init=False, default=None)
+    _token_bottom: TokenizedField | None = attrs.field(init=False, default=None)
+    _resolved_text_single: str = attrs.field(init=False, default="")
+    _resolved_top_text: str = attrs.field(init=False, default="")
+    _resolved_bottom_text: str = attrs.field(init=False, default="")
+    _anim_resolution_lock: bool = attrs.field(init=False, default=False)
 
     # ------------------------------------------------------------------
     # Subclass hooks — must be implemented by subclasses
@@ -559,9 +577,28 @@ class _BaseImageWidget(FrameAwareBase):
 
         # Cache emoji-presence so the per-tick paint loop doesn't re-run
         # the regex against an invariant string. In two-row mode check
-        # both rows; single-row mode just checks `text`.
+        # both rows; single-row mode just checks `text`. Scan the RAW
+        # text — emoji slugs survive token substitution and must still
+        # trigger the emoji render path.
         scan_text = self.text + self.top_text + self.bottom_text
         self._has_emoji_cached = bool(EMOJI_PATTERN.search(scan_text))
+
+        # Build one TokenizedField per text field. Two-row mode scans
+        # top_text and bottom_text independently. Single-row mode scans
+        # the combined `text` field (which in two-row is aliased to
+        # top_text via `_row_text`). We always build all three so the
+        # widget doesn't have to branch by mode when resolving — each
+        # field with no tokens reports `has_tokens=False` and `resolve()`
+        # is a no-op (returns the raw text, changed=False, zero overhead).
+        self._token_text = TokenizedField(self.text)
+        self._token_top = TokenizedField(self.top_text)
+        self._token_bottom = TokenizedField(self.bottom_text)
+        # Seed the cached strings to the raw values so the first
+        # `_resolve_*` call that hits a frozen registry still returns
+        # something sane.
+        self._resolved_text_single = self.text
+        self._resolved_top_text = self.top_text
+        self._resolved_bottom_text = self.bottom_text
 
     # ------------------------------------------------------------------
     # Shared text-rendering helpers
@@ -584,6 +621,53 @@ class _BaseImageWidget(FrameAwareBase):
 
     def _has_emoji(self) -> bool:
         return self._has_emoji_cached
+
+    # ------------------------------------------------------------------
+    # Token resolution helpers (single-row and two-row paths).
+    # Each helper resolves one field's TokenizedField against the live
+    # registry — unless `locked` is True, in which case it returns the
+    # last cached string untouched. The `locked` flag comes from the
+    # caller's context: the play loop passes `locked=True` during scroll
+    # and typewriter reveal so mid-flight value changes can't corrupt
+    # layout geometry; held ticks pass `locked=False` so a live clock
+    # updates in real-time.
+    # ------------------------------------------------------------------
+
+    def _resolve_overlay_text(self, locked: bool) -> None:
+        """Resolve the single-row `text` field; cache into
+        `_resolved_text_single`. No-op for non-token fields."""
+        if self._token_text is None or not self._token_text.has_tokens:
+            return
+        if locked:
+            return
+        resolved, _ = self._token_text.resolve(get_data_registry())
+        self._resolved_text_single = resolved
+
+    def _resolve_top_text(self, locked: bool) -> None:
+        """Resolve the two-row top field (`top_text`). No-op for non-token."""
+        if self._token_top is None or not self._token_top.has_tokens:
+            return
+        if locked:
+            return
+        resolved, _ = self._token_top.resolve(get_data_registry())
+        self._resolved_top_text = resolved
+
+    def _resolve_bottom_text(self, locked: bool) -> None:
+        """Resolve the two-row bottom field (`bottom_text`). No-op for
+        non-token."""
+        if self._token_bottom is None or not self._token_bottom.has_tokens:
+            return
+        if locked:
+            return
+        resolved, _ = self._token_bottom.resolve(get_data_registry())
+        self._resolved_bottom_text = resolved
+
+    def reset_frame(self) -> None:
+        """Visit-entry reset: clear the typewriter resolution lock so the
+        next visit's reveal re-resolves from the current source value.
+        Delegates to FrameAwareBase for frame-counter resets."""
+        super().reset_frame()
+        self._anim_resolution_lock = False
 
     def _is_two_row(self) -> bool:
         """True when `bottom_text` is non-empty — switches the widget
@@ -621,10 +705,20 @@ class _BaseImageWidget(FrameAwareBase):
     def _row_text(self, row: int) -> str:
         """Resolve per-row text content. Top row falls back to `text`
         (the single-row alias) when `top_text` isn't explicitly set,
-        so configs that only add `bottom_text` keep working."""
+        so configs that only add `bottom_text` keep working.
+
+        Returns the RESOLVED display string (token-substituted) so both
+        measurement and draw paths consume the live value. For non-token
+        fields this is identical to the raw text (zero overhead — the
+        TokenizedField returns the raw string unchanged)."""
         if row == 0:
-            return self.top_text or self.text
-        return self.bottom_text
+            # In two-row mode `top_text` takes precedence; fall back to
+            # `text` (the single-row alias). Use the resolved versions of
+            # both so a token in either field applies.
+            if self.top_text:
+                return self._resolved_top_text or self.top_text
+            return self._resolved_text_single or self.text
+        return self._resolved_bottom_text or self.bottom_text
 
     def _row_font(self, row: int) -> Any:
         """Per-row font with fallback to `self.font`."""
@@ -666,33 +760,40 @@ class _BaseImageWidget(FrameAwareBase):
         return self.top_emoji_y_offset if row == 0 else self.bottom_emoji_y_offset
 
     def _visible_text(self, frame_count: int, canvas: Canvas) -> str:
-        """Apply animation to text. Returns full text when no animation
-        is configured. Layout (cursor position, alignment math) operates
-        against `self.text` regardless — the anchored layout uses the
-        eventual full-text width while only the visible slice gets
-        drawn. This is what makes typewriter feel 'anchored' under
-        right-align: the partial text appears in the position the
-        final text will occupy.
+        """Apply animation to text. Returns full display text when no
+        animation is configured. Layout (cursor position, alignment math)
+        operates against the FULL text width while only the visible slice
+        gets drawn — this is what makes typewriter feel 'anchored' under
+        right-align.
+
+        Uses the resolved display string (`_resolved_text_single`) so a
+        token in the text field is substituted before the typewriter
+        slices it. For non-token widgets this is identical to `self.text`.
 
         Mirrors `TickerMessage.draw`'s animation branch: calls
         `Typewriter.frame_for(frame, full_text, canvas_width, text_width)`
         and reads `.visible_text` from the returned `AnimationFrame`.
         cursor position is controlled via `text_align`.
         """
+        display = self._resolved_text_single
         if self.animation is None:
-            return self.text
+            return display
         text_width = self._measure_text(canvas)
         anim_frame = self.animation.frame_for(
-            frame_count, self.text, canvas.width, text_width
+            frame_count, display, canvas.width, text_width
         )
         return anim_frame.visible_text
 
     def _measure_text(self, canvas: Canvas) -> int:
+        # Use the resolved display string (token-substituted). For non-token
+        # widgets `_resolved_text_single` was seeded to `self.text` in
+        # `_validate_common`, so the behavior is identical to today.
+        display = self._resolved_text_single
         if self._has_emoji():
             from led_ticker.pixel_emoji import measure_width
 
-            return measure_width(self.font, self.text, canvas=canvas)
-        return get_text_width(self.font, self.text, padding=0, canvas=canvas)
+            return measure_width(self.font, display, canvas=canvas)
+        return get_text_width(self.font, display, padding=0, canvas=canvas)
 
     def _resolved_separator_text(self, separator: str | None = None) -> str:
         """Resolve the separator string per wrap-mode semantics:
@@ -838,20 +939,27 @@ class _BaseImageWidget(FrameAwareBase):
         as it will at completion — anchors hue to char identity, not
         to current visible position.
         """
-        text = text_override if text_override is not None else self.text
-        # Per-char total: the eventual full-text length, so hue stays
-        # anchored to char identity across typewriter's reveal.
-        per_char_total = len(self.text) if self.text else 1
+        # Use the resolved display string as the "full text" anchor so
+        # per-char hue total_chars is counted from the SUBSTITUTED string.
+        # For non-token widgets `_resolved_text_single` equals `self.text`,
+        # so the behavior is byte-identical to today.
+        full_display = self._resolved_text_single
+        text = text_override if text_override is not None else full_display
+        # Per-char total: the eventual full-text length from the substituted
+        # string, so hue stays anchored to char identity across typewriter's
+        # reveal (I3). Raw `:t:` (3 chars) vs substituted "ABCDE" (5 chars)
+        # differ — we must count the substituted length.
+        per_char_total = len(full_display) if full_display else 1
         if self._has_emoji():
             from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji
 
-            # Anchor per-char hue to the FULL text's char count so a
-            # char's hue is stable as typewriter reveals more chars.
+            # Anchor per-char hue to the FULL substituted text's char count
+            # so a char's hue is stable as typewriter reveals more chars.
             # Without this, a rainbow on `text="Hi :star:"` mid-type
             # would re-distribute hues across the visible slice
             # ("Hi", "Hi ", "Hi :", ...) instead of the eventual 3
             # text chars — char 0's hue would drift as the reveal grows.
-            full_total_chars = count_text_chars(self.text)
+            full_total_chars = count_text_chars(full_display)
             return draw_with_emoji(
                 canvas,
                 self.font,
@@ -1026,8 +1134,22 @@ class _BaseImageWidget(FrameAwareBase):
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
             text_x = text_x_left if self.text_align == "left" else text_x_right
+            # Typewriter resolution freeze (I3): on the FIRST tick of a
+            # typewriter reveal, resolve once and lock so the sliced string
+            # length stays stable for the whole reveal. Mirrors
+            # TickerMessage's `_anim_resolution_lock` approach. The lock
+            # clears in `reset_frame()` (visit entry) so the next visit
+            # re-resolves from the current source value.
+            if (
+                self.animation is not None
+                and self._token_text is not None
+                and self._token_text.has_tokens
+                and not self._anim_resolution_lock
+            ):
+                self._resolve_overlay_text(locked=False)
+                self._anim_resolution_lock = True
             # Apply animation to the visible text. `_visible_text`
-            # returns `self.text` when animation is None (no extra
+            # returns the display text when animation is None (no extra
             # work for non-animated widgets) and the typewriter
             # slice when set. Layout (text_x, baseline_y) is already
             # computed against the FULL text width by the caller —
@@ -1270,6 +1392,13 @@ class _BaseImageWidget(FrameAwareBase):
         tick_ms = max(MIN_SCROLL_SPEED_MS, self.scroll_speed_ms)
         tick_seconds = tick_ms / 1000
 
+        # Resolve tokens BEFORE measuring width (so layout geometry is based
+        # on the current source value). For non-token widgets this is a no-op.
+        # For scrolling widgets, this is the pre-scroll resolve: after we
+        # measure below, we lock resolution for the whole scroll loop so a
+        # mid-flight value change can't corrupt stop_pos / clip the tail (C2).
+        self._resolve_overlay_text(locked=False)
+
         text_width = self._measure_text(text_canvas)
         text_x_left = TEXT_EDGE_PADDING_PX + self.text_x_offset
         text_x_right = (
@@ -1381,6 +1510,19 @@ class _BaseImageWidget(FrameAwareBase):
             # gradient. Mirrors `ticker._advance_frame_if_supported`'s
             # placement in `_swap_and_scroll` (advance BEFORE draw).
             self.advance_frame()
+            # Resolve tokens each tick (held path: live updates allowed).
+            # Scrolling path: locked=True keeps the geometry stable for the
+            # whole scroll duration (the pre-loop resolve above already set
+            # the current value). Non-scrolling: locked=False so a clock
+            # token updates every tick while the image is held.
+            # Typewriter: locking is handled in `_render_tick` on the first
+            # tick via `_anim_resolution_lock`; `_resolve_overlay_text`
+            # called here respects that lock via the `_anim_resolution_lock`
+            # flag check in `_visible_text`/`_draw_text` (those read
+            # `_resolved_text_single` which was frozen on first tick).
+            # Simplification: we call with `locked=scrolling` — scroll
+            # freezes the string; held ticks may update it.
+            self._resolve_overlay_text(locked=scrolling)
             if wrap_mode:
                 self._render_wrap_tick(
                     canvas,
@@ -1480,6 +1622,19 @@ class _BaseImageWidget(FrameAwareBase):
                     f"raise top_row_height (current {self.top_row_height!r}), "
                     f"or use a BDF alias (5x8, 6x12)."
                 )
+
+        # Resolve tokens for both rows BEFORE measuring widths so layout
+        # geometry reflects the current source value. For non-token fields
+        # these are no-ops. After this resolve, both rows are "frozen" for
+        # the lifetime of this play() invocation because the per-row texts
+        # are captured in local variables below and the loop reads those —
+        # a mid-scroll value change has no effect on the in-flight geometry
+        # (C2 freeze for two-row mode). Top row is always held, so it could
+        # live-update, but re-resolving a held row while scrolling the bottom
+        # risks a top-row width jump during the scroll — simpler to freeze
+        # both for the play() duration.
+        self._resolve_top_text(locked=False)
+        self._resolve_bottom_text(locked=False)
 
         # Resolve all per-row attributes ONCE (font / text / color /
         # alignment / offsets) — these are invariant for the widget's

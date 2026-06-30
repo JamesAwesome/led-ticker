@@ -2212,3 +2212,525 @@ class TestImageTypewriter:
         assert widget._visible_text(2, canvas) == "H", (
             "animation counter should drive _visible_text; got wrong slice"
         )
+
+
+# ---------------------------------------------------------------------------
+# Token integration tests (Task 7)
+# ---------------------------------------------------------------------------
+
+
+def _set_registry(*sources):
+    """Build a DataRegistry from sources, refresh each, and install globally."""
+    from led_ticker.sources import DataRegistry, set_data_registry
+
+    reg = DataRegistry()
+    for src in sources:
+        src.refresh()
+        reg.add(src)
+    set_data_registry(reg)
+    return reg
+
+
+def _stub_canvas(width=64, height=16):
+    from rgbmatrix import _StubCanvas
+
+    return _StubCanvas(width=width, height=height)
+
+
+class TestImageTokenResolution:
+    """Inline value-token substitution in the image/gif text overlay."""
+
+    def _make_still(self, tmp_path, **kw):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kw)
+
+    def test_non_token_overlay_is_byte_identical(self, tmp_path):
+        """Regression guard: a still image with no source token in its text
+        overlay renders identically to today (pixel-count unchanged)."""
+        from rgbmatrix.graphics import Color
+
+        _set_registry()  # empty registry
+        white = Color(255, 255, 255)
+        w = self._make_still(tmp_path, text="HELLO WORLD", text_align="left",
+                             font_color=white)
+        # TokenizedField is built but has_tokens should be False.
+        assert w._token_text is not None
+        assert not w._token_text.has_tokens
+
+        c1 = _stub_canvas()
+        w._panel_w = c1.width
+        w._panel_h = c1.height
+        # Directly invoke the layout + draw path (single-row static).
+        from led_ticker.widgets._image_base import TEXT_EDGE_PADDING_PX
+
+        text_x_left = TEXT_EDGE_PADDING_PX
+        baseline_y = 12
+        w._draw_text(c1, text_x_left, baseline_y, w.font_color)
+        nonzero_1 = c1.count_nonzero()
+        assert nonzero_1 > 0
+
+        # Fresh widget + fresh canvas — must produce identical pixel count.
+        w2 = self._make_still(tmp_path, text="HELLO WORLD", text_align="left",
+                              font_color=white)
+        c2 = _stub_canvas()
+        w2._draw_text(c2, text_x_left, baseline_y, w2.font_color)
+        assert c1.count_nonzero() == c2.count_nonzero()
+
+    def test_token_resolves_in_overlay(self, tmp_path):
+        """A token in the overlay `text` field resolves to the source value
+        and renders identical pixels to a literal control message."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.sources import StaticSource
+
+        _set_registry(StaticSource(id="brand.tag", value="OPEN"))
+        white = Color(255, 255, 255)
+
+        w = self._make_still(tmp_path, text=":brand.tag:", text_align="left",
+                             font_color=white)
+        assert w._token_text.has_tokens
+
+        c_tok = _stub_canvas()
+        w._resolve_overlay_text(locked=False)
+        baseline_y = 12
+        w._draw_text(c_tok, 2, baseline_y, w.font_color)
+        nonzero_tok = c_tok.count_nonzero()
+        assert nonzero_tok > 0, "token widget should render pixels"
+        assert w._resolved_text_single == "OPEN"
+
+        # Control: literal message with the substituted string.
+        _set_registry()  # clear registry so control gets no token sub
+        control = self._make_still(tmp_path, text="OPEN", text_align="left",
+                                   font_color=white)
+        c_lit = _stub_canvas()
+        control._draw_text(c_lit, 2, baseline_y, control.font_color)
+        assert nonzero_tok == c_lit.count_nonzero(), (
+            "token overlay should render same pixels as the literal substituted string"
+        )
+
+    def test_unknown_token_falls_through_to_literal(self, tmp_path):
+        """A token with no matching declared source renders as the literal
+        `:slug:` text (existing intentional behavior)."""
+        _set_registry()
+        w = self._make_still(tmp_path, text=":not.declared:", text_align="left")
+        w._resolve_overlay_text(locked=False)
+        assert w._resolved_text_single == ":not.declared:"
+
+    def test_emoji_slug_not_substituted(self, tmp_path):
+        """An emoji slug (`:star:`) is never substituted even when a source
+        has the same id — emoji wins over source (spec §1)."""
+        from led_ticker.sources import StaticSource
+
+        _set_registry(StaticSource(id="star", value="HIJACKED"))
+        w = self._make_still(tmp_path, text="A :star: B", text_align="left")
+        w._resolve_overlay_text(locked=False)
+        # :star: should survive intact (emoji wins).
+        assert ":star:" in w._resolved_text_single
+        assert "HIJACKED" not in w._resolved_text_single
+
+    def test_resolution_locked_returns_cached_value(self, tmp_path):
+        """When _resolution_locked (via pause_frame), resolve_overlay_text
+        returns the cached string even after the source value changes."""
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="t", value="A")
+        _set_registry(src)
+        w = self._make_still(tmp_path, text=":t:", text_align="left")
+        w._resolve_overlay_text(locked=False)
+        assert w._resolved_text_single == "A"
+
+        # Simulate transition / scroll freeze via pause_frame.
+        w.pause_frame()
+        assert w._resolution_locked is True
+        src.value = "ZZZZZZ"
+        src.refresh()
+        w._resolve_overlay_text(locked=True)  # explicitly pass locked=True
+        assert w._resolved_text_single == "A", (
+            "locked resolution must return cached string"
+        )
+
+        w.resume_frame()
+        w._resolve_overlay_text(locked=False)
+        assert w._resolved_text_single == "ZZZZZZ"
+
+    def test_measure_text_uses_resolved_string(self, tmp_path):
+        """_measure_text reads the resolved display string, not the raw
+        `:slug:` template. Longer substituted string = wider measurement."""
+        from led_ticker.sources import StaticSource
+
+        _set_registry(StaticSource(id="t", value="WWWWWWWW"))  # wide value
+        w = self._make_still(tmp_path, text=":t:", text_align="left")
+        canvas = _stub_canvas()
+        w._resolve_overlay_text(locked=False)
+        measured = w._measure_text(canvas)
+
+        # A widget with the literal substituted text must measure the same.
+        _set_registry()
+        control = self._make_still(tmp_path, text="WWWWWWWW", text_align="left")
+        control_measured = control._measure_text(canvas)
+        assert measured == control_measured
+
+    def test_has_tokens_flag_set(self, tmp_path):
+        """_token_text.has_tokens is True when the text contains a source
+        token, False when it contains only emoji / literal text."""
+        from led_ticker.sources import StaticSource
+
+        _set_registry(StaticSource(id="x", value="v"))
+
+        w_tok = self._make_still(tmp_path, text=":x:", text_align="left")
+        assert w_tok._token_text.has_tokens
+
+        w_no = self._make_still(tmp_path, text="plain text", text_align="left")
+        assert not w_no._token_text.has_tokens
+
+
+class TestImageTokenTwoRow:
+    """Token resolution in two-row mode (top_text / bottom_text)."""
+
+    def _make_still(self, tmp_path, **kw):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kw)
+
+    def test_top_token_resolves(self, tmp_path):
+        """Token in top_text resolves to source value."""
+        from led_ticker.sources import StaticSource
+
+        _set_registry(StaticSource(id="top.val", value="TOP"))
+        w = self._make_still(tmp_path, top_text=":top.val:", bottom_text="bottom")
+        assert w._token_top is not None
+        assert w._token_top.has_tokens
+        w._resolve_top_text(locked=False)
+        assert w._resolved_top_text == "TOP"
+
+    def test_bottom_token_resolves(self, tmp_path):
+        """Token in bottom_text resolves to source value."""
+        from led_ticker.sources import StaticSource
+
+        _set_registry(StaticSource(id="bot.val", value="BOTTOM"))
+        w = self._make_still(tmp_path, top_text="top", bottom_text=":bot.val:")
+        assert w._token_bottom is not None
+        assert w._token_bottom.has_tokens
+        w._resolve_bottom_text(locked=False)
+        assert w._resolved_bottom_text == "BOTTOM"
+
+    def test_row_text_returns_resolved_string(self, tmp_path):
+        """_row_text(row) returns the resolved string (not the raw template)
+        so measurement + draw paths both consume substituted text."""
+        from led_ticker.sources import StaticSource
+
+        _set_registry(
+            StaticSource(id="t.top", value="RESOLVED_TOP"),
+            StaticSource(id="t.bot", value="RESOLVED_BOT"),
+        )
+        w = self._make_still(
+            tmp_path,
+            top_text=":t.top:",
+            bottom_text=":t.bot:",
+        )
+        # Resolve both rows.
+        w._resolve_top_text(locked=False)
+        w._resolve_bottom_text(locked=False)
+
+        assert w._row_text(0) == "RESOLVED_TOP"
+        assert w._row_text(1) == "RESOLVED_BOT"
+
+    def test_non_token_two_row_unchanged(self, tmp_path):
+        """Two-row widget with no source tokens: _row_text returns the raw
+        text (regression guard — must be byte-identical to pre-token state)."""
+        _set_registry()
+        w = self._make_still(tmp_path, top_text="PLAIN TOP", bottom_text="PLAIN BOT")
+        assert not w._token_top.has_tokens
+        assert not w._token_bottom.has_tokens
+        assert w._row_text(0) == "PLAIN TOP"
+        assert w._row_text(1) == "PLAIN BOT"
+
+
+class TestImageTokenScrollFreeze:
+    """C2: token resolution is frozen for the duration of a scroll loop so a
+    mid-flight value change cannot corrupt stop_pos / clip the scroll tail."""
+
+    def _make_still(self, tmp_path, **kw):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kw)
+
+    @pytest.mark.asyncio
+    async def test_resolution_locked_during_scroll_loop(self, tmp_path, mocker):
+        """Resolution is frozen during the scroll loop so a source version
+        bump mid-scroll has no effect. Verified by subclassing the base widget
+        to spy on _resolve_overlay_text calls."""
+        import attrs
+
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets._image_base import _BaseImageWidget
+
+        src = StaticSource(id="scroll.tok", value="HELLO SCROLL")
+        _set_registry(src)
+
+        locked_values: list[bool] = []
+
+        @attrs.define
+        class _SpyImage(_BaseImageWidget):
+            paint_full_calls: list = attrs.field(factory=list)
+
+            def __attrs_post_init__(self) -> None:
+                self._validate_common(image_align="center", fit="pillarbox")
+
+            def _paint_full(self, canvas: object) -> None:
+                self.paint_full_calls.append(canvas)
+
+            def _paint_skip_black(self, canvas: object) -> None:
+                pass
+
+            def _load(self, panel_w: int = 0, panel_h: int = 0) -> None:
+                self._panel_w = panel_w
+                self._panel_h = panel_h
+
+            def _is_static(self) -> bool:
+                return True
+
+            def _resolve_overlay_text(self, locked: bool) -> None:
+                locked_values.append(locked)
+                super()._resolve_overlay_text(locked)
+
+        widget = _SpyImage(
+            text=":scroll.tok:",
+            text_align="scroll_over",
+        )
+
+        frame = mocker.MagicMock()
+        frame.swap.side_effect = lambda c: c
+        canvas = mocker.MagicMock()
+        canvas.width = 64
+        canvas.height = 16
+        frame.swap.return_value = canvas
+
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await widget._play_with_text(canvas, frame, n_ticks=5)
+
+        # The pre-loop call should be locked=False (pre-scroll resolve).
+        # The per-tick loop calls should be locked=True (frozen during scroll).
+        assert locked_values[0] is False, (
+            "first resolve (pre-loop) should be unlocked"
+        )
+        assert all(v is True for v in locked_values[1:]), (
+            f"per-tick resolves during scroll must be locked=True; "
+            f"got locked_values={locked_values}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_value_change_mid_scroll_does_not_corrupt(self, tmp_path, mocker):
+        """A source value change after the scroll loop starts does NOT change
+        the measured text or scroll position (resolution is frozen)."""
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="s", value="SHORT")
+        _set_registry(src)
+
+        widget = self._make_still(
+            tmp_path,
+            text=":s:",
+            text_align="scroll_over",
+            hold_time=0.3,
+        )
+
+        frame = mocker.MagicMock()
+        swap_canvas = mocker.MagicMock()
+        swap_canvas.width = 64
+        swap_canvas.height = 16
+        frame.swap.return_value = swap_canvas
+
+        sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        # After the first sleep call (first tick), change the source value.
+        tick_count = 0
+
+        async def _sleep_side_effect(t):
+            nonlocal tick_count
+            tick_count += 1
+            if tick_count == 1:
+                src.value = "A MUCH MUCH MUCH LONGER VALUE THAT WOULD CHANGE WIDTH"
+                src.refresh()
+
+        sleep_mock.side_effect = _sleep_side_effect
+
+        # Should complete without exception — mid-scroll value change is safe.
+        await widget.play(swap_canvas, frame, loop_count=1)
+
+
+class TestImageTokenTypewriterFreeze:
+    """I3: typewriter + token — resolution is frozen for the whole reveal,
+    and per-char hue total_chars is counted from the substituted string."""
+
+    def _make_still(self, tmp_path, **kw):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kw)
+
+    def test_typewriter_locks_resolution_on_first_draw(self, tmp_path):
+        """The _anim_resolution_lock flag is set before the first reveal
+        tick so the slice string is stable for the whole typewriter cycle."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="t", value="ABCDE")
+        _set_registry(src)
+
+        widget = self._make_still(
+            tmp_path,
+            text=":t:",
+            text_align="left",
+            animation=Typewriter(),
+        )
+        canvas = _stub_canvas()
+
+        # Before any draw the lock is clear.
+        assert not widget._anim_resolution_lock
+
+        widget._effect_frames["animation"] = 0
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+
+        # Lock is set after the first render tick.
+        assert widget._anim_resolution_lock is True
+        assert widget._resolved_text_single == "ABCDE"
+
+    def test_value_change_mid_reveal_does_not_corrupt_slice(self, tmp_path):
+        """A source value change mid-reveal does NOT corrupt the typewriter
+        slice — the resolution is frozen to the start-of-reveal value."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="t", value="ABCDE")
+        _set_registry(src)
+
+        class _TrackingProvider:
+            per_char = True
+            frame_invariant = False
+
+            def __init__(self):
+                self.calls: list[tuple[int, int, int]] = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        widget = self._make_still(
+            tmp_path,
+            text=":t:",
+            text_align="left",
+            font_color=provider,
+            animation=Typewriter(frames_per_char=3),
+        )
+        canvas = _stub_canvas()
+
+        # First draw locks the reveal to "ABCDE".
+        widget._effect_frames["animation"] = 3  # ~2 chars visible
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        assert widget._anim_resolution_lock is True
+        assert widget._resolved_text_single == "ABCDE"
+
+        # Source changes mid-reveal.
+        src.value = "ZZZZZZZZZZ"
+        src.refresh()
+        provider.calls.clear()
+
+        # Next draw — still locked to "ABCDE".
+        widget._effect_frames["animation"] = 6  # 3 chars visible
+        canvas2 = _stub_canvas()
+        widget._render_tick(canvas2, canvas2, 0, 12, 2, 60)
+
+        assert widget._resolved_text_single == "ABCDE", (
+            "typewriter reveal must stay frozen to the start-of-reveal value"
+        )
+        # total_chars must be anchored to the substituted reveal string (5),
+        # not the raw ":t:" (3) and not the changed value (10).
+        assert provider.calls, "per-char provider should have been called"
+        assert all(c[2] == 5 for c in provider.calls), (
+            f"total_chars should anchor to substituted reveal length 5; "
+            f"got {[c[2] for c in provider.calls]!r}"
+        )
+
+    def test_lock_clears_on_visit_reset(self, tmp_path):
+        """reset_frame() clears _anim_resolution_lock so the next visit
+        gets a fresh resolve against the current source value."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="t", value="HELLO")
+        _set_registry(src)
+
+        widget = self._make_still(
+            tmp_path, text=":t:", text_align="left", animation=Typewriter()
+        )
+        canvas = _stub_canvas()
+
+        # Trigger the lock.
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        assert widget._anim_resolution_lock is True
+
+        # Visit reset clears it.
+        widget.reset_frame()
+        assert widget._anim_resolution_lock is False
+
+    def test_per_char_hue_total_counted_from_substituted_string(self, tmp_path):
+        """I3 exact: total_chars for per-char rainbow during a typewriter
+        reveal is counted from the SUBSTITUTED string, not the raw template."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.sources import StaticSource
+
+        _set_registry(StaticSource(id="t", value="WXYZ"))  # 4 chars
+
+        class _TrackingProvider:
+            per_char = True
+            frame_invariant = False
+
+            def __init__(self):
+                self.calls: list[tuple[int, int, int]] = []
+
+            def color_for(self, frame, char_index, total_chars):
+                from rgbmatrix.graphics import Color
+                self.calls.append((frame, char_index, total_chars))
+                return Color(255, 255, 255)
+
+        provider = _TrackingProvider()
+        widget = self._make_still(
+            tmp_path,
+            text=":t:",  # raw template is 3 chars (":t:"), substituted is 4
+            text_align="left",
+            font_color=provider,
+            animation=Typewriter(frames_per_char=3),
+        )
+        canvas = _stub_canvas()
+
+        # frame=3 → 2 chars visible ("WX")
+        widget._effect_frames["animation"] = 3
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+
+        # total_chars must be 4 (substituted "WXYZ"), not 3 (raw ":t:").
+        assert provider.calls, "per-char provider should have been called"
+        totals = {c[2] for c in provider.calls}
+        assert totals == {4}, (
+            f"total_chars should be 4 (len of substituted 'WXYZ'); "
+            f"got {totals!r}"
+        )

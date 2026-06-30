@@ -49,7 +49,7 @@ On `two_row`, or on `gif` / `image` with `bottom_text` set, each row gets a slic
 
 ### Rule 26 — `separator_*` is only valid on `ticker`
 
-The `separator`, `separator_font`, `separator_font_size`, and `separator_color` fields customize the small bullet that `ticker` mode inserts between widgets in the side-by-side stream. `slideshow` and `one_at_a_time` modes don't intersperse anything; `one_at_a_time` fully exits each widget before the next, so no separator is needed. Setting any of these fields on a non-`ticker` section would silently do nothing — the validator rejects it. Either remove the fields, or change `mode` to `"ticker"`.
+The `separator`, `separator_font`, `separator_font_size`, and `separator_color` fields customize the small bullet that `ticker` mode inserts between widgets in the side-by-side stream. `slideshow` mode doesn't intersperse anything; `one_at_a_time` fully exits each widget before the next, so no separator is needed. Setting any of these fields on a non-`ticker` section would silently do nothing — the validator rejects it. Either remove the fields, or change `mode` to `"ticker"`.
 
 ### Rule 28 — `bottom_text_loops` requires `bottom_text_wrap`
 

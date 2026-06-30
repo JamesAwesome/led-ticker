@@ -113,14 +113,13 @@ bottom_align = "left"
 
 **use when:** bigsign + animated logo or mascot GIF in the left pillar with a brand handle or tagline held statically in the right pillar.
 
-**must customize:** `path` (your GIF asset path), `text` (brand text in pillar), `font_color`, `font_size`, `loop_count`.
+**must customize:** `path` (your GIF asset path), `text` (brand text in pillar), `font_color`, `font_size`, `play_count`.
 
 **copy verbatim:**
 
 ```toml
 [[playlist.section]]
-mode = "gif"
-loop_count = 17
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -134,6 +133,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 24
 font_color = [255, 220, 50]
+play_count = 17
 ```
 
 ---

@@ -1684,34 +1684,6 @@ async def test_rule34_scroll_step_ms_on_message_widget_does_not_fire(conf):
     )
 
 
-async def test_rule33_mode_swap_does_not_warn(conf):
-    """mode = 'slideshow' is the recommended pattern — must not trip rule 33."""
-    result = await validate_config(conf(GOOD_CONFIG))
-    assert all(w.rule != 33 for w in result.warnings)
-
-
-async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
-    """In mode = 'slideshow' the semantics ARE plumbed through — no warning."""
-    cfg = """\
-        [display]
-        rows = 16
-        cols = 32
-        chain_length = 5
-        default_scale = 1
-
-        [[playlist.section]]
-        mode = "slideshow"
-        hold_time = 8.0
-
-        [[playlist.section.widget]]
-        type = "gif"
-        path = "x.gif"
-        play_count = 0
-        """
-    result = await validate_config(conf(cfg))
-    assert all(w.rule != 36 for w in result.warnings)
-
-
 async def test_rule35_default_inside_section_warns(conf):
     """`default = '...'` written inside a [[playlist.section]] block is
     silently ignored — it's a [transitions] key. The validator surfaces

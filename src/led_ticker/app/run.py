@@ -1028,8 +1028,7 @@ async def run(config_path: Path) -> None:
                         # before redrawing.
                         run_kwargs: dict[str, Any] = {"loop_count": section.loop_count}
                         # `start_pos` is only meaningful for scrolling modes —
-                        # `run_slideshow` and `run_gif` don't have a scroll position
-                        # to skip past.
+                        # `run_slideshow` doesn't have a scroll position to skip past.
                         if just_transitioned and run_method in (
                             "run_ticker",
                             "run_one_at_a_time",

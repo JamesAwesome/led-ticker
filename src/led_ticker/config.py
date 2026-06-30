@@ -88,7 +88,7 @@ class TransitionConfig:
 
 @dataclass
 class SectionConfig:
-    mode: str  # "slideshow", "ticker", "one_at_a_time", "gif"
+    mode: str  # "slideshow", "ticker", "one_at_a_time"
     loop_count: int = 1
     title: dict[str, Any] | None = None
     widgets: list[dict[str, Any]] = field(default_factory=list)
@@ -693,6 +693,19 @@ def load_config(path: Path) -> AppConfig:
                 f'mode = "{raw_mode}" was renamed to "{new_mode}". '
                 f'Update your config: mode = "{new_mode}".',
                 suggested_fix=f'Rename mode "{raw_mode}" to "{new_mode}".',
+            )
+        if raw_mode == "gif":
+            # Local import: avoid config<->validate circular dependency
+            from led_ticker.validate import MigrationError
+
+            raise MigrationError(
+                'mode = "gif" was removed. Use mode = "slideshow" with a gif '
+                "widget instead. If you relied on repeat counts, set play_count "
+                "on the gif widget. See https://docs.ledticker.dev/widgets/gif/",
+                suggested_fix=(
+                    'Change mode = "gif" to mode = "slideshow"; move any repeat '
+                    "count to play_count on the gif widget."
+                ),
             )
         section = SectionConfig(
             mode=raw_mode,

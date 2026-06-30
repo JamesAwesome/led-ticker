@@ -371,28 +371,3 @@ def test_expand_sources_all_tripped_returns_empty():
     bad = object()
     b.trip(bad, ValueError("x"))
     assert _expand_sources([bad], breaker=b) == []
-
-
-# ---------------------------------------------------------------------------
-# FIX 5: _run_gif circuit breaker tests
-# ---------------------------------------------------------------------------
-
-
-async def test_run_gif_survives_faulty_play(swapping_frame, no_sleep):
-    """A FaultyPlayWidget enqueued via run_gif must not raise; breaker trips."""
-    bad = FaultyPlayWidget()
-    breaker = RenderBreaker()
-    ticker = _make_ticker(monitors=[bad], frame=swapping_frame, breaker=breaker)
-    # run_gif with loop_count=1: one pass through the queue
-    await ticker.run_gif(loop_count=1)
-    assert breaker.is_disabled(bad) is True
-
-
-async def test_run_gif_pre_tripped_play_not_called(swapping_frame, no_sleep):
-    """A pre-tripped widget enqueued in run_gif must have play() skipped."""
-    bad = FaultyPlayWidget()
-    breaker = RenderBreaker()
-    breaker.trip(bad, ValueError("pre"))  # already disabled before run
-    ticker = _make_ticker(monitors=[bad], frame=swapping_frame, breaker=breaker)
-    await ticker.run_gif(loop_count=1)
-    assert bad.calls == 0, "play() must not be called on a pre-tripped widget"

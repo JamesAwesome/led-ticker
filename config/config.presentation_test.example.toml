@@ -107,8 +107,7 @@ font_color = [255, 220, 50]
 
 # 3. image widget + rainbow + emoji — gif overlay text uses provider through draw_with_emoji
 [[playlist.section]]
-mode = "gif"
-loop_count = 1
+mode = "slideshow"
 transition = "cut"
 
 [[playlist.section.widget]]
@@ -120,6 +119,7 @@ text_align = "scroll_over"
 font_color = "rainbow"
 scroll_speed_ms = 50
 text_loops = 1
+play_count = 1
 
 # 4. typewriter + rainbow — animation slices visible_text, per-char
 # rainbow runs against the slice. Each new char appears with the
@@ -312,8 +312,7 @@ animation = "typewriter"
 # single sweeping hue. Should show per-character rainbow letters
 # moving over the phoenix, just like §3 but without the taco sprites.
 [[playlist.section]]
-mode = "gif"
-loop_count = 1
+mode = "slideshow"
 transition = "cut"
 
 [[playlist.section.widget]]
@@ -325,14 +324,14 @@ text_align = "scroll_over"
 font_color = "rainbow"
 scroll_speed_ms = 50
 text_loops = 1
+play_count = 1
 
 # 15. two-row image widget + rainbow — exercises _draw_row_text
 # per-char path. Both rows get a rainbow that survives even with
 # distinct text per row. Phoenix underneath; held top, scrolling
 # bottom on overflow.
 [[playlist.section]]
-mode = "gif"
-loop_count = 1
+mode = "slideshow"
 transition = "cut"
 
 [[playlist.section.widget]]
@@ -344,6 +343,7 @@ bottom_text = "BOTTOM RAINBOW SCROLLS"
 font = "5x8"
 font_color = "rainbow"
 scroll_speed_ms = 50
+play_count = 1
 
 # 16. HiresFont + emoji + per-char rainbow — the only matrix combo
 # §1–§13 don't cover. Inter-Bold @ 24 with `:taco:` slugs and rainbow

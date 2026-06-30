@@ -96,8 +96,7 @@ play_count = 17  # ~10s of playback (17 × 600ms per loop)
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 17  # ~10s of playback (17 × 600ms per loop)
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -105,6 +104,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/phoenix.gif"
 fit = "stretch"
+play_count = 17  # ~10s of playback (17 × 600ms per loop)
 
 # ---------------------------------------------------------------------------
 # Section 3 — letterbox
@@ -118,8 +118,7 @@ fit = "stretch"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 17  # ~10s of playback (17 × 600ms per loop)
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -127,6 +126,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/phoenix.gif"
 fit = "letterbox"
+play_count = 17  # ~10s of playback (17 × 600ms per loop)
 
 # ---------------------------------------------------------------------------
 # Section 4 — crop
@@ -138,8 +138,7 @@ fit = "letterbox"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 17  # ~10s of playback (17 × 600ms per loop)
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -147,6 +146,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/phoenix.gif"
 fit = "crop"
+play_count = 17  # ~10s of playback (17 × 600ms per loop)
 
 # ---------------------------------------------------------------------------
 # Section 5 — pillarbox, ~20 seconds (double the earlier ones)
@@ -156,8 +156,7 @@ fit = "crop"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 34  # ~20s of playback
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -165,6 +164,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/phoenix.gif"
 fit = "pillarbox"
+play_count = 34  # ~20s of playback
 
 # ---------------------------------------------------------------------------
 # Section 6 — pillarbox + static text in the RIGHT pillar
@@ -178,8 +178,7 @@ fit = "pillarbox"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 17  # ~10s of playback
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -193,6 +192,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 24
 font_color = [255, 220, 50]
+play_count = 17  # ~10s of playback
 
 # ---------------------------------------------------------------------------
 # Section 7 — pillarbox + static text in the LEFT pillar
@@ -203,8 +203,7 @@ font_color = [255, 220, 50]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 17  # ~10s of playback
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -218,6 +217,7 @@ text_align = "left"
 font = "Inter-Regular"
 font_size = 24
 font_color = [225, 48, 108]
+play_count = 17  # ~10s of playback
 
 # ---------------------------------------------------------------------------
 # Section 8 — TRANSPARENT phoenix + scrolling marquee text UNDER the gif
@@ -231,8 +231,7 @@ font_color = [225, 48, 108]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 34  # ~20s — long enough for marquee to traverse twice
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -244,6 +243,7 @@ text = "WELCOME TO THE STORE — OPEN DAILY 9 TO 9"
 text_align = "scroll"
 font_color = [255, 220, 50]
 scroll_speed_ms = 50
+play_count = 34  # ~20s — long enough for marquee to traverse twice
 
 # ---------------------------------------------------------------------------
 # Section 9 — pride.gif filling the whole panel
@@ -256,8 +256,7 @@ scroll_speed_ms = 50
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 5  # ~5s of playback (loop is ~1s)
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -265,6 +264,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pride.gif"
 fit = "stretch"
+play_count = 5  # ~5s of playback (loop is ~1s)
 
 # ---------------------------------------------------------------------------
 # Section 10 — pride_trans.gif filling the whole panel
@@ -273,8 +273,7 @@ fit = "stretch"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 3  # ~4.4s of playback (loop is ~1.45s)
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -282,6 +281,7 @@ transition_duration = 0.6
 type = "gif"
 path = "assets/pride_trans.gif"
 fit = "stretch"
+play_count = 3  # ~4.4s of playback (loop is ~1.45s)
 
 # ---------------------------------------------------------------------------
 # Section 11 — gif inside `mode = "slideshow"` with an optional title
@@ -322,8 +322,7 @@ play_count = 5  # ~5s of playback inside the single visit
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 34  # ~20s
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -338,6 +337,7 @@ font = "Inter-Bold"
 font_size = 32
 font_color = [120, 200, 255]
 scroll_speed_ms = 50
+play_count = 34  # ~20s
 
 # ---------------------------------------------------------------------------
 # Section 13 — TRANSPARENT phoenix pinned RIGHT + static title
@@ -382,8 +382,7 @@ play_count = 17  # ~10s of playback
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 14  # ~20s — enough for one full marquee pass + change
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -396,6 +395,7 @@ text_align = "scroll_over"
 font_color = [0, 0, 0]
 font_size = 24  # bump up so the cutout is actually readable
 scroll_speed_ms = 50
+play_count = 14  # ~20s — enough for one full marquee pass + change
 
 # ---------------------------------------------------------------------------
 # Section 15 — chunky text + inline emoji over pride.gif
@@ -408,8 +408,7 @@ scroll_speed_ms = 50
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 14  # ~14s of playback — long enough for the marquee to cross
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -422,6 +421,7 @@ text_align = "scroll_over"
 font_color = [255, 255, 255]
 font_size = 48
 scroll_speed_ms = 50
+play_count = 14  # ~14s of playback — long enough for the marquee to cross
 
 # ---------------------------------------------------------------------------
 # Sections 16 + 17 — Firebird Yoga brand: Beloved Sans Regular vs Bold
@@ -442,8 +442,7 @@ scroll_speed_ms = 50
 # ---------------------------------------------------------------------------
 
 # [[playlist.section]]
-# mode = "gif"
-# loop_count = 34  # ~20s — long enough for the marquee to traverse twice
+# mode = "slideshow"
 # transition = "dissolve"
 # transition_duration = 0.6
 #
@@ -459,10 +458,10 @@ scroll_speed_ms = 50
 # font_threshold = 80
 # font_color = [255, 220, 70]
 # scroll_speed_ms = 50
+# play_count = 34
 
 # [[playlist.section]]
-# mode = "gif"
-# loop_count = 34  # ~20s — long enough for the marquee to traverse twice
+# mode = "slideshow"
 # transition = "dissolve"
 # transition_duration = 0.6
 #
@@ -478,3 +477,4 @@ scroll_speed_ms = 50
 # font_threshold = 80
 # font_color = [255, 220, 70]
 # scroll_speed_ms = 50
+# play_count = 34

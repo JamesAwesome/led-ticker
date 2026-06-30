@@ -1,13 +1,13 @@
 ---
 title: Sections and modes
-description: Sections group widgets, modes pick the run style — slideshow, ticker, one_at_a_time, or gif.
+description: Sections group widgets, modes pick the run style — slideshow, ticker, or one_at_a_time.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The `[[playlist.section]]` block is the fundamental unit of a led-ticker program. Each section groups one or more widgets and tells the engine how to run them. Four modes are available: `slideshow`, `ticker`, `one_at_a_time`, and `gif`.
+The `[[playlist.section]]` block is the fundamental unit of a led-ticker program. Each section groups one or more widgets and tells the engine how to run them. Three modes are available: `slideshow`, `ticker`, and `one_at_a_time`.
 
 A playlist is just an ordered list of sections. The engine runs them in sequence, firing a section-to-section transition at each boundary, and loops back to the start when the last section finishes.
 
@@ -182,10 +182,6 @@ text = "Spring Classes"`}
 When a section has a `bg_color` and the next section has a different one, transitions paint the right color throughout — the engine forwards `outgoing_bg_color` and `incoming_bg_color` to the active transition so the panel never flashes through black at the cut-over. Widget-level `bg_color` works the same way for inter-widget transitions within a section.
 
 A widget setting its own `bg_color` overrides the section default for that widget only. Use a section-level color as the base and only set widget-level `bg_color` when one widget needs a different tint.
-
-## The `mode = "gif"` shorthand
-
-`mode = "gif"` is a simpler, direct-play alternative to `mode = "slideshow"` with a `gif` widget. The fuller setup for displaying gifs is `mode = "slideshow"` with a `gif` widget in the section's `widget` list — that form exposes the full per-widget knob surface (`hold_time`, `text`, `border`, `fit`, etc.) that the direct `mode = "gif"` form doesn't reach.
 
 ## `default` vs `transition`
 

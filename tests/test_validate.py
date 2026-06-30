@@ -929,7 +929,7 @@ async def test_rule25_start_hold_on_swap_section_errors(conf):
     )
 
 
-async def test_rule25_start_hold_on_gif_section_errors(conf):
+async def test_rule25_start_hold_on_slideshow_section_errors(conf):
     cfg = """\
         [display]
         rows = 16
@@ -938,7 +938,7 @@ async def test_rule25_start_hold_on_gif_section_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "gif"
+        mode = "slideshow"
         start_hold = 0.0
 
         [[playlist.section.widget]]
@@ -1059,7 +1059,7 @@ async def test_rule26_separator_on_swap_errors(conf):
     assert any(e.rule == 26 for e in result.errors)
 
 
-async def test_rule26_separator_on_gif_errors(conf):
+async def test_rule26_separator_on_slideshow_errors(conf):
     cfg = """\
         [display]
         rows = 16
@@ -1068,7 +1068,7 @@ async def test_rule26_separator_on_gif_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "gif"
+        mode = "slideshow"
         separator = "*"
 
         [[playlist.section.widget]]
@@ -1682,111 +1682,6 @@ async def test_rule34_scroll_step_ms_on_message_widget_does_not_fire(conf):
         f"rule 34 must not fire for message widgets; "
         f"got {[(e.rule, e.location) for e in result.errors]}"
     )
-
-
-async def test_rule33_mode_gif_warns(conf):
-    """mode='gif' is the legacy dedicated-gif section mode. The validator
-    surfaces a warning so authors know to migrate to mode = 'slideshow' + gif
-    widget, which gives access to the full section feature set."""
-    cfg = """\
-        [display]
-        rows = 16
-        cols = 32
-        chain_length = 5
-        default_scale = 1
-
-        [[playlist.section]]
-        mode = "gif"
-
-        [[playlist.section.widget]]
-        type = "gif"
-        path = "x.gif"
-        """
-    result = await validate_config(conf(cfg))
-    # Warning only — the config is still valid; ticker can start.
-    assert result.valid is True
-    assert any(w.rule == 33 for w in result.warnings), (
-        f"expected rule 33 warning; got warnings={[w.rule for w in result.warnings]}"
-    )
-
-
-async def test_rule33_mode_swap_does_not_warn(conf):
-    """mode = 'slideshow' is the recommended pattern — must not trip rule 33."""
-    result = await validate_config(conf(GOOD_CONFIG))
-    assert all(w.rule != 33 for w in result.warnings)
-
-
-async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
-    """play_count = 0 in mode = "gif" silently plays 1 loop (legacy path
-    doesn't thread hold_time). Surface as a warning so the user knows
-    the semantics don't propagate from mode = 'slideshow'."""
-    cfg = """\
-        [display]
-        rows = 16
-        cols = 32
-        chain_length = 5
-        default_scale = 1
-
-        [[playlist.section]]
-        mode = "gif"
-        hold_time = 8.0
-
-        [[playlist.section.widget]]
-        type = "gif"
-        path = "x.gif"
-        play_count = 0
-        """
-    result = await validate_config(conf(cfg))
-    # Rule 33 also fires (mode='gif' legacy) — that's expected. We just
-    # need rule 36 in there too.
-    assert any(w.rule == 36 for w in result.warnings), (
-        f"expected rule 36 warning; got "
-        f"{[(w.rule, w.message) for w in result.warnings]}"
-    )
-
-
-async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
-    """In mode = 'slideshow' the semantics ARE plumbed through — no warning."""
-    cfg = """\
-        [display]
-        rows = 16
-        cols = 32
-        chain_length = 5
-        default_scale = 1
-
-        [[playlist.section]]
-        mode = "slideshow"
-        hold_time = 8.0
-
-        [[playlist.section.widget]]
-        type = "gif"
-        path = "x.gif"
-        play_count = 0
-        """
-    result = await validate_config(conf(cfg))
-    assert all(w.rule != 36 for w in result.warnings)
-
-
-async def test_rule36_gif_loops_positive_in_mode_gif_does_not_warn(conf):
-    """play_count = 5 (or any positive int) plays as a fixed count
-    regardless of mode — no warning needed."""
-    cfg = """\
-        [display]
-        rows = 16
-        cols = 32
-        chain_length = 5
-        default_scale = 1
-
-        [[playlist.section]]
-        mode = "gif"
-
-        [[playlist.section.widget]]
-        type = "gif"
-        path = "x.gif"
-        play_count = 5
-        """
-    result = await validate_config(conf(cfg))
-    assert all(w.rule != 36 for w in result.warnings)
 
 
 async def test_rule35_default_inside_section_warns(conf):
@@ -3502,11 +3397,10 @@ class TestRule54UnknownMode:
         assert "slideshow" in msg, f"error should list valid modes; got: {msg!r}"
         assert "ticker" in msg, f"error should list valid modes; got: {msg!r}"
         assert "one_at_a_time" in msg, f"error should list valid modes; got: {msg!r}"
-        assert "gif" in msg, f"error should list valid modes; got: {msg!r}"
 
     @pytest.mark.asyncio
     async def test_all_valid_modes_pass(self, conf):
-        """slideshow, ticker, one_at_a_time, gif — all accepted without a
+        """slideshow, ticker, one_at_a_time — all accepted without a
         rule-54 error (other rules may fire but not mode-unknown)."""
         base = """\
 [display]
@@ -3522,7 +3416,7 @@ mode = "{mode}"
 type = "message"
 text = "hi"
 """
-        for mode in ("slideshow", "ticker", "one_at_a_time", "gif"):
+        for mode in ("slideshow", "ticker", "one_at_a_time"):
             result = await validate_config(conf(base.format(mode=mode)))
             rule_54 = [e for e in result.errors if e.rule == 54]
             assert rule_54 == [], (

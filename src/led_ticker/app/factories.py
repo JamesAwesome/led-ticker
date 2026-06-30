@@ -973,6 +973,8 @@ def _resolve_separator_spec(
         or separator_font_size is not None
     )
     color_set = separator_color is not None
+    # Defensive: unreachable via _build_trans_obj (which only calls this when at
+    # least one separator_* field is set); here for standalone/future callers.
     if not glyph_set and not color_set:
         return base
 

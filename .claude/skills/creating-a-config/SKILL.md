@@ -43,7 +43,7 @@ between_sections = "dissolve"
 
 # Each section is an array entry:
 [[playlist.section]]
-mode = "swap"          # or "forever_scroll" or "infini_scroll"
+mode = "slideshow"     # or "ticker" or "one_at_a_time"
 hold_time = 6
 loop_count = 1
 
@@ -88,10 +88,10 @@ After all 7 answers, propose a section list. Load `references/snippets.md`; look
 
 ```
 Proposed sections:
-  Section 1 (mode=forever_scroll):  welcome banner — message widget
-  Section 2 (mode=swap):            weather — weather widget
-  Section 3 (mode=swap):            handle — two_row widget
-  Section 4 (mode=swap):            hours countdown — countdown widget
+  Section 1 (mode=ticker):      welcome banner — message widget
+  Section 2 (mode=slideshow):   weather — weather widget
+  Section 3 (mode=slideshow):   handle — two_row widget
+  Section 4 (mode=slideshow):   hours countdown — countdown widget
 ```
 
 User confirms or edits the list (add / remove / reorder).

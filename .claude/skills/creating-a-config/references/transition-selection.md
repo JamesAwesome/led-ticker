@@ -38,7 +38,7 @@ For independent control over entry and within-section transitions, use the dedic
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 entry_transition = "pokeball.forward"     # this section pops in with pokeball (requires led-ticker-pokeball)
 widget_transition = "wipe_left"          # widgets within the section wipe left between swaps
 ```
@@ -47,7 +47,7 @@ Both fields accept the same string or dict form as `transition`:
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 entry_transition = {type = "dissolve", duration = 0.8}
 widget_transition = "push_left"
 ```
@@ -66,7 +66,7 @@ Per-section override:
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_left"
 transition_color = [255, 100, 150]   # pink sweep line for this section only
 transition_duration = 0.8
@@ -86,7 +86,7 @@ For `wipe_random` with a custom color pool (per-section):
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_random"
 transition_colors = [
     [255, 0, 0],      # red

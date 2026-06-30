@@ -360,15 +360,19 @@ async def run_transition(
                 )
 
             active = incoming_canvas if incoming_canvas is not None else canvas
-            # Per-frame reset. The outgoing section is dominant before
-            # t=0.5 — paint its bg so the wine/yellow/whatever stays
-            # visible behind the outgoing widget for the first half.
-            # At t>=0.5 the incoming section's bg takes over, matching
-            # `incoming_scale`'s switch point. None on either side
-            # falls back to Clear() — that's the legacy black-flash
-            # behavior, fine for transitions between two no-bg
-            # sections but a visible stutter when either side has bg.
-            reset_bg = outgoing_bg_color if t < 0.5 else incoming_bg_color
+            # Per-frame reset. The bg cut-over MUST track `scale_switch_at`
+            # (the point the canvas re-wraps to incoming_scale and the
+            # incoming content takes over), NOT a hardcoded 0.5. While the
+            # outgoing content is dominant (t < scale_switch_at) paint the
+            # OUTGOING bg behind it; once the incoming takes over, paint the
+            # incoming bg. For a soft dissolve (scale_switch_at=0.5) this is
+            # the old midpoint behavior; for a hard-edged sweep
+            # (`_OutgoingScaleSweep`, scale_switch_at=1.0) it keeps the
+            # outgoing bg until the final frame — otherwise the incoming bg
+            # leaks through behind the still-present outgoing content for the
+            # second half of the wipe. None on either side falls back to
+            # Clear() (legacy black-flash; fine for two no-bg sections).
+            reset_bg = outgoing_bg_color if t < scale_switch_at else incoming_bg_color
             if reset_bg is not None:
                 active.Fill(*reset_bg)
             else:

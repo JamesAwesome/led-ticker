@@ -2141,6 +2141,41 @@ class TestRunTransitionOutgoingBgColor:
             "transition flashed black mid-transition"
         )
 
+    async def test_hard_edged_keeps_outgoing_bg_until_final_frame(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """Option-B bg fix: a hard-edged sweep (`scale_switch_at = 1.0`) keeps
+        the OUTGOING bg for the whole sweep and paints the incoming bg only on
+        the final frame — the cut-over tracks `scale_switch_at`, not a
+        hardcoded 0.5. Otherwise the incoming bg leaks through behind the
+        still-present outgoing content for the back half of the wipe (the
+        bigsign smoke-test report)."""
+        from led_ticker.transitions.wipe import WipeLeft
+
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.swap.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=WipeLeft(),  # scale_switch_at = 1.0
+            duration=0.5,
+            outgoing_bg_color=(42, 0, 16),  # wine
+            incoming_bg_color=(255, 230, 80),  # yellow
+        )
+
+        fills = [args for kind, args in capturing_canvas.reset_calls if kind == "Fill"]
+        assert fills, "no Fill calls"
+        # Incoming (yellow) ONLY on the final frame; outgoing (wine) every
+        # frame before it — no mid-sweep incoming-bg leak.
+        assert fills[-1] == (255, 230, 80), fills
+        assert all(f == (42, 0, 16) for f in fills[:-1]), (
+            f"incoming bg leaked before the final frame: {fills}"
+        )
+
     async def test_outgoing_accepts_graphics_color_object(
         self, capturing_canvas, mock_frame, no_sleep
     ):

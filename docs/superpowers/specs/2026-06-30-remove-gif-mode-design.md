@@ -36,6 +36,8 @@ Message (exact intent; final wording finalized in the plan):
 
 The `suggested_fix` field: `Change mode = "gif" to mode = "slideshow"; move any repeat count to play_count on the gif widget.`
 
+**Important — the message must be self-contained.** `led-ticker validate` surfaces a `MigrationError` via `message = str(e)` only; it does **not** surface the `suggested_fix` field (`validate_config` at `validate.py:1921` catches the load error and hardcodes a generic `fix=` at `validate.py:1929`, same as the v3.0.0 renames). So the `play_count` loop note and the docs link MUST live in the `MigrationError` **message**, not only in `suggested_fix` — otherwise a user running `validate` never sees them.
+
 The docs link targets **`widgets/gif`** (not `sections-and-modes`) — that page shows the concrete slideshow + gif + `play_count` setup, which is exactly the fix the reader needs.
 
 The branch must run in the same place the v3.0.0 `_MODE_RENAMES` check runs (`config.py` section parsing, ~line 665), and fire **before** `SectionConfig(mode=…)` is constructed, so no downstream code ever sees `mode == "gif"`.
@@ -44,8 +46,10 @@ The branch must run in the same place the v3.0.0 `_MODE_RENAMES` check runs (`co
 
 - `src/led_ticker/ticker.py`: delete `run_gif` (~lines 270–317) and `_run_gif` (~lines 1083–1132).
 - `src/led_ticker/app/factories.py`: remove `"gif": "run_gif"` from `RUN_MODES`.
-- `src/led_ticker/app/run.py`: update the `start_pos`-guard comment (~line 1005–1007) that names `run_gif` so it no longer references a deleted method.
-- `CLAUDE.md`: scrub any `run_gif` / `mode = "gif"` mention (the mode list already omits gif; this is a grep-and-clean pass, e.g. the GIF-widget invariant section if it references the legacy path).
+- `src/led_ticker/app/run.py`: update the `start_pos`-guard comment (~line 1006) that names `run_gif` so it no longer references a deleted method.
+- `src/led_ticker/widgets/gif.py` (lines 25–26): remove the module-docstring "Two run modes" block that names `mode = "gif"` as a "legacy panel-takeover orchestrator" — the only remaining `mode = "gif"` reference in a source file. The widget just plays under slideshow now; the docstring should describe that without the legacy fork.
+- `src/led_ticker/config.py` (line 84): trim `"gif"` from the `SectionConfig.mode` inline comment → `# "slideshow", "ticker", "one_at_a_time"`.
+- `CLAUDE.md`: verify clean (grep confirms **no** `run_gif` / `mode = "gif"` references exist today — expected to be a no-op; included only as a guard against drift).
 
 ### 3. Validator cleanup (`src/led_ticker/validate.py`)
 
@@ -62,7 +66,7 @@ Migrate every `mode = "gif"` section to `mode = "slideshow"`:
 - `config/config.gif_text.example.toml` (5 sections)
 - `config/config.presentation_test.example.toml` (3 sections)
 
-Per section: change the mode, and where the section relied on repeat counts, set `play_count` on the gif widget to preserve intent. Drop any field that was a gif-mode-only no-op. Re-run `led-ticker validate` on each migrated file — all must pass clean (no warnings).
+Per section: change the mode, and where the section relied on repeat counts, set `play_count` on the gif widget to preserve intent. Drop any field that was a gif-mode-only no-op. Also update the **commented-out** `# mode = "gif"` lines in `config.gif_test.example.toml` (lines ~445, ~464) so they don't reintroduce a removed mode if a user uncomments them. Re-run `led-ticker validate` on each migrated file — all must pass clean (no warnings).
 
 Constraint: `config.presentation_test.example.toml` carries a `# requires-plugins:` header from the merged plugin-flags work. The mode change does not affect `required_plugins` derivation (mode is not a plugin reference), so the header stays correct and its tripwire keeps passing — verify, don't edit the header.
 
@@ -88,7 +92,7 @@ Per **DOCS-STYLE rule 17** (no legacy/deprecation/release-history framing), the 
 - `tests/test_validate.py` — delete the Rule 33 test (`test_rule33_mode_gif_warns`) and the Rule 36 tests (`test_rule36_gif_loops_zero_in_mode_gif_warns`, `test_rule36_gif_loops_positive_in_mode_gif_does_not_warn`); remove `"gif"` from the parametrized `test_all_valid_modes_pass` and from the rule-54 valid-modes-list assertion; remove or repoint the Rule 25/26 gif-section tests (`test_rule25_start_hold_on_gif_section_errors`, `test_rule26_separator_on_gif_errors`) to a still-valid mode, since `mode = "gif"` now errors at load before validation.
 
 **Add (tripwire):**
-- A test asserting `mode = "gif"` raises `MigrationError`, and that the message names `slideshow`, `play_count`, and the docs link — placed alongside the existing v3.0.0 rename tripwires (the `#320` legacy-mode tripwire location) so the "old mode names error out" guarantee covers gif too.
+- A test asserting `mode = "gif"` raises `MigrationError`, and that the message names `slideshow`, `play_count`, and the docs link. **Home: `tests/test_config.py::TestModeMigration`** (the existing home of the v3.0.0 rename tripwires — follow the `test_old_mode_name_raises_migration_error` pattern at ~line 1135: call `load_config(...)`, assert `MigrationError`, check the message). Not `test_validate.py`.
 
 **Gate:** full `make test` green; `uv run --extra dev ruff check src/ tests/` clean; `led-ticker validate` clean on all 3 migrated example configs.
 
@@ -101,6 +105,6 @@ Per **DOCS-STYLE rule 17** (no legacy/deprecation/release-history framing), the 
 ## Testing & verification summary
 
 1. `mode = "gif"` → `MigrationError` (new tripwire).
-2. No `run_gif` / `_run_gif` / `RUN_MODES["gif"]` / `VALID_MODES` gif references remain (grep-clean).
+2. No `run_gif` / `_run_gif` / `RUN_MODES["gif"]` / `VALID_MODES` gif references remain in `src/` — including the `gif.py` module-docstring block and the `config.py:84` inline comment (grep `mode = "gif"` and `run_gif` across `src/` → only the new `config.py` MigrationError branch may match).
 3. 3 migrated example configs validate clean; `presentation_test` plugin-flags header unchanged and passing.
 4. Full suite + ruff + docs build clean.

@@ -2256,8 +2256,9 @@ class TestImageTokenResolution:
 
         _set_registry()  # empty registry
         white = Color(255, 255, 255)
-        w = self._make_still(tmp_path, text="HELLO WORLD", text_align="left",
-                             font_color=white)
+        w = self._make_still(
+            tmp_path, text="HELLO WORLD", text_align="left", font_color=white
+        )
         # TokenizedField is built but has_tokens should be False.
         assert w._token_text is not None
         assert not w._token_text.has_tokens
@@ -2275,8 +2276,9 @@ class TestImageTokenResolution:
         assert nonzero_1 > 0
 
         # Fresh widget + fresh canvas — must produce identical pixel count.
-        w2 = self._make_still(tmp_path, text="HELLO WORLD", text_align="left",
-                              font_color=white)
+        w2 = self._make_still(
+            tmp_path, text="HELLO WORLD", text_align="left", font_color=white
+        )
         c2 = _stub_canvas()
         w2._draw_text(c2, text_x_left, baseline_y, w2.font_color)
         assert c1.count_nonzero() == c2.count_nonzero()
@@ -2291,8 +2293,9 @@ class TestImageTokenResolution:
         _set_registry(StaticSource(id="brand.tag", value="OPEN"))
         white = Color(255, 255, 255)
 
-        w = self._make_still(tmp_path, text=":brand.tag:", text_align="left",
-                             font_color=white)
+        w = self._make_still(
+            tmp_path, text=":brand.tag:", text_align="left", font_color=white
+        )
         assert w._token_text.has_tokens
 
         c_tok = _stub_canvas()
@@ -2305,8 +2308,9 @@ class TestImageTokenResolution:
 
         # Control: literal message with the substituted string.
         _set_registry()  # clear registry so control gets no token sub
-        control = self._make_still(tmp_path, text="OPEN", text_align="left",
-                                   font_color=white)
+        control = self._make_still(
+            tmp_path, text="OPEN", text_align="left", font_color=white
+        )
         c_lit = _stub_canvas()
         control._draw_text(c_lit, 2, baseline_y, control.font_color)
         assert nonzero_tok == c_lit.count_nonzero(), (
@@ -2553,9 +2557,7 @@ class TestImageTokenScrollFreeze:
 
         # The pre-loop call should be locked=False (pre-scroll resolve).
         # The per-tick loop calls should be locked=True (frozen during scroll).
-        assert locked_values[0] is False, (
-            "first resolve (pre-loop) should be unlocked"
-        )
+        assert locked_values[0] is False, "first resolve (pre-loop) should be unlocked"
         assert all(v is True for v in locked_values[1:]), (
             f"per-tick resolves during scroll must be locked=True; "
             f"got locked_values={locked_values}"
@@ -2659,6 +2661,7 @@ class TestImageTokenTypewriterFreeze:
 
             def color_for(self, frame, char_index, total_chars):
                 from rgbmatrix.graphics import Color
+
                 self.calls.append((frame, char_index, total_chars))
                 return Color(255, 255, 255)
 
@@ -2738,6 +2741,7 @@ class TestImageTokenTypewriterFreeze:
 
             def color_for(self, frame, char_index, total_chars):
                 from rgbmatrix.graphics import Color
+
                 self.calls.append((frame, char_index, total_chars))
                 return Color(255, 255, 255)
 
@@ -2759,8 +2763,7 @@ class TestImageTokenTypewriterFreeze:
         assert provider.calls, "per-char provider should have been called"
         totals = {c[2] for c in provider.calls}
         assert totals == {4}, (
-            f"total_chars should be 4 (len of substituted 'WXYZ'); "
-            f"got {totals!r}"
+            f"total_chars should be 4 (len of substituted 'WXYZ'); got {totals!r}"
         )
 
     async def test_play_loop_typewriter_freeze_not_bypassed(
@@ -2827,6 +2830,7 @@ class TestImageTokenTypewriterFreeze:
             )
 
         from led_ticker.widgets._image_base import _BaseImageWidget
+
         _BaseImageWidget._render_tick = spy_render_tick  # type: ignore[method-assign]
         real = _StubCanvas(width=160, height=16)
         swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
@@ -2961,8 +2965,8 @@ class TestHeldImageTokenFastPath:
             tmp_path,
             top_text=":score.val:",
             bottom_text="pts",
-            font=FONT_SMALL,   # 5×8, fits 8-row band in 50/50 split
-            hold_time=0.2,     # 4 ticks at 50 ms
+            font=FONT_SMALL,  # 5×8, fits 8-row band in 50/50 split
+            hold_time=0.2,  # 4 ticks at 50 ms
         )
         widget._logical_scale = 1
 

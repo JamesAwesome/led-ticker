@@ -1209,9 +1209,7 @@ class TestInlineValueTokens:
         from led_ticker.sources import StaticSource
 
         self._registry(StaticSource(id="brand.tag", value="ACME"))
-        w = TwoRowMessage(
-            top_text=":brand.tag:", bottom_text="hello", font=FONT_SMALL
-        )
+        w = TwoRowMessage(top_text=":brand.tag:", bottom_text="hello", font=FONT_SMALL)
         c_tok = self._stub()
         w.draw(c_tok)
 
@@ -1230,9 +1228,7 @@ class TestInlineValueTokens:
         from led_ticker.sources import StaticSource
 
         self._registry(StaticSource(id="promo.copy", value="SALE"))
-        w = TwoRowMessage(
-            top_text="brand", bottom_text=":promo.copy:", font=FONT_SMALL
-        )
+        w = TwoRowMessage(top_text="brand", bottom_text=":promo.copy:", font=FONT_SMALL)
         c_tok = self._stub()
         w.draw(c_tok)
 
@@ -1297,9 +1293,7 @@ class TestInlineValueTokens:
         top_src = StaticSource(id="ts", value="AAA")
         bot_src = StaticSource(id="bs", value="BBB")
         self._registry(top_src, bot_src)
-        w = TwoRowMessage(
-            top_text=":ts:", bottom_text=":bs:", font=FONT_SMALL
-        )
+        w = TwoRowMessage(top_text=":ts:", bottom_text=":bs:", font=FONT_SMALL)
         w.draw(self._stub())
         assert w._resolved_top == "AAA"
         assert w._resolved_bottom == "BBB"

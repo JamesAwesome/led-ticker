@@ -620,9 +620,7 @@ def load_config(path: Path) -> AppConfig:
     sources: list[SourceConfig] = []
     for i, source_raw in enumerate(raw.get("source", [])):
         if "id" not in source_raw or "type" not in source_raw:
-            raise ValueError(
-                f"[[source]][{i}] requires both 'id' and 'type'."
-            )
+            raise ValueError(f"[[source]][{i}] requires both 'id' and 'type'.")
         sources.append(
             SourceConfig(id=source_raw["id"], type=source_raw["type"], raw=source_raw)
         )

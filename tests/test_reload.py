@@ -274,13 +274,9 @@ async def test_apply_reload_reports_restart_required(tmp_path):
 # Task 8: source-registry hot-reload tests
 # ---------------------------------------------------------------------------
 
-_DISPLAY_WITH_SOURCE = (
-    _DISPLAY
-    + "[[source]]\nid = \"clock.now\"\ntype = \"clock\"\n\n"
-)
+_DISPLAY_WITH_SOURCE = _DISPLAY + '[[source]]\nid = "clock.now"\ntype = "clock"\n\n'
 _DISPLAY_WITH_SOURCE_B = (
-    _DISPLAY
-    + "[[source]]\nid = \"brand.tag\"\ntype = \"static\"\nvalue = \"hello\"\n\n"
+    _DISPLAY + '[[source]]\nid = "brand.tag"\ntype = "static"\nvalue = "hello"\n\n'
 )
 _SECTION = '[[playlist.section]]\nmode = "slideshow"\n'
 

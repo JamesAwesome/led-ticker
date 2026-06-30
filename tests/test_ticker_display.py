@@ -278,9 +278,7 @@ class TestSwapAndScrollTokenFreeze:
         set_data_registry(reg)
         return reg
 
-    async def test_scroll_freeze_value_change_does_not_change_stop_pos(
-        self, no_sleep
-    ):
+    async def test_scroll_freeze_value_change_does_not_change_stop_pos(self, no_sleep):
         """C2: a source value bumping mid-scroll does not change the
         in-flight `stop_pos`. The scroll completes against the entry width;
         the wider new value applies on the next pass."""

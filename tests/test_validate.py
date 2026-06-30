@@ -3771,9 +3771,7 @@ class TestRule56Sources:
 
         Literal fallback is intentional; we do NOT warn on unknown tokens.
         """
-        cfg = _SOURCE_BASE.replace(
-            'text = "hello"', 'text = ":undeclared_token_xyz:"'
-        )
+        cfg = _SOURCE_BASE.replace('text = "hello"', 'text = ":undeclared_token_xyz:"')
         result = await validate_config(conf(cfg))
         rule_56 = [e for e in result.errors if e.rule == 56]
         assert rule_56 == [], (

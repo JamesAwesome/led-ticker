@@ -92,6 +92,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv run --extra dev ruff check src/ tests/
+      - run: uv run --extra dev ruff format --check src/ tests/
 
   typecheck:
     needs: changes

@@ -231,7 +231,7 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
                     ),
                     fix=(
                         f"Rename the source to a non-emoji id "
-                        f"(e.g. id = \"my_{src.id}\")."
+                        f'(e.g. id = "my_{src.id}").'
                     ),
                 )
             )
@@ -285,7 +285,7 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
             if tz is not None:
                 try:
                     ZoneInfo(tz)
-                except (ZoneInfoNotFoundError, ValueError, KeyError):
+                except ZoneInfoNotFoundError, ValueError, KeyError:
                     issues.append(
                         ValidationIssue(
                             rule=56,
@@ -316,7 +316,7 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
                         ),
                         fix=(
                             f'Add `value = "..."` to the [[source]] block with '
-                            f'id = {src.id!r}.'
+                            f"id = {src.id!r}."
                         ),
                     )
                 )

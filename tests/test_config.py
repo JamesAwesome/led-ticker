@@ -100,7 +100,7 @@ def test_load_config_title(config):
 
 class TestSourceBlockParsing:
     def test_source_block_parses_into_appconfig(self, tmp_path):
-        toml = '''\
+        toml = """\
 [[source]]
 id = "clock.now"
 type = "clock"
@@ -108,7 +108,7 @@ format = "%H:%M"
 
 [[playlist.section]]
 mode = "slideshow"
-'''
+"""
         cfg_path = tmp_path / "c.toml"
         cfg_path.write_text(toml)
         cfg = load_config(cfg_path)
@@ -124,7 +124,7 @@ mode = "slideshow"
         assert cfg.sources == []
 
     def test_multiple_source_blocks(self, tmp_path):
-        toml = '''\
+        toml = """\
 [[source]]
 id = "clock.now"
 type = "clock"
@@ -137,7 +137,7 @@ value = "Open 9-5"
 
 [[playlist.section]]
 mode = "slideshow"
-'''
+"""
         cfg_path = tmp_path / "c.toml"
         cfg_path.write_text(toml)
         cfg = load_config(cfg_path)
@@ -147,26 +147,26 @@ mode = "slideshow"
         assert cfg.sources[1].raw["value"] == "Open 9-5"
 
     def test_source_block_missing_id_raises(self, tmp_path):
-        toml = '''\
+        toml = """\
 [[source]]
 type = "clock"
 
 [[playlist.section]]
 mode = "slideshow"
-'''
+"""
         cfg_path = tmp_path / "c.toml"
         cfg_path.write_text(toml)
         with pytest.raises(ValueError, match="id"):
             load_config(cfg_path)
 
     def test_source_block_missing_type_raises(self, tmp_path):
-        toml = '''\
+        toml = """\
 [[source]]
 id = "clock.now"
 
 [[playlist.section]]
 mode = "slideshow"
-'''
+"""
         cfg_path = tmp_path / "c.toml"
         cfg_path.write_text(toml)
         with pytest.raises(ValueError, match="type"):

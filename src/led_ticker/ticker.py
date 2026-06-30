@@ -11,7 +11,7 @@ from typing import Any
 import attrs
 
 from led_ticker import status_board
-from led_ticker._types import Canvas, ColorTuple
+from led_ticker._types import Canvas
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
@@ -19,7 +19,10 @@ from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
 from led_ticker.separator import (
     _CIRCLE_LOGICAL_PAD,
     DEFAULT_CIRCLE_SPEC,
+    DEFAULT_DOT_SPEC,
+    SCROLL_GAP,
     render_separator,
+    scroll_separator_width,
 )
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
@@ -1207,22 +1210,7 @@ async def _build_then_enqueue(
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
 
 
-BULLET_WIDTH: int = 2  # 2px wide dot
-BULLET_COLOR: ColorTuple = (255, 255, 255)
-SCROLL_GAP: int = 6  # px of black on each side of bullet
 ENGINE_TICK_MS: int = 50  # 20 fps for held-text frame animation
-
-
-def _draw_bullet(canvas: Canvas, x: int, color: ColorTuple = BULLET_COLOR) -> None:
-    """Draw a 2x2 pixel bullet dot centered vertically on the display."""
-    h = getattr(canvas, "height", 16)
-    y_center = h // 2
-    for dy in range(-1, 1):
-        for dx in range(BULLET_WIDTH):
-            px = x + dx
-            py = y_center + dy
-            if 0 <= px < canvas.width and 0 <= py < h:
-                canvas.SetPixel(px, py, *color)
 
 
 def _draw_scroll_frame(
@@ -1243,12 +1231,7 @@ def _draw_scroll_frame(
     if 0 <= clear_start < w:
         canvas.SubFill(clear_start, 0, w - clear_start, h, 0, 0, 0)
 
-    _draw_bullet(canvas, bullet_x)
+    render_separator(canvas, bullet_x, 0, DEFAULT_DOT_SPEC)
 
     if incoming_pos < w:
         incoming.draw(canvas, cursor_pos=incoming_pos)
-
-
-def scroll_separator_width(gap: int = SCROLL_GAP) -> int:
-    """Total pixel width of the scroll separator: gap + bullet + gap."""
-    return gap + BULLET_WIDTH + gap

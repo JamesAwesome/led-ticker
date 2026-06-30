@@ -42,16 +42,6 @@ def test_render_dot_paints_2x2_white_and_returns_width():
         assert c.args[2:5] == (255, 255, 255)
 
 
-def test_render_dot_parity_with_ticker_draw_bullet():
-    """render_separator dot == the existing _draw_bullet (still present)."""
-    from led_ticker.ticker import _draw_bullet
-
-    a, b = _plain(), _plain()
-    _draw_bullet(a, x=12)
-    render_separator(b, x=12, frame=0, spec=DEFAULT_DOT_SPEC)
-    assert a.SetPixel.call_args_list == b.SetPixel.call_args_list
-
-
 def test_render_circle_uses_provider_color_via_frame():
     real = MagicMock()
     real.width, real.height = 256, 64

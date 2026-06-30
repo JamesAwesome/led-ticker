@@ -2459,3 +2459,142 @@ async def test_run_transition_allocates_guard_once(swapping_frame, monkeypatch):
         breaker=RenderBreaker(),
     )
     assert calls["n"] == 2  # exactly one guard per widget, regardless of frame_count
+
+
+# ---------------------------------------------------------------------------
+# Banded canvas full-panel coverage (the cross-scale wipe/push/split fix)
+# ---------------------------------------------------------------------------
+# These tests assert that hard-edged transitions (wipe / push / split) touch
+# the FULL physical panel — including the letterbox bands above and below the
+# content zone — when called with a banded ScaledCanvas wrapper (e.g.
+# scale=2, content_height=16 on a 256×64 panel).
+#
+# Setup:
+#   - real:  HeadlessCanvas 256×64
+#   - wrapper: ScaledCanvas(real, scale=2, content_height=16)
+#   - y_offset_real = (64 - 32) // 2 = 16
+#   - Top band:     rows  0..15  (MUST be touched after fix)
+#   - Content band: rows 16..47
+#   - Bottom band:  rows 48..63
+
+
+class TestBandedCanvasFullPanel:
+    """Transitions must paint or black-out the FULL physical panel on banded
+    ScaledCanvas wrappers, not just the centered content band."""
+
+    @pytest.fixture
+    def real_canvas(self):
+        """256×64 real (HeadlessCanvas) — bigsign physical dimensions."""
+        from led_ticker.backends.headless import HeadlessCanvas
+
+        return HeadlessCanvas(width=256, height=64)
+
+    @pytest.fixture
+    def banded_wrapper(self, real_canvas):
+        """scale=2, content_height=16 → y_offset_real=16, 16px top/bottom bands."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        return ScaledCanvas(real_canvas, scale=2, content_height=16)
+
+    @pytest.fixture
+    def make_widget(self):
+        def _factory(content_width=40):
+            widget = mock.Mock()
+            widget.hold_time = 0.0
+            widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (
+                c,
+                cursor_pos + content_width,
+            )
+            return widget
+
+        return _factory
+
+    def test_wipe_right_blackout_covers_top_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """WipeRight at mid-sweep blacks out the left region at FULL physical
+        height, including the top letterbox band (rows 0..15). Before the fix
+        the SubFill only reached rows 16..47 (the content band)."""
+        from led_ticker.transitions.wipe import WipeRight
+
+        # Start with a sentinel colour in the top band so we can verify it
+        # was overwritten by the blackout.
+        for x in range(256):
+            for y in range(16):  # top band
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        wipe = WipeRight()
+        # t=0.5: sweeps across the middle — left half should be blacked out
+        wipe.frame_at(0.5, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The left half of the top band must now be black (blacked out by SubFill)
+        blackout_cols = 256 // 2  # boundary = int(0.5 * 256) = 128
+        top_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(blackout_cols)
+            for y in range(16)  # top band rows
+        )
+        assert top_band_cleared, (
+            "WipeRight blackout did not reach the top physical band "
+            "(rows 0..15); fix: use real.SubFill with rh, not canvas.height"
+        )
+
+    def test_push_left_blackout_covers_top_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """PushLeft at mid-transition blacks out the incoming (right) zone at
+        FULL physical height, including rows 0..15 (the top letterbox band)."""
+        from led_ticker.transitions.push import PushLeft
+
+        # Sentinel colour in the top band
+        for x in range(256):
+            for y in range(16):
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        push = PushLeft()
+        # t=0.5: scroll_offset = int(0.5*(128+10))=69, clear_start=max(0,128+10-69)=69
+        # We just need the blackout to have touched the top band in the cleared region
+        push.frame_at(0.5, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The cleared (right-side) region of the top band should be black
+        # clear_start in logical = 69, physical = 69 * 2 = 138
+        clear_start_phys = max(0, (128 + 10 - int(0.5 * (128 + 10))) * 2)
+        if clear_start_phys < 256:
+            top_band_cleared = all(
+                real_canvas.get_pixel(x, y) == (0, 0, 0)
+                for x in range(clear_start_phys, 256)
+                for y in range(16)
+            )
+            assert top_band_cleared, (
+                "PushLeft blackout did not reach the top physical band "
+                "(rows 0..15); fix: use real.SubFill with rh, not h"
+            )
+
+    def test_split_horizontal_blackout_covers_top_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """SplitHorizontal black center-band expands at FULL physical height,
+        including the top letterbox band (rows 0..15)."""
+        from led_ticker.transitions.effects import SplitHorizontal
+
+        # Sentinel colour in the top band
+        for x in range(256):
+            for y in range(16):
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        split = SplitHorizontal()
+        # t=0.9: half=128, reveal=int(0.9*128)=115; left=13, right=243
+        split.frame_at(0.9, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The center black band in the top-band rows should be black
+        # band_x_phys = max(0, 13) * 2 = 26  (left edge * scale)
+        # band_right_phys = min(243, 128) * 2 = 243 * 2 = 486 → clamped to 256
+        # → check a pixel near the center top row
+        center_x = 128  # physical middle column
+        top_row = 8  # inside top band
+        pixel = real_canvas.get_pixel(center_x, top_row)
+        assert pixel == (0, 0, 0), (
+            f"SplitHorizontal center blackout did not reach top-band row {top_row} "
+            f"at x={center_x}; got {pixel}. "
+            "Fix: use real.SubFill with rh, not canvas.height."
+        )

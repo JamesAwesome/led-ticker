@@ -4,7 +4,7 @@ import functools
 from typing import Any
 
 from led_ticker._types import Canvas, ColorTuple
-from led_ticker.transitions import _OutgoingScaleSweep, register_transition
+from led_ticker.transitions import _OutgoingScaleSweep, _phys, register_transition
 
 # ColorFlash phase thresholds
 _FLASH_ONSET: float = 1 / 3
@@ -131,10 +131,10 @@ class SplitHorizontal(_OutgoingScaleSweep):
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, _yo = _phys(canvas)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
-        half = w // 2
+        # Sweep geometry in physical columns so the band spans the full panel.
+        half = rw // 2
         reveal = int(t * half)
 
         if t >= 1.0:
@@ -145,17 +145,17 @@ class SplitHorizontal(_OutgoingScaleSweep):
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
             left = half - reveal
             right = half + reveal
-            # Black out center band
+            # Black out center band at full physical height.
             band_x = max(0, left)
-            band_w = min(right, w) - band_x
+            band_w = min(right, rw) - band_x
             if band_w > 0:
-                canvas.SubFill(band_x, 0, band_w, h, 0, 0, 0)
-            # Magenta edge lines
-            for y in range(h):
-                if 0 <= left < w:
-                    canvas.SetPixel(left, y, 255, 0, 255)
-                if 0 <= right - 1 < w:
-                    canvas.SetPixel(right - 1, y, 255, 0, 255)
+                real.SubFill(band_x, 0, band_w, rh, 0, 0, 0)
+            # Magenta edge lines spanning full physical height.
+            for y in range(rh):
+                if 0 <= left < rw:
+                    real.SetPixel(left, y, 255, 0, 255)
+                if 0 <= right - 1 < rw:
+                    real.SetPixel(right - 1, y, 255, 0, 255)
         return canvas
 
 

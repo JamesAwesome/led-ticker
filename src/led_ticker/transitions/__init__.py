@@ -93,6 +93,30 @@ class _OutgoingScaleSweep:
     scale_switch_at: float = 1.0
 
 
+def _phys(canvas: Any) -> tuple[Any, int, int, int, int]:
+    """Return (real, rw, rh, scale, y_offset_real) for physical-resolution painting.
+
+    Unwraps any ScaledCanvas wrapper and extracts the physical panel
+    dimensions, scale factor, and vertical content offset. Used by
+    hard-edged transitions (wipe, push, split) to paint their sweep bar
+    and blackout SubFill at the full physical panel resolution rather
+    than the logical content band.
+
+    At scale=1 (smallsign or a plain canvas) the caller gets the same
+    object back with the same width/height it already had — no behaviour
+    change. On banded wrappers (scale=2 on a 64-row bigsign, giving a
+    centred 32-row content band), the caller gets the 64-row real canvas
+    so it can fill the top/bottom letterbox bands that the wrapper's own
+    SubFill/SetPixel never touch.
+    """
+    from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
+
+    if isinstance(canvas, ScaledCanvas):
+        real = unwrap_to_real(canvas)
+        return real, real.width, real.height, canvas.scale, canvas.y_offset_real
+    return canvas, canvas.width, canvas.height, 1, 0
+
+
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 # name -> (message, suggested_fix) for a transition removed from core.

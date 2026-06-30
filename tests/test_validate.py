@@ -3462,3 +3462,70 @@ async def test_rule50_transition_fps_valid_no_warning(conf):
 async def test_rule50_transition_fps_absent_no_warning(conf):
     result = await validate_config(conf(GOOD_CONFIG))
     assert all(w.rule != 50 for w in result.warnings)
+
+
+class TestRule54UnknownMode:
+    """Rule 54: an unrecognised mode value (e.g. mode = "wobble") surfaces as a
+    validate-time ERROR naming the unknown mode and the valid set.
+
+    Old names (swap / forever_scroll / infini_scroll) raise MigrationError at
+    config-LOAD before validate's rules run, so this rule only fires for values
+    that are neither valid nor retired — pure unknowns."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_mode_is_error(self, conf):
+        """mode = "wobble" → rule-54 error mentioning the unknown value and
+        the complete valid set."""
+        cfg = """\
+            [display]
+            rows = 16
+            cols = 32
+            chain_length = 5
+            default_scale = 1
+
+            [[playlist.section]]
+            mode = "wobble"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi"
+            """
+        result = await validate_config(conf(cfg))
+        assert not result.valid, "unknown mode should produce an error"
+        rule_54 = [e for e in result.errors if e.rule == 54]
+        assert rule_54, (
+            "expected rule-54 error; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        msg = rule_54[0].message
+        assert "wobble" in msg, f"error should name the unknown mode; got: {msg!r}"
+        assert "slideshow" in msg, f"error should list valid modes; got: {msg!r}"
+        assert "ticker" in msg, f"error should list valid modes; got: {msg!r}"
+        assert "one_at_a_time" in msg, f"error should list valid modes; got: {msg!r}"
+        assert "gif" in msg, f"error should list valid modes; got: {msg!r}"
+
+    @pytest.mark.asyncio
+    async def test_all_valid_modes_pass(self, conf):
+        """slideshow, ticker, one_at_a_time, gif — all accepted without a
+        rule-54 error (other rules may fire but not mode-unknown)."""
+        base = """\
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+
+[[playlist.section]]
+mode = "{mode}"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+"""
+        for mode in ("slideshow", "ticker", "one_at_a_time", "gif"):
+            result = await validate_config(conf(base.format(mode=mode)))
+            rule_54 = [e for e in result.errors if e.rule == 54]
+            assert rule_54 == [], (
+                f"rule 54 must not fire for valid mode={mode!r}; "
+                f"got errors={[(e.rule, e.message) for e in result.errors]}"
+            )

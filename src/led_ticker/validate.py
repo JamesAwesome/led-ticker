@@ -166,6 +166,29 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     ph = _panel_h_real(config.display)
     for i, section in enumerate(config.sections):
+        # Rule 54: unknown mode value.
+        # Old names (swap / forever_scroll / infini_scroll) raise MigrationError
+        # at config-load before validate rules run, so this rule only fires for
+        # values that are neither valid nor retired — pure unknowns like "wobble".
+        if section.mode not in VALID_MODES:
+            issues.append(
+                ValidationIssue(
+                    rule=54,
+                    location=f"section[{i}].mode",
+                    severity="error",
+                    message=(
+                        f"section[{i}].mode: unknown mode {section.mode!r}"
+                        f" — valid modes: " + ", ".join(sorted(VALID_MODES))
+                    ),
+                    fix=(
+                        "Set mode to one of: "
+                        + ", ".join(sorted(VALID_MODES))
+                        + ". Old names (swap, forever_scroll, infini_scroll) have"
+                        " been renamed — check the migration guide."
+                    ),
+                )
+            )
+
         # Rule 1: content_height × scale ceiling.
         # content_height × scale > panel_h_real causes the ScaledCanvas
         # wrapper's y_offset_real to go negative, silently clipping top and

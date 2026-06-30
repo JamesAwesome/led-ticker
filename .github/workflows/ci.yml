@@ -164,8 +164,12 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0   # tags needed so scripts/compute-version.sh resolves a real version
       - name: Build Docker image
-        run: docker build --no-cache -t led-ticker-ci-test .
+        run: |
+          docker build --no-cache -t led-ticker-ci-test \
+            --build-arg SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$(sh scripts/compute-version.sh)" .
       - name: Clean up test image
         if: always()
         run: docker rmi led-ticker-ci-test || true

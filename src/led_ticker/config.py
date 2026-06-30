@@ -80,6 +80,11 @@ class TransitionConfig:
     color: tuple[int, int, int] | None = None
     colors: list[tuple[int, int, int]] | None = None
     transition_fps: float | None = None  # None = use run_transition default (20 fps)
+    # Per-transition separator color (the scroll transition's dot). Same shapes
+    # as widget `font_color`: [r,g,b], "rainbow"/"color_cycle"/"shimmer", or
+    # {style=...}. Honored ONLY by type="scroll"; the validator rejects it on
+    # other transition types. Raw/uncoerced here; _build_trans_obj coerces it.
+    separator_color: list[int] | str | dict[str, Any] | None = None
     # Non-built-in keys from a plugin transition's TOML table (e.g. {type=
     # "pokeball.forward", show_pikachu=false} -> extra={"show_pikachu": False}).
     # Passed to the plugin transition's constructor; empty for built-in transitions.
@@ -386,6 +391,7 @@ _BUILTIN_TRANSITION_KEYS: frozenset[str] = frozenset(
         "transition_color",
         "transition_colors",
         "transition_fps",
+        "separator_color",
     }
 )
 
@@ -542,6 +548,7 @@ def _parse_transition(
         color=color,
         colors=colors,
         transition_fps=raw.get("transition_fps", default.transition_fps),
+        separator_color=raw.get("separator_color"),
         extra=extra,
     )
 

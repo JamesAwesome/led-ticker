@@ -98,6 +98,43 @@ def test_render_circle_color_applied_uniformly():
         assert (r, g, b) == (225, 48, 108)
 
 
+def test_separator_width_glyph_uses_font_advance():
+    from led_ticker.drawing import get_text_width
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.separator import SeparatorSpec, separator_width
+
+    spec = SeparatorSpec(kind="glyph", color=RGB_WHITE, glyph="-", font=FONT_DEFAULT)
+    assert separator_width(spec) == get_text_width(FONT_DEFAULT, "-", padding=0)
+
+
+def test_render_glyph_paints_on_plain_canvas_and_returns_width():
+    from led_ticker.drawing import get_text_width
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.separator import SeparatorSpec, render_separator
+
+    canvas = _plain()
+    spec = SeparatorSpec(kind="glyph", color=RGB_WHITE, glyph="-", font=FONT_DEFAULT)
+    width = render_separator(canvas, x=20, frame=0, spec=spec)
+    assert canvas.SetPixel.called  # BDF rasterizer painted pixels
+    assert width == get_text_width(FONT_DEFAULT, "-", padding=0, canvas=canvas)
+
+
+def test_render_glyph_normalizes_tuple_color_to_graphics_color():
+    """A provider that yields a tuple must be wrapped to a graphics.Color
+    (draw_text reads .red/.green/.blue)."""
+    from unittest.mock import patch
+
+    from led_ticker.fonts import FONT_DEFAULT
+    from led_ticker.separator import SeparatorSpec, render_separator
+
+    canvas = _plain()
+    spec = SeparatorSpec(kind="glyph", color=(10, 20, 30), glyph="-", font=FONT_DEFAULT)
+    with patch("led_ticker.text_render.draw_text", return_value=5) as mock_dt:
+        render_separator(canvas, x=0, frame=0, spec=spec)
+    color_arg = mock_dt.call_args.args[4]  # draw_text(canvas, font, x, y, color, text)
+    assert (color_arg.red, color_arg.green, color_arg.blue) == (10, 20, 30)
+
+
 def test_no_inline_hardcoded_dot_remains():
     """The scroll dot goes through render_separator — the old dot symbols
     are fully gone (Phase 1 unification). (A blanket '255,255,255' scan is

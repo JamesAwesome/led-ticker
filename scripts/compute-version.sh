@@ -3,7 +3,7 @@
 #
 # Single source of truth for the version the build entry points (Makefile
 # build-docker/rebuild, scripts/setup.sh, CI docker-build) pass to Docker as
-# SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE. No uv, no Python — git only.
+# SETUPTOOLS_SCM_PRETEND_VERSION. No uv, no Python — git only.
 # The image has no .git, so the host must compute this; an empty/0.0.0 core
 # blocks every plugin install (plugins require led-ticker-core>=2.x).
 #

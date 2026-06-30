@@ -169,7 +169,7 @@ jobs:
       - name: Build Docker image
         run: |
           docker build --no-cache -t led-ticker-ci-test \
-            --build-arg SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$(sh scripts/compute-version.sh)" .
+            --build-arg SETUPTOOLS_SCM_PRETEND_VERSION="$(sh scripts/compute-version.sh)" .
       - name: Clean up test image
         if: always()
         run: docker rmi led-ticker-ci-test || true

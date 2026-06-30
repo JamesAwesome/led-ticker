@@ -130,19 +130,21 @@ panel-map-derive-docker:  ## Derive a Remap string inside Docker. Usage: make pa
 BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo +dirty)
 # Package version (PEP 440) is computed per-recipe from git by
 # scripts/compute-version.sh — no uv required. It's passed to the build as
-# SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE so the image (which has no
+# SETUPTOOLS_SCM_PRETEND_VERSION so the image (which has no
 # .git) bakes a real version instead of the 0.0.0 scm fallback. Computing it
 # inside each recipe means a missing version aborts that build loudly.
 
 build-docker:  ## Build the production image only (no start; used by the *-docker diagnostics)
-	@VER="$$(sh scripts/compute-version.sh)" || exit 1; \
+	@git fetch --tags --quiet 2>/dev/null || true; \
+	VER="$$(sh scripts/compute-version.sh)" || exit 1; \
 	docker build -t led-ticker \
 	  --build-arg BUILD_REF="$(BUILD_REF)" \
-	  --build-arg SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$$VER" .
+	  --build-arg SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" .
 
 rebuild:  ## Update a running deploy after 'git pull' — rebuild + recreate all services (incl. webui)
-	@VER="$$(sh scripts/compute-version.sh)" || exit 1; \
-	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$$VER" COMPOSE_PROFILES=webui docker compose up -d --build --force-recreate
+	@git fetch --tags --quiet 2>/dev/null || true; \
+	VER="$$(sh scripts/compute-version.sh)" || exit 1; \
+	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" COMPOSE_PROFILES=webui docker compose up -d --build --force-recreate
 
 try:  ## Try led-ticker with NO hardware: headless engine + webui preview at http://localhost:8080
 	@echo "building + starting (first build takes a minute)... then open http://localhost:8080 and click the live preview  (stop: Ctrl-C, then make try-down)"

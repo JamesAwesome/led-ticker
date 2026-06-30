@@ -129,7 +129,7 @@ if [ "$MODE" = "deploy" ]; then
     if ! VERSION="$(sh scripts/compute-version.sh)"; then
         exit 1   # compute-version.sh already printed actionable guidance to stderr.
     fi
-    export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$VERSION"
+    export SETUPTOOLS_SCM_PRETEND_VERSION="$VERSION"
     BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
     SHA="$(git rev-parse --short HEAD 2>/dev/null || true)"
     export BUILD_REF="${BRANCH}@${SHA}"

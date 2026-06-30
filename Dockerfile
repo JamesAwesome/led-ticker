@@ -76,14 +76,14 @@ RUN SETUPTOOLS_SCM_PRETEND_VERSION="$SETUPTOOLS_SCM_PRETEND_VERSION" pip install
  && CORE_VER="$(pip show led-ticker-core | awk '/^Version:/{print $2}')" \
  && if [ "$CORE_VER" = "0.0.0" ]; then \
         echo "ERROR: led-ticker-core built as 0.0.0 — no version was passed to the build." >&2; \
-        echo "Deploy with 'make setup' (first time) or 'make rebuild' (update); they compute it." >&2; \
+        echo "Deploy with 'make setup' (first time) or 'make update' (subsequent); they compute it." >&2; \
         exit 1; \
     fi \
  && pip list --format=freeze > /code/constraints-core.txt
 
-# Build stamp — branch@shortsha, computed on the host by `make build-docker` /
-# `make rebuild` and passed as BUILD_REF. A bare `docker compose build` (no arg)
-# leaves it empty and the header shows "unknown" — deploy with `make rebuild` to
+# Build stamp — branch@shortsha, computed on the host by `make build` /
+# `make update` and passed as BUILD_REF. A bare `docker compose build` (no arg)
+# leaves it empty and the header shows "unknown" — deploy with `make update` to
 # stamp the commit. Placed last so it invalidates only this tiny layer.
 ARG BUILD_REF=
 ENV LED_TICKER_BUILD_REF=$BUILD_REF

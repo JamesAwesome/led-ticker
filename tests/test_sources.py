@@ -6,6 +6,7 @@ from led_ticker.sources import (
     DataRegistry,
     DateSource,
     StaticSource,
+    TokenizedField,
     get_data_registry,
     run_source_refresh_loop,
     set_data_registry,
@@ -75,3 +76,57 @@ async def test_refresh_loop_picks_up_value_change():
     await asyncio.sleep(0.05)
     assert s.current == "b"
     task.cancel()
+
+
+# --- TokenizedField tests ---
+
+
+def _reg(*srcs):
+    r = DataRegistry()
+    for s in srcs:
+        s.refresh()
+        r.add(s)
+    return r
+
+
+def test_field_with_no_tokens_is_inert():
+    f = TokenizedField("plain text, no tokens")
+    assert f.has_tokens is False
+    assert f.resolve(DataRegistry()) == ("plain text, no tokens", False)
+
+
+def test_declared_source_is_substituted():
+    f = TokenizedField("now: :clock.now:!")
+    reg = _reg(StaticSource(id="clock.now", value="9:01"))
+    assert f.resolve(reg) == ("now: 9:01!", True)
+
+
+def test_emoji_slug_is_preserved_not_substituted():
+    # :heart: is an emoji slug, not a source — left intact for draw_with_emoji
+    f = TokenizedField("love :heart: it")
+    assert f.has_tokens is False           # emoji slugs are not source candidates
+    assert f.resolve(_reg()) == ("love :heart: it", False)
+
+
+def test_unknown_token_falls_through_to_literal():
+    f = TokenizedField("hi :nope.x: bye")
+    assert f.resolve(_reg()) == ("hi :nope.x: bye", False)
+
+
+def test_changed_flips_only_on_version_move():
+    s = StaticSource(id="x", value="a")
+    reg = _reg(s)
+    f = TokenizedField("v=:x:")
+    assert f.resolve(reg) == ("v=a", True)     # first resolve: changed
+    assert f.resolve(reg) == ("v=a", False)    # no version move: unchanged
+    s.value = "b"
+    s.refresh()
+    assert f.resolve(reg) == ("v=b", True)     # version moved: changed
+
+
+def test_source_colliding_with_emoji_name_is_left_for_emoji():
+    # If a name is an emoji slug, the pre-pass must NOT substitute it even
+    # if a same-named source somehow exists (emoji wins).
+    f = TokenizedField(":heart:")
+    reg = _reg(StaticSource(id="heart", value="X"))
+    assert f.resolve(reg) == (":heart:", False)

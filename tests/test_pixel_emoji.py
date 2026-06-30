@@ -1607,3 +1607,18 @@ def test_draw_emoji_at_requires_exactly_one_anchor():
         draw_emoji_at(sc, "moon", 0)  # neither
     with pytest.raises(ValueError):
         draw_emoji_at(sc, "moon", 0, 5, bottom_baseline=12)  # both
+
+
+# --- is_emoji_slug ---
+
+
+def test_is_emoji_slug_true_for_builtin():
+    from led_ticker.pixel_emoji import is_emoji_slug
+
+    assert is_emoji_slug("heart") is True
+
+
+def test_is_emoji_slug_false_for_unknown():
+    from led_ticker.pixel_emoji import is_emoji_slug
+
+    assert is_emoji_slug("clock.now") is False

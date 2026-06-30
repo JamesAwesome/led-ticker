@@ -12,11 +12,13 @@ can never pair a new version with a stale value.
 
 import asyncio
 import datetime
+import re
 from typing import Any
 from zoneinfo import ZoneInfo
 
 import attrs
 
+from led_ticker.pixel_emoji import EMOJI_PATTERN, is_emoji_slug
 from led_ticker.widget import spawn_tracked
 
 
@@ -116,3 +118,50 @@ def spawn_source_refresh(registry: DataRegistry) -> Any:
         if not source.polled:
             source.refresh()
     return spawn_tracked(run_source_refresh_loop(registry))
+
+
+class TokenizedField:
+    """Compile-once template for one text field; substitutes declared-source
+    tokens, leaves emoji/unknown/literal intact, and re-substitutes only when
+    a referenced source's version moves.
+    """
+
+    def __init__(self, text: str) -> None:
+        self._raw = text
+        # Candidate source ids = :slug: tokens that are NOT emoji slugs.
+        self._candidate_ids: list[str] = []
+        for m in EMOJI_PATTERN.finditer(text):
+            slug = m.group()[1:-1]
+            if not is_emoji_slug(slug) and slug not in self._candidate_ids:
+                self._candidate_ids.append(slug)
+        self._last_versions: dict[str, int] = {}
+        self._cached: str = text
+        self._first: bool = True
+
+    @property
+    def has_tokens(self) -> bool:
+        return bool(self._candidate_ids)
+
+    def resolve(self, registry: DataRegistry) -> tuple[str, bool]:
+        if not self._candidate_ids:
+            return self._raw, False
+        versions = {
+            cid: (s.version if (s := registry.get(cid)) is not None else -1)
+            for cid in self._candidate_ids
+        }
+        if not self._first and versions == self._last_versions:
+            return self._cached, False
+        self._first = False
+        self._last_versions = versions
+
+        def _sub(match: re.Match[str]) -> str:
+            slug = match.group()[1:-1]
+            if is_emoji_slug(slug):
+                return match.group()           # emoji wins; leave intact
+            src = registry.get(slug)
+            return src.current if src is not None else match.group()
+
+        new_text = EMOJI_PATTERN.sub(_sub, self._raw)
+        changed = new_text != self._cached
+        self._cached = new_text
+        return self._cached, changed

@@ -2503,6 +2503,11 @@ def _get_registry() -> dict[str, PixelData]:
     return EMOJI_REGISTRY
 
 
+def is_emoji_slug(slug: str) -> bool:
+    """True if `slug` (no surrounding colons) is a registered emoji."""
+    return slug in _get_registry()
+
+
 def _parse_segments(text: str) -> list[tuple[str, str]]:
     """Split text into segments of (type, value).
 

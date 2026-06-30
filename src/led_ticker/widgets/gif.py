@@ -19,13 +19,9 @@ knobs are ``play_count`` (this widget) vs ``hold_time`` (still).
 The widget lazily decodes all frames on first use, paints frames
 directly to the underlying real canvas (bypassing ScaledCanvas so each
 pixel is a native LED, not a scale×scale block), and exposes an async
-``play()`` method that drives the per-frame playback loop.
-
-Two run modes:
-    - ``mode = "gif"``  legacy panel-takeover orchestrator (no titles)
-    - ``mode = "slideshow"`` unified path; gif rides ``_show_one``'s
-                       ``_has_play`` dispatch and works alongside an
-                       optional title
+``play()`` method that drives the per-frame playback loop. It runs under
+``mode = "slideshow"`` via ``_show_one``'s ``_has_play`` dispatch, alongside
+an optional section title.
 
 Schema (TOML config keys for ``type = "gif"``):
 

@@ -460,12 +460,6 @@ class TestTickerMethodsMigrated:
         ticker = Ticker(monitors=[], frame=MagicMock())
         assert callable(ticker._run_swap)
 
-    def test_run_gif_is_instance_method(self):
-        from unittest.mock import MagicMock
-
-        ticker = Ticker(monitors=[], frame=MagicMock())
-        assert callable(ticker._run_gif)
-
     def test_scroll_and_delay_is_instance_method(self):
         from unittest.mock import MagicMock
 

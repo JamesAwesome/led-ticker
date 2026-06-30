@@ -989,7 +989,6 @@ RUN_MODES: dict[str, str] = {
     "slideshow": "run_slideshow",
     "ticker": "run_ticker",
     "one_at_a_time": "run_one_at_a_time",
-    "gif": "run_gif",
 }
 
 

@@ -14,7 +14,7 @@ import attrs
 from led_ticker import status_board
 from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
-from led_ticker.drawing import get_widget_padding, safe_scale
+from led_ticker.drawing import get_widget_padding
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
 from led_ticker.scaled_canvas import (
     ScaledCanvas,
@@ -265,55 +265,6 @@ class Ticker:
             delay=self.title_delay,
             hold_time=self.hold_time,
             continuous_scroll=self.continuous_scroll,
-        )
-
-    async def run_gif(self, loop_count: int = 0) -> None:
-        """Legacy GIF playback mode: panel-takeover, no titles.
-
-        Each widget pulled from the queue is a GifPlayer; play() is
-        called with the underlying real canvas so frames render at
-        native physical resolution. `loop_count` is the number of
-        complete passes through each GIF before the next widget (or
-        section transition) takes over. Treats loop_count=0 as 1
-        (consistent with other run modes).
-
-        Each monitor is enqueued exactly once; per-gif repetition
-        happens inside play() via loop_count, NOT by re-queueing.
-
-        For title + gif behavior, use `mode = "slideshow"` instead — gif
-        rides _show_one's _has_play dispatch alongside the title.
-        """
-        logging.info("Running GIF playback with loop count %s...", loop_count)
-        canvas = _maybe_wrap(
-            self.frame.get_clean_canvas(), self.scale, self.content_height
-        )
-        assert self.notif_queue is not None
-
-        # mode="gif" suppresses section titles entirely — they have no
-        # sensible place to render alongside a full-panel GIF takeover.
-        # We pass title=None to _build_then_enqueue rather than relying
-        # on _run_gif's defensive non-play() skip (which is a tripwire,
-        # not the primary suppression mechanism).
-        self._enqueue_task = asyncio.create_task(
-            _build_then_enqueue(
-                self.monitors,
-                self.notif_queue,
-                title=None,
-                loop_count=1,
-                breaker=self.breaker,
-            )
-        )
-        self._enqueue_task.add_done_callback(
-            lambda t: (
-                logging.error("enqueue task failed: %s", t.exception())
-                if not t.cancelled() and t.exception() is not None
-                else None
-            )
-        )
-
-        await self._run_gif(
-            canvas,
-            loop_count=loop_count,
         )
 
     async def run_ticker(
@@ -1149,56 +1100,6 @@ class Ticker:
             if not len(buffered_objects):
                 return pos
 
-    async def _run_gif(
-        self,
-        canvas: Canvas,
-        loop_count: int = 0,
-    ) -> None:
-        """Pull GifPlayer widgets from the queue and play() each in turn.
-
-        The widget's `play()` method paints to the real canvas (unwrapping
-        any ScaledCanvas) and returns the back-buffer canvas after its
-        final swap; we feed that back into the next widget's play() so
-        swap chaining stays correct.
-        """
-        # Unwrap ScaledCanvas wrappers so GIF frames paint at native physical
-        # resolution. `_play_widget` keeps its own innermost-wrapper pointer
-        # for the post-swap rebind step; this site just wants the raw canvas.
-        # Capture the wrapper scale before unwrapping so play()-style widgets
-        # can interpret logical-unit knobs (e.g. `top_row_height`).
-        assert self.notif_queue is not None
-        wrapper_scale = safe_scale(canvas)
-        real = unwrap_to_real(canvas)
-        while True:
-            self._maybe_restart()
-            try:
-                widget = self.notif_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                try:
-                    widget = await asyncio.wait_for(self.notif_queue.get(), timeout=0.1)
-                except TimeoutError:
-                    return
-            # Iterator-exhausted sentinel — producer is done. End the
-            # section so the inter-section transition can run.
-            if widget is None:
-                return
-            # Skip non-GIF widgets (e.g. section titles enqueued by
-            # _build_then_enqueue). GIF mode takes over the whole panel —
-            # titles don't have a sensible place to render here.
-            if not Ticker._has_play(widget):
-                logging.debug(
-                    "_run_gif skipping non-GIF widget %s", type(widget).__name__
-                )
-                continue
-            if self.breaker.is_disabled(widget):
-                continue
-            Ticker._set_logical_scale(widget, wrapper_scale)
-            try:
-                real = await widget.play(real, self.frame, loop_count=loop_count)
-            except Exception as exc:
-                self.breaker.trip(widget, exc)
-                continue
-
 
 # --- Queue builders ---
 
@@ -1327,7 +1228,7 @@ async def _enqueue_ticker_objects(
     On exhaustion (either initial-empty or mid-iteration StopIteration),
     enqueue a `None` sentinel so blocking consumers (`await
     notif_queue.get()` in `_run_swap` / `_scroll_one_by_one` /
-    `_scroll_side_by_side` / `_run_gif`) see a wake-up and can return
+    `_scroll_side_by_side`) see a wake-up and can return
     cleanly instead of hanging forever waiting on an item that will
     never arrive.
     """

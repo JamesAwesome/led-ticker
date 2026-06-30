@@ -63,7 +63,7 @@ class MigrationError(Exception):
         self.fix_replacement_key = fix_replacement_key
 
 
-VALID_MODES: frozenset[str] = frozenset({"slideshow", "ticker", "one_at_a_time", "gif"})
+VALID_MODES: frozenset[str] = frozenset({"slideshow", "ticker", "one_at_a_time"})
 
 
 def _strftime_test(fmt: str) -> None:
@@ -406,11 +406,11 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
 
         # Rule 25: start_hold is only meaningful on scroll modes
         # (ticker / one_at_a_time), which are the only modes
-        # that call _scroll_and_delay. Setting it on slideshow / gif has
+        # that call _scroll_and_delay. Setting it on slideshow has
         # no runtime effect — surface as an error so users don't think
         # they're tuning something they're not.
         if section.start_hold is not None:
-            if section.mode in ("slideshow", "gif"):
+            if section.mode == "slideshow":
                 issues.append(
                     ValidationIssue(
                         rule=25,
@@ -422,8 +422,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                         ),
                         fix=(
                             "Remove start_hold. For slideshow mode, use hold_time"
-                            " (per-widget hold). For gif mode, the gif's own"
-                            " duration controls timing."
+                            " (per-widget hold)."
                         ),
                     )
                 )
@@ -439,7 +438,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                 )
 
         # Rule 26: separator_* fields are only honored by ticker.
-        # On slideshow / gif / one_at_a_time, the engine doesn't intersperse a
+        # On slideshow / one_at_a_time, the engine doesn't intersperse a
         # buffer message, so the fields would silently do nothing. Reject
         # so the misconfiguration surfaces. Single error per section even
         # if multiple separator_* fields are set.
@@ -1131,68 +1130,6 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                     fix="Raise to at least 0.05 s",
                 )
             )
-
-    # Rule 33: prefer mode = "slideshow" over the mode = "gif" shorthand.
-    # mode = "gif" plays a single gif in a dedicated section; mode = "slideshow"
-    # with a gif widget gives the same effect plus transitions, hold_time,
-    # bg_color, and multi-widget sections — so warn and point users there.
-    for i, section in enumerate(config.sections):
-        if section.mode == "gif":
-            warnings.append(
-                ValidationIssue(
-                    rule=33,
-                    location=f"section[{i}]",
-                    severity="warning",
-                    message=(
-                        "mode='gif' plays a single gif in a dedicated "
-                        "section. Prefer mode='slideshow' with a gif widget for "
-                        "the full section feature set (transitions, "
-                        "hold_time, bg_color, multi-widget sections)."
-                    ),
-                    fix=(
-                        "Change mode to 'slideshow'. Each gif widget in the "
-                        "section's `widget` list will play through its "
-                        "loops then transition."
-                    ),
-                )
-            )
-
-    # Rule 36: play_count = 0 + mode = "gif" doesn't get hold_time.
-    # play_count = 0 means "play through section's hold_time" — but that
-    # plumbing only exists on the mode = "slideshow" path (via _play_widget).
-    # The mode = "gif" path calls widget.play() directly without
-    # threading hold_time, so play_count = 0 silently falls back to
-    # exactly 1 loop. Surface as a warning so users get the heads-up
-    # rather than a one-loop-then-stop surprise on their panel.
-    for i, section in enumerate(config.sections):
-        if section.mode != "gif":
-            continue
-        for j, widget_cfg in enumerate(section.widgets):
-            if widget_cfg.get("type") != "gif":
-                continue
-            gl = widget_cfg.get("play_count", 1)
-            if isinstance(gl, int) and not isinstance(gl, bool) and gl == 0:
-                warnings.append(
-                    ValidationIssue(
-                        rule=36,
-                        location=f"section[{i}].widget[{j}]",
-                        severity="warning",
-                        message=(
-                            "play_count=0 in mode='gif' silently plays "
-                            "exactly 1 loop — hold_time isn't threaded "
-                            "to the mode='gif' code path. The "
-                            "'play through hold_time' semantics only "
-                            "apply in mode='slideshow'."
-                        ),
-                        fix=(
-                            "Switch the section to mode='slideshow' (the "
-                            "recommended setup; see rule 33) so "
-                            "play_count=0 plays through hold_time. "
-                            "Or set play_count to an explicit positive "
-                            "integer."
-                        ),
-                    )
-                )
 
     # Rule 30: hold_time and bottom_text_loops both set on a two_row
     # widget — max() semantics apply and the larger tick count wins.

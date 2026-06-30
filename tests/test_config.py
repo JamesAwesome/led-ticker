@@ -1220,3 +1220,19 @@ class TestModeMigration:
             load_config(str(cfg))
         assert new in str(ei.value)
         assert old in str(ei.value)
+
+    def test_gif_mode_raises_migration_error(self, tmp_path):
+        from led_ticker.validate import MigrationError
+
+        cfg = tmp_path / "config.toml"
+        cfg.write_text(
+            "[display]\nrows=16\ncols=32\nchain_length=5\n"
+            '[[playlist.section]]\nmode = "gif"\n'
+            '[[playlist.section.widget]]\ntype = "gif"\npath = "x.gif"\n'
+        )
+        with pytest.raises(MigrationError) as ei:
+            load_config(str(cfg))
+        msg = str(ei.value)
+        assert "slideshow" in msg
+        assert "play_count" in msg
+        assert "docs.ledticker.dev/widgets/gif" in msg

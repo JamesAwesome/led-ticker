@@ -96,3 +96,18 @@ def test_render_circle_color_applied_uniformly():
     for call in real.SetPixel.call_args_list:
         _, _, r, g, b = call.args
         assert (r, g, b) == (225, 48, 108)
+
+
+def test_no_inline_hardcoded_dot_remains():
+    """The scroll dot goes through render_separator — the old dot symbols
+    are fully gone (Phase 1 unification). (A blanket '255,255,255' scan is
+    intentionally NOT used: it false-positives on ColorFlash's legitimate
+    white default in effects.py.)"""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent / "src" / "led_ticker"
+    for rel in ("ticker.py", "transitions/effects.py"):
+        text = (root / rel).read_text()
+        assert "BULLET_WIDTH" not in text, f"{rel} still references BULLET_WIDTH"
+        assert "BULLET_COLOR" not in text, f"{rel} still references BULLET_COLOR"
+        assert "_draw_bullet" not in text, f"{rel} still defines/uses _draw_bullet"

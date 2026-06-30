@@ -32,7 +32,9 @@ The special family covers transitions that don't fit the push / wipe / sprite sh
 The scroll separator is a small white dot by default. Recolor it (e.g. to tone
 it down on bright content) with `separator_color` on the transition table —
 `transition = { type = "scroll", separator_color = [80, 80, 80] }` — accepting
-the same values as a widget `font_color`, including `"rainbow"`.
+the same values as a widget `font_color`, including `"rainbow"`. (This is the
+scroll _transition's_ separator and is distinct from the ticker-mode section
+`separator_color`, which colors the loop separator between ticker widgets.)
 
 ## Variants
 

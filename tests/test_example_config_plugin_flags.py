@@ -1,10 +1,25 @@
+import subprocess
+import sys
 import tomllib
 
-from led_ticker._config_scan import required_plugins
+from led_ticker._config_scan import plugin_dependency_warning, required_plugins
 
 
 def _cfg(toml: str) -> dict:
     return tomllib.loads(toml)
+
+
+def test_config_scan_imports_first_without_cycle():
+    # Importing _config_scan BEFORE led_ticker.app used to hit a circular import
+    # (_config_scan -> app.plugin_cmd -> app/__init__ -> cli -> run -> _config_scan).
+    # run.py defers its _config_scan import to break it. Guard in a fresh process
+    # because pytest's collection order can otherwise import app first and mask it.
+    result = subprocess.run(
+        [sys.executable, "-c", "import led_ticker._config_scan"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_plugin_free_is_empty():
@@ -69,13 +84,13 @@ text = "version 1.5"
     assert required_plugins(_cfg(toml)) == set()
 
 
-from led_ticker._config_scan import plugin_dependency_warning
-
 _RSS_CFG = {"playlist": {"section": [{"widget": [{"type": "rss.feed"}]}]}}
 
 
 def test_warning_absent_plugin_names_package_and_remedy():
-    msg = plugin_dependency_warning(_RSS_CFG, loaded_namespaces=[], failed_namespaces=[])
+    msg = plugin_dependency_warning(
+        _RSS_CFG, loaded_namespaces=[], failed_namespaces=[]
+    )
     assert msg is not None
     assert "led-ticker-rss" in msg
     assert "aren't installed" in msg
@@ -93,7 +108,9 @@ def test_warning_installed_but_failed_says_fix_not_install():
 
 def test_no_warning_when_required_plugin_is_loaded():
     assert (
-        plugin_dependency_warning(_RSS_CFG, loaded_namespaces=["rss"], failed_namespaces=[])
+        plugin_dependency_warning(
+            _RSS_CFG, loaded_namespaces=["rss"], failed_namespaces=[]
+        )
         is None
     )
 

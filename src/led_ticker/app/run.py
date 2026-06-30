@@ -18,7 +18,6 @@ import aiohttp
 
 from led_ticker import reload as _reload
 from led_ticker import status_board
-from led_ticker._config_scan import plugin_dependency_warning
 from led_ticker._plugin_loader import (
     _guarded_overlay,
     _run_shutdown_hooks,
@@ -610,6 +609,11 @@ async def run(config_path: Path) -> None:
         logging.warning("plugin %r failed to load: %s", ns, err)
 
     config = await asyncio.to_thread(load_config, config_path)
+    # Deferred import: _config_scan imports led_ticker.app.plugin_cmd, which pulls
+    # in this package's __init__ (and back to run.py). A module-level import here
+    # cycles when _config_scan is imported before led_ticker.app. Keep it local.
+    from led_ticker._config_scan import plugin_dependency_warning
+
     _plugin_warning = plugin_dependency_warning(
         config_path,
         [info.namespace for info in plugins.loaded],

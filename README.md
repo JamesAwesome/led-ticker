@@ -107,7 +107,7 @@ New contributors: start with [CONTRIBUTING.md](CONTRIBUTING.md) (setup, the chan
 ### Docker on Raspberry Pi
 
 ```bash
-docker compose up -d
+make setup
 ```
 
 The compose file mounts `./config` read-only into the container; edit TOML on the host and the running display hot-reloads most changes live (widgets, sections, schedule, brightness) — a restart is needed only for hardware-level fields like the panel chain or scaling.
@@ -118,7 +118,7 @@ An optional sidecar serves a read-only status dashboard (live preview, monitors,
 
 ![The web UI status dashboard — live browser preview of the sign, now-playing, health, and installed plugins](docs/site/public/showcase/webui-status.png)
 
-The header shows the deployed build (`build <branch>@<sha>`). Use `make rebuild` to update the display **and** the webui sidecar together — a bare `docker compose up -d --build` leaves the profile-gated webui on the old image.
+The header shows the deployed build (`build <branch>@<sha>`). Use `make rebuild` to update the display **and** the webui sidecar together — it rebuilds the image with a real version baked in and restarts both services at once.
 
 The compose file's `restart: unless-stopped` policy handles auto-restart on crash and on Pi reboot. Full deploy walkthrough: <https://docs.ledticker.dev/hardware/building-your-own/>.
 

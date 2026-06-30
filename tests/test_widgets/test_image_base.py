@@ -2454,6 +2454,34 @@ class TestImageTokenTwoRow:
         assert w._row_text(0) == "PLAIN TOP"
         assert w._row_text(1) == "PLAIN BOT"
 
+    def test_empty_value_token_renders_empty_not_raw_template(self, tmp_path):
+        """Finding 2: a token that resolves to "" must render EMPTY, not the
+        raw ":slug:" template. The old `_resolved or raw` guard fell back to
+        the template on empty-string values — this test verifies the fix."""
+        from led_ticker.sources import StaticSource
+
+        # Source with empty string value.
+        _set_registry(StaticSource(id="empty.val", value=""))
+        w = self._make_still(
+            tmp_path,
+            top_text=":empty.val:",
+            bottom_text=":empty.val:",
+        )
+        assert w._token_top is not None and w._token_top.has_tokens
+        assert w._token_bottom is not None and w._token_bottom.has_tokens
+
+        # Resolve both rows.
+        w._resolve_top_text(locked=False)
+        w._resolve_bottom_text(locked=False)
+
+        # Both resolved values are "" — _row_text must return "" not ":empty.val:".
+        assert w._row_text(0) == "", (
+            "_row_text(0) should return the empty resolved string, not the raw template"
+        )
+        assert w._row_text(1) == "", (
+            "_row_text(1) should return the empty resolved string, not the raw template"
+        )
+
 
 class TestImageTokenScrollFreeze:
     """C2: token resolution is frozen for the duration of a scroll loop so a
@@ -2733,4 +2761,88 @@ class TestImageTokenTypewriterFreeze:
         assert totals == {4}, (
             f"total_chars should be 4 (len of substituted 'WXYZ'); "
             f"got {totals!r}"
+        )
+
+    async def test_play_loop_typewriter_freeze_not_bypassed(
+        self, tmp_path, swapping_frame, monkeypatch
+    ):
+        """Finding 1 (critical): the typewriter resolution freeze must hold
+        when routed through the full `_play_with_text` loop, not just via
+        direct `_render_tick` calls.
+
+        The bug: `_play_with_text` called `_resolve_overlay_text(locked=False)`
+        on every tick (locked=scrolling=False for a non-scrolling typewriter
+        widget), overwriting `_resolved_text_single` even though
+        `_anim_resolution_lock` was set on tick 1. This corrupted the typewriter
+        slice and per-char hue `total_chars` anchor from tick 2 onward.
+
+        The fix: `_resolve_overlay_text` checks `self._anim_resolution_lock`
+        alongside the caller's `locked` flag before re-resolving."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.animations import Typewriter
+        from led_ticker.sources import StaticSource
+
+        async def _instant(_):
+            pass
+
+        monkeypatch.setattr("led_ticker.widgets._image_base.asyncio.sleep", _instant)
+
+        src = StaticSource(id="t", value="ABCDE")
+        _set_registry(src)
+
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        widget = StillImage(
+            path=img_path,
+            text=":t:",
+            text_align="left",
+            animation=Typewriter(frames_per_char=1),
+        )
+        widget._logical_scale = 1
+
+        resolved_values: list[str] = []
+
+        # Patch _render_tick to record the resolved text AFTER the per-tick
+        # resolve call, and change the source value mid-reveal so the bug
+        # is exercised on tick 2.
+        orig_render_tick = widget._render_tick.__func__  # type: ignore[attr-defined]
+        tick_count = [0]
+
+        def spy_render_tick(
+            self, canvas, text_canvas, scroll_pos, baseline_y, x_left, x_right
+        ):
+            resolved_values.append(self._resolved_text_single)
+            tick_count[0] += 1
+            # On tick 2, change source while the anim lock should be held.
+            if tick_count[0] == 2:
+                src.value = "ZZZZZZZZZ"
+                src.refresh()
+            return orig_render_tick(
+                self, canvas, text_canvas, scroll_pos, baseline_y, x_left, x_right
+            )
+
+        from led_ticker.widgets._image_base import _BaseImageWidget
+        _BaseImageWidget._render_tick = spy_render_tick  # type: ignore[method-assign]
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
+
+        try:
+            # Run 4 ticks — enough to see ticks 1–3 of the typewriter loop.
+            await widget._play_with_text(real, swapping_frame, n_ticks=4)
+        finally:
+            _BaseImageWidget._render_tick = orig_render_tick  # type: ignore[method-assign]
+
+        assert len(resolved_values) >= 3, (
+            f"Expected at least 3 tick draws, got {len(resolved_values)}"
+        )
+        # All ticks must see "ABCDE" (the start-of-reveal value).
+        # Before the fix, ticks after tick 1 would see "ZZZZZZZZZ".
+        assert all(v == "ABCDE" for v in resolved_values), (
+            f"Typewriter reveal was corrupted mid-play: resolved values per tick = "
+            f"{resolved_values!r}; all should be 'ABCDE' (start-of-reveal value)"
         )

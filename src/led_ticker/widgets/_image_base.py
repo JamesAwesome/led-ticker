@@ -635,29 +635,41 @@ class _BaseImageWidget(FrameAwareBase):
 
     def _resolve_overlay_text(self, locked: bool) -> None:
         """Resolve the single-row `text` field; cache into
-        `_resolved_text_single`. No-op for non-token fields."""
+        `_resolved_text_single`. No-op for non-token fields.
+
+        Freeze sources: the caller's `locked` flag (scroll / transition)
+        and `_anim_resolution_lock` (an in-flight typewriter reveal).
+        Mirrors TickerMessage._resolve_into_full_text's freeze semantics
+        so a value-change mid-reveal can't corrupt the slice length or
+        per-char hue anchor (Finding 1 fix)."""
         if self._token_text is None or not self._token_text.has_tokens:
             return
-        if locked:
+        if locked or self._anim_resolution_lock:
             return
         resolved, _ = self._token_text.resolve(get_data_registry())
         self._resolved_text_single = resolved
 
     def _resolve_top_text(self, locked: bool) -> None:
-        """Resolve the two-row top field (`top_text`). No-op for non-token."""
+        """Resolve the two-row top field (`top_text`). No-op for non-token.
+
+        Frozen when `locked` is True or `_anim_resolution_lock` is set
+        (mirrors `_resolve_overlay_text`'s freeze semantics)."""
         if self._token_top is None or not self._token_top.has_tokens:
             return
-        if locked:
+        if locked or self._anim_resolution_lock:
             return
         resolved, _ = self._token_top.resolve(get_data_registry())
         self._resolved_top_text = resolved
 
     def _resolve_bottom_text(self, locked: bool) -> None:
         """Resolve the two-row bottom field (`bottom_text`). No-op for
-        non-token."""
+        non-token.
+
+        Frozen when `locked` is True or `_anim_resolution_lock` is set
+        (mirrors `_resolve_overlay_text`'s freeze semantics)."""
         if self._token_bottom is None or not self._token_bottom.has_tokens:
             return
-        if locked:
+        if locked or self._anim_resolution_lock:
             return
         resolved, _ = self._token_bottom.resolve(get_data_registry())
         self._resolved_bottom_text = resolved
@@ -715,10 +727,19 @@ class _BaseImageWidget(FrameAwareBase):
             # In two-row mode `top_text` takes precedence; fall back to
             # `text` (the single-row alias). Use the resolved versions of
             # both so a token in either field applies.
+            # Gate on `has_tokens` before preferring the resolved string —
+            # `or` would fall back to the raw template when a token resolves
+            # to the empty string "" (Finding 2 fix, mirrors message.py).
             if self.top_text:
-                return self._resolved_top_text or self.top_text
-            return self._resolved_text_single or self.text
-        return self._resolved_bottom_text or self.bottom_text
+                if self._token_top and self._token_top.has_tokens:
+                    return self._resolved_top_text
+                return self.top_text
+            if self._token_text and self._token_text.has_tokens:
+                return self._resolved_text_single
+            return self.text
+        if self._token_bottom and self._token_bottom.has_tokens:
+            return self._resolved_bottom_text
+        return self.bottom_text
 
     def _row_font(self, row: int) -> Any:
         """Per-row font with fallback to `self.font`."""
@@ -1515,13 +1536,13 @@ class _BaseImageWidget(FrameAwareBase):
             # whole scroll duration (the pre-loop resolve above already set
             # the current value). Non-scrolling: locked=False so a clock
             # token updates every tick while the image is held.
-            # Typewriter: locking is handled in `_render_tick` on the first
-            # tick via `_anim_resolution_lock`; `_resolve_overlay_text`
-            # called here respects that lock via the `_anim_resolution_lock`
-            # flag check in `_visible_text`/`_draw_text` (those read
-            # `_resolved_text_single` which was frozen on first tick).
             # Simplification: we call with `locked=scrolling` — scroll
             # freezes the string; held ticks may update it.
+            # Typewriter: `_anim_resolution_lock` is set by `_render_tick`
+            # on the first reveal tick; `_resolve_overlay_text` checks BOTH
+            # `locked` AND `_anim_resolution_lock` before re-resolving, so
+            # a source value change mid-reveal can't corrupt the slice length
+            # or per-char hue anchor (Finding 1 fix).
             self._resolve_overlay_text(locked=scrolling)
             if wrap_mode:
                 self._render_wrap_tick(

@@ -1231,6 +1231,8 @@ def _draw_scroll_frame(
     if 0 <= clear_start < w:
         canvas.SubFill(clear_start, 0, w - clear_start, h, 0, 0, 0)
 
+    # frame=0 is a Phase-1 placeholder (dot is constant white). Phase 2 will
+    # plumb the derived scroll frame here to animate a configured separator color.
     render_separator(canvas, bullet_x, 0, DEFAULT_DOT_SPEC)
 
     if incoming_pos < w:

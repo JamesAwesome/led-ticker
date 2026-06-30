@@ -944,7 +944,7 @@ class TestScrollSideBySide:
         """At scale=4 with two widgets, the default buffer separator
         renders as a hi-res circle (SetPixel on real canvas), not as
         chunky BDF '•'. Tripwire that DEFAULT_BUFFER_MSG.draw routes
-        through _draw_hires_circle."""
+        through render_separator."""
         from unittest.mock import MagicMock
 
         from led_ticker.ticker import DEFAULT_BUFFER_MSG

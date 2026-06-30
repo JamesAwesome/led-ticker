@@ -45,11 +45,11 @@ On `two_row`, or on `gif` / `image` with `bottom_text` set, each row gets a slic
 
 ### Rule 25 — `start_hold` is only valid on scroll modes
 
-`start_hold` controls the pre-roll delay before a `ticker` / `one_at_a_time` section's first widget begins moving. It calls into `_scroll_and_delay`, which `slideshow` and `gif` modes don't use. Setting `start_hold` on a `slideshow` / `gif` section would silently do nothing — the validator rejects it so the misconfiguration surfaces immediately. For `slideshow` mode, the per-widget hold is `hold_time`. For `gif` mode, the gif's own duration controls timing. Also rejected: `start_hold < 0`.
+`start_hold` controls the pre-roll delay before a `ticker` / `one_at_a_time` section's first widget begins moving. It calls into `_scroll_and_delay`, which `slideshow` mode doesn't use. Setting `start_hold` on a `slideshow` section would silently do nothing — the validator rejects it so the misconfiguration surfaces immediately. For `slideshow` mode, the per-widget hold is `hold_time`. Also rejected: `start_hold < 0`.
 
 ### Rule 26 — `separator_*` is only valid on `ticker`
 
-The `separator`, `separator_font`, `separator_font_size`, and `separator_color` fields customize the small bullet that `ticker` mode inserts between widgets in the side-by-side stream. `slideshow` and `gif` modes don't intersperse anything; `one_at_a_time` fully exits each widget before the next, so no separator is needed. Setting any of these fields on a non-`ticker` section would silently do nothing — the validator rejects it. Either remove the fields, or change `mode` to `"ticker"`.
+The `separator`, `separator_font`, `separator_font_size`, and `separator_color` fields customize the small bullet that `ticker` mode inserts between widgets in the side-by-side stream. `slideshow` and `one_at_a_time` modes don't intersperse anything; `one_at_a_time` fully exits each widget before the next, so no separator is needed. Setting any of these fields on a non-`ticker` section would silently do nothing — the validator rejects it. Either remove the fields, or change `mode` to `"ticker"`.
 
 ### Rule 28 — `bottom_text_loops` requires `bottom_text_wrap`
 
@@ -122,17 +122,9 @@ The top row on a `two_row` widget (and the top row on `gif` / `image` widgets wh
 
 The named font isn't bundled and didn't turn up in `config/fonts/`. This is a warning, not an error: a config drafted on a laptop without the brand font is still useful, and the file may live on the Pi by deploy time. The ticker will raise at startup if the section actually runs without the font present, so resolve the warning before deploy. Drop the font file into `config/fonts/` on the deploy target, or pick one of the bundled fonts (BDF: `5x8`, `6x10`, `6x12`, `7x13`; hires: `Inter-Bold`, `Inter-Regular`).
 
-### Rule 33 — prefer `mode = "slideshow"` with a `gif` widget over `mode = "gif"`
-
-Prefer `mode = "slideshow"` with a `gif` widget in the section's `widget` list — it gives you the full section feature set (transitions, `hold_time`, `bg_color`, multi-widget sections). `mode = "gif"` is a narrower direct-play form that doesn't reach those knobs. To switch, change `mode = "gif"` to `mode = "slideshow"` and remove any mode-specific knobs that `slideshow` doesn't need.
-
 ### Rule 35 — `default = "..."` inside a `[[playlist.section]]` is silently ignored
 
 `default` is a key in the `[transitions]` block — it sets the global default transition for all sections. Inside a `[[playlist.section]]` block the equivalent field is `transition`, not `default`. Writing `default = "wipe_left"` inside a section block looks valid to TOML but is silently dropped by the section loader. Rename it to `transition = "wipe_left"` to get the intended per-section override.
-
-### Rule 36 — `play_count = 0` in `mode = "gif"` silently plays 1 loop
-
-`play_count = 0` means "play through the section's `hold_time`" — but that plumbing only exists on the `mode = "slideshow"` path. `mode = "gif"` calls the gif widget's `play()` directly without threading `hold_time`, so the "play through hold_time" semantics don't reach there. A `play_count = 0` widget in a `mode = "gif"` section silently falls back to exactly one loop. Switch the section to `mode = "slideshow"` (the recommended setup; see rule 33) to get the intended duration-driven playback, or set `play_count` to an explicit positive integer for a fixed loop count.
 
 ## Strict-only checks
 

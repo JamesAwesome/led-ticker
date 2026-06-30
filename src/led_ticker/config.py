@@ -11,6 +11,13 @@ from led_ticker._coerce import CoercionWarning
 
 
 @dataclass
+class SourceConfig:
+    id: str
+    type: str
+    raw: dict = field(default_factory=dict)
+
+
+@dataclass
 class ScheduleWindow:
     start: str  # "HH:MM" 24h local wall-clock
     end: str  # "HH:MM"; start > end wraps past midnight
@@ -328,6 +335,7 @@ def read_web_config(path: Path) -> WebConfig | None:
 class AppConfig:
     display: DisplayConfig
     sections: list[SectionConfig]
+    sources: list[SourceConfig] = field(default_factory=list)
     title_delay: int = 5
     default_transition: TransitionConfig = field(
         default_factory=TransitionConfig,
@@ -609,6 +617,16 @@ def load_config(path: Path) -> AppConfig:
     plugins = _parse_plugins_block(raw)
     web = _parse_web_block(raw)
 
+    sources: list[SourceConfig] = []
+    for i, source_raw in enumerate(raw.get("source", [])):
+        if "id" not in source_raw or "type" not in source_raw:
+            raise ValueError(
+                f"[[source]][{i}] requires both 'id' and 'type'."
+            )
+        sources.append(
+            SourceConfig(id=source_raw["id"], type=source_raw["type"], raw=source_raw)
+        )
+
     sections = []
     for i, section_raw in enumerate(raw.get("playlist", {}).get("section", [])):
         trans = _parse_transition(
@@ -706,6 +724,7 @@ def load_config(path: Path) -> AppConfig:
     return AppConfig(
         display=display,
         sections=sections,
+        sources=sources,
         title_delay=raw.get("title", {}).get("delay", 5),
         default_transition=default_transition,
         between_sections=between_sections,

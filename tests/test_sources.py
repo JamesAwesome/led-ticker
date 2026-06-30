@@ -1,6 +1,8 @@
 import asyncio
 import datetime
 
+import pytest
+
 from led_ticker.sources import (
     ClockSource,
     DataRegistry,
@@ -130,6 +132,90 @@ def test_source_colliding_with_emoji_name_is_left_for_emoji():
     f = TokenizedField(":heart:")
     reg = _reg(StaticSource(id="heart", value="X"))
     assert f.resolve(reg) == (":heart:", False)
+
+
+class TestSourceFactory:
+    def test_get_source_class_known_types(self):
+        from led_ticker.app.factories import get_source_class
+        from led_ticker.sources import ClockSource, DateSource, StaticSource
+
+        assert get_source_class("clock") is ClockSource
+        assert get_source_class("date") is DateSource
+        assert get_source_class("static") is StaticSource
+
+    def test_get_source_class_unknown_type_raises(self):
+        from led_ticker.app.factories import get_source_class
+
+        with pytest.raises(ValueError, match="Unknown source type"):
+            get_source_class("nope")
+
+    def test_build_source_clock_passes_format_and_tz(self):
+        from led_ticker.app.factories import build_source
+        from led_ticker.config import SourceConfig
+        from led_ticker.sources import ClockSource
+
+        sc = SourceConfig(
+            id="clock.now",
+            type="clock",
+            raw={"id": "clock.now", "type": "clock", "format": "%H", "timezone": None},
+        )
+        src = build_source(sc)
+        assert isinstance(src, ClockSource)
+        assert src.id == "clock.now"
+        assert src.fmt == "%H"
+
+    def test_build_source_clock_defaults_format(self):
+        from led_ticker.app.factories import build_source
+        from led_ticker.config import SourceConfig
+
+        sc = SourceConfig(
+            id="clock.now",
+            type="clock",
+            raw={"id": "clock.now", "type": "clock"},
+        )
+        src = build_source(sc)
+        assert src.fmt == "%H:%M"
+
+    def test_build_source_date_is_date_source(self):
+        from led_ticker.app.factories import build_source
+        from led_ticker.config import SourceConfig
+        from led_ticker.sources import DateSource
+
+        sc = SourceConfig(
+            id="date.today",
+            type="date",
+            raw={"id": "date.today", "type": "date", "format": "%Y-%m-%d"},
+        )
+        src = build_source(sc)
+        assert isinstance(src, DateSource)
+        assert src.fmt == "%Y-%m-%d"
+
+    def test_build_source_static_passes_value(self):
+        from led_ticker.app.factories import build_source
+        from led_ticker.config import SourceConfig
+        from led_ticker.sources import StaticSource
+
+        sc = SourceConfig(
+            id="brand.tag",
+            type="static",
+            raw={"id": "brand.tag", "type": "static", "value": "Open 9-5"},
+        )
+        src = build_source(sc)
+        assert isinstance(src, StaticSource)
+        assert src.id == "brand.tag"
+        assert src.value == "Open 9-5"
+
+    def test_build_source_static_default_value(self):
+        from led_ticker.app.factories import build_source
+        from led_ticker.config import SourceConfig
+
+        sc = SourceConfig(
+            id="empty",
+            type="static",
+            raw={"id": "empty", "type": "static"},
+        )
+        src = build_source(sc)
+        assert src.value == ""
 
 
 def test_resolve_reresolves_when_registry_object_changes():

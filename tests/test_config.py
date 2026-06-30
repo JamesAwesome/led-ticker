@@ -98,6 +98,81 @@ def test_load_config_title(config):
     assert config.sections[1].title is None
 
 
+class TestSourceBlockParsing:
+    def test_source_block_parses_into_appconfig(self, tmp_path):
+        toml = '''\
+[[source]]
+id = "clock.now"
+type = "clock"
+format = "%H:%M"
+
+[[playlist.section]]
+mode = "slideshow"
+'''
+        cfg_path = tmp_path / "c.toml"
+        cfg_path.write_text(toml)
+        cfg = load_config(cfg_path)
+        assert len(cfg.sources) == 1
+        assert cfg.sources[0].id == "clock.now"
+        assert cfg.sources[0].type == "clock"
+        assert cfg.sources[0].raw["format"] == "%H:%M"
+
+    def test_no_source_block_yields_empty_list(self, tmp_path):
+        cfg_path = tmp_path / "c.toml"
+        cfg_path.write_text('[[playlist.section]]\nmode = "slideshow"\n')
+        cfg = load_config(cfg_path)
+        assert cfg.sources == []
+
+    def test_multiple_source_blocks(self, tmp_path):
+        toml = '''\
+[[source]]
+id = "clock.now"
+type = "clock"
+format = "%H:%M"
+
+[[source]]
+id = "brand.tag"
+type = "static"
+value = "Open 9-5"
+
+[[playlist.section]]
+mode = "slideshow"
+'''
+        cfg_path = tmp_path / "c.toml"
+        cfg_path.write_text(toml)
+        cfg = load_config(cfg_path)
+        assert len(cfg.sources) == 2
+        assert cfg.sources[1].id == "brand.tag"
+        assert cfg.sources[1].type == "static"
+        assert cfg.sources[1].raw["value"] == "Open 9-5"
+
+    def test_source_block_missing_id_raises(self, tmp_path):
+        toml = '''\
+[[source]]
+type = "clock"
+
+[[playlist.section]]
+mode = "slideshow"
+'''
+        cfg_path = tmp_path / "c.toml"
+        cfg_path.write_text(toml)
+        with pytest.raises(ValueError, match="id"):
+            load_config(cfg_path)
+
+    def test_source_block_missing_type_raises(self, tmp_path):
+        toml = '''\
+[[source]]
+id = "clock.now"
+
+[[playlist.section]]
+mode = "slideshow"
+'''
+        cfg_path = tmp_path / "c.toml"
+        cfg_path.write_text(toml)
+        with pytest.raises(ValueError, match="type"):
+            load_config(cfg_path)
+
+
 def test_load_config_defaults(tmp_path):
     p = tmp_path / "minimal.toml"
     p.write_text("""\

@@ -36,8 +36,9 @@ from led_ticker.colors import (
     RGB_WHITE,
     YELLOW,
 )
-from led_ticker.config import SectionConfig, TransitionConfig
+from led_ticker.config import SectionConfig, SourceConfig, TransitionConfig
 from led_ticker.frame import LedFrame
+from led_ticker.sources import ClockSource, DataSource, DateSource, StaticSource
 from led_ticker.transitions import Transition, get_transition_class
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
@@ -1245,6 +1246,53 @@ def _list_widget_fields(widget_type: str) -> str:
             lines.append(f"  {name:<28}  {desc}")
 
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Source-class registry and factory
+# ---------------------------------------------------------------------------
+
+# Core source types. Plugin source types (namespaced) will merge in here in
+# Task 4 via the plugin registry — leave this dict as the core-only lookup
+# and add a dispatch hook comment so Task 4 knows where to extend.
+_SOURCE_TYPES: dict[str, type[DataSource]] = {
+    "clock": ClockSource,
+    "date": DateSource,
+    "static": StaticSource,
+}
+
+
+def get_source_class(source_type: str) -> type[DataSource]:
+    """Return the DataSource subclass for `source_type`.
+
+    Raises ValueError on unknown types. Plugin source types (namespaced,
+    dotted) will merge in via the plugin registry in Task 4; this dict
+    holds the core types only.
+    """
+    cls = _SOURCE_TYPES.get(source_type)
+    if cls is None:
+        raise ValueError(f"Unknown source type: {source_type!r}")
+    return cls
+
+
+def build_source(cfg: SourceConfig) -> DataSource:
+    """Instantiate a DataSource from a parsed SourceConfig.
+
+    Maps TOML config keys to constructor kwargs:
+    - clock / date: format → fmt, timezone → tz
+    - static: value → value
+    """
+    cls = get_source_class(cfg.type)
+    if cls in (ClockSource, DateSource):
+        return cls(
+            id=cfg.id,
+            fmt=cfg.raw.get("format", "%H:%M"),
+            tz=cfg.raw.get("timezone"),
+        )
+    if cls is StaticSource:
+        return cls(id=cfg.id, value=cfg.raw.get("value", ""))
+    # Generic fallback for future core types that only need id= (rare).
+    return cls(id=cfg.id)
 
 
 def _list_section_fields() -> str:

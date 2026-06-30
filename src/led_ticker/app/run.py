@@ -34,10 +34,12 @@ from led_ticker.app.factories import (
     _resolve_buffer_msg,
     _resolve_title_delay,
     build_frame_from_config,
+    build_source,
 )
 from led_ticker.busy_http import serve_busy
 from led_ticker.config import load_config, resolve_secret_token
 from led_ticker.plugin import StartupContext
+from led_ticker.sources import DataRegistry, set_data_registry, spawn_source_refresh
 from led_ticker.ticker import (
     RestartRequested,
     Ticker,
@@ -714,6 +716,20 @@ async def run(config_path: Path) -> None:
             )
 
         schedule_task: Any = await _respawn_schedule(None, config, led_frame)
+
+        # Build the data-source registry from [[source]] blocks, prime each
+        # source once, and spawn the 1 Hz refresh loop. Must run BEFORE widget
+        # construction so TokenizedField instances created during widget build
+        # can resolve against an already-populated registry. Runs post-frame-
+        # build (inside the try: after led_frame.setup()) but uses only
+        # spawn_tracked (asyncio task) and no privileged FS — safe at this
+        # point regardless of whether the rgbmatrix backend has dropped root
+        # (constraint #13).
+        _source_registry = DataRegistry()
+        for _source_cfg in config.sources:
+            _source_registry.add(build_source(_source_cfg))
+        set_data_registry(_source_registry)
+        spawn_source_refresh(_source_registry)
 
         # Default inter-section transition built once at startup. Used for
         # sections that don't specify their own `transition` field — see

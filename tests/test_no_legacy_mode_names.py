@@ -57,8 +57,8 @@ _EXCLUDED_DIR_PREFIXES: tuple[str, ...] = (
 
 # Patterns applied to ALL text files.
 _PATTERNS = [
-    # mode value as a TOML assignment
-    re.compile(r'mode\s*=\s*"swap"'),
+    # mode value as a TOML assignment — catches both quote styles (valid TOML)
+    re.compile(r"""mode\s*=\s*['"]swap['"]"""),
     # the old mode names as bare identifiers or in prose
     re.compile(r"\bforever_scroll\b"),
     re.compile(r"\binfini_scroll\b"),

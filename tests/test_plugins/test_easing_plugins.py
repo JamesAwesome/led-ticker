@@ -44,7 +44,7 @@ def test_plugin_easing_validates_through_load_config(tmp_path):
     cfg.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         '[transitions]\ndefault="cut"\neasing="acme.snap"\n\n'
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     L.load_plugins(pdir, entry_points_enabled=False)

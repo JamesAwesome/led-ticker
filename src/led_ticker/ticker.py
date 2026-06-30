@@ -104,7 +104,7 @@ def _draw_hires_circle(
 
 @attrs.define
 class _CircleBufferMsg(TickerMessage):
-    """forever_scroll buffer separator. Auto-routes to a hi-res circle
+    """ticker buffer separator. Auto-routes to a hi-res circle
     when the canvas is a ScaledCanvas; falls back to TickerMessage's
     BDF rendering on plain canvases (smallsign / scale=1).
 
@@ -234,9 +234,9 @@ class Ticker:
             notif_queue=notif_queue,
         )
 
-    async def run_swap(self, loop_count: int = 0) -> None:
+    async def run_slideshow(self, loop_count: int = 0) -> None:
         """Swap between all running monitors."""
-        logging.info("Running Swap with loop count %s...", loop_count)
+        logging.info("Running Slideshow with loop count %s...", loop_count)
         canvas = _maybe_wrap(
             self.frame.get_clean_canvas(), self.scale, self.content_height
         )
@@ -280,7 +280,7 @@ class Ticker:
         Each monitor is enqueued exactly once; per-gif repetition
         happens inside play() via loop_count, NOT by re-queueing.
 
-        For title + gif behavior, use `mode = "swap"` instead — gif
+        For title + gif behavior, use `mode = "slideshow"` instead — gif
         rides _show_one's _has_play dispatch alongside the title.
         """
         logging.info("Running GIF playback with loop count %s...", loop_count)
@@ -316,11 +316,11 @@ class Ticker:
             loop_count=loop_count,
         )
 
-    async def run_forever_scroll(
+    async def run_ticker(
         self, loop_count: int = 0, start_pos: int | None = None
     ) -> None:
         """Scroll all monitors side-by-side in a continuous stream."""
-        logging.info("Running Forever Scroll with loop count %s...", loop_count)
+        logging.info("Running Ticker with loop count %s...", loop_count)
         canvas = _maybe_wrap(
             self.frame.get_clean_canvas(), self.scale, self.content_height
         )
@@ -352,11 +352,11 @@ class Ticker:
             hold_at_end=self.hold_time,
         )
 
-    async def run_infini_scroll(
+    async def run_one_at_a_time(
         self, loop_count: int = 0, start_pos: int | None = None
     ) -> None:
         """Scroll monitors one-by-one, each fully scrolling off before the next."""
-        logging.info("Running Infini Scroll with loop count %s...", loop_count)
+        logging.info("Running One-at-a-time with loop count %s...", loop_count)
         canvas = _maybe_wrap(
             self.frame.get_clean_canvas(), self.scale, self.content_height
         )

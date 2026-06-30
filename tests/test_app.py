@@ -1210,13 +1210,13 @@ default_scale = 1
 [transitions]
 between_sections = "dissolve"
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_left"
 [[playlist.section.widget]]
 type = "message"
 text = "FIRST"
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_left"
 [[playlist.section.widget]]
 type = "message"
@@ -1261,7 +1261,7 @@ default_scale = 1
 [transitions]
 between_sections = "dissolve"
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 [[playlist.section.widget]]
 type = "message"
 text = "ONLY"
@@ -1675,7 +1675,7 @@ class TestAppRunDrainLoopTripwire:
             display=DisplayConfig(rows=16, cols=32, chain_length=5),
             sections=[
                 SectionConfig(
-                    mode="swap",
+                    mode="slideshow",
                     widgets=[widget_cfg],
                 ),
             ],
@@ -1690,7 +1690,7 @@ class TestAppRunDrainLoopTripwire:
                 self.last_scroll_pos = 0
                 raise _StopApp("captured monitors")
 
-            async def run_swap(self, **kw):
+            async def run_slideshow(self, **kw):
                 pass
 
         with (
@@ -1787,12 +1787,12 @@ class TestAppRunBgColorHandoff:
             display=DisplayConfig(rows=16, cols=32, chain_length=5),
             sections=[
                 SectionConfig(
-                    mode="swap",
+                    mode="slideshow",
                     widgets=[{"type": "message", "text": "A"}],
                     bg_color=section_one_bg,
                 ),
                 SectionConfig(
-                    mode="swap",
+                    mode="slideshow",
                     widgets=[{"type": "message", "text": "B"}],
                     bg_color=section_two_bg,
                 ),
@@ -1815,7 +1815,7 @@ class TestAppRunBgColorHandoff:
 
         class _FakeTicker:
             """Stand-in for `Ticker` that just records construction
-            and is a no-op on run_swap. Section 1 runs through
+            and is a no-op on run_slideshow. Section 1 runs through
             successfully; section 2's entry transition fires our
             `fake_run_transition` BEFORE Ticker is constructed, so
             this is only exercised by section 1."""
@@ -1827,13 +1827,13 @@ class TestAppRunBgColorHandoff:
                 self.last_scroll_pos = 0
                 self._enqueue_task = None
 
-            async def run_swap(self, **kw):
+            async def run_slideshow(self, **kw):
                 pass
 
-            async def run_forever_scroll(self, **kw):
+            async def run_ticker(self, **kw):
                 pass
 
-            async def run_infini_scroll(self, **kw):
+            async def run_one_at_a_time(self, **kw):
                 pass
 
         with (
@@ -1900,7 +1900,7 @@ def test_resolve_buffer_msg_returns_none_when_all_fields_unset():
     from led_ticker.app import _resolve_buffer_msg
     from led_ticker.config import SectionConfig
 
-    section = SectionConfig(mode="forever_scroll")
+    section = SectionConfig(mode="ticker")
     assert _resolve_buffer_msg(section) is None
 
 
@@ -1910,7 +1910,7 @@ def test_resolve_buffer_msg_with_separator_text_only():
     from led_ticker.config import SectionConfig
     from led_ticker.widgets.message import TickerMessage
 
-    section = SectionConfig(mode="forever_scroll", separator="*")
+    section = SectionConfig(mode="ticker", separator="*")
     msg = _resolve_buffer_msg(section)
     assert isinstance(msg, TickerMessage)
     assert msg.text == "*"
@@ -1921,7 +1921,7 @@ def test_resolve_buffer_msg_empty_string_maps_to_two_spaces():
     from led_ticker.app import _resolve_buffer_msg
     from led_ticker.config import SectionConfig
 
-    section = SectionConfig(mode="forever_scroll", separator="")
+    section = SectionConfig(mode="ticker", separator="")
     msg = _resolve_buffer_msg(section)
     assert msg is not None
     assert msg.text == "  "
@@ -1932,7 +1932,7 @@ def test_resolve_buffer_msg_with_custom_font_inherits_default_text():
     from led_ticker.app import _resolve_buffer_msg
     from led_ticker.config import SectionConfig
 
-    section = SectionConfig(mode="forever_scroll", separator_font="5x8")
+    section = SectionConfig(mode="ticker", separator_font="5x8")
     msg = _resolve_buffer_msg(section)
     assert msg is not None
     assert msg.text == "•"
@@ -1955,7 +1955,7 @@ def test_resolve_buffer_msg_with_hires_font_resolves_via_resolve_font():
     from led_ticker.fonts.hires_loader import HiresFont
 
     section = SectionConfig(
-        mode="forever_scroll",
+        mode="ticker",
         separator=" * ",
         separator_font="Inter-Bold",
         separator_font_size=24,
@@ -1974,7 +1974,7 @@ def test_resolve_buffer_msg_with_constant_color():
     from led_ticker.config import SectionConfig
 
     section = SectionConfig(
-        mode="forever_scroll", separator="*", separator_color=[225, 48, 108]
+        mode="ticker", separator="*", separator_color=[225, 48, 108]
     )
     msg = _resolve_buffer_msg(section)
     assert msg is not None
@@ -1993,7 +1993,7 @@ def test_resolve_buffer_msg_color_only_returns_circle_buffer_msg():
     from led_ticker.config import SectionConfig
     from led_ticker.ticker import _CircleBufferMsg
 
-    section = SectionConfig(mode="forever_scroll", separator_color=[225, 48, 108])
+    section = SectionConfig(mode="ticker", separator_color=[225, 48, 108])
     msg = _resolve_buffer_msg(section)
 
     assert isinstance(msg, _CircleBufferMsg), (
@@ -2623,11 +2623,11 @@ class TestPerSectionQueue:
             display=DisplayConfig(rows=16, cols=32, chain_length=5),
             sections=[
                 SectionConfig(
-                    mode="swap",
+                    mode="slideshow",
                     widgets=[{"type": "message", "text": "Section 1"}],
                 ),
                 SectionConfig(
-                    mode="swap",
+                    mode="slideshow",
                     widgets=[{"type": "message", "text": "Section 2"}],
                 ),
             ],
@@ -2647,7 +2647,7 @@ class TestPerSectionQueue:
                 if len(received_queues) >= 2:
                     raise _StopApp("captured both sections")
 
-            async def run_swap(self, **kw):
+            async def run_slideshow(self, **kw):
                 pass
 
         with (
@@ -2705,7 +2705,7 @@ class TestLoadConfigOffEventLoop:
             display=DisplayConfig(rows=16, cols=32, chain_length=5),
             sections=[
                 SectionConfig(
-                    mode="swap",
+                    mode="slideshow",
                     widgets=[{"type": "message", "text": "test"}],
                 ),
             ],
@@ -2731,7 +2731,7 @@ class TestLoadConfigOffEventLoop:
             def __init__(self, *args, **kwargs):
                 raise _StopApp("captured")
 
-            async def run_swap(self, **kw):
+            async def run_slideshow(self, **kw):
                 pass
 
         with (

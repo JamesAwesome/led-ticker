@@ -40,7 +40,7 @@ cols = 32
 brightness = "60"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = "3.0"
 
 [[playlist.section.widget]]
@@ -54,7 +54,7 @@ text = "hi"
             self.last_scroll_pos = 0
             raise _StopApp("stop after first Ticker")
 
-        async def run_swap(self, **kw):
+        async def run_slideshow(self, **kw):
             pass
 
     with (

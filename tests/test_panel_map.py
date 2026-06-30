@@ -214,9 +214,7 @@ def test_paint_verify_index_digit_within_cell():
     # The index is drawn in white (255,255,255) starting at (3,2). Assert at
     # least one white digit pixel falls inside cell (0,0) = [0,64)×[0,32).
     white_in_cell = any(
-        c.get_pixel(x, y) == (255, 255, 255)
-        for x in range(0, 64)
-        for y in range(0, 32)
+        c.get_pixel(x, y) == (255, 255, 255) for x in range(0, 64) for y in range(0, 32)
     )
     assert white_in_cell, "label digit not rendered white inside cell (0,0)"
 
@@ -233,9 +231,7 @@ def test_paint_verify_is_mapper_independent():
     """
     # BIGSIGN_STRING and the 180°-flipped (broken) mapper share the 256×64
     # header but list panels in opposite order.
-    flipped = (
-        "Remap:256,64|0,0n|0,32n|64,0n|64,32n|128,0n|128,32n|192,0n|192,32n"
-    )
+    flipped = "Remap:256,64|0,0n|0,32n|64,0n|64,32n|128,0n|128,32n|192,0n|192,32n"
     a = HeadlessCanvas(width=256, height=64)
     b = HeadlessCanvas(width=256, height=64)
     paint_verify(a, mapper=BIGSIGN_STRING, cols=64, rows=32)

@@ -857,7 +857,7 @@ async def run(config_path: Path) -> None:
                         )
                         run_method = RUN_MODES.get(
                             section.mode,
-                            "run_forever_scroll",
+                            "run_ticker",
                         )
 
                         # Entry transition precedence:
@@ -1003,11 +1003,11 @@ async def run(config_path: Path) -> None:
                         # before redrawing.
                         run_kwargs: dict[str, Any] = {"loop_count": section.loop_count}
                         # `start_pos` is only meaningful for scrolling modes —
-                        # `run_swap` and `run_gif` don't have a scroll position
+                        # `run_slideshow` and `run_gif` don't have a scroll position
                         # to skip past.
                         if just_transitioned and run_method in (
-                            "run_forever_scroll",
-                            "run_infini_scroll",
+                            "run_ticker",
+                            "run_one_at_a_time",
                         ):
                             run_kwargs["start_pos"] = 0
 

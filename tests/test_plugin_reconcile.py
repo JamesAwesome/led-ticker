@@ -80,7 +80,7 @@ def test_ensure_noop_when_stamp_matches(tmp_path):
 def test_referenced_namespaces_reads_widget_types(tmp_path):
     cfg = tmp_path / "config.toml"
     cfg.write_text(
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
         '[[playlist.section.widget]]\ntype="rss.feed"\n'
     )
     assert "rss" in referenced_namespaces(cfg)
@@ -97,7 +97,7 @@ def test_referenced_namespaces_reads_transition_keys(tmp_path):
     cfg = tmp_path / "config.toml"
     cfg.write_text(
         "[[playlist.section]]\n"
-        'mode="swap"\n'
+        'mode = "slideshow"\n'
         'transition="nyancat.forward"\n'
         'entry_transition="pokeball.reverse"\n'
         'widget_transition="pacman.alternating"\n'
@@ -115,7 +115,7 @@ def test_transition_reference_blocks_uninstall(tmp_path, monkeypatch):
 
     cfg = tmp_path / "config.toml"
     cfg.write_text(
-        '[[playlist.section]]\nmode="swap"\ntransition="nyancat.forward"\n'
+        '[[playlist.section]]\nmode = "slideshow"\ntransition="nyancat.forward"\n'
         '[[playlist.section.widget]]\ntype="message"\n'
     )
     (tmp_path / "requirements-plugins.txt").write_text("")  # declares nothing
@@ -198,7 +198,10 @@ def test_reconcile_blocks_uninstall_when_config_references(tmp_path, monkeypatch
     import led_ticker.plugin_reconcile as r
 
     (tmp_path / "config.toml").write_text(
-        '[[playlist.section]]\nmode="swap"\n[[playlist.section.widget]]\ntype="old.thing"\n'
+        "[[playlist.section]]\n"
+        'mode = "slideshow"\n'
+        "[[playlist.section.widget]]\n"
+        'type="old.thing"\n'
     )
     (tmp_path / "requirements-plugins.txt").write_text("")  # manifest present
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))

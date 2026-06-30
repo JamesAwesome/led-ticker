@@ -33,7 +33,7 @@ gpio_slowdown = 2
 delay = 5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -51,7 +51,7 @@ message = "Days Until Spring"
 countdown_date = 2026-03-20
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 2
 
 [[playlist.section.widget]]
@@ -77,9 +77,9 @@ def test_load_config_display(config):
 
 def test_load_config_sections(config):
     assert len(config.sections) == 2
-    assert config.sections[0].mode == "forever_scroll"
+    assert config.sections[0].mode == "ticker"
     assert config.sections[0].loop_count == 1
-    assert config.sections[1].mode == "swap"
+    assert config.sections[1].mode == "slideshow"
     assert config.sections[1].loop_count == 2
 
 
@@ -102,7 +102,7 @@ def test_load_config_defaults(tmp_path):
     p = tmp_path / "minimal.toml"
     p.write_text("""\
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 
 [[playlist.section.widget]]
 type = "message"
@@ -125,7 +125,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 """)
     cfg = load_config(p)
     assert cfg.display.parallel == 1
@@ -155,7 +155,7 @@ disable_hardware_pulsing = false
 rp1_pio = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 """)
     cfg = load_config(p)
     assert cfg.display.pwm_bits == 8
@@ -176,7 +176,7 @@ cols = 64
 rp1_rio = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 """)
     cfg = load_config(p)
     assert cfg.display.rp1_pio == 0  # old key is ignored, not translated
@@ -197,7 +197,7 @@ pixel_mapper_config = "U-mapper"
 default_scale = 4
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 """)
     cfg = load_config(p)
@@ -246,7 +246,7 @@ chain_length = 8
 default_scale = 4
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 """)
     cfg = load_config(p)
     assert cfg.sections[0].scale == 4
@@ -256,7 +256,7 @@ def test_section_bg_color_defaults_to_none(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="forever_scroll"\n'
+        '[[playlist.section]]\nmode="ticker"\n'
     )
     cfg = load_config(config_file)
     assert cfg.sections[0].bg_color is None
@@ -266,7 +266,7 @@ def test_section_bg_color_parsed_from_toml(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="forever_scroll"\n'
+        '[[playlist.section]]\nmode="ticker"\n'
         "bg_color=[26, 59, 142]\n"
     )
     cfg = load_config(config_file)
@@ -280,7 +280,7 @@ def test_transition_specified_true_when_section_has_transition_key(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
         'transition = "pokeball"\n'
     )
     cfg = load_config(config_file)
@@ -298,7 +298,7 @@ def test_transition_specified_false_when_section_omits_transition(tmp_path):
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
         "[transitions]\n"
         'default = "pokeball"\n'  # global default; section inherits
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
     )
     cfg = load_config(config_file)
     assert cfg.sections[0].transition_specified is False
@@ -325,7 +325,7 @@ def test_section_start_hold_defaults_to_none(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
 
         [[playlist.section.widget]]
         type = "message"
@@ -346,7 +346,7 @@ def test_section_start_hold_parses_zero(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         start_hold = 0.0
 
         [[playlist.section.widget]]
@@ -368,7 +368,7 @@ def test_section_start_hold_parses_positive_float(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         start_hold = 2.5
 
         [[playlist.section.widget]]
@@ -390,7 +390,7 @@ def test_section_separator_defaults_to_none(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
 
         [[playlist.section.widget]]
         type = "message"
@@ -415,7 +415,7 @@ def test_section_separator_text_parses(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         separator = " * "
 
         [[playlist.section.widget]]
@@ -437,7 +437,7 @@ def test_section_separator_empty_string_parses(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         separator = ""
 
         [[playlist.section.widget]]
@@ -462,7 +462,7 @@ def test_section_separator_font_parses(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         separator_font = "Inter-Bold"
         separator_font_size = 24
 
@@ -487,7 +487,7 @@ def test_section_separator_color_parses_rgb_list(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         separator_color = [225, 48, 108]
 
         [[playlist.section.widget]]
@@ -512,7 +512,7 @@ def test_section_separator_color_parses_rainbow_string(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         separator_color = "rainbow"
 
         [[playlist.section.widget]]
@@ -536,7 +536,7 @@ def test_section_raw_round_trips_from_toml(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3.0
         scroll_step_ms = 35
 
@@ -547,7 +547,7 @@ def test_section_raw_round_trips_from_toml(tmp_path):
     )
     app = load_config(cfg)
     raw = app.sections[0]._raw
-    assert raw["mode"] == "swap"
+    assert raw["mode"] == "slideshow"
     assert raw["hold_time"] == 3.0
     assert raw["scroll_step_ms"] == 35
     # widget list is stored under the TOML key "widget", not "widgets"
@@ -559,7 +559,7 @@ def test_section_raw_is_empty_on_direct_construction():
     require _raw — default factory gives an empty dict."""
     from led_ticker.config import SectionConfig
 
-    s = SectionConfig(mode="swap")
+    s = SectionConfig(mode="slideshow")
     assert s._raw == {}
 
 
@@ -572,7 +572,7 @@ cols = 32
 brightness = "60"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 """)
     from led_ticker.config import load_config
 
@@ -593,7 +593,7 @@ brightness = "60"
 gpio_slowdown = "3"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 """)
     from led_ticker.config import load_config
 
@@ -621,7 +621,7 @@ rows = 16
 cols = 32
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = "3.0"
 """)
     from led_ticker.config import load_config
@@ -639,7 +639,7 @@ rows = 16
 cols = 32
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = "16"
 scale = "2"
 loop_count = "3"
@@ -668,7 +668,7 @@ default = "cut"
 easing = "Linear"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 """)
     from led_ticker.config import load_config
 
@@ -688,7 +688,7 @@ cols = 32
 easing = "easeout"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 """)
     import pytest
 
@@ -703,7 +703,7 @@ def test_entry_transition_parsed_from_toml(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
         'entry_transition = "pokeball"\n'
     )
     cfg = load_config(config_file)
@@ -715,7 +715,7 @@ def test_entry_transition_none_when_absent(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
     )
     cfg = load_config(config_file)
     assert cfg.sections[0].entry_transition is None
@@ -725,7 +725,7 @@ def test_widget_transition_parsed_from_toml(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
         'widget_transition = "wipe_left"\n'
     )
     cfg = load_config(config_file)
@@ -737,7 +737,7 @@ def test_widget_transition_none_when_absent(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
     )
     cfg = load_config(config_file)
     assert cfg.sections[0].widget_transition is None
@@ -748,7 +748,7 @@ def test_entry_transition_and_transition_coexist(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
         'transition = "wipe_left"\n'
         'entry_transition = "pokeball"\n'
     )
@@ -764,7 +764,7 @@ def test_entry_transition_dict_form(tmp_path):
     config_file = tmp_path / "c.toml"
     config_file.write_text(
         "[display]\nrows=16\ncols=32\nchain_length=5\n"
-        '[[playlist.section]]\nmode="swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
         '[playlist.section.entry_transition]\ntype = "dissolve"\nduration = 0.8\n'
     )
     cfg = load_config(config_file)
@@ -788,7 +788,7 @@ def test_transition_fps_parsed_from_section_toml(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         transition = "push_left"
         transition_fps = 40.0
 
@@ -813,7 +813,7 @@ def test_transition_fps_parsed_from_inline_dict(tmp_path):
         between_sections = {type = "push_left", duration = 1.0, transition_fps = 30.0}
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
 
         [[playlist.section.widget]]
         type = "message"
@@ -833,7 +833,7 @@ def test_transition_fps_absent_stays_none(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         transition = "push_left"
 
         [[playlist.section.widget]]
@@ -857,7 +857,7 @@ def test_transition_fps_converts_to_scroll_speed(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         transition = "push_left"
         transition_fps = 40.0
 
@@ -884,7 +884,7 @@ def test_transition_fps_none_yields_default_scroll_speed(tmp_path):
         chain_length = 5
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         transition = "push_left"
 
         [[playlist.section.widget]]
@@ -904,7 +904,7 @@ def test_busy_light_default_disabled(tmp_path):
     p = tmp_path / "c.toml"
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     cfg = load_config(p)
@@ -922,7 +922,7 @@ def test_busy_light_parsed(tmp_path):
         "[display]\nrows=16\ncols=32\n\n"
         '[busy_light]\nenabled=true\nfile_path="/tmp/b"\n'
         'poll_interval=2.0\ncorner="bottom_left"\ncolor=[0,255,0]\nsize=6\n\n'
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     cfg = load_config(p)
@@ -941,7 +941,7 @@ def test_busy_light_invalid_corner_raises(tmp_path):
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         '[busy_light]\nenabled=true\ncorner="middle"\n\n'
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     with pytest.raises(ValueError, match="corner"):
@@ -955,7 +955,7 @@ def test_busy_light_invalid_size_raises(tmp_path):
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         "[busy_light]\nenabled=true\nsize=0\n\n"
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     with pytest.raises(ValueError, match="size"):
@@ -969,7 +969,7 @@ def test_busy_light_invalid_color_raises(tmp_path):
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         "[busy_light]\nenabled=true\ncolor=[255,0]\n\n"
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     with pytest.raises(ValueError, match="color"):
@@ -983,7 +983,7 @@ def test_busy_light_color_out_of_range_raises(tmp_path):
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         "[busy_light]\nenabled=true\ncolor=[999,-5,0]\n\n"
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     with pytest.raises(ValueError, match="color"):
@@ -994,7 +994,7 @@ def test_busy_light_http_fields_default(tmp_path):
     p = tmp_path / "c.toml"
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     cfg = load_config(p)
@@ -1011,7 +1011,7 @@ def test_busy_light_http_fields_parsed(tmp_path):
         "[display]\nrows=16\ncols=32\n\n"
         '[busy_light]\nenabled=true\nsource="http"\n'
         'http_host="127.0.0.1"\nhttp_port=9000\ntoken="abc"\nttl_seconds=300.0\n\n'
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     cfg = load_config(p)
@@ -1029,7 +1029,7 @@ def test_busy_light_invalid_source_raises(tmp_path):
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         '[busy_light]\nenabled=true\nsource="carrier_pigeon"\n\n'
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     with pytest.raises(ValueError, match="busy_light.source"):
@@ -1043,7 +1043,7 @@ def test_busy_light_invalid_port_raises(tmp_path):
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         "[busy_light]\nenabled=true\nhttp_port=70000\n\n"
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     with pytest.raises(ValueError, match="busy_light.http_port"):
@@ -1057,7 +1057,7 @@ def test_busy_light_negative_ttl_raises(tmp_path):
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         "[busy_light]\nenabled=true\nttl_seconds=-1.0\n\n"
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     with pytest.raises(ValueError, match="busy_light.ttl_seconds"):
@@ -1071,7 +1071,7 @@ def test_busy_light_non_string_token_raises(tmp_path):
     p.write_text(
         "[display]\nrows=16\ncols=32\n\n"
         "[busy_light]\nenabled=true\ntoken=123\n\n"
-        '[[playlist.section]]\nmode="swap"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
         '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
     )
     with pytest.raises(ValueError, match="busy_light.token"):
@@ -1093,7 +1093,7 @@ def test_plugin_transition_show_flags_flow_through_extra():
 def test_display_hot_reload_defaults_true(tmp_path):
     cfg_file = tmp_path / "c.toml"
     cfg_file.write_text(
-        '[display]\nrows = 16\ncols = 32\n\n[[playlist.section]]\nmode = "swap"\n'
+        '[display]\nrows = 16\ncols = 32\n\n[[playlist.section]]\nmode = "slideshow"\n'
     )
     cfg = load_config(cfg_file)
     assert cfg.display.hot_reload is True
@@ -1103,7 +1103,7 @@ def test_display_hot_reload_can_be_disabled(tmp_path):
     cfg_file = tmp_path / "c.toml"
     cfg_file.write_text(
         "[display]\nrows = 16\ncols = 32\nhot_reload = false\n\n"
-        '[[playlist.section]]\nmode = "swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
     )
     cfg = load_config(cfg_file)
     assert cfg.display.hot_reload is False
@@ -1121,3 +1121,27 @@ def test_web_block_allow_restart_defaults_false():
 
     cfg = _parse_web_block({"web": {}})
     assert cfg is not None and cfg.allow_restart is False
+
+
+class TestModeMigration:
+    @pytest.mark.parametrize(
+        "old,new",
+        [
+            ("swap", "slideshow"),
+            ("forever_scroll", "ticker"),
+            ("infini_scroll", "one_at_a_time"),
+        ],
+    )
+    def test_old_mode_name_raises_migration_error(self, tmp_path, old, new):
+        from led_ticker.validate import MigrationError
+
+        cfg = tmp_path / "config.toml"
+        cfg.write_text(
+            "[display]\nrows=16\ncols=32\nchain_length=5\n"
+            f'[[playlist.section]]\nmode = "{old}"\n'
+            '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+        )
+        with pytest.raises(MigrationError) as ei:
+            load_config(str(cfg))
+        assert new in str(ei.value)
+        assert old in str(ei.value)

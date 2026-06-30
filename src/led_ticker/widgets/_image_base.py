@@ -131,9 +131,9 @@ class _BaseImageWidget(FrameAwareBase):
     text_wrap: bool = attrs.field(default=False, kw_only=True)
 
     # The text inserted between repeats in `text_wrap` mode. None = use
-    # the default " • " when wrap is on (matching forever_scroll's
+    # the default " • " when wrap is on (matching ticker's
     # default separator). Explicit "" → "  " (two-space gap, matching
-    # forever_scroll's empty-separator semantics). Any other value is
+    # ticker's empty-separator semantics). Any other value is
     # rendered as-is.
     text_separator: str | None = attrs.field(default=None, kw_only=True)
 
@@ -155,7 +155,7 @@ class _BaseImageWidget(FrameAwareBase):
     bottom_text_wrap: bool = attrs.field(default=False, kw_only=True)
 
     # Glyph(s) between bottom-row repeats in wrap mode. None → " • "
-    # default (matches v1 + forever_scroll). "" → "  " (two-space gap).
+    # default (matches v1 + ticker). "" → "  " (two-space gap).
     bottom_text_separator: str | None = attrs.field(default=None, kw_only=True)
 
     # Color for the bottom separator. None inherits bottom_color
@@ -706,7 +706,7 @@ class _BaseImageWidget(FrameAwareBase):
         `self.bottom_text_separator` explicitly — that field's own
         default of None still resolves to " • " here.
 
-        Mirrors `forever_scroll`'s separator literal-text rules so a
+        Mirrors `ticker`'s separator literal-text rules so a
         user moving from per-section to per-widget wraps gets the
         same defaults."""
         if separator is None:

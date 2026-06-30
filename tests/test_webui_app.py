@@ -163,7 +163,7 @@ async def test_config_view_missing_file_degrades(tmp_path):
 async def test_validate_good_toml(tmp_path):
     good = (
         "[display]\nrows = 32\ncols = 64\nchain_length = 8\ndefault_scale = 1\n\n"
-        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n'
+        '[[playlist.section]]\nmode = "slideshow"\nhold_time = 3\n'
         '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
     )
     client = await _client(tmp_path)
@@ -224,7 +224,7 @@ async def test_validate_resolves_user_font_in_config_dir(tmp_path):
 
     toml = (
         "[display]\nrows = 32\ncols = 64\nchain_length = 8\ndefault_scale = 1\n\n"
-        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\nhold_time = 3\n\n'
         '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
         'font = "beloved-sans"\nfont_size = 16\n'
     )
@@ -400,7 +400,7 @@ def test_cli_webui_requires_web_block(tmp_path):
 async def test_validate_file_happy_path_matches_direct_validation(tmp_path):
     good = (
         "[display]\nrows = 32\ncols = 64\nchain_length = 8\ndefault_scale = 1\n\n"
-        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n'
+        '[[playlist.section]]\nmode = "slideshow"\nhold_time = 3\n'
         '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
     )
     (tmp_path / "candidate.toml").write_text(good)
@@ -551,7 +551,7 @@ async def test_inventory_route(tmp_path):
 
 _GOOD_CONFIG = (
     "[display]\nrows = 16\ncols = 32\nchain_length = 5\ndefault_scale = 1\n\n"
-    '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n'
+    '[[playlist.section]]\nmode = "slideshow"\nhold_time = 3\n'
     '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
 )
 
@@ -657,7 +657,7 @@ async def test_put_config_restores_redacted_secret(tmp_path):
     disk_cfg = (
         '[web]\ntoken = "supersecret"\n\n'
         "[display]\nrows = 16\ncols = 32\nchain_length = 5\ndefault_scale = 1\n\n"
-        '[[playlist.section]]\nmode = "swap"\nhold_time = 3\n'
+        '[[playlist.section]]\nmode = "slideshow"\nhold_time = 3\n'
         '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
     )
     client = await _client(tmp_path, token="t", config_text=disk_cfg)
@@ -1858,7 +1858,7 @@ async def test_remove_shared_package_sibling_in_config_returns_409(
     manifest_path.write_text("led-ticker-flair\n")
     config_text = (
         "[display]\nrows = 16\ncols = 32\n\n"
-        '[[section]]\nmode = "swap"\ntransition = "nyancat.forward"\n'
+        '[[section]]\nmode = "slideshow"\ntransition = "nyancat.forward"\n'
     )
 
     client = await _client(tmp_path, token="s3cret", config_text=config_text)

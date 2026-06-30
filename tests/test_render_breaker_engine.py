@@ -119,7 +119,7 @@ async def test_swap_mode_survives_faulty_draw(swapping_frame, no_sleep):
     breaker = RenderBreaker()
     ticker = _make_ticker(monitors=[bad, good], frame=swapping_frame, breaker=breaker)
     # Must not raise:
-    await ticker.run_swap(loop_count=1)
+    await ticker.run_slideshow(loop_count=1)
     assert breaker.is_disabled(bad) is True
     # Disabled widget is filtered from the rotation next pass:
     assert _expand_sources([bad, good], breaker=breaker) == [good]
@@ -136,20 +136,20 @@ async def test_swap_mode_survives_faulty_draw(swapping_frame, no_sleep):
 # ---------------------------------------------------------------------------
 
 
-async def test_forever_scroll_survives_faulty_draw(swapping_frame, no_sleep):
-    """forever_scroll (_scroll_side_by_side) must absorb a faulty draw."""
+async def test_ticker_survives_faulty_draw(swapping_frame, no_sleep):
+    """ticker (_scroll_side_by_side) must absorb a faulty draw."""
     good = _make_message_widget("hello")
     bad = FaultyDrawWidget()
     breaker = RenderBreaker()
     ticker = _make_ticker(monitors=[bad, good], frame=swapping_frame, breaker=breaker)
-    await ticker.run_forever_scroll(loop_count=1)
+    await ticker.run_ticker(loop_count=1)
     assert breaker.is_disabled(bad) is True
     # Disabled widget is filtered from the rotation next pass:
     assert _expand_sources([bad, good], breaker=breaker) == [good]
 
 
-async def test_forever_scroll_second_widget_fails(swapping_frame, no_sleep):
-    """In forever_scroll, the SECOND widget faulting must not break the loop.
+async def test_ticker_second_widget_fails(swapping_frame, no_sleep):
+    """In ticker, the SECOND widget faulting must not break the loop.
 
     The run completes, the breaker trips the bad widget, and a good sibling
     still rendered (run did not raise).
@@ -162,7 +162,7 @@ async def test_forever_scroll_second_widget_fails(swapping_frame, no_sleep):
         monitors=[good, bad, good2], frame=swapping_frame, breaker=breaker
     )
     # Must not raise:
-    await ticker.run_forever_scroll(loop_count=1)
+    await ticker.run_ticker(loop_count=1)
     assert breaker.is_disabled(bad) is True
     # Good siblings are not tripped:
     assert not breaker.is_disabled(good)
@@ -176,13 +176,13 @@ async def test_forever_scroll_second_widget_fails(swapping_frame, no_sleep):
 # ---------------------------------------------------------------------------
 
 
-async def test_infini_scroll_survives_faulty_draw(swapping_frame, no_sleep):
-    """infini_scroll (_scroll_one_by_one) must absorb a faulty draw."""
+async def test_one_at_a_time_survives_faulty_draw(swapping_frame, no_sleep):
+    """one_at_a_time (_scroll_one_by_one) must absorb a faulty draw."""
     good = _make_message_widget("hello")
     bad = FaultyDrawWidget()
     breaker = RenderBreaker()
     ticker = _make_ticker(monitors=[bad, good], frame=swapping_frame, breaker=breaker)
-    await ticker.run_infini_scroll(loop_count=1)
+    await ticker.run_one_at_a_time(loop_count=1)
     assert breaker.is_disabled(bad) is True
     # Disabled widget is filtered from the rotation next pass:
     assert _expand_sources([bad, good], breaker=breaker) == [good]

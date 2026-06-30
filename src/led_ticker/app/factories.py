@@ -924,7 +924,7 @@ def _resolve_title_delay(section_start_hold: float | None, global_delay: int) ->
 
 
 def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
-    """Build a per-section forever_scroll separator widget.
+    """Build a per-section ticker separator widget.
 
     Returns None when all four separator_* fields are unset — Ticker
     falls back to DEFAULT_BUFFER_MSG (a _CircleBufferMsg that adapts
@@ -979,9 +979,9 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
 
 
 RUN_MODES: dict[str, str] = {
-    "forever_scroll": "run_forever_scroll",
-    "infini_scroll": "run_infini_scroll",
-    "swap": "run_swap",
+    "slideshow": "run_slideshow",
+    "ticker": "run_ticker",
+    "one_at_a_time": "run_one_at_a_time",
     "gif": "run_gif",
 }
 
@@ -1253,7 +1253,7 @@ def _list_section_fields() -> str:
         # (name, type_str, default_str, description)
         (
             "mode",
-            '"forever_scroll" | "infini_scroll" | "swap"',
+            '"ticker" | "one_at_a_time" | "slideshow"',
             "(required)",
             "scroll/display mode for this section",
         ),

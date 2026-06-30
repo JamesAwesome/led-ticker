@@ -64,7 +64,7 @@ transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 6.0
 transition = "dissolve"
@@ -86,7 +86,7 @@ border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 5.0
 transition = "dissolve"
@@ -112,7 +112,7 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 0.5
 
@@ -141,7 +141,7 @@ font_color = {style = "gradient", from = [255, 92, 38], to = [255, 183, 3]}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 8.0
 transition = "pokeball.alternating"
@@ -173,7 +173,7 @@ border = {style = "rainbow", thickness = 2, speed = 3, char_offset = 5}
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 6.0
 transition = "nyancat.alternating"
@@ -201,7 +201,7 @@ font_color = [255, 244, 214]   # cream — high contrast on the video
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 
@@ -269,7 +269,7 @@ font_color = [255, 92, 38]    # flame
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 0.5
 transition = "sailor_moon.alternating"
@@ -294,7 +294,7 @@ font_color = "color_cycle"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 24
 loop_count = 1
@@ -367,7 +367,7 @@ bottom_font_threshold = 128
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 0.5
 

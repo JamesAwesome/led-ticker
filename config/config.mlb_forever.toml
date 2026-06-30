@@ -7,7 +7,7 @@
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
 
-# MLB scores forever_scroll config — all games scroll side-by-side
+# MLB scores ticker config — all games scroll side-by-side
 # Requires the `led-ticker-baseball` plugin (baseball.scores/baseball.standings
 # widgets + baseball.roll* transition). Add it to config/requirements-plugins.txt
 # — the tracked .example already lists it.
@@ -24,10 +24,10 @@ hardware_mapping = "adafruit-hat"
 [title]
 delay = 5
 
-# --- MLB Scores (forever_scroll) ---
+# --- MLB Scores (ticker) ---
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 0
 
 [playlist.section.title]

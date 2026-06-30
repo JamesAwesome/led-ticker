@@ -659,7 +659,7 @@ class TestSeparatorEmptyString:
       - ""         -> "  "  (two-space minimum gap)
       - any other  -> as-is
 
-    Mirrors forever_scroll's separator literal-text rules so a user
+    Mirrors ticker's separator literal-text rules so a user
     moving from per-section wraps to per-widget wraps gets the same
     defaults.
 

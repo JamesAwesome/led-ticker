@@ -75,7 +75,7 @@ border = {style = "bands", colors = "usa", band_width = 10, speed = -2}
 # Needs an internet connection for the live feed; if it's unreachable the
 # section stays blank and the others keep scrolling.
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 content_height = 16
 entry_transition = "nyancat.forward"
 

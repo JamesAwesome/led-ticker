@@ -105,7 +105,9 @@ def test_module_record_functions_noop_without_active_board():
     # Must not raise when no board is active.
     status_board.record_monitor_update("RSSFeedMonitor")
     status_board.record_widget_visit(object())
-    status_board.record_section(index=0, total=1, mode="swap", title="", widget_count=0)
+    status_board.record_section(
+        index=0, total=1, mode="slideshow", title="", widget_count=0
+    )
 
 
 def test_log_handler_captures_warning_and_bounds(tmp_path):
@@ -160,10 +162,10 @@ def test_record_section_publishes_immediately(tmp_path):
         # 3600 s in the future.  Only force=True inside record_section can land.
         board.publish(force=True)
         status_board.record_section(
-            index=1, total=3, mode="swap", title="news", widget_count=4
+            index=1, total=3, mode="slideshow", title="news", widget_count=4
         )
         on_disk = json.loads((tmp_path / "status.json").read_text())
-        assert on_disk["section"]["mode"] == "swap"
+        assert on_disk["section"]["mode"] == "slideshow"
         assert on_disk["section"]["index"] == 1
     finally:
         status_board.clear_active_board()
@@ -267,7 +269,7 @@ def test_record_section_strips_emoji_slugs(tmp_path):
         status_board.record_section(
             index=0,
             total=1,
-            mode="swap",
+            mode="slideshow",
             title=":baseball.ball: MLB Standings :baseball.ball:",
             widget_count=1,
         )

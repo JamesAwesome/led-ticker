@@ -93,8 +93,8 @@ def total_ms(config: dict, config_dir: Path) -> int:
     sections = (config.get("playlist") or {}).get("section") or []
     total = 0
     for s in sections:
-        if s.get("mode", "swap") != "swap" or s.get("loop_count") == 0:
-            continue  # forever/infini/loop-forever — runtime-dependent
+        if s.get("mode", "slideshow") != "slideshow" or s.get("loop_count") == 0:
+            continue  # ticker/one_at_a_time/loop-forever — runtime-dependent
         cw = _canvas_w(display, s)
         loop = int(s.get("loop_count") or 1)
         per = sum(widget_ms(w, s, cw, config_dir) for w in s.get("widget", []))

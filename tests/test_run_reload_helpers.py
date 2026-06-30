@@ -387,7 +387,7 @@ async def test_per_section_reload_swaps_config_and_restarts_cycle(monkeypatch):
     )
 
     def _section(text):
-        return SectionConfig(mode="swap", title={"text": text}, widgets=[])
+        return SectionConfig(mode="slideshow", title={"text": text}, widgets=[])
 
     # Initial config: 2 sections A + B. Reload target: 1 different section C.
     orig_cfg = AppConfig(
@@ -433,7 +433,7 @@ async def test_per_section_reload_swaps_config_and_restarts_cycle(monkeypatch):
             ran_sections.append(kwargs.get("monitors"))
             self.last_scroll_pos = 0
 
-        async def run_swap(self, **kw):
+        async def run_slideshow(self, **kw):
             pass
 
     with (

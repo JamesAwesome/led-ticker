@@ -355,15 +355,15 @@ font_size = 24
 font_color = {style = "shimmer", base = [90, 55, 0], shimmer = [255, 215, 0], speed = 18, width = 4, pause = 0.8}
 
 # ---------------------------------------------------------------------------
-# 11. forever_scroll shimmer — sweeping over a long scrolling message.
-#     In forever_scroll mode the frame counter advances continuously, so
+# 11. ticker shimmer — sweeping over a long scrolling message.
+#     In ticker mode the frame counter advances continuously, so
 #     the spot sweeps across the full text as it scrolls. The sweep length
 #     is proportional to total_chars, so long messages get a proportionally
 #     longer sweep duration at the same chars/sec speed.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -373,7 +373,7 @@ font_color = [160, 200, 160]
 
 [[playlist.section.widget]]
 type = "message"
-text = "Shimmer in forever_scroll — the bright spot travels across the full text as it scrolls past."
+text = "Shimmer in ticker — the bright spot travels across the full text as it scrolls past."
 font_color = {style = "shimmer", shimmer = "gold", speed = 14, width = 8, pause = 0.5}
 
 [[playlist.section.widget]]

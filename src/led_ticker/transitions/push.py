@@ -4,11 +4,15 @@ import random
 from typing import Any
 
 from led_ticker._types import Canvas
-from led_ticker.transitions import Transition, register_transition
+from led_ticker.transitions import (
+    Transition,
+    _OutgoingScaleSweep,
+    register_transition,
+)
 
 
 @register_transition("push_left")
-class PushLeft:
+class PushLeft(_OutgoingScaleSweep):
     """Rapid scroll — outgoing slides left, incoming enters from right.
 
     Uses draw-blackout-draw: draw outgoing at its scroll position,
@@ -58,7 +62,7 @@ class PushLeft:
 
 
 @register_transition("push_right")
-class PushRight:
+class PushRight(_OutgoingScaleSweep):
     """Rightward push — incoming enters from left, outgoing exits right.
 
     DrawText always renders rightward from cursor_pos, so we cannot
@@ -112,7 +116,7 @@ class PushRight:
 
 
 @register_transition("push_up")
-class PushUp:
+class PushUp(_OutgoingScaleSweep):
     """Rapid scroll — outgoing slides up, incoming enters from bottom.
 
     Vertical version of PushLeft.  Uses y_offset to shift both widgets
@@ -160,7 +164,7 @@ class PushUp:
 
 
 @register_transition("push_down")
-class PushDown:
+class PushDown(_OutgoingScaleSweep):
     """Rapid scroll — outgoing slides down, incoming enters from top.
 
     Mirror of PushUp.  Uses y_offset to shift both widgets vertically,
@@ -212,7 +216,7 @@ class PushDown:
 
 
 @register_transition("push_random")
-class PushRandom:
+class PushRandom(_OutgoingScaleSweep):
     """Picks a random push direction on each swap.
 
     Never repeats the same direction back-to-back.
@@ -247,7 +251,7 @@ class PushRandom:
 
 
 @register_transition("push_alternating")
-class PushAlternating:
+class PushAlternating(_OutgoingScaleSweep):
     """Cycles through push_left -> push_right -> push_up -> push_down."""
 
     def __init__(self, **kwargs: Any) -> None:

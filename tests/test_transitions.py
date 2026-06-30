@@ -1672,6 +1672,103 @@ class TestRunTransitionCrossScale:
         )
         assert bigsign_frame.create_canvas.call_count == 0
 
+    async def test_wipe_cross_scale_sweeps_at_outgoing_scale(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        """Option B: a cross-scale WIPE renders the whole sweep at the OUTGOING
+        scale and snaps to the incoming scale only on the FINAL frame — no
+        mid-sweep size jump (the bigsign bug). Contrast with dissolve, which
+        switches at the midpoint (its cross-fade hides the change)."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions.wipe import WipeLeft
+
+        class _Recorder:
+            def __init__(self, inner):
+                self._inner = inner
+                self.scale_switch_at = getattr(inner, "scale_switch_at", 0.5)
+                self.scales: list[int] = []
+
+            def frame_at(self, t, canvas, *a, **k):
+                self.scales.append(getattr(canvas, "scale", 1))
+                return self._inner.frame_at(t, canvas, *a, **k)
+
+        rec = _Recorder(WipeLeft())
+        await run_transition(
+            ScaledCanvas(real_bigsign_canvas, scale=2),
+            bigsign_frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+        assert rec.scales, "frame_at never called"
+        assert all(s == 2 for s in rec.scales[:-1]), rec.scales
+        assert rec.scales[-1] == 4, rec.scales
+
+        # Contrast: dissolve switches mid-sweep (scale 4 appears before the end).
+        rec2 = _Recorder(Dissolve())
+        await run_transition(
+            ScaledCanvas(real_bigsign_canvas, scale=2),
+            bigsign_frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec2,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+        assert 4 in rec2.scales[:-1], rec2.scales
+
+    def test_hard_edged_transitions_use_outgoing_scale_sweep(self):
+        """wipe/push/split/scroll opt into Option B (scale_switch_at = 1.0);
+        dissolve/color_flash/cut keep the 0.5 default."""
+        from led_ticker.transitions.effects import (
+            ColorFlash,
+            Cut,
+            Scroll,
+            SplitHorizontal,
+        )
+        from led_ticker.transitions.effects import Dissolve as _Dissolve
+        from led_ticker.transitions.push import (
+            PushAlternating,
+            PushDown,
+            PushLeft,
+            PushRandom,
+            PushRight,
+            PushUp,
+        )
+        from led_ticker.transitions.wipe import (
+            WipeAlternating,
+            WipeDown,
+            WipeLeft,
+            WipeRandom,
+            WipeRight,
+            WipeUp,
+        )
+
+        hard_edged = [
+            WipeLeft(),
+            WipeRight(),
+            WipeUp(),
+            WipeDown(),
+            WipeRandom(),
+            WipeAlternating(),
+            PushLeft(),
+            PushRight(),
+            PushUp(),
+            PushDown(),
+            PushRandom(),
+            PushAlternating(),
+            SplitHorizontal(),
+            Scroll(),
+        ]
+        for tr in hard_edged:
+            assert tr.scale_switch_at == 1.0, type(tr).__name__
+        for tr in (_Dissolve(), ColorFlash(), Cut()):
+            assert getattr(tr, "scale_switch_at", 0.5) == 0.5, type(tr).__name__
+
     async def test_incoming_content_height_threaded_into_wrapper(
         self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
     ):

@@ -4,7 +4,7 @@ import functools
 from typing import Any
 
 from led_ticker._types import Canvas, ColorTuple
-from led_ticker.transitions import register_transition
+from led_ticker.transitions import _OutgoingScaleSweep, register_transition
 
 # ColorFlash phase thresholds
 _FLASH_ONSET: float = 1 / 3
@@ -122,7 +122,7 @@ class Dissolve:
 
 
 @register_transition("split")
-class SplitHorizontal:
+class SplitHorizontal(_OutgoingScaleSweep):
     """Center-outward expanding black band with edge lines."""
 
     def __init__(self, **kwargs: Any) -> None:
@@ -160,7 +160,7 @@ class SplitHorizontal:
 
 
 @register_transition("scroll")
-class Scroll:
+class Scroll(_OutgoingScaleSweep):
     """Seamless continuous scroll with bullet separator.
 
     Outgoing, bullet, and incoming scroll left together as one

@@ -71,6 +71,28 @@ class Transition(Protocol):
         ...
 
 
+class _OutgoingScaleSweep:
+    """Mixin for hard-edged (visible moving edge) transitions — wipe, push,
+    split, scroll.
+
+    For a CROSS-SCALE transition (the next section uses a different
+    `default_scale`/section `scale`), `run_transition` re-wraps the canvas at
+    the incoming scale at `t >= scale_switch_at`. The default (0.5) suits
+    SOFT transitions (dissolve, color_flash): their fade/flash hides the
+    integer scale change at the midpoint. A hard-edged sweep has no fade, so a
+    midpoint switch is visible as the bar + content abruptly resizing
+    half-way through (a bigsign bug, 2026-06-30).
+
+    Setting `scale_switch_at = 1.0` renders the WHOLE sweep at the OUTGOING
+    scale and snaps to the incoming scale only on the final frame — the size
+    "pop" lands on the arriving content as it settles (least-jarring per a
+    motion-design review) instead of mid-sweep. Only affects cross-scale
+    transitions; same-scale is untouched (`needs_switch` is false).
+    """
+
+    scale_switch_at: float = 1.0
+
+
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 # name -> (message, suggested_fix) for a transition removed from core.

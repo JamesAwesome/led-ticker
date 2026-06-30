@@ -4,10 +4,10 @@ import random
 from typing import Any
 
 from led_ticker._types import Canvas, ColorTuple
-from led_ticker.transitions import register_transition
+from led_ticker.transitions import _OutgoingScaleSweep, register_transition
 
 
-class _BaseWipe:
+class _BaseWipe(_OutgoingScaleSweep):
     """Base class for wipe transitions. Not registered as a transition."""
 
     DEFAULT_COLOR: ColorTuple = (0, 255, 255)
@@ -148,7 +148,7 @@ class WipeDown(_BaseWipe):
 
 
 @register_transition("wipe_random")
-class WipeRandom:
+class WipeRandom(_OutgoingScaleSweep):
     """Picks a random wipe direction and sweep color on each swap.
 
     Never repeats the same direction back-to-back. Color is drawn
@@ -199,7 +199,7 @@ class WipeRandom:
 
 
 @register_transition("wipe_alternating")
-class WipeAlternating:
+class WipeAlternating(_OutgoingScaleSweep):
     """Cycles through wipe_left -> wipe_right -> wipe_up -> wipe_down."""
 
     def __init__(

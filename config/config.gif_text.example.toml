@@ -74,8 +74,7 @@ between_sections = "dissolve"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 17  # ~10s of playback
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -89,6 +88,7 @@ text_align = "right"
 font = "Inter-Bold"
 font_size = 24
 font_color = [255, 220, 50]
+play_count = 17  # ~10s of playback
 
 # ---------------------------------------------------------------------------
 # Section 2 — Scroll UNDER (transparent gif) — BDF smart-default smoke
@@ -115,8 +115,7 @@ font_color = [255, 220, 50]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 1  # gif controls a 1-loop minimum; text_loops sets the real floor
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -129,6 +128,7 @@ text_align = "scroll"
 font_color = [255, 220, 50]
 scroll_speed_ms = 50
 text_loops = 2  # don't transition until the marquee has crossed twice
+play_count = 1  # gif controls a 1-loop minimum; text_loops sets the real floor
 
 # ---------------------------------------------------------------------------
 # Section 3 — Scroll OVER (knockout / cutout text) — HiresFont
@@ -143,8 +143,7 @@ text_loops = 2  # don't transition until the marquee has crossed twice
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 14  # ~20s
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -158,6 +157,7 @@ font = "Inter-Bold"
 font_size = 28
 font_color = [0, 0, 0]
 scroll_speed_ms = 50
+play_count = 14  # ~20s
 
 # ---------------------------------------------------------------------------
 # Section 4 — Emoji + chunky text — BDF explicit-font_size smoke
@@ -174,8 +174,7 @@ scroll_speed_ms = 50
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 14  # ~14s
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -188,6 +187,7 @@ text_align = "scroll_over"
 font_color = [255, 255, 255]
 font_size = 48
 scroll_speed_ms = 50
+play_count = 14  # ~14s
 
 # ---------------------------------------------------------------------------
 # Section 5 — Animated WebP + scroll-over marquee
@@ -203,8 +203,7 @@ scroll_speed_ms = 50
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "gif"
-loop_count = 1  # text_loops sets the real floor; webp keeps looping under it
+mode = "slideshow"
 transition = "dissolve"
 transition_duration = 0.6
 
@@ -219,6 +218,7 @@ font_size = 24
 font_color = [140, 20, 100]  # deep magenta — Firebird palette, dark for contrast
 scroll_speed_ms = 50
 text_loops = 1
+play_count = 1  # text_loops sets the real floor; webp keeps looping under it
 
 # ---------------------------------------------------------------------------
 # Section 6 — Title + gif via mode = "slideshow"

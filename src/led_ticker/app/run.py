@@ -257,6 +257,7 @@ class _ReloadResult(NamedTuple):
     config: Any
     default_section_trans: Any
     schedule_task: Any
+    source_refresh_task: Any
 
 
 async def _detect_and_apply_reload(
@@ -268,15 +269,17 @@ async def _detect_and_apply_reload(
     widget_tasks: dict,
     render_breaker: Any,
     schedule_task: Any,
+    source_refresh_task: Any,
     led_frame: Any,
 ) -> _ReloadResult | None:
     """Check the watcher; if the config changed and validates, apply it.
 
     Returns a _ReloadResult (new config + rebuilt section-default transition +
-    new schedule task) when a reload was applied, else None for: no change,
-    transient mid-write, or a rejected (invalid) config. Records reload status
-    as a side effect — moved verbatim from the old inline run-loop block so the
-    detection cadence (now per-section) is the only behavior change."""
+    new schedule task + new source-refresh task) when a reload was applied, else
+    None for: no change, transient mid-write, or a rejected (invalid) config.
+    Records reload status as a side effect — moved verbatim from the old inline
+    run-loop block so the detection cadence (now per-section) is the only
+    behavior change."""
     if not watcher.changed():
         return None
     new_config, errors, transient = await _reload.load_and_validate(config_path)
@@ -287,7 +290,7 @@ async def _detect_and_apply_reload(
         logging.error("config reload rejected: %s", "; ".join(errors))
         status_board.record_reload(ok=False, ts=ts, error="; ".join(errors))
         return None
-    schedule_task, restart_required = await _reload._apply_reload(
+    schedule_task, source_refresh_task, restart_required = await _reload._apply_reload(
         new_config,
         old_config=config,
         widget_cache=widget_cache,
@@ -295,6 +298,7 @@ async def _detect_and_apply_reload(
         render_breaker=render_breaker,
         schedule_task=schedule_task,
         respawn_schedule=lambda ot, cfg: _respawn_schedule(ot, cfg, led_frame),
+        source_refresh_task=source_refresh_task,
     )
     default_section_trans = _build_trans_obj_guarded(new_config.between_sections)
     for w in getattr(new_config, "_coerce_warnings", []):
@@ -311,6 +315,7 @@ async def _detect_and_apply_reload(
         config=new_config,
         default_section_trans=default_section_trans,
         schedule_task=schedule_task,
+        source_refresh_task=source_refresh_task,
     )
 
 
@@ -729,7 +734,7 @@ async def run(config_path: Path) -> None:
         for _source_cfg in config.sources:
             _source_registry.add(build_source(_source_cfg))
         set_data_registry(_source_registry)
-        spawn_source_refresh(_source_registry)
+        source_refresh_task: Any = spawn_source_refresh(_source_registry)
 
         # Default inter-section transition built once at startup. Used for
         # sections that don't specify their own `transition` field — see
@@ -784,12 +789,14 @@ async def run(config_path: Path) -> None:
                         widget_tasks=widget_tasks,
                         render_breaker=render_breaker,
                         schedule_task=schedule_task,
+                        source_refresh_task=source_refresh_task,
                         led_frame=led_frame,
                     )
                     if _reload_res is not None:
                         config = _reload_res.config
                         default_section_trans = _reload_res.default_section_trans
                         schedule_task = _reload_res.schedule_task
+                        source_refresh_task = _reload_res.source_refresh_task
                     for section_index, section in enumerate(config.sections):
                         # Per-section reload check: caps reload latency at one
                         # section instead of one full playlist cycle, so a save
@@ -804,12 +811,14 @@ async def run(config_path: Path) -> None:
                             widget_tasks=widget_tasks,
                             render_breaker=render_breaker,
                             schedule_task=schedule_task,
+                            source_refresh_task=source_refresh_task,
                             led_frame=led_frame,
                         )
                         if _reload_res is not None:
                             config = _reload_res.config
                             default_section_trans = _reload_res.default_section_trans
                             schedule_task = _reload_res.schedule_task
+                            source_refresh_task = _reload_res.source_refresh_task
                             break
                         # Per-section restart check: caps latency at one
                         # section even for run modes where the per-tick

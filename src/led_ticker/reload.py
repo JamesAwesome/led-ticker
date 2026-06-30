@@ -116,14 +116,22 @@ async def _apply_reload(
     render_breaker: Any,
     schedule_task: Any,
     respawn_schedule: Any,
-) -> tuple[Any, list[str]]:
+    source_refresh_task: Any = None,
+) -> tuple[Any, Any, list[str]]:
     """Apply a validated new config in place. Evicts changed/removed widgets
     (cancelling their captured background tasks), resets the render breaker and its
-    status mirror, and respawns the schedule ticker. Returns (schedule_task,
-    restart_required). The CALLER swaps `config`, rebuilds the section-default
-    transition, drains coerce warnings, logs, and records status."""
+    status mirror, respawns the schedule ticker, and atomically swaps the source
+    registry + respawns the 1 Hz source-refresh ticker. Returns
+    (schedule_task, new_source_refresh_task, restart_required). The CALLER swaps
+    `config`, rebuilds the section-default transition, drains coerce warnings,
+    logs, and records status."""
     from led_ticker import status_board  # noqa: PLC0415
-    from led_ticker.app.factories import _cache_key  # noqa: PLC0415
+    from led_ticker.app.factories import _cache_key, build_source  # noqa: PLC0415
+    from led_ticker.sources import (  # noqa: PLC0415
+        DataRegistry,
+        set_data_registry,
+        spawn_source_refresh,
+    )
 
     restart_required = nonreloadable_changed(old_config, new_config)
 
@@ -137,4 +145,19 @@ async def _apply_reload(
     render_breaker.reset()
     status_board.clear_disabled_widgets()
     schedule_task = await respawn_schedule(schedule_task, new_config)
-    return schedule_task, restart_required
+
+    # Atomic registry swap: build the new registry fully before installing it,
+    # so the concurrent 1 Hz ticker never iterates a half-built dict.
+    # Then cancel the old ticker (it holds a reference to the old registry)
+    # and spawn a new one for the fresh registry. Mirror the schedule-respawn
+    # pattern: cancel old, spawn new, return the new task handle so the caller
+    # can cancel it on the next reload.
+    new_reg = DataRegistry()
+    for source_cfg in new_config.sources:
+        new_reg.add(build_source(source_cfg))
+    set_data_registry(new_reg)
+    if source_refresh_task is not None:
+        source_refresh_task.cancel()
+    new_source_refresh_task = spawn_source_refresh(new_reg)
+
+    return schedule_task, new_source_refresh_task, restart_required

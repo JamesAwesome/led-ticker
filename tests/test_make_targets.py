@@ -47,11 +47,11 @@ def test_phony_updated():
     for t in NEW_PHONY:
         assert re.search(rf"(?<![\w-]){re.escape(t)}(?![\w-])", phony), (
             f"{t} not in .PHONY"
-        )  # noqa: E501
+        )
     for t in RETIRED_TARGETS:
         assert not re.search(rf"(?<![\w-]){re.escape(t)}(?![\w-])", phony), (
             f"{t} still in .PHONY"
-        )  # noqa: E501
+        )
 
 
 def test_no_recipe_hardcodes_compose_profiles():

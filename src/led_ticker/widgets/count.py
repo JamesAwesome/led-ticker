@@ -11,7 +11,7 @@ rendering a negative number.
 """
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, ClassVar
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import attrs
@@ -34,12 +34,60 @@ def _coerce_font_color(value: Any) -> ColorProvider:
     return value
 
 
+def _coerce_date(value: Any) -> date:
+    """Coerce a config date value to ``datetime.date``.
+
+    Accepts a native ``date`` (unquoted TOML date — passthrough), an ISO
+    ``"YYYY-MM-DD"`` string (quoted TOML — parsed), or a ``datetime``
+    (→ ``.date()``, since ``_today()`` returns a date and ``date - datetime``
+    would raise). Any other type, or an unparseable string, raises at
+    config-load (widget construction) — far better than a draw-time crash.
+    """
+    if isinstance(value, datetime):  # checked first: datetime IS-A date
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"date must be ISO YYYY-MM-DD (e.g. 2026-12-25), got {value!r}"
+            ) from exc
+    raise TypeError(
+        f"date must be a YYYY-MM-DD string or a date, got {type(value).__name__}"
+    )
+
+
+def _validate_date_field(cfg: dict[str, Any], field: str) -> list[str]:
+    """Preflight check for a required count date field (validate.py path,
+    which never constructs the widget so the converter doesn't run). Required,
+    and a string value must parse as ISO YYYY-MM-DD."""
+    if cfg.get(field) is None:
+        return [f"{field} is required (a date, e.g. 2026-12-25)"]
+    value = cfg[field]
+    if isinstance(value, date):  # native date or datetime — fine
+        return []
+    if isinstance(value, str):
+        try:
+            date.fromisoformat(value)
+        except ValueError:
+            return [
+                f"{field} must be a date in YYYY-MM-DD format "
+                f"(e.g. 2026-12-25), got {value!r}"
+            ]
+        return []
+    return [f"{field} must be a YYYY-MM-DD date, got {type(value).__name__}"]
+
+
 def _wrong_side_warning(date_field: str, value: Any, warn_when: str) -> list[str]:
     """One advisory string when a count date sits on the wrong side of today
     (so the widget would be perpetually hidden), else []. `warn_when` is "past"
     (countdown) or "future" (countup)."""
-    if not isinstance(value, date):
-        return []  # missing / wrong type is reported by other rules
+    try:
+        value = _coerce_date(value)  # coerce quoted-string dates too (else masked)
+    except ValueError, TypeError:
+        return []  # missing / unparseable is reported by validate_config
     today = date.today()
     if warn_when == "past" and value < today:
         return [
@@ -76,11 +124,19 @@ class _CountWidget(FrameAwareBase):
     timezone: str | None = attrs.field(default=None, kw_only=True)
     _baseline_y: int = attrs.field(init=False, default=-1)
 
+    # Config-key of the subclass's required date field (countdown_date /
+    # countup_date). ClassVar — not an attrs field. Drives the preflight
+    # date check in validate_config (which never constructs the widget).
+    _date_field: ClassVar[str] = ""
+
     @classmethod
     def validate_config(cls, cfg: dict[str, Any]) -> list[str]:
         """Value-level checks run at config load (factories._run_validate_config).
-        Validates the optional `timezone` (mirrors the clock widget)."""
+        Validates the optional `timezone` (mirrors the clock widget) and the
+        required date field (preflight — the converter only runs at construction)."""
         errors: list[str] = []
+        if cls._date_field:
+            errors += _validate_date_field(cfg, cls._date_field)
         tz = cfg.get("timezone")
         if tz is not None:
             if not isinstance(tz, str):
@@ -161,7 +217,8 @@ class _CountWidget(FrameAwareBase):
 class TickerCountdown(_CountWidget):
     """Days until a future date. Disappears from rotation once the date passes."""
 
-    countdown_date: date = attrs.field(kw_only=True)
+    _date_field: ClassVar[str] = "countdown_date"
+    countdown_date: date = attrs.field(kw_only=True, converter=_coerce_date)
 
     def _days(self) -> int:
         return (self.countdown_date - self._today()).days
@@ -176,7 +233,8 @@ class TickerCountdown(_CountWidget):
 class TickerCountup(_CountWidget):
     """Days since a past date. Hidden until the date arrives, then counts up."""
 
-    countup_date: date = attrs.field(kw_only=True)
+    _date_field: ClassVar[str] = "countup_date"
+    countup_date: date = attrs.field(kw_only=True, converter=_coerce_date)
 
     def _days(self) -> int:
         return (self._today() - self.countup_date).days

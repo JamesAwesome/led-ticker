@@ -1,6 +1,8 @@
 """countup/countdown shared-base widgets: _days math, should_display, render."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+
+import pytest
 
 from led_ticker.widgets.count import TickerCountdown, TickerCountup
 
@@ -113,19 +115,77 @@ def test_timezone_field_used_for_today():
 
 
 def test_validate_config_accepts_valid_timezone():
-    assert TickerCountup.validate_config({"timezone": "America/New_York"}) == []
-    assert TickerCountdown.validate_config({"timezone": "UTC"}) == []
+    # valid date included so these isolate the timezone check
+    assert (
+        TickerCountup.validate_config(
+            {"timezone": "America/New_York", "countup_date": "2000-01-01"}
+        )
+        == []
+    )
+    assert (
+        TickerCountdown.validate_config(
+            {"timezone": "UTC", "countdown_date": "2099-01-01"}
+        )
+        == []
+    )
 
 
 def test_validate_config_no_timezone_ok():
-    assert TickerCountup.validate_config({"text": "X"}) == []
+    assert (
+        TickerCountup.validate_config({"text": "X", "countup_date": "2000-01-01"}) == []
+    )
 
 
 def test_validate_config_rejects_bad_timezone():
-    msgs = TickerCountup.validate_config({"timezone": "Not/AZone"})
+    msgs = TickerCountup.validate_config(
+        {"timezone": "Not/AZone", "countup_date": "2000-01-01"}
+    )
     assert len(msgs) == 1 and "valid IANA" in msgs[0]
 
 
 def test_validate_config_rejects_nonstring_timezone():
-    msgs = TickerCountdown.validate_config({"timezone": 5})
+    # include a valid date so this isolates the timezone error (the date check
+    # is exercised separately in test_count_validation.py)
+    msgs = TickerCountdown.validate_config(
+        {"timezone": 5, "countdown_date": "2099-01-01"}
+    )
     assert len(msgs) == 1 and "string" in msgs[0]
+
+
+# --- date coercion (str / datetime / native date) — the smoke-test crash ---
+
+
+def test_countdown_accepts_iso_string_date():
+    w = TickerCountdown("Launch", countdown_date="2099-01-01")
+    assert w.countdown_date == date(2099, 1, 1)
+    assert w._days() > 0  # the original crash path: str date through _days()
+
+
+def test_countup_accepts_iso_string_date():
+    w = TickerCountup("Since", countup_date="2000-01-01")
+    assert w.countup_date == date(2000, 1, 1)
+    assert w._days() > 0
+
+
+def test_string_date_days_math_matches_native():
+    target = _future(10)
+    assert (
+        TickerCountdown("L", countdown_date=target.isoformat())._days()
+        == TickerCountdown("L", countdown_date=target)._days()
+        == 10
+    )
+
+
+def test_countdown_datetime_coerced_to_date():
+    w = TickerCountdown("Launch", countdown_date=datetime(2099, 1, 1, 13, 30))
+    assert w.countdown_date == date(2099, 1, 1)
+
+
+def test_countdown_bad_string_raises_at_construction():
+    with pytest.raises(ValueError):
+        TickerCountdown("Launch", countdown_date="not-a-date")
+
+
+def test_countup_bad_type_raises_at_construction():
+    with pytest.raises(TypeError):
+        TickerCountup("Since", countup_date=20270101)

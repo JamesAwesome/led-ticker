@@ -515,6 +515,80 @@ class TestTwoRowScrollBranchesFreeze:
             "F2b: wraps_forever branch must release _resolution_locked in finally"
         )
 
+    async def test_forces_offscreen_scroll_correct_geometry(self, no_sleep):
+        """F2c (geometry tripwire): a tokened scroll_through two_row widget
+        with a bottom value WIDER than the canvas must produce the correct
+        ``cycle_width`` and scroll all the way to the correct ``stop`` position.
+
+        Regression for the bug introduced by the redundant second
+        ``_resolve_now_if_supported`` call in the ``forces_offscreen_scroll``
+        branch: that call sets ``_bottom_width = -1`` with no intervening draw,
+        so the engine computed::
+
+            cycle_width = canvas.width + (-1) = 159   # WRONG
+            stop        = -(1 * 159) = -159            # WRONG
+
+        and the scroll stranded at pos ~ -159 instead of the correct::
+
+            cycle_width = canvas.width + real_bottom_width   # e.g. 160+270=430
+            stop        = -(1 * 430) = -430                  # CORRECT
+
+        The test asserts final ``pos`` (the third element of the return tuple)
+        equals the expected ``stop`` computed from the widget's actual
+        ``_bottom_width`` after the initial draw resolved it.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        # A canvas 160px wide — matches the smallsign default.
+        canvas = _StubCanvas(width=160, height=16)
+
+        # Source value wider than 160 px.  Exact px value is measured below
+        # from _bottom_width; we only need it bigger than canvas.width (160).
+        wide_value = "TEAM A vs TEAM B  12 - 7  HALFTIME  END OF 4TH  OVERTIME  "
+        src = StaticSource(id="scroll.score", value=wide_value)
+        self._registry(src)
+
+        widget = TwoRowMessage(
+            top_text="LIVE",
+            bottom_text=":scroll.score:",
+            bottom_text_scroll="scroll_through",
+        )
+
+        frame = mock.Mock()
+        frame.swap.side_effect = lambda c: c
+
+        ticker = Ticker(monitors=[], frame=frame)
+        # hold_time=0 → n_passes=1 (loops_floor default), so stop = -(cycle_width)
+        _, _, final_pos = await ticker._swap_and_scroll(canvas, widget, hold_time=0.0)
+
+        # After the initial draw _bottom_width must be > 0 and > canvas.width
+        # (the source value is wider than 160 px).
+        real_bw = widget._bottom_width
+        assert real_bw > 0, (
+            f"_bottom_width should be positive after draw; got {real_bw}. "
+            "Did the source resolve?"
+        )
+        assert real_bw > canvas.width, (
+            f"Test setup failure: bottom text ({real_bw}px) must exceed "
+            f"canvas width ({canvas.width}px) for this test to be meaningful."
+        )
+
+        expected_cycle = canvas.width + real_bw
+        expected_stop = -expected_cycle  # hold_time=0 → n_passes=1
+
+        assert final_pos == expected_stop, (
+            f"F2c: scroll_through geometry wrong — final pos={final_pos}, "
+            f"expected stop={expected_stop} (canvas.width={canvas.width} + "
+            f"real_bottom_width={real_bw}). "
+            f"If final_pos == -(canvas.width - 1) = {-(canvas.width - 1)}, "
+            f"the redundant second _resolve_now_if_supported call is back: "
+            f"it sets _bottom_width=-1 so cycle_width = canvas.width + (-1) "
+            f"and the scroll strands short of the correct stop."
+        )
+
 
 class TestSwapAndScrollSkipInitialDraw:
     """Regression: _swap_and_scroll(skip_initial_draw=True) skips the FIRST

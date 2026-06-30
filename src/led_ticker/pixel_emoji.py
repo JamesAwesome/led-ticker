@@ -2504,8 +2504,16 @@ def _get_registry() -> dict[str, PixelData]:
 
 
 def is_emoji_slug(slug: str) -> bool:
-    """True if `slug` (no surrounding colons) is a registered emoji."""
-    return slug in _get_registry()
+    """True if `slug` (no surrounding colons) is a registered emoji.
+
+    Checks both the low-res `EMOJI_REGISTRY` (via the lazy `_get_registry()`
+    materializer) AND `HIRES_REGISTRY`, so a hires-only slug (present in
+    `HIRES_REGISTRY` but not in `EMOJI_REGISTRY`) is correctly recognised.
+    This keeps the source-id collision check in `validate` airtight: any slug
+    that would be rendered as an emoji — in either resolution — wins over a
+    source ``id`` of the same name.
+    """
+    return slug in _get_registry() or slug in HIRES_REGISTRY
 
 
 def _parse_segments(text: str) -> list[tuple[str, str]]:

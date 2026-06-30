@@ -642,12 +642,16 @@ class Ticker:
         loop = asyncio.get_running_loop()
 
         if getattr(ticker_obj, "forces_offscreen_scroll", False) is True:
-            # Resolve tokens now so `_bottom_width` reflects the CURRENT
-            # value before we capture `cycle_width` and `stop`; then lock
-            # resolution for the loop so a mid-pass source bump can't change
-            # `_bottom_width` (and thus the per-draw `cycle_width`) mid-scroll
-            # — which would cause visible position jitter (constraints #6/#7).
-            self._resolve_now_if_supported(ticker_obj)
+            # Token resolution + geometry: the top-of-function
+            # `_resolve_now_if_supported` (L635) already resolved against the
+            # current value, and the `_safe_draw` call (L637) that followed
+            # recomputed `_bottom_width` from the resolved text.  Do NOT
+            # resolve again here — `resolve_tokens_now()` unconditionally sets
+            # `_bottom_width = -1`, so a second call with no intervening draw
+            # leaves `_bottom_width` at -1 and makes `cycle_width` and `stop`
+            # wrong (strands the scroll at ~-canvas.width instead of the
+            # correct ~-(canvas.width + real_bottom_width)).  The lock below
+            # prevents mid-scroll re-resolution (constraints #6/#7).
             bottom_width = getattr(ticker_obj, "_bottom_width", 0)
             cycle_width = canvas.width + bottom_width
             hold_time_ticks = (

@@ -1622,3 +1622,35 @@ def test_is_emoji_slug_false_for_unknown():
     from led_ticker.pixel_emoji import is_emoji_slug
 
     assert is_emoji_slug("clock.now") is False
+
+
+def test_is_emoji_slug_true_for_hires_only():
+    """A slug registered ONLY in HIRES_REGISTRY (no low-res counterpart)
+    must still return True from is_emoji_slug.
+
+    This keeps the source-id collision check airtight: a plugin that
+    registers a hires-only sprite (via api.hires_emoji without a matching
+    api.emoji) must block a source whose id collides with that slug.
+    """
+    from led_ticker.pixel_emoji import (
+        EMOJI_REGISTRY,
+        HIRES_REGISTRY,
+        HiResEmoji,
+        is_emoji_slug,
+    )
+
+    slug = "_test_hires_only_slug"
+    # Ensure the slug is absent from the low-res registry (clean state)
+    assert slug not in EMOJI_REGISTRY, (
+        "Test slug must not already exist in EMOJI_REGISTRY"
+    )
+
+    # Temporarily inject a hires-only entry
+    HIRES_REGISTRY[slug] = HiResEmoji(pixels=(), physical_size=32)
+    try:
+        assert is_emoji_slug(slug) is True, (
+            "is_emoji_slug must return True for a hires-only slug "
+            "(present in HIRES_REGISTRY but not in EMOJI_REGISTRY)"
+        )
+    finally:
+        del HIRES_REGISTRY[slug]

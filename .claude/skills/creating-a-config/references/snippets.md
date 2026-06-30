@@ -37,7 +37,7 @@ Each snippet cites its source file + line range. The skill copies the snippet ve
 
 **source:** `config/config.firebird.example.toml` lines 59–76
 
-**use when:** bigsign + brand presence + welcoming banner scrolling in `ticker` mode. Good opener for any storefront section.
+**use when:** bigsign + brand presence + welcoming banner in `slideshow` mode. Good opener for any storefront section.
 
 **must customize:** `text` (brand message), `font_color` (brand color), `loop_count`, and the title `text` + `font_color`.
 
@@ -203,7 +203,7 @@ font_color = "rainbow"
 
 **source:** `config/config.small_sign.toml` lines 125–141
 
-**use when:** small sign (160×16) + RSS headlines scrolling in `ticker` mode. Good for news, blog, or any Atom/RSS feed.
+**use when:** small sign (160×16) + RSS headlines in `slideshow` mode (each headline holds, scrolling if it overflows). Good for news, blog, or any Atom/RSS feed.
 
 **must customize:** `feed_url`, `update_interval` (seconds between fetches), title `text` + `color`.
 

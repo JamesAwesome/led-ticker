@@ -401,13 +401,18 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
         kwargs["colors"] = trans_cfg.colors
     elif trans_cfg.color is not None:
         kwargs["color"] = trans_cfg.color
-    if trans_cfg.type == "scroll" and trans_cfg.separator_color is not None:
-        from led_ticker.app.coercion import _coerce_color_provider
-        from led_ticker.separator import SeparatorSpec
-
-        kwargs["spec"] = SeparatorSpec(
-            kind="dot",
-            color=_coerce_color_provider(trans_cfg.separator_color, "separator_color"),
+    if trans_cfg.type == "scroll" and (
+        trans_cfg.separator_color is not None
+        or trans_cfg.separator is not None
+        or trans_cfg.separator_font is not None
+        or trans_cfg.separator_font_size is not None
+    ):
+        kwargs["spec"] = _resolve_separator_spec(
+            separator=trans_cfg.separator,
+            separator_color=trans_cfg.separator_color,
+            separator_font=trans_cfg.separator_font,
+            separator_font_size=trans_cfg.separator_font_size,
+            default_kind="dot",
         )
     return cls(**kwargs)
 
@@ -936,6 +941,58 @@ def _resolve_title_delay(section_start_hold: float | None, global_delay: int) ->
     if section_start_hold is not None:
         return section_start_hold
     return float(global_delay)
+
+
+def _resolve_separator_spec(
+    *,
+    separator: str | None,
+    separator_color: Any,
+    separator_font: str | None,
+    separator_font_size: int | None,
+    default_kind: str,
+) -> Any:
+    """Build a SeparatorSpec from the separator_* config family.
+
+    default_kind selects the site's default mark ("dot" for the scroll
+    transition, "circle" for the ticker separator). Color-only keeps that
+    default kind recolored; any glyph field switches to kind="glyph".
+    """
+    import attrs
+
+    from led_ticker.colors import RGB_WHITE
+    from led_ticker.separator import (
+        DEFAULT_CIRCLE_SPEC,
+        DEFAULT_DOT_SPEC,
+        SeparatorSpec,
+    )
+
+    base = DEFAULT_DOT_SPEC if default_kind == "dot" else DEFAULT_CIRCLE_SPEC
+    glyph_set = (
+        separator is not None
+        or separator_font is not None
+        or separator_font_size is not None
+    )
+    color_set = separator_color is not None
+    if not glyph_set and not color_set:
+        return base
+
+    color = (
+        _coerce_color_provider(separator_color, "separator_color")
+        if color_set
+        else RGB_WHITE
+    )
+    if not glyph_set:
+        return attrs.evolve(base, color=color)
+
+    from led_ticker.fonts import FONT_DEFAULT, resolve_font
+
+    glyph = separator if separator is not None else "•"
+    font = (
+        resolve_font(separator_font, separator_font_size)
+        if separator_font is not None
+        else FONT_DEFAULT
+    )
+    return SeparatorSpec(kind="glyph", color=color, glyph=glyph, font=font)
 
 
 def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:

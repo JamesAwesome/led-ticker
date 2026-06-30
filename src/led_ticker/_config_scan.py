@@ -67,7 +67,7 @@ def config_references(config_path: Path) -> dict[str, list[dict[str, str]]]:
     Store. Missing/unparseable file -> {}."""
     try:
         data = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+    except OSError, tomllib.TOMLDecodeError, UnicodeDecodeError:
         return {}
     return _references_from_data(data)
 
@@ -75,7 +75,7 @@ def config_references(config_path: Path) -> dict[str, list[dict[str, str]]]:
 def _load(source: str | Path) -> dict:
     try:
         return tomllib.loads(Path(source).read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError):
+    except OSError, tomllib.TOMLDecodeError, UnicodeDecodeError:
         return {}
 
 

@@ -31,7 +31,7 @@ def test_config_scan_imports_first_without_cycle():
 
 
 def test_plugin_free_is_empty():
-    assert required_plugins(_cfg('[display]\nrows = 16\n')) == set()
+    assert required_plugins(_cfg("[display]\nrows = 16\n")) == set()
 
 
 def test_string_form_widget_and_transition():
@@ -71,9 +71,9 @@ text = "go :pokeball.ball: go"
 
 
 def test_plugin_backend_counts_builtin_does_not():
-    assert required_plugins(
-        _cfg('[display]\nbackend = "telnet"\n')
-    ) == {"led-ticker-telnet"}
+    assert required_plugins(_cfg('[display]\nbackend = "telnet"\n')) == {
+        "led-ticker-telnet"
+    }
     assert required_plugins(_cfg('[display]\nbackend = "headless"\n')) == set()
 
 
@@ -221,10 +221,7 @@ def test_catalog_covers_every_referenced_namespace():
         refs = _referenced_namespaces(_load(path))
         # Only namespaces that look like plugins (the walk also surfaces bare
         # backend names); a dotted ref to an unknown namespace is the real risk.
-        unknown = {
-            ns for ns in refs
-            if ns not in known and ns not in builtins
-        }
+        unknown = {ns for ns in refs if ns not in known and ns not in builtins}
         # Filter to things that actually appeared as a dotted/plugin ref:
         # bare non-backend strings never enter refs except via backend, handled
         # by the builtins set above.

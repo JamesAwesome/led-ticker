@@ -1258,9 +1258,9 @@ def _list_widget_fields(widget_type: str) -> str:
 # Source-class registry and factory
 # ---------------------------------------------------------------------------
 
-# Core source types. Plugin source types (namespaced) will merge in here in
-# Task 4 via the plugin registry — leave this dict as the core-only lookup
-# and add a dispatch hook comment so Task 4 knows where to extend.
+# Core source types. Plugin source types (namespaced, dotted) are registered
+# via ``api.source()`` into ``_PLUGIN_SOURCE_TYPES`` and merged by
+# ``get_source_class``. This dict covers only core-owned types.
 _SOURCE_TYPES: dict[str, type[DataSource]] = {
     "clock": ClockSource,
     "date": DateSource,

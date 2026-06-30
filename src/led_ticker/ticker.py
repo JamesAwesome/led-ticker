@@ -642,6 +642,12 @@ class Ticker:
         loop = asyncio.get_running_loop()
 
         if getattr(ticker_obj, "forces_offscreen_scroll", False) is True:
+            # Resolve tokens now so `_bottom_width` reflects the CURRENT
+            # value before we capture `cycle_width` and `stop`; then lock
+            # resolution for the loop so a mid-pass source bump can't change
+            # `_bottom_width` (and thus the per-draw `cycle_width`) mid-scroll
+            # — which would cause visible position jitter (constraints #6/#7).
+            self._resolve_now_if_supported(ticker_obj)
             bottom_width = getattr(ticker_obj, "_bottom_width", 0)
             cycle_width = canvas.width + bottom_width
             hold_time_ticks = (
@@ -657,35 +663,53 @@ class Ticker:
                 else loops_floor
             )
             stop = -(n_passes * cycle_width)
-            while pos > stop:
-                self._maybe_restart()
-                t0 = loop.time()
-                pos -= 1
-                self._advance_frame_if_supported(ticker_obj)
-                reset_canvas(canvas, bg_color)
-                canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
-                canvas = _swap(canvas, self.frame)
-                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
+            self._lock_resolution_if_supported(ticker_obj, True)
+            try:
+                while pos > stop:
+                    self._maybe_restart()
+                    t0 = loop.time()
+                    pos -= 1
+                    self._advance_frame_if_supported(ticker_obj)
+                    reset_canvas(canvas, bg_color)
+                    canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
+                    canvas = _swap(canvas, self.frame)
+                    await asyncio.sleep(
+                        max(0.0, self.scroll_speed - (loop.time() - t0))
+                    )
+            finally:
+                self._lock_resolution_if_supported(ticker_obj, False)
             return canvas, cursor_pos, pos
 
         if getattr(ticker_obj, "wraps_forever", False) is True:
+            # Same resolution-freeze pattern as the forces_offscreen_scroll and
+            # generic overflow branches: resolve first so the entry cycle_width
+            # and n_ticks floor are measured against the current value, then
+            # lock so a 1 Hz source tick can't change _bottom_width mid-wrap
+            # (which would de-sync the seamless tile scroll).
+            self._resolve_now_if_supported(ticker_obj)
             n_ticks = max(1, int(hold_time / self.scroll_speed))
             loops_floor = getattr(ticker_obj, "bottom_text_loops", 0)
             if isinstance(loops_floor, bool) or not isinstance(loops_floor, int):
                 loops_floor = 0
             tick = 0
-            while tick < n_ticks:
-                self._maybe_restart()
-                t0 = loop.time()
-                self._advance_frame_if_supported(ticker_obj)
-                reset_canvas(canvas, bg_color)
-                canvas, cycle_width = self._safe_draw(ticker_obj, canvas, pos)
-                if tick == 0 and loops_floor > 0 and cycle_width > 0:
-                    n_ticks = max(n_ticks, loops_floor * cycle_width)
-                canvas = _swap(canvas, self.frame)
-                pos -= 1
-                await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
-                tick += 1
+            self._lock_resolution_if_supported(ticker_obj, True)
+            try:
+                while tick < n_ticks:
+                    self._maybe_restart()
+                    t0 = loop.time()
+                    self._advance_frame_if_supported(ticker_obj)
+                    reset_canvas(canvas, bg_color)
+                    canvas, cycle_width = self._safe_draw(ticker_obj, canvas, pos)
+                    if tick == 0 and loops_floor > 0 and cycle_width > 0:
+                        n_ticks = max(n_ticks, loops_floor * cycle_width)
+                    canvas = _swap(canvas, self.frame)
+                    pos -= 1
+                    await asyncio.sleep(
+                        max(0.0, self.scroll_speed - (loop.time() - t0))
+                    )
+                    tick += 1
+            finally:
+                self._lock_resolution_if_supported(ticker_obj, False)
             return canvas, cursor_pos, pos
 
         if cursor_pos > canvas.width:

@@ -45,7 +45,7 @@ def test_refresh_bumps_version_only_on_change():
     assert s.version == v1           # NO bump when value is identical
 
 
-def test_refresh_writes_current_before_version(monkeypatch):
+def test_refresh_writes_current_before_version():
     # Write-order contract: a stub that flips value, assert current is set
     # before version is read by a notional reader (here: current updated when
     # changed=True, and version strictly increments).

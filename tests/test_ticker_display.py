@@ -385,6 +385,137 @@ class TestSwapAndScrollTokenFreeze:
         )
 
 
+class TestTwoRowScrollBranchesFreeze:
+    """F2 tripwire: ``forces_offscreen_scroll`` and ``wraps_forever`` branches
+    in ``_swap_and_scroll`` must lock token resolution for their scroll loops,
+    mirroring the generic overflow-scroll branch (L704/L719).
+
+    Without the lock a source value that changes width mid-scroll causes
+    TwoRowMessage to recompute ``cycle_width`` inside ``draw()`` while the
+    engine's ``stop`` / ``n_passes`` was captured once at entry, desynchronising
+    position (constraints #6/#7 corruption).
+    """
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for src in sources:
+            src.refresh()
+            reg.add(src)
+        set_data_registry(reg)
+        return reg
+
+    async def test_forces_offscreen_scroll_locks_resolution(self, no_sleep):
+        """F2a (forces_offscreen_scroll / scroll_through): the scroll loop
+        must hold ``_resolution_locked=True`` for all ticks so a mid-scroll
+        source bump cannot re-measure ``_bottom_width`` and make ``cycle_width``
+        inside ``draw()`` jump mid-pass (visual position jitter).
+
+        We verify by probing ``_resolve_tokens`` — when locked it returns
+        immediately without touching ``_bottom_width``, so we assert the lock
+        flag is set during the loop and released after.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        canvas = _StubCanvas(width=160, height=16)
+        src = StaticSource(id="score.live", value="12 " * 3)
+        self._registry(src)
+
+        widget = TwoRowMessage(
+            top_text="SCORE",
+            bottom_text=":score.live:",
+            bottom_text_scroll="scroll_through",
+        )
+
+        lock_states = []
+        orig_resolve = type(widget)._resolve_tokens
+
+        def spy_resolve(self):
+            lock_states.append(self._resolution_locked)
+            orig_resolve(self)
+
+        type(widget)._resolve_tokens = spy_resolve  # type: ignore[method-assign]
+
+        frame = mock.Mock()
+        frame.swap.side_effect = lambda c: c
+
+        ticker = Ticker(monitors=[], frame=frame)
+        try:
+            await ticker._swap_and_scroll(canvas, widget, hold_time=0.0)
+        finally:
+            type(widget)._resolve_tokens = orig_resolve  # type: ignore[method-assign]
+
+        # The loop must have locked resolution for at least some ticks.
+        assert any(lock_states), (
+            "F2a: forces_offscreen_scroll loop never locked _resolution_locked. "
+            "A mid-scroll source bump can change _bottom_width → cycle_width "
+            "inside draw(), causing position jitter. Wrap the loop in "
+            "_lock_resolution_if_supported (mirror the generic overflow "
+            "branch at L704/L719)."
+        )
+        # After the call the lock must be released.
+        assert widget._resolution_locked is False, (
+            "F2a: forces_offscreen_scroll branch must release _resolution_locked"
+        )
+
+    async def test_wraps_forever_locks_resolution(self, no_sleep):
+        """F2b (wraps_forever / bottom_text_wrap): resolution must be locked
+        for the wrap-forever tick loop so a mid-wrap source bump does NOT
+        change cycle_width between ticks.
+
+        We verify the lock flag is held during the loop by probing via the
+        ``_resolve_tokens`` call that runs at the top of every ``draw()``.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.two_row import TwoRowMessage
+
+        canvas = _StubCanvas(width=160, height=16)
+        src = StaticSource(id="wrap.val", value="ABC " * 5)
+        self._registry(src)
+
+        widget = TwoRowMessage(
+            top_text="TOP",
+            bottom_text=":wrap.val:",
+            bottom_text_wrap=True,
+        )
+
+        lock_states = []
+        orig_resolve = type(widget)._resolve_tokens
+
+        def spy_resolve(self):
+            lock_states.append(self._resolution_locked)
+            orig_resolve(self)
+
+        type(widget)._resolve_tokens = spy_resolve  # type: ignore[method-assign]
+
+        frame = mock.Mock()
+        frame.swap.side_effect = lambda c: c
+
+        ticker = Ticker(monitors=[], frame=frame)
+        try:
+            await ticker._swap_and_scroll(canvas, widget, hold_time=0.1)
+        finally:
+            type(widget)._resolve_tokens = orig_resolve  # type: ignore[method-assign]
+
+        # The loop must have locked resolution for at least some ticks.
+        assert any(lock_states), (
+            "F2b: wraps_forever loop never locked _resolution_locked. "
+            "Wrap the loop body in _lock_resolution_if_supported "
+            "(mirror the generic overflow branch at L704/L719)."
+        )
+        # After the call the lock must be released.
+        assert widget._resolution_locked is False, (
+            "F2b: wraps_forever branch must release _resolution_locked in finally"
+        )
+
+
 class TestSwapAndScrollSkipInitialDraw:
     """Regression: _swap_and_scroll(skip_initial_draw=True) skips the FIRST
     SwapOnVSync because the caller (a transition or a scroll-between) just

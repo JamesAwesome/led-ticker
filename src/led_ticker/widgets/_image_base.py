@@ -622,6 +622,24 @@ class _BaseImageWidget(FrameAwareBase):
     def _has_emoji(self) -> bool:
         return self._has_emoji_cached
 
+    def _has_overlay_tokens(self) -> bool:
+        """Return True if ANY text overlay field contains live tokens.
+
+        Used by the static fast-path gates in ``_play_with_text`` and
+        ``_play_with_two_row_text`` to bypass the paint-once + sleep path
+        when a live clock / source token is present — otherwise the token
+        would freeze for the full hold duration and only update on the
+        next visit (stale clock / score display).
+
+        Each ``TokenizedField`` is ``None`` until ``__attrs_post_init__``
+        builds it, so we guard with ``is not None`` for safety.
+        """
+        return (
+            (self._token_text is not None and self._token_text.has_tokens)
+            or (self._token_top is not None and self._token_top.has_tokens)
+            or (self._token_bottom is not None and self._token_bottom.has_tokens)
+        )
+
     # ------------------------------------------------------------------
     # Token resolution helpers (single-row and two-row paths).
     # Each helper resolves one field's TokenizedField against the live
@@ -1501,6 +1519,7 @@ class _BaseImageWidget(FrameAwareBase):
             and color_is_static
             and border_is_static
             and self.animation is None
+            and not self._has_overlay_tokens()
         ):
             self._render_tick(
                 canvas,
@@ -1783,6 +1802,7 @@ class _BaseImageWidget(FrameAwareBase):
             and self.text_loops == 0
             and colors_are_static
             and border_is_static
+            and not self._has_overlay_tokens()
         ):
             bottom_tuple = (
                 bottom_font,
@@ -1815,6 +1835,31 @@ class _BaseImageWidget(FrameAwareBase):
             # Advance the per-widget frame counter so ColorProviders
             # animate. See single-row path for rationale.
             self.advance_frame()
+            # Re-resolve the TOP row each tick when the bottom row is NOT
+            # scrolling (held + held path). The top row is always held, so a
+            # live clock / score token in `top_text` must update every tick
+            # even though the geometry (position, font, color) is invariant.
+            # When the bottom IS scrolling we keep both rows frozen for the
+            # scroll duration (see entry-resolve comment above L1676) — a
+            # top-row width jump while the bottom scrolls could visually
+            # de-sync the two rows. In the held-held case there is no
+            # scrolling geometry to protect, so live updates are safe.
+            if (
+                not bottom_scrolls
+                and self._token_top is not None
+                and self._token_top.has_tokens
+            ):
+                self._resolve_top_text(locked=False)
+                new_top_text = self._row_text(0)
+                if new_top_text != top_tuple[1]:
+                    top_tuple = (
+                        top_font,
+                        new_top_text,
+                        top_color,
+                        top_x,
+                        top_baseline,
+                        top_emoji_y,
+                    )
             if wrap_mode:
                 self._render_two_row_wrap_tick(
                     canvas,

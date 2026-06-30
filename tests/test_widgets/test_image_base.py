@@ -2846,3 +2846,150 @@ class TestImageTokenTypewriterFreeze:
             f"Typewriter reveal was corrupted mid-play: resolved values per tick = "
             f"{resolved_values!r}; all should be 'ABCDE' (start-of-reveal value)"
         )
+
+
+class TestHeldImageTokenFastPath:
+    """F1 tripwire: the static-text fast path must NOT be taken when the
+    widget has live inline-value tokens.
+
+    A held still/gif with a constant-color token (``:clock.now:`` or any
+    `:source.id:`) would previously paint once, sleep for the full hold
+    duration, and return — the token value was frozen for the whole hold.
+
+    The fix adds `and not self._has_overlay_tokens()` to both fast-path
+    gates so a token-bearing widget falls through to the per-tick loop
+    (which calls ``_resolve_overlay_text(locked=False)`` every tick).
+    """
+
+    def _make_still(self, tmp_path, **kwargs):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kwargs)
+
+    async def test_held_still_with_token_re_resolves_across_ticks(
+        self, tmp_path, mock_frame
+    ):
+        """F1 (single-row): a held StillImage whose ``text`` contains a
+        source token must re-resolve (and thus update the displayed value)
+        on each hold tick — not freeze at paint-once.
+
+        Sequence:
+          1. Create a StaticSource ``clock.tick`` with value ``"A"``.
+          2. Build a StillImage with ``text=":clock.tick:"``,
+             constant color, is_static()=True — all fast-path conditions
+             met EXCEPT the token presence gate added by F1.
+          3. Run ``_play_with_text`` for 4 ticks.
+          4. On tick 2, bump the source to ``"B"``.
+          5. Assert the widget's ``_resolved_text_single`` ends on ``"B"``
+             (proving re-resolution ran after the bump).
+
+        Before the F1 fix: the fast path fires, the source is resolved
+        once at entry, and the value stays ``"A"`` for the whole hold.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.sources import DataRegistry, StaticSource, set_data_registry
+
+        src = StaticSource(id="clock.tick", value="A")
+        src.refresh()
+        reg = DataRegistry()
+        reg.add(src)
+        set_data_registry(reg)
+
+        widget = self._make_still(
+            tmp_path,
+            text=":clock.tick:",
+            text_align="left",
+            font=FONT_DEFAULT,
+            hold_time=0.2,  # 4 ticks at 50 ms
+        )
+        widget._logical_scale = 1
+
+        real = _StubCanvas(width=160, height=16)
+        mock_frame.swap.return_value = _StubCanvas(width=160, height=16)
+
+        tick_count = [0]
+        orig_resolve = type(widget)._resolve_overlay_text
+
+        def spy_resolve(self, locked):
+            tick_count[0] += 1
+            if tick_count[0] == 2:
+                src.value = "B"
+                src.refresh()
+            orig_resolve(self, locked)
+
+        with (
+            mock.patch.object(type(widget), "_resolve_overlay_text", spy_resolve),
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await widget._play_with_text(real, mock_frame, n_ticks=4)
+
+        got = widget._resolved_text_single
+        assert got == "B", (
+            f"Held still with a live token must re-resolve on each tick. "
+            f"Got _resolved_text_single={got!r} — the static fast-path "
+            f"fired and froze the value at first-paint. Add `and not "
+            f"self._has_overlay_tokens()` to the fast-path gate in "
+            f"_play_with_text."
+        )
+
+    async def test_held_still_two_row_with_token_re_resolves_across_ticks(
+        self, tmp_path, mock_frame
+    ):
+        """F1 (two-row): same contract on ``_play_with_two_row_text``.
+
+        A StillImage in two-row mode (``bottom_text`` set) with a live
+        token in ``top_text`` must not take the two-row fast path.
+        """
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.sources import DataRegistry, StaticSource, set_data_registry
+
+        src = StaticSource(id="score.val", value="0")
+        src.refresh()
+        reg = DataRegistry()
+        reg.add(src)
+        set_data_registry(reg)
+
+        widget = self._make_still(
+            tmp_path,
+            top_text=":score.val:",
+            bottom_text="pts",
+            font=FONT_SMALL,   # 5×8, fits 8-row band in 50/50 split
+            hold_time=0.2,     # 4 ticks at 50 ms
+        )
+        widget._logical_scale = 1
+
+        real = _StubCanvas(width=160, height=16)
+        mock_frame.swap.return_value = _StubCanvas(width=160, height=16)
+
+        tick_count = [0]
+        orig_resolve = type(widget)._resolve_top_text
+
+        def spy_resolve(self, locked):
+            tick_count[0] += 1
+            if tick_count[0] == 2:
+                src.value = "7"
+                src.refresh()
+            orig_resolve(self, locked)
+
+        with (
+            mock.patch.object(type(widget), "_resolve_top_text", spy_resolve),
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await widget._play_with_two_row_text(real, mock_frame, n_ticks=4)
+
+        got = widget._resolved_top_text
+        assert got == "7", (
+            f"Held still (two-row) with a live top_text token must re-resolve "
+            f"on each tick. Got _resolved_top_text={got!r} — the two-row "
+            f"fast-path fired and froze the value. Add `and not "
+            f"self._has_overlay_tokens()` to the two-row fast-path gate in "
+            f"_play_with_two_row_text."
+        )

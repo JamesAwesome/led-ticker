@@ -271,7 +271,7 @@ The `config/config.example.toml` shipped with the project sets `allow_restart = 
 The dashboard header shows the deployed build, as `branch@sha`. Use it to confirm both containers are running the code you expect. It resolves to the first of: the ref stamped into the Docker image at build time (`make rebuild` / `make build-docker` compute it and pass it in), or — for a non-Docker install running from a source checkout (local dev) — the ref read from Git at runtime.
 
 - **`build unknown`** — neither applied: the image wasn't built through `make rebuild` (a bare `docker compose build` doesn't stamp the commit), and it isn't running from a Git checkout. Deploy with **`make rebuild`** to stamp it. The sign still runs correctly; `unknown` is a label, not an error.
-- **`⚠ webui build …`** — the webui sidecar is on a different build than the display process. This happens when you rebuild with a plain `docker compose up -d --build`: the image is updated but the profile-gated webui container is left on the old one. Run `make rebuild` to bring both containers to the same image at once.
+- **`⚠ webui build …`** — the webui sidecar is on a different build than the display process. This can happen when only one service is restarted without rebuilding. Run `make rebuild` to bring both containers to the same image at once.
 
 ## Troubleshooting
 

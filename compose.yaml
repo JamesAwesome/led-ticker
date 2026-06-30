@@ -3,7 +3,8 @@
 # library detects the SoC at runtime and selects the right GPIO backend.
 #
 # Usage:
-#   docker compose up -d --build       # build (or rebuild) and start detached
+#   make setup                         # first time: preflight + seed + build + start
+#   make rebuild                       # rebuild image (real version) + restart all services
 #   docker compose logs -f             # tail logs
 #   docker compose restart             # restart after editing config
 #   docker compose down                # stop and remove
@@ -20,7 +21,7 @@ services:
       context: .
       args:
         BUILD_REF: ${BUILD_REF:-}
-        SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE: ${SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE:-}
+        SETUPTOOLS_SCM_PRETEND_VERSION: ${SETUPTOOLS_SCM_PRETEND_VERSION:-}
     container_name: led-ticker
     restart: unless-stopped
     privileged: true        # needed for GPIO access on the HAT
@@ -47,7 +48,7 @@ services:
       context: .
       args:
         BUILD_REF: ${BUILD_REF:-}
-        SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE: ${SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE:-}
+        SETUPTOOLS_SCM_PRETEND_VERSION: ${SETUPTOOLS_SCM_PRETEND_VERSION:-}
     container_name: led-ticker-webui
     restart: unless-stopped
     command: ["led-ticker", "webui", "--config", "/code/config/config.toml"]

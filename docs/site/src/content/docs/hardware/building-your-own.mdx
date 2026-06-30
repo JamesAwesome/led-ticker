@@ -146,14 +146,14 @@ Once your config renders the way you want, push it to a Pi. Deployment is
 
 ```bash
 make setup      # Docker preflight + config/.env seed + bring-up (first time)
-# or, on subsequent deploys:
-docker compose up -d --build
+make rebuild    # rebuild the image (real version) + restart everything (subsequent deploys)
 ```
 
 `make setup` (or `make setup MODE=deploy`) checks that Docker is installed,
 seeds `config/config.toml` and `.env` if they don't exist yet, and runs
-`docker compose up -d`. After that, a plain `docker compose up -d --build`
-is enough for every subsequent deploy.
+`docker compose up -d`. After that, `make rebuild` rebuilds the image (with a
+real version baked in) and restarts the display **and** the webui together for
+every subsequent deploy.
 
 Key behaviors built into `compose.yaml`:
 
@@ -207,7 +207,7 @@ invoke `led-ticker --config config/config.toml` directly.
 A source-checkout install on the Pi may compile some dependencies from source
 — piwheels does not provide aarch64 wheels and its cp314 armv7l coverage is
 incomplete as of mid-2026. The Docker image ships every wheel pre-built, so
-the first `docker compose up --build` is typically faster than a bare
+the first build (via `make setup`) is typically faster than a bare
 `pip install` on the Pi.
 :::
 

@@ -62,12 +62,23 @@ COPY . /code/
 # Version for the in-image build: the container has no .git, so the host
 # computes the hatch-vcs version and passes it (setuptools-scm reads this env
 # and skips git). See Makefile/compose. Empty -> scm fallback (bare dev build).
-ARG SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE=
-ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE=$SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE
-# Install core at its real version (PRETEND set above), THEN snapshot the
+# Use the GLOBAL setuptools-scm var, NOT the per-dist
+# SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE — hatch-vcs does not pass a
+# dist name to setuptools-scm, so the _FOR_<name> variant never matches and the
+# build silently falls back to 0.0.0 (verified 2026-06-30). Scope it to the RUN
+# (not a persistent ENV) so the pretend version can't leak into runtime plugin
+# installs on the volume.
+ARG SETUPTOOLS_SCM_PRETEND_VERSION=
+# Install core at its real version (PRETEND scoped to this RUN), THEN snapshot the
 # constraints — so constraints-core.txt records led-ticker-core at the real
 # version, not the 0.0.0 fallback the deps layer would have (it had no version).
-RUN pip install --no-deps . \
+RUN SETUPTOOLS_SCM_PRETEND_VERSION="$SETUPTOOLS_SCM_PRETEND_VERSION" pip install --no-deps . \
+ && CORE_VER="$(pip show led-ticker-core | awk '/^Version:/{print $2}')" \
+ && if [ "$CORE_VER" = "0.0.0" ]; then \
+        echo "ERROR: led-ticker-core built as 0.0.0 — no version was passed to the build." >&2; \
+        echo "Deploy with 'make setup' (first time) or 'make rebuild' (update); they compute it." >&2; \
+        exit 1; \
+    fi \
  && pip list --format=freeze > /code/constraints-core.txt
 
 # Build stamp — branch@shortsha, computed on the host by `make build-docker` /

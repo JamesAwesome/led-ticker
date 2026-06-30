@@ -122,6 +122,18 @@ if [ "$MODE" = "deploy" ]; then
         ok ".env already exists — skipping."
     fi
 
+    # Compute the package version on the host (no uv needed) so the image bakes
+    # a real version instead of the 0.0.0 scm fallback — a 0.0.0 core blocks
+    # every plugin install. Best-effort tag refresh first so it's current.
+    [ -e .git ] && git fetch --tags --quiet 2>/dev/null || true
+    if ! VERSION="$(sh scripts/compute-version.sh)"; then
+        exit 1   # compute-version.sh already printed actionable guidance to stderr.
+    fi
+    export SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE="$VERSION"
+    BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    SHA="$(git rev-parse --short HEAD 2>/dev/null || true)"
+    export BUILD_REF="${BRANCH}@${SHA}"
+
     say "Starting production stack (this may take a minute on first build)..."
     docker compose up -d --build
 
@@ -135,9 +147,9 @@ if [ "$MODE" = "deploy" ]; then
     • Stop:                 docker compose down
 
   Web UI (optional sidecar):
-    Stop the stack, then bring it up with the webui profile:
-      COMPOSE_PROFILES=webui docker compose up -d --build
-    Or add it to a .env:    COMPOSE_PROFILES=webui
+    Bring everything up with the web UI enabled:
+      make rebuild
+    (or add COMPOSE_PROFILES=webui to a .env and re-run make setup)
 
 EOF
 fi

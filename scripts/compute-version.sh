@@ -2,7 +2,7 @@
 # scripts/compute-version.sh — print led-ticker-core's PEP 440 version from git.
 #
 # Single source of truth for the version the build entry points (Makefile
-# build-docker/rebuild, scripts/setup.sh, CI docker-build) pass to Docker as
+# build/update, scripts/setup.sh, CI docker-build) pass to Docker as
 # SETUPTOOLS_SCM_PRETEND_VERSION. No uv, no Python — git only.
 # The image has no .git, so the host must compute this; an empty/0.0.0 core
 # blocks every plugin install (plugins require led-ticker-core>=2.x).

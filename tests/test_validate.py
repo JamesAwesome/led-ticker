@@ -3671,3 +3671,51 @@ class TestRule56Sources:
         assert rule_56 == [], (
             f"undeclared token should NOT trigger rule 56; got: {rule_56}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Rule 57: separator_color on a non-scroll transition home
+# ---------------------------------------------------------------------------
+
+
+async def test_rule57_separator_color_on_non_scroll_transition_errors(conf):
+    """Rule 57 fires when separator_color is set on a non-scroll transition."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "dissolve", separator_color = [80, 80, 80] }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 57 for e in result.errors)
+
+
+async def test_rule57_separator_color_on_scroll_transition_allowed(conf):
+    """Rule 57 does NOT fire when separator_color is set on a scroll transition."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "scroll", separator_color = [80, 80, 80] }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(e.rule == 57 for e in result.errors)

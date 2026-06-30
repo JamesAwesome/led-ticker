@@ -801,6 +801,51 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 57: separator_color is only honored by the scroll transition.
+
+    Any transition home (per-section transition / entry_transition /
+    widget_transition, plus the global between_sections) that carries a
+    separator_color but whose type is not 'scroll' will silently ignore the
+    color at runtime.  Reject it early so the misconfiguration surfaces.
+    """
+    from led_ticker.config import TransitionConfig
+
+    issues: list[ValidationIssue] = []
+
+    def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
+        if trans_cfg is None:
+            return
+        if getattr(trans_cfg, "separator_color", None) is None:
+            return
+        if trans_cfg.type == "scroll":
+            return
+        issues.append(
+            ValidationIssue(
+                rule=57,
+                location=location,
+                severity="error",
+                message=(
+                    f"separator_color is only honored by the scroll transition; "
+                    f"{location}.type={trans_cfg.type!r} ignores it."
+                ),
+                fix="Use separator_color only with type='scroll', or remove it.",
+            )
+        )
+
+    if config.between_sections_specified:
+        _check(config.between_sections, "transitions.between_sections")
+    for i, section in enumerate(config.sections):
+        if section.transition_specified:
+            _check(section.transition, f"section[{i}].transition")
+        if section.entry_transition is not None:
+            _check(section.entry_transition, f"section[{i}].entry_transition")
+        if section.widget_transition is not None:
+            _check(section.widget_transition, f"section[{i}].widget_transition")
+
+    return issues
+
+
 # Rule 53: plugin transition config kwargs (unknown/missing keys).
 def _check_plugin_transition_kwargs(config: AppConfig) -> list[ValidationIssue]:
     """Validate kwargs for plugin (dotted-type) transitions at validate time.
@@ -2065,6 +2110,9 @@ async def validate_config(
     # Always runs (not just --strict): a typo in a transition name always
     # fails at startup and has no deploy-target excuse.
     errors.extend(_check_transition_names(config))
+
+    # Phase 1b (cont.): Rule 57 — separator_color on non-scroll transitions.
+    errors.extend(_check_separator_color_transition(config))
 
     # Phase 1b (cont.): Plugin transition kwargs check.
     # For dotted-type (plugin) transitions, attempt to build the transition

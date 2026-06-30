@@ -4,6 +4,12 @@ import functools
 from typing import Any
 
 from led_ticker._types import Canvas, ColorTuple
+from led_ticker.separator import (
+    DEFAULT_DOT_SPEC,
+    SCROLL_GAP,
+    render_separator,
+    scroll_separator_width,
+)
 from led_ticker.transitions import _OutgoingScaleSweep, _phys, register_transition
 
 # ColorFlash phase thresholds
@@ -178,9 +184,8 @@ class Scroll(_OutgoingScaleSweep):
     """
 
     def __init__(self, **kwargs: Any) -> None:
-        from led_ticker.ticker import SCROLL_GAP, scroll_separator_width
-
-        self._sep_w: int = scroll_separator_width()
+        self._spec = DEFAULT_DOT_SPEC
+        self._sep_w: int = scroll_separator_width(self._spec)
         self._gap: int = SCROLL_GAP
 
     def frame_at(
@@ -209,14 +214,7 @@ class Scroll(_OutgoingScaleSweep):
         if 0 <= clear_start < w:
             canvas.SubFill(clear_start, 0, w - clear_start, h, 0, 0, 0)
 
-        # Bullet: 2×2 white dot centered vertically.
-        y_center = h // 2
-        for dy in range(-1, 1):
-            for dx in range(2):
-                px = bullet_x + dx
-                py = y_center + dy
-                if 0 <= px < w and 0 <= py < h:
-                    canvas.SetPixel(px, py, 255, 255, 255)
+        render_separator(canvas, bullet_x, scroll_offset, self._spec)
 
         if incoming_pos < w:
             incoming.draw(canvas, cursor_pos=incoming_pos)

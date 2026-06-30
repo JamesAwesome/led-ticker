@@ -17,7 +17,6 @@ from led_ticker.ticker import (
     Ticker,
     _build_ticker_iter,
     _CircleBufferMsg,
-    _draw_hires_circle,
     _enqueue_ticker_objects,
     _has_index,
     _maybe_wrap,
@@ -231,61 +230,6 @@ class TestScrollSideBySideBufferDrawn:
         )
 
 
-def test_draw_hires_circle_paints_filled_disk_on_scaled_canvas():
-    """The disk fills a 32x32 physical bounding box centered in the
-    content band, with the documented row-half-widths."""
-    real = MagicMock()
-    real.width = 256
-    real.height = 64
-    canvas = ScaledCanvas(real, scale=4, content_height=16)
-    # canvas._y_offset = (64 - 16*4) // 2 = 0
-
-    out_canvas, cursor = _draw_hires_circle(canvas, cursor_pos=0, color=RGB_WHITE)
-
-    assert out_canvas is canvas
-    assert cursor == 10  # logical advance width
-
-    # All SetPixel calls landed on the underlying real canvas
-    # (constraint #11 — paint at physical resolution).
-    assert real.SetPixel.called
-    assert canvas is not None
-
-    # Pixel set lives in a 32x32 physical bounding box. Cursor=0 puts
-    # the circle at x=0 logical → x=4..36 physical (1px pad + 32px disk;
-    # the disk extends from center-radius to center+radius, which is
-    # (1*4)+16=20 ± 16 = [4,36]). y in [16, 48] physical (center at
-    # 0 + (16*4)//2 = 32 ± 16 = [16,48]).
-    coords = {(c.args[0], c.args[1]) for c in real.SetPixel.call_args_list}
-    xs = [x for x, _ in coords]
-    ys = [y for _, y in coords]
-    assert min(xs) >= 4 and max(xs) <= 36, f"x out of [4,36]: {min(xs)}..{max(xs)}"
-    assert min(ys) >= 16 and max(ys) <= 48, f"y out of [16,48]: {min(ys)}..{max(ys)}"
-
-    # Disk count is ~π * 16² ≈ 804. Allow ±5% for integer-math rounding.
-    assert 760 <= len(coords) <= 850, f"disk pixel count {len(coords)} out of range"
-
-
-def test_draw_hires_circle_color_applied_uniformly():
-    real = MagicMock()
-    real.width, real.height = 256, 64
-    canvas = ScaledCanvas(real, scale=4, content_height=16)
-
-    _draw_hires_circle(canvas, cursor_pos=0, color=(225, 48, 108))
-
-    for call in real.SetPixel.call_args_list:
-        _, _, r, g, b = call.args
-        assert (r, g, b) == (225, 48, 108)
-
-
-@pytest.mark.parametrize("scale", [1, 4])
-def test_draw_hires_circle_advance_is_ten_at_any_scale(scale):
-    real = MagicMock()
-    real.width, real.height = 256, 64
-    canvas = ScaledCanvas(real, scale=scale, content_height=16)
-    _, cursor = _draw_hires_circle(canvas, cursor_pos=42, color=RGB_WHITE)
-    assert cursor == 42 + 10
-
-
 class TestScrollOneByOneReturnsLastPos:
     """Regression: `_scroll_one_by_one` must return the position at which
     the last widget was drawn, so `Ticker.last_scroll_pos` reflects reality
@@ -335,12 +279,11 @@ def test_circle_buffer_msg_smallsign_delegates_to_super_draw():
 
     msg = _CircleBufferMsg(text=" • ", center=False, font_color=RGB_WHITE)
 
-    # Verify _draw_hires_circle is NOT called on the smallsign path
-    with patch("led_ticker.ticker._draw_hires_circle") as mock_hires:
+    # Verify the hi-res renderer is NOT called on the smallsign path
+    with patch("led_ticker.ticker.render_separator") as mock_render:
         out, cursor = msg.draw(plain_canvas, cursor_pos=0)
-        assert not mock_hires.called, (
-            "smallsign path must delegate to super().draw(), "
-            "not call _draw_hires_circle"
+        assert not mock_render.called, (
+            "smallsign path must delegate to super().draw(), not call render_separator"
         )
 
     # And that draw returned the canvas and an advance > 0
@@ -352,7 +295,7 @@ def test_circle_buffer_msg_smallsign_delegates_to_super_draw():
 
 def test_circle_buffer_msg_hires_path_paints_circle():
     """On ScaledCanvas, _CircleBufferMsg.draw must paint the hi-res
-    disk via _draw_hires_circle (not delegate to BDF)."""
+    disk via render_separator (not delegate to BDF)."""
     real = MagicMock()
     real.width, real.height = 256, 64
     canvas = ScaledCanvas(real, scale=4, content_height=16)

@@ -847,17 +847,17 @@ class TestScroll:
         assert outgoing.draw.call_args.kwargs["cursor_pos"] == -440
 
     def test_separator_width(self):
-        """Separator should be gap + bullet + gap."""
-        from led_ticker.ticker import (
-            BULLET_WIDTH,
+        """Separator should be gap + mark + gap."""
+        from led_ticker.separator import (
+            DEFAULT_DOT_SPEC,
             SCROLL_GAP,
             scroll_separator_width,
         )
 
         scroll = Scroll()
-        expected = SCROLL_GAP + BULLET_WIDTH + SCROLL_GAP
+        expected = SCROLL_GAP + 2 + SCROLL_GAP  # default dot mark width = 2
         assert scroll._sep_w == expected
-        assert scroll._sep_w == scroll_separator_width()
+        assert scroll._sep_w == scroll_separator_width(DEFAULT_DOT_SPEC)
 
     def test_positions_are_consecutive(self, canvas, make_widget):
         """At t=0, outgoing at scroll_pos, bullet/incoming off-screen."""

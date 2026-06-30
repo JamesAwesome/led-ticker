@@ -9,7 +9,7 @@
 # ──────────────────────────────────────────────────────────────────────
 
 # Infini-scroll config — no transitions, content scrolls one at a time
-# Usage: cp config/config.infini_scroll.toml config/config.toml
+# Usage: cp config/config.one_at_a_time.toml config/config.toml
 
 [display]
 rows = 16
@@ -25,7 +25,7 @@ delay = 5
 # --- Messages ---
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "one_at_a_time"
 loop_count = 1
 
 [playlist.section.title]
@@ -44,7 +44,7 @@ text = "Always be shipping!"
 # --- Weather ---
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "one_at_a_time"
 loop_count = 1
 
 [playlist.section.title]
@@ -85,7 +85,7 @@ units = "imperial"
 # --- Countdowns ---
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "one_at_a_time"
 loop_count = 1
 
 [playlist.section.title]
@@ -126,7 +126,7 @@ countdown_date = 2027-01-01
 # --- Nintendo ---
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "one_at_a_time"
 loop_count = 1
 
 [playlist.section.title]

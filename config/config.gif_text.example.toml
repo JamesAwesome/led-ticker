@@ -12,7 +12,7 @@
 #   3. Scroll OVER (knockout)      — Inter-Bold black-LED cutout through pride flag
 #   4. Emoji + chunky text         — BDF :heart: HAPPY PRIDE :heart: @48 (lores+emoji smoke)
 #   5. Animated WebP + scroll-over — phoenix.webp + Inter-Bold class signup pitch
-#   6. Title + gif (mode = "swap") — "HELLO!" title → Inter-Regular @brand + phoenix
+#   6. Title + gif (mode = "slideshow") — "HELLO!" title → Inter-Regular @brand + phoenix
 #
 # BDF smoke tests retained intentionally in §2 + §4:
 #   §2 covers the `font_size = None` smart-default path (BDF resolves
@@ -221,18 +221,18 @@ scroll_speed_ms = 50
 text_loops = 1
 
 # ---------------------------------------------------------------------------
-# Section 6 — Title + gif via mode = "swap"
+# Section 6 — Title + gif via mode = "slideshow"
 #
-# Demonstrates the swap-mode merge: gif widgets work exactly like any
-# other widget under `mode = "swap"`. The section title "HELLO!"
+# Demonstrates the slideshow-mode merge: gif widgets work exactly like any
+# other widget under `mode = "slideshow"`. The section title "HELLO!"
 # displays first (held + scrolled if it overflowed), dissolves into
 # the gif. Per-visit `loops` are controlled by the widget's own
 # `loops` field; section.loop_count means "cycle the widget list N
-# times" in swap mode (set to 1 here = single visit).
+# times" in slideshow mode (set to 1 here = single visit).
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.0  # title hold before dissolve
 transition = "dissolve"

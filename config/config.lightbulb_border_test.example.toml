@@ -91,7 +91,7 @@ between_sections = "cut"
 #    Christmas lights. Unlit bulbs keep the dim-warm-orange glow.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -113,7 +113,7 @@ border = { style = "lightbulbs", mode = "chase", lit_color = "rainbow" }
 #    hue_wraps does.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -137,7 +137,7 @@ border = { style = "lightbulbs", lit_color = "rainbow", hue_wraps = 3, chase_den
 #    time-driven.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -158,7 +158,7 @@ border = { style = "lightbulbs", lit_color = "rainbow", chase_density = 1, unlit
 #    perimeter (256×64, bulb_size=3, gap=3).
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -178,7 +178,7 @@ border = "lightbulbs"
 #    static shimmer.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -198,7 +198,7 @@ border = { style = "lightbulbs", mode = "alternate" }
 #    in production — it's loud.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -218,7 +218,7 @@ border = { style = "lightbulbs", mode = "unison" }
 #    LEFT-to-RIGHT.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -238,7 +238,7 @@ border = { style = "lightbulbs", direction = "ccw" }
 #    completely dark — physical-marquee feel.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -259,7 +259,7 @@ border = { style = "lightbulbs", lit_color = [255, 40, 40], unlit_color = [60, 0
 #    bulb-count / spacing math on hardware.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -279,7 +279,7 @@ border = { style = "lightbulbs", unlit_color = [0, 0, 0] }
 #     Max bulb_size for h=64 is 32 (rule 43); 5 is comfortable.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -299,7 +299,7 @@ border = { style = "lightbulbs", bulb_size = 5, gap = 3 }
 #     Trade-off: more visual noise, less obvious "marquee" gestalt.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -320,7 +320,7 @@ border = { style = "lightbulbs", bulb_size = 2, gap = 2 }
 #     motion without being attention-demanding.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -342,7 +342,7 @@ border = { style = "lightbulbs", speed_frames = 8, chase_density = 5 }
 #     RainbowChaseBorder.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 hold_time = 8.0
@@ -375,7 +375,7 @@ border = "lightbulbs"
 #     restart_on_visit regressed.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 4.0
 loop_count = 3
 transition = "cut"

@@ -30,7 +30,7 @@ default_scale = 1
 brightness = 60
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.0
 
@@ -98,7 +98,7 @@ default_scale = 1
 brightness = 60
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 0.5
 
@@ -142,7 +142,7 @@ default_scale = 1
 brightness = 60
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.0
 
@@ -214,7 +214,7 @@ default_scale = 1
 brightness = 60
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 3.0
 
@@ -298,7 +298,7 @@ default_scale = 1
 brightness = 60
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 0.4
 

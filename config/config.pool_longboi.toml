@@ -50,7 +50,7 @@ limit_refresh_rate_hz = 100
 show_refresh_rate = true
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5
 loop_count = 0  # infinite — soak test
 

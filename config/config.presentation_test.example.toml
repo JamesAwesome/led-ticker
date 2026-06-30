@@ -25,7 +25,7 @@
 #  14. image widget + rainbow (no emoji)  — non-emoji per-char path on gif overlay
 #  15. two-row image widget + rainbow     — per-row per-char path on gif overlay
 #  16. HiresFont + emoji + rainbow        — full hires + per-char + sprite combo
-#  17. RSS feed (1 story)                  — forever_scroll mode + RSSFeedMonitor
+#  17. RSS feed (1 story)                  — ticker mode + RSSFeedMonitor
 #
 # §1 (rainbow + emoji): the rainbow sweeps continuously across
 # emoji boundaries — each `:taco:` renders as the taco sprite, the
@@ -73,7 +73,7 @@ between_sections = "cut"
 
 # 1. rainbow + emoji body — per-char sweep continues across :slug: boundaries
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -90,7 +90,7 @@ font_color = "rainbow"
 
 # 2. rainbow title + body — color provider on the title widget itself
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -126,7 +126,7 @@ text_loops = 1
 # current rainbow hue at its index, and the whole pattern keeps
 # sweeping over time. Final state matches §7's full rainbow.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -144,7 +144,7 @@ animation = "typewriter"
 
 # 5. typewriter
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -162,7 +162,7 @@ animation = "typewriter"
 
 # 6. color_cycle
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -179,7 +179,7 @@ font_color = "color_cycle"
 
 # 7. rainbow
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -196,7 +196,7 @@ font_color = "rainbow"
 
 # 8. gradient — left-to-right color interpolation
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -213,7 +213,7 @@ font_color = {style = "gradient", from = [255, 0, 0], to = [0, 100, 255]}
 
 # 9. rainbow + countdown
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -231,7 +231,7 @@ font_color = "rainbow"
 
 # 10. color_cycle + weather
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -250,7 +250,7 @@ font_color = "color_cycle"
 
 # 11. HiresFont + rainbow — per-char hires rendering
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -269,7 +269,7 @@ font_color = "rainbow"
 
 # 12. HiresFont + gradient — per-char hires rendering
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -288,7 +288,7 @@ font_color = {style = "gradient", from = [50, 220, 100], to = [255, 50, 200]}
 
 # 13. HiresFont + typewriter — animation + hires render path
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -350,7 +350,7 @@ scroll_speed_ms = 50
 # sweeping continuously across emoji boundaries (per-char index
 # advances across slugs, sprites paint at hires bigsign size).
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 loop_count = 1
 transition = "cut"
@@ -367,13 +367,13 @@ font = "Inter-Bold"
 font_size = 24
 font_color = "rainbow"
 
-# 17. RSS feed (1 story, rainbow) — exercises forever_scroll mode +
+# 17. RSS feed (1 story, rainbow) — exercises ticker mode +
 # the RSSFeedMonitor widget. Pulled from the smallsign config example.
 # `max_stories = 1` limits the section to a single headline. The new
 # `font_color = "rainbow"` knob (replaces the legacy 3-color cycle
 # when set) paints every story per-character rainbow.
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]

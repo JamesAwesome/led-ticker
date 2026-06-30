@@ -50,11 +50,11 @@ easing = "ease_in_out"
 between_sections = "dissolve"
 
 # ---------------------------------------------------------------------------
-# Section 1: Welcome banner (mode=forever_scroll, no content_height override)
+# Section 1: Welcome banner (mode=ticker, no content_height override)
 # No planted violations — provides a clean baseline.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -77,7 +77,7 @@ font_color = [200, 100, 255]
 # No planted violations.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8
 loop_count = 1
 
@@ -96,7 +96,7 @@ font_color = [255, 255, 255]
 # VIOLATION A — Rule 1: content_height=20 with default_scale=4 → 20×4=80 > 64
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6
 loop_count = 2
 content_height = 20                     # <-- VIOLATION A: exceeds 64/4=16 ceiling
@@ -120,7 +120,7 @@ bottom_align = "center"
 # VIOLATION B — Rule 3: text_align="scroll" + fit="stretch" is invalid
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 10
 loop_count = 1
 
@@ -139,7 +139,7 @@ play_count = 2
 # at font_threshold=128 (default). Weight contrast inverts on the panel.
 # ---------------------------------------------------------------------------
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7
 loop_count = 1
 

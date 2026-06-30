@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 3: Multi-widget sign"
-description: Add multiple sections, mix forever_scroll and swap modes, and drop in a two_row widget with hi-res inline emoji.
+description: Add multiple sections, mix ticker and slideshow modes, and drop in a two_row widget with hi-res inline emoji.
 prev: false
 next: false
 ---
@@ -14,7 +14,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
   caption="What you'll have by the end of this chapter — a two-row card with a hi-res Instagram logo and scrolling promo text."
 />
 
-Chapter 2 ended with a single `forever_scroll` section and one message widget. This
+Chapter 2 ended with a single `ticker` section and one message widget. This
 chapter adds sections, introduces the three display modes, shows how to mix widget
 types, and finishes with the `two_row` widget rendered at hi-res.
 
@@ -37,7 +37,7 @@ default_scale = 4
 brightness = 60
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [[playlist.section.widget]]
@@ -53,16 +53,17 @@ font_color = [225, 48, 108]
 A config can have multiple `[[playlist.section]]` blocks. The playlist cycles
 through them in order, looping forever. Each section picks its own `mode`:
 
-- **`forever_scroll`** — all widgets in the section scroll end-to-end as a
-  continuous stream. The text exits left and re-enters right on the next loop.
-- **`swap`** — each widget is displayed individually, held for `hold_time`
+- **`ticker`** — all widgets in the section scroll end-to-end as one continuous
+  stream. The text exits left and re-enters right on the next loop — the classic
+  news ticker feel.
+- **`slideshow`** — each widget is displayed individually, held for `hold_time`
   seconds. If the content is wider than the canvas it scrolls before holding;
   otherwise it's shown statically. Transitions between widgets are animated.
-- **`infini_scroll`** — like `forever_scroll` but each widget scrolls fully
-  off the left edge before the next one enters from the right. No overlap
-  between consecutive messages.
+- **`one_at_a_time`** — each widget scrolls fully off the left edge before the
+  next one enters from the right. No overlap between consecutive messages, and
+  no held pause or transition between them.
 
-Add a second section to your config — a `swap` section with two short messages:
+Add a second section to your config — a `slideshow` section with two short messages:
 
 ```toml
 [transitions]
@@ -70,7 +71,7 @@ default = "push_left"
 duration = 0.5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 scroll_step_ms = 40
 
@@ -85,7 +86,7 @@ text = "Open Tuesday – Sunday  *  10am – 8pm"
 font_color = [255, 240, 200]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 transition = "push_left"
@@ -111,7 +112,7 @@ A few new fields:
   scroll step. 40 ms gives a comfortable reading pace.
 - **`transition = "push_left"` on a section** — overrides the default for
   that section's inter-widget transitions.
-- **`hold_time = 2.5`** — how long to hold each widget in `swap` mode before
+- **`hold_time = 2.5`** — how long to hold each widget in `slideshow` mode before
   moving to the next.
 
 Validate and render. You'll see the two messages scroll side-by-side in section 1,
@@ -119,7 +120,7 @@ then the sign switches to the two held cards in section 2:
 
 <DemoGif
   src="/demos-long/tutorial-03a-sections.gif"
-  caption="Two sections: forever_scroll followed by swap. The push_left transition connects both the section boundary and the swap within section 2."
+  caption="Two sections: ticker followed by slideshow. The push_left transition connects both the section boundary and the inter-widget transition within section 2."
 />
 
 ## Adding more widget types
@@ -130,7 +131,7 @@ a countdown with an announcements message:
 
 ```toml
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 scroll_step_ms = 40
 
@@ -147,12 +148,12 @@ font_color = [255, 220, 0]
 ```
 
 The countdown renders as `Summer Camps: 35` (or however many days remain). It
-scrolls through the same `forever_scroll` stream as the message widget on either
+scrolls through the same `ticker` stream as the message widget on either
 side — no special treatment needed.
 
 <DemoGif
   src="/demos-long/tutorial-03b-multi-widget.gif"
-  caption="Three sections. The third section streams the countdown and the announcement message side-by-side in a continuous ticker."
+  caption="Three sections. The third section streams the countdown and the announcement message side-by-side in a ticker section."
 />
 
 You can substitute any widget type wherever a `message` appears. The playlist
@@ -163,7 +164,7 @@ engine treats them uniformly — widget output is just pixels on a canvas.
 `two_row` splits the canvas into a fixed top row and a scrolling bottom row.
 The top row holds a label or handle; the bottom row scrolls through longer content.
 
-Add a new `swap` section for the two_row widget. The simplest baseline uses
+Add a new `slideshow` section for the two_row widget. The simplest baseline uses
 `scale = 1` — the logical canvas is the full 256 pixels wide, with
 `content_height = 16` centered on the 64-row panel. The default 50/50 band split
 gives an 8-row top band and an 8-row bottom band, each tall enough for the
@@ -171,7 +172,7 @@ bundled BDF `5x8` font:
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 1
 content_height = 16
 loop_count = 1
@@ -251,7 +252,7 @@ sprite instead of falling back to lo-res.
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 24
 loop_count = 1
@@ -317,7 +318,7 @@ Add three lines to the hi-res config:
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 24
 loop_count = 1

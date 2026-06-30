@@ -5,7 +5,7 @@ from led_ticker.webui.store import build_store, config_references, redact_anonym
 def test_config_references_widget_and_transition(tmp_path):
     cfg = tmp_path / "config.toml"
     cfg.write_text(
-        '[[playlist.section]]\nmode="swap"\ntransition="nyancat.forward"\n'
+        '[[playlist.section]]\nmode = "slideshow"\ntransition="nyancat.forward"\n'
         '[[playlist.section.widget]]\ntype="rss.feed"\n'
     )
     refs = config_references(cfg)
@@ -370,7 +370,9 @@ def test_build_store_shared_package_siblings_not_removable_when_one_in_use(tmp_p
     man = tmp_path / "requirements-plugins.txt"
     man.write_text("led-ticker-flair\n")  # one line provides all four namespaces
     cfg = tmp_path / "config.toml"
-    cfg.write_text('[[playlist.section]]\nmode="swap"\ntransition="nyancat.forward"\n')
+    cfg.write_text(
+        '[[playlist.section]]\nmode = "slideshow"\ntransition="nyancat.forward"\n'
+    )
 
     res = build_store(
         manifest_path=man,

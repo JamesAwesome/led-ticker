@@ -61,7 +61,7 @@ between_sections = {type = "nyancat.alternating", duration = 4.0}
 # --- Messages ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "pacman.alternating"
 transition_duration = 3.0
 continuous_scroll = true
@@ -100,7 +100,7 @@ font_threshold = 80
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_alternating"
 hold_time = 6
 loop_count = 2
@@ -161,7 +161,7 @@ font_threshold = 80
 # --- Countdowns ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_alternating"
 loop_count = 1
 
@@ -217,7 +217,7 @@ font_threshold = 80
 # Hires pokeball_alternating auto-activates at default_scale = 4.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "pokeball.alternating"
 transition_duration = 2.0
 continuous_scroll = true
@@ -243,7 +243,7 @@ font_threshold = 80
 # Hires baseball.roll_alternating auto-activates at default_scale = 4.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll_alternating"
 transition_duration = 2.0
 transition_fps = 40
@@ -278,7 +278,7 @@ font_threshold = 80
 # Hires baseball.roll_alternating auto-activates at default_scale = 4.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll_alternating"
 transition_duration = 2.0
 transition_fps = 40
@@ -307,7 +307,7 @@ font_threshold = 80
 # Requires INFLUXDB_TOKEN (and URL/ORG/BUCKET) in .env.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_alternating"
 hold_time = 6
 loop_count = 1
@@ -338,7 +338,7 @@ label_color = [130, 220, 255]
 # --- Anime News Network ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "sailor_moon.alternating"
 transition_duration = 2.0
 continuous_scroll = true

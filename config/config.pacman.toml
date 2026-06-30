@@ -26,7 +26,7 @@ between_sections = {type = "pacman.alternating", duration = 3.0}
 
 # --- pacman (long text) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "pacman.forward"
 transition_duration = 3.0
 hold_time = 4
@@ -46,7 +46,7 @@ text = "pacman DONE"
 
 # --- pacman (short text) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "pacman.forward"
 transition_duration = 3.0
 hold_time = 4
@@ -62,7 +62,7 @@ text = "Power pellet!"
 
 # --- pacman_reverse ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "pacman.reverse"
 transition_duration = 3.0
 hold_time = 4
@@ -78,7 +78,7 @@ text = "Run ghosts run!"
 
 # --- restart ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3
 loop_count = 1
 

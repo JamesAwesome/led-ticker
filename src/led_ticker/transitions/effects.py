@@ -164,7 +164,7 @@ class Scroll:
     """Seamless continuous scroll with bullet separator.
 
     Outgoing, bullet, and incoming scroll left together as one
-    continuous strip — like forever_scroll between two widgets.
+    continuous strip — like ticker mode between two widgets.
     The bullet (" * ") separates the two texts visually.
 
     Recommended: transition_duration = 4.0, easing = "linear".

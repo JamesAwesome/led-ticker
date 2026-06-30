@@ -74,7 +74,7 @@ GOOD_CONFIG = """\
     default_scale = 1
 
     [[playlist.section]]
-    mode = "swap"
+    mode = "slideshow"
     hold_time = 3
 
     [[playlist.section.widget]]
@@ -176,7 +176,7 @@ async def test_rule24_missing_font_is_warning_not_error(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -208,7 +208,7 @@ async def test_rule5_missing_font_size_still_hard_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -326,7 +326,7 @@ async def test_rule1_content_height_overflow(conf):
         default_scale = 4
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         content_height = 20
 
@@ -350,7 +350,7 @@ async def test_rule1_no_warning_when_within_limits(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -375,7 +375,7 @@ async def test_rule1_does_not_fire_at_exact_boundary(conf):
         default_scale = 4
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         content_height = 8
 
@@ -446,7 +446,7 @@ async def test_rule6_two_row_at_scale4(conf):
         pixel_mapper_config = "Remap:256,64|U-mapper"
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         scale = 4
 
@@ -491,7 +491,7 @@ async def test_rule21_normal_duration_no_warning(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -637,7 +637,7 @@ async def test_rule23_two_row_top_text_overflows(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -661,7 +661,7 @@ async def test_rule23_two_row_top_text_fits(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -685,7 +685,7 @@ async def test_rule23_two_row_at_scale2_bigsign_clip(conf):
         pixel_mapper_config = "Remap:256,64|U-mapper"
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         scale = 2
         content_height = 32
@@ -713,7 +713,7 @@ async def test_rule23_gif_with_bottom_text_overflows(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -741,7 +741,7 @@ async def test_rule23_image_with_bottom_text_overflows(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -769,7 +769,7 @@ async def test_rule23_gif_single_row_does_not_warn(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -792,7 +792,7 @@ async def test_rule23_message_widget_does_not_warn(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -836,7 +836,7 @@ async def test_rule22_two_row_inter_bold_too_tall_for_band(conf):
     extra = textwrap.dedent("""\
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         scale = 2
         content_height = 16
         hold_time = 3
@@ -869,7 +869,7 @@ async def test_rule22_image_two_row_default_font_too_tall(conf):
     extra = textwrap.dedent("""\
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -889,7 +889,7 @@ async def test_rule22_passes_when_band_fits(conf):
     extra = textwrap.dedent("""\
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         scale = 2
         content_height = 16
         hold_time = 3
@@ -914,7 +914,7 @@ async def test_rule25_start_hold_on_swap_section_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         start_hold = 0.0
 
@@ -950,7 +950,7 @@ async def test_rule25_start_hold_on_gif_section_errors(conf):
     assert any(e.rule == 25 for e in result.errors)
 
 
-async def test_rule25_start_hold_on_forever_scroll_is_allowed(conf):
+async def test_rule25_start_hold_on_ticker_is_allowed(conf):
     cfg = """\
         [display]
         rows = 16
@@ -959,7 +959,7 @@ async def test_rule25_start_hold_on_forever_scroll_is_allowed(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         start_hold = 0.0
 
         [[playlist.section.widget]]
@@ -968,12 +968,12 @@ async def test_rule25_start_hold_on_forever_scroll_is_allowed(conf):
         """
     result = await validate_config(conf(cfg))
     assert all(e.rule != 25 for e in result.errors), (
-        f"start_hold on forever_scroll must validate clean; got errors: "
+        f"start_hold on ticker must validate clean; got errors: "
         f"{[(e.rule, e.message) for e in result.errors]}"
     )
 
 
-async def test_rule25_start_hold_on_infini_scroll_is_allowed(conf):
+async def test_rule25_start_hold_on_one_at_a_time_is_allowed(conf):
     cfg = """\
         [display]
         rows = 16
@@ -982,7 +982,7 @@ async def test_rule25_start_hold_on_infini_scroll_is_allowed(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "infini_scroll"
+        mode = "one_at_a_time"
         start_hold = 2.0
 
         [[playlist.section.widget]]
@@ -1002,7 +1002,7 @@ async def test_rule25_negative_start_hold_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         start_hold = -1.0
 
         [[playlist.section.widget]]
@@ -1025,7 +1025,7 @@ async def test_rule25_zero_start_hold_is_allowed(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         start_hold = 0.0
 
         [[playlist.section.widget]]
@@ -1046,7 +1046,7 @@ async def test_rule26_separator_on_swap_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         separator = "*"
 
@@ -1080,7 +1080,7 @@ async def test_rule26_separator_on_gif_errors(conf):
     assert any(e.rule == 26 for e in result.errors)
 
 
-async def test_rule26_separator_on_infini_scroll_errors(conf):
+async def test_rule26_separator_on_one_at_a_time_errors(conf):
     cfg = """\
         [display]
         rows = 16
@@ -1089,7 +1089,7 @@ async def test_rule26_separator_on_infini_scroll_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "infini_scroll"
+        mode = "one_at_a_time"
         separator = "*"
 
         [[playlist.section.widget]]
@@ -1101,7 +1101,7 @@ async def test_rule26_separator_on_infini_scroll_errors(conf):
     assert any(e.rule == 26 for e in result.errors)
 
 
-async def test_rule26_separator_on_forever_scroll_is_allowed(conf):
+async def test_rule26_separator_on_ticker_is_allowed(conf):
     cfg = """\
         [display]
         rows = 16
@@ -1110,7 +1110,7 @@ async def test_rule26_separator_on_forever_scroll_is_allowed(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         separator = "*"
         separator_color = [225, 48, 108]
 
@@ -1132,7 +1132,7 @@ async def test_rule26_separator_font_alone_on_swap_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         separator_font = "Inter-Bold"
 
@@ -1157,7 +1157,7 @@ async def test_rule24_separator_font_missing_emits_warning(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "forever_scroll"
+        mode = "ticker"
         separator_font = "Some-Custom-Font"
         separator_font_size = 24
 
@@ -1185,7 +1185,7 @@ async def test_rule28_bottom_text_loops_without_wrap_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1212,7 +1212,7 @@ async def test_rule28_bottom_text_loops_negative_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1239,7 +1239,7 @@ async def test_rule28_bottom_text_loops_with_wrap_is_allowed(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1281,7 +1281,7 @@ async def test_rule28_bottom_text_loops_bool_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1311,7 +1311,7 @@ async def test_rule29_text_loops_on_two_row_is_did_you_mean_bridge(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1341,7 +1341,7 @@ async def test_rule29_text_loops_on_gif_widget_does_not_fire(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1372,7 +1372,7 @@ async def test_rule30_hold_time_plus_bottom_text_loops_warns(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 8.0
 
         [[playlist.section.widget]]
@@ -1405,7 +1405,7 @@ async def test_rule30_does_not_fire_on_gif_widget(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 8.0
 
         [[playlist.section.widget]]
@@ -1437,7 +1437,7 @@ async def test_rule30_default_hold_time_does_not_warn(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
 
         [[playlist.section.widget]]
         type = "two_row"
@@ -1464,7 +1464,7 @@ async def test_rule30_hold_time_alone_does_not_warn(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 8.0
 
         [[playlist.section.widget]]
@@ -1487,7 +1487,7 @@ async def test_rule31_scroll_step_ms_zero_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         scroll_step_ms = 0
 
@@ -1512,7 +1512,7 @@ async def test_rule31_scroll_step_ms_negative_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         scroll_step_ms = -10
 
@@ -1535,7 +1535,7 @@ async def test_rule31_scroll_step_ms_omitted_is_allowed(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1555,7 +1555,7 @@ async def test_rule31_scroll_step_ms_positive_is_allowed(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         scroll_step_ms = 35
 
@@ -1578,7 +1578,7 @@ async def test_rule34a_scroll_speed_ms_at_section_level_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         scroll_speed_ms = 40
 
@@ -1607,7 +1607,7 @@ async def test_rule34b_scroll_step_ms_on_gif_widget_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1637,7 +1637,7 @@ async def test_rule34b_scroll_step_ms_on_image_widget_errors(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1669,7 +1669,7 @@ async def test_rule34_scroll_step_ms_on_message_widget_does_not_fire(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1686,7 +1686,7 @@ async def test_rule34_scroll_step_ms_on_message_widget_does_not_fire(conf):
 
 async def test_rule33_mode_gif_warns(conf):
     """mode='gif' is the legacy dedicated-gif section mode. The validator
-    surfaces a warning so authors know to migrate to mode='swap' + gif
+    surfaces a warning so authors know to migrate to mode = 'slideshow' + gif
     widget, which gives access to the full section feature set."""
     cfg = """\
         [display]
@@ -1711,7 +1711,7 @@ async def test_rule33_mode_gif_warns(conf):
 
 
 async def test_rule33_mode_swap_does_not_warn(conf):
-    """mode='swap' is the recommended pattern — must not trip rule 33."""
+    """mode = 'slideshow' is the recommended pattern — must not trip rule 33."""
     result = await validate_config(conf(GOOD_CONFIG))
     assert all(w.rule != 33 for w in result.warnings)
 
@@ -1719,7 +1719,7 @@ async def test_rule33_mode_swap_does_not_warn(conf):
 async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
     """play_count = 0 in mode = "gif" silently plays 1 loop (legacy path
     doesn't thread hold_time). Surface as a warning so the user knows
-    the semantics don't propagate from mode='swap'."""
+    the semantics don't propagate from mode = 'slideshow'."""
     cfg = """\
         [display]
         rows = 16
@@ -1746,7 +1746,7 @@ async def test_rule36_gif_loops_zero_in_mode_gif_warns(conf):
 
 
 async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
-    """In mode='swap' the semantics ARE plumbed through — no warning."""
+    """In mode = 'slideshow' the semantics ARE plumbed through — no warning."""
     cfg = """\
         [display]
         rows = 16
@@ -1755,7 +1755,7 @@ async def test_rule36_gif_loops_zero_in_mode_swap_does_not_warn(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 8.0
 
         [[playlist.section.widget]]
@@ -1801,7 +1801,7 @@ async def test_rule35_default_inside_section_warns(conf):
         default_scale = 1
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
         default = "wipe_left"
 
@@ -1831,7 +1831,7 @@ async def test_rule35_default_in_transitions_block_does_not_warn(conf):
         default = "wipe_left"
 
         [[playlist.section]]
-        mode = "swap"
+        mode = "slideshow"
         hold_time = 3
 
         [[playlist.section.widget]]
@@ -1847,11 +1847,11 @@ async def test_rule35_default_in_transitions_block_does_not_warn(conf):
 
 class TestRule27WrapsForeverModeOnly:
     """bottom_text_wrap=True is only valid in mode=swap. Refused
-    in forever_scroll and infini_scroll because the widget would
+    in ticker and one_at_a_time because the widget would
     block the chain (wraps_forever never terminates on cursor_pos)."""
 
     @pytest.mark.asyncio
-    async def test_bottom_text_wrap_in_forever_scroll_rejected(self, tmp_path):
+    async def test_bottom_text_wrap_in_ticker_rejected(self, tmp_path):
         cfg = tmp_path / "config.toml"
         cfg.write_text("""\
 [display]
@@ -1860,7 +1860,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -1877,7 +1877,7 @@ bottom_text_wrap = true
         ), f"Expected rule 27 error; got errors={result.errors}"
 
     @pytest.mark.asyncio
-    async def test_bottom_text_wrap_in_infini_scroll_rejected(self, tmp_path):
+    async def test_bottom_text_wrap_in_one_at_a_time_rejected(self, tmp_path):
         cfg = tmp_path / "config.toml"
         cfg.write_text("""\
 [display]
@@ -1886,7 +1886,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "one_at_a_time"
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -1912,7 +1912,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5
 
 [[playlist.section.widget]]
@@ -1933,17 +1933,17 @@ bottom_text_wrap = true
 
 class TestRule32ScrollThroughSwapOnly:
     """bottom_text_scroll='scroll_through' is only valid in mode=swap.
-    Refused in forever_scroll and infini_scroll for the same reason
+    Refused in ticker and one_at_a_time for the same reason
     as bottom_text_wrap (rule 27): those modes drive widgets via
     _scroll_one_by_one / _scroll_side_by_side, which interpret the
     widget's reported cursor_pos as physical scroll travel. The
     scroll_through widget inflates cursor_pos to 2*canvas.width +
     bottom_width + padding to anchor the engine's stop math in swap
-    mode — that same value, fed to forever_scroll, would produce 2×
+    mode — that same value, fed to ticker, would produce 2×
     the expected scroll travel and dead canvas between widgets."""
 
     @pytest.mark.asyncio
-    async def test_scroll_through_in_forever_scroll_rejected(self, tmp_path):
+    async def test_scroll_through_in_ticker_rejected(self, tmp_path):
         cfg = tmp_path / "config.toml"
         cfg.write_text("""\
 [display]
@@ -1952,7 +1952,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -1969,7 +1969,7 @@ bottom_text_scroll = "scroll_through"
         ), f"Expected rule 32 error; got errors={result.errors}"
 
     @pytest.mark.asyncio
-    async def test_scroll_through_in_infini_scroll_rejected(self, tmp_path):
+    async def test_scroll_through_in_one_at_a_time_rejected(self, tmp_path):
         cfg = tmp_path / "config.toml"
         cfg.write_text("""\
 [display]
@@ -1978,7 +1978,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "infini_scroll"
+mode = "one_at_a_time"
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -2004,7 +2004,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5
 
 [[playlist.section.widget]]
@@ -2024,7 +2024,7 @@ bottom_text_scroll = "scroll_through"
     @pytest.mark.asyncio
     async def test_scroll_through_marquee_default_not_flagged(self, tmp_path):
         """The default value 'marquee' must NOT trigger rule 32 even in
-        forever_scroll mode — only the explicit scroll_through value
+        ticker mode — only the explicit scroll_through value
         carries the mode constraint."""
         cfg = tmp_path / "config.toml"
         cfg.write_text("""\
@@ -2034,7 +2034,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -2061,7 +2061,7 @@ cols = 256
 default_scale = 4
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 3.0
 
@@ -2094,7 +2094,7 @@ cols = 256
 default_scale = 4
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "image"
@@ -2119,7 +2119,7 @@ cols = 256
 default_scale = 4
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2147,7 +2147,7 @@ cols = 256
 default_scale = 4
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 30.0
 
@@ -2202,7 +2202,7 @@ class TestMigrationError:
         from led_ticker.validate import _run_build_checks
 
         section = SectionConfig(
-            mode="swap",
+            mode="slideshow",
             widgets=[{"type": "message", "text": "hi", "text_scale": 2}],
         )
         errors, warnings, migrations = await _run_build_checks([section], tmp_path)
@@ -2247,7 +2247,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_leftt"
 
 [[playlist.section.widget]]
@@ -2271,7 +2271,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "cut"
 
 [[playlist.section.widget]]
@@ -2292,7 +2292,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_left"
 
 [[playlist.section.widget]]
@@ -2316,7 +2316,7 @@ default_scale = 1
 between_sections = "pokball_alternating"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2337,7 +2337,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 entry_transition = "dissolvre"
 
 [[playlist.section.widget]]
@@ -2362,7 +2362,7 @@ default_scale = 1
 default = "unkown_name"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2383,7 +2383,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 widget_transition = "wipe_leffttt"
 
 [[playlist.section.widget]]
@@ -2405,7 +2405,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "exampleplugin.thing"
 
 [[playlist.section.widget]]
@@ -2434,7 +2434,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "exampleplugin.thing"
 
 [[playlist.section.widget]]
@@ -2472,7 +2472,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "oldname"
 
 [[playlist.section.widget]]
@@ -2502,7 +2502,7 @@ hardware_mapping = "adafruit-hat"
 gpio_slowdown = 2
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2530,7 +2530,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "gif"
@@ -2556,7 +2556,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "gif"
@@ -2578,7 +2578,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "gif"
@@ -2602,7 +2602,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "gif"
@@ -2623,7 +2623,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2648,7 +2648,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2680,7 +2680,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2702,7 +2702,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 
 [[playlist.section.widget]]
@@ -2730,7 +2730,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2757,7 +2757,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3.0
 
 [[playlist.section.widget]]
@@ -2777,7 +2777,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2833,7 +2833,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "gif"
@@ -2864,7 +2864,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2889,7 +2889,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -2916,7 +2916,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 
 [playlist.section.title]
 type = "message"
@@ -2949,7 +2949,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 
 [playlist.section.title]
 type = "message"
@@ -2986,7 +2986,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "gif"
@@ -3033,7 +3033,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3055,7 +3055,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3079,7 +3079,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3103,7 +3103,7 @@ rows = 64
 cols = 128
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3126,7 +3126,7 @@ rows = 64
 cols = 128
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3149,7 +3149,7 @@ rows = 64
 cols = 128
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3172,7 +3172,7 @@ rows = 64
 cols = 128
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3195,7 +3195,7 @@ rows = 64
 cols = 128
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3218,7 +3218,7 @@ rows = 64
 cols = 128
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3246,7 +3246,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3268,7 +3268,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3290,7 +3290,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3312,7 +3312,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3342,7 +3342,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3366,7 +3366,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3388,7 +3388,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3410,7 +3410,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "message"
@@ -3462,3 +3462,70 @@ async def test_rule50_transition_fps_valid_no_warning(conf):
 async def test_rule50_transition_fps_absent_no_warning(conf):
     result = await validate_config(conf(GOOD_CONFIG))
     assert all(w.rule != 50 for w in result.warnings)
+
+
+class TestRule54UnknownMode:
+    """Rule 54: an unrecognised mode value (e.g. mode = "wobble") surfaces as a
+    validate-time ERROR naming the unknown mode and the valid set.
+
+    Old names (swap / forever_scroll / infini_scroll) raise MigrationError at
+    config-LOAD before validate's rules run, so this rule only fires for values
+    that are neither valid nor retired — pure unknowns."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_mode_is_error(self, conf):
+        """mode = "wobble" → rule-54 error mentioning the unknown value and
+        the complete valid set."""
+        cfg = """\
+            [display]
+            rows = 16
+            cols = 32
+            chain_length = 5
+            default_scale = 1
+
+            [[playlist.section]]
+            mode = "wobble"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi"
+            """
+        result = await validate_config(conf(cfg))
+        assert not result.valid, "unknown mode should produce an error"
+        rule_54 = [e for e in result.errors if e.rule == 54]
+        assert rule_54, (
+            "expected rule-54 error; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        msg = rule_54[0].message
+        assert "wobble" in msg, f"error should name the unknown mode; got: {msg!r}"
+        assert "slideshow" in msg, f"error should list valid modes; got: {msg!r}"
+        assert "ticker" in msg, f"error should list valid modes; got: {msg!r}"
+        assert "one_at_a_time" in msg, f"error should list valid modes; got: {msg!r}"
+        assert "gif" in msg, f"error should list valid modes; got: {msg!r}"
+
+    @pytest.mark.asyncio
+    async def test_all_valid_modes_pass(self, conf):
+        """slideshow, ticker, one_at_a_time, gif — all accepted without a
+        rule-54 error (other rules may fire but not mode-unknown)."""
+        base = """\
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+
+[[playlist.section]]
+mode = "{mode}"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+"""
+        for mode in ("slideshow", "ticker", "one_at_a_time", "gif"):
+            result = await validate_config(conf(base.format(mode=mode)))
+            rule_54 = [e for e in result.errors if e.rule == 54]
+            assert rule_54 == [], (
+                f"rule 54 must not fire for valid mode={mode!r}; "
+                f"got errors={[(e.rule, e.message) for e in result.errors]}"
+            )

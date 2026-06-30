@@ -297,7 +297,7 @@ class TwoRowMessage(FrameAwareBase):
           - ""    : "  "   (two spaces — minimum gap)
           - else  : as-is.
         Keeps the separator-literal contract identical to the v1
-        forever_scroll and image two-row wrap paths."""
+        ticker and image two-row wrap paths."""
         if self.bottom_text_separator is None:
             return " • "
         if self.bottom_text_separator == "":

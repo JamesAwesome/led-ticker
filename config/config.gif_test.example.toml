@@ -58,19 +58,19 @@ easing = "linear"
 between_sections = "dissolve"
 
 # ---------------------------------------------------------------------------
-# Section 1 — pillarbox (default) + section title via mode = "swap"
+# Section 1 — pillarbox (default) + section title via mode = "slideshow"
 #
 # Square 220×220 GIF scaled by height to 64. The result is 64×64 centered
 # horizontally on the 256×64 panel, with ~96 cols of black on each side.
 # This is what you want for square / portrait sources on the wide bigsign.
 #
-# Uses `mode = "swap"` so a section title can run first — title displays
+# Uses `mode = "slideshow"` so a section title can run first — title displays
 # (held + scrolled if it overflowed), dissolves into the gif, gif plays
 # `loops = 17` times for ~10s of playback before the next section.
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1  # cycle the widget list once
 hold_time = 2.0  # title hold before dissolve
 transition = "dissolve"
@@ -284,18 +284,18 @@ path = "assets/pride_trans.gif"
 fit = "stretch"
 
 # ---------------------------------------------------------------------------
-# Section 11 — gif inside `mode = "swap"` with an optional title
+# Section 11 — gif inside `mode = "slideshow"` with an optional title
 #
-# Demonstrates the swap-mode merge: gif widgets work exactly like any
-# other widget in `mode = "swap"`. The title displays first (held +
+# Demonstrates the slideshow-mode merge: gif widgets work exactly like any
+# other widget in `mode = "slideshow"`. The title displays first (held +
 # scrolled if it overflows) and then the section's `transition` runs
 # into the gif. Per-visit `loops` are controlled by the widget's own
 # `loops = N` field instead of the section's `loop_count` (which means
-# "cycle the widget list N times" in swap mode).
+# "cycle the widget list N times" in slideshow mode).
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1  # show the gif once
 hold_time = 2.0  # title hold before transition
 transition = "dissolve"
@@ -342,7 +342,7 @@ scroll_speed_ms = 50
 # ---------------------------------------------------------------------------
 # Section 13 — TRANSPARENT phoenix pinned RIGHT + static title
 #
-# Demonstrates `mode = "swap"` with the transparent gif: section title
+# Demonstrates `mode = "slideshow"` with the transparent gif: section title
 # "HELLO!" displays first, dissolves into the phoenix pinned to the right
 # edge with "@brand" held statically in the left pillar. Confirms the
 # transparent decode path also looks right when text is static (not
@@ -350,7 +350,7 @@ scroll_speed_ms = 50
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.0
 transition = "dissolve"

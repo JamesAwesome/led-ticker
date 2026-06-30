@@ -93,7 +93,7 @@ async def test_validate_rejects_unknown_backend(tmp_path):
     cfg = tmp_path / "config.toml"
     cfg.write_text(
         '[display]\nbackend = "nope"\n\n'
-        '[[playlist.section]]\nmode = "forever_scroll"\n'
+        '[[playlist.section]]\nmode = "ticker"\n'
         '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
     )
     result = await validate_config(cfg)

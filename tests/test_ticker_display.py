@@ -1,4 +1,4 @@
-"""Tests for ticker display modes (run_swap, run_forever_scroll, etc)."""
+"""Tests for ticker display modes (run_slideshow, run_ticker, etc)."""
 
 import asyncio
 import unittest.mock as mock
@@ -540,7 +540,7 @@ class TestScrollAndDelay:
 
         Without this, an animated title held at pos=0 freezes on the
         visit-initial frame for the full delay — affects
-        forever_scroll / infini_scroll modes that go through
+        ticker / one_at_a_time modes that go through
         `_scroll_and_delay` rather than `_swap_and_scroll`.
         """
         # Build a widget that exposes advance_frame and counts calls.
@@ -561,7 +561,7 @@ class TestScrollAndDelay:
 
 
 class TestScrollOneByOne:
-    """forever_scroll mode with queue length 1 routes through
+    """ticker mode with queue length 1 routes through
     _scroll_one_by_one. The redraw loop must advance frame per tick
     or animated providers (rainbow, color_cycle) freeze."""
 
@@ -603,7 +603,7 @@ class TestScrollOneByOne:
 
 
 class TestScrollSideBySide:
-    """forever_scroll mode with queue length > 1 routes through
+    """ticker mode with queue length > 1 routes through
     _scroll_side_by_side. The outer redraw loop must advance frame
     on every UNIQUE buffered widget per tick — not zero (frozen)
     and not multiple times per tick (over-advance from duplicates).
@@ -782,7 +782,7 @@ class TestRunSwap:
 
 
 class TestRunSwapPlayDispatch:
-    """run_swap dispatches to widget.play() when the class declares it."""
+    """run_slideshow dispatches to widget.play() when the class declares it."""
 
     async def test_play_widget_invoked_instead_of_draw(
         self, canvas, mock_frame, no_sleep
@@ -1242,14 +1242,14 @@ class TestTickerRunSwap:
         w1 = make_widget(40)
         q = asyncio.Queue()
         ticker = Ticker(monitors=[w1], frame=mock_frame, notif_queue=q)
-        await ticker.run_swap(loop_count=1)
+        await ticker.run_slideshow(loop_count=1)
         assert w1.draw.called
 
 
 class TestCreateTaskHandlesStored:
     """asyncio.create_task results must be stored on Ticker._enqueue_task. (S5)
 
-    Each run method (run_swap, run_forever_scroll, run_infini_scroll) spawns
+    Each run method (run_slideshow, run_ticker, run_one_at_a_time) spawns
     a background task via asyncio.create_task. The returned Task handle must
     be saved so done callbacks fire for silent exception reporting and so the
     teardown path in run.py can cancel it on SIGINT.
@@ -1260,34 +1260,34 @@ class TestCreateTaskHandlesStored:
         q = asyncio.Queue()
         ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
         assert ticker._enqueue_task is None, "must be None before run"
-        await ticker.run_swap(loop_count=1)
+        await ticker.run_slideshow(loop_count=1)
         assert ticker._enqueue_task is not None, (
-            "Ticker._enqueue_task must be set after run_swap — task handle not stored"
+            "Ticker._enqueue_task must be set after run_slideshow"
+            " — task handle not stored"
         )
 
-    async def test_run_forever_scroll_stores_task_handle(
+    async def test_run_ticker_stores_task_handle(
         self, mock_frame, make_widget, no_sleep
     ):
         w = make_widget(10)
         q = asyncio.Queue()
         ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
         assert ticker._enqueue_task is None, "must be None before run"
-        await ticker.run_forever_scroll(loop_count=1)
+        await ticker.run_ticker(loop_count=1)
         assert ticker._enqueue_task is not None, (
-            "Ticker._enqueue_task must be set after run_forever_scroll — "
-            "task handle not stored"
+            "Ticker._enqueue_task must be set after run_ticker — task handle not stored"
         )
 
-    async def test_run_infini_scroll_stores_task_handle(
+    async def test_run_one_at_a_time_stores_task_handle(
         self, mock_frame, make_widget, no_sleep
     ):
         w = make_widget(10)
         q = asyncio.Queue()
         ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
         assert ticker._enqueue_task is None, "must be None before run"
-        await ticker.run_infini_scroll(loop_count=1)
+        await ticker.run_one_at_a_time(loop_count=1)
         assert ticker._enqueue_task is not None, (
-            "Ticker._enqueue_task must be set after run_infini_scroll — "
+            "Ticker._enqueue_task must be set after run_one_at_a_time — "
             "task handle not stored"
         )
 
@@ -1299,7 +1299,7 @@ class TestTickerRunForeverScroll:
         w = make_widget(content_width=10)
         q = asyncio.Queue()
         ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
-        await ticker.run_forever_scroll(loop_count=1)
+        await ticker.run_ticker(loop_count=1)
         # Widget should have been drawn
         assert w.draw.called
 
@@ -1308,7 +1308,7 @@ class TestTickerRunForeverScroll:
         w = make_widget(content_width=10)
         q = asyncio.Queue()
         ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
-        await ticker.run_forever_scroll(loop_count=1, start_pos=50)
+        await ticker.run_ticker(loop_count=1, start_pos=50)
         assert w.draw.called
 
 
@@ -1317,7 +1317,7 @@ class TestTickerRunInfiniScroll:
         w = make_widget(content_width=10)
         q = asyncio.Queue()
         ticker = Ticker(monitors=[w], frame=mock_frame, notif_queue=q)
-        await ticker.run_infini_scroll(loop_count=1)
+        await ticker.run_one_at_a_time(loop_count=1)
         assert w.draw.called
 
 

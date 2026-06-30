@@ -23,7 +23,7 @@
 #   :cat: (default gray) :cat_gray: :cat_orange: :cat_white:
 #   :cat_black: :cat_brown: :cat_cream:
 #
-# Mode is `swap` so each test message is its own held display unit.
+# Mode is `slideshow` so each test message is its own held display unit.
 #
 # Copy to config.toml on the bigsign Pi:
 #   cp config/config.hires_emoji_test.example.toml config/config.toml
@@ -65,7 +65,7 @@ between_sections = "dissolve"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 5.0
 transition = "dissolve"
@@ -82,7 +82,7 @@ text = ":cat_gray::cat_orange::cat_white::cat_black::cat_brown::cat_cream:"
 font_color = [255, 240, 200]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 20
 loop_count = 1
@@ -117,7 +117,7 @@ bottom_align = "center"
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 6.0
 transition = "dissolve"
@@ -146,7 +146,7 @@ show_icon = true
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 6.0
 transition = "dissolve"
@@ -170,7 +170,7 @@ font_color = [255, 240, 200]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 4.0
 transition = "dissolve"
@@ -210,7 +210,7 @@ font_color = [255, 220, 50]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 5.0
 transition = "dissolve"
@@ -234,7 +234,7 @@ font_color = [255, 240, 200]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 5.0
 transition = "dissolve"
@@ -255,7 +255,7 @@ font_color = [255, 240, 200]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 5.0
 transition = "dissolve"
@@ -280,7 +280,7 @@ font_color = [255, 240, 200]
 # ---------------------------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 20
 loop_count = 1

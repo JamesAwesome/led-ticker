@@ -204,7 +204,7 @@ async def run_transition(
     section uses (TwoRowMessage and similar widgets compute row positions
     from `canvas.height`). Must match the new section's `content_height`
     so the incoming widget dissolves IN at the same y-positions that
-    `run_swap` will draw it at after the transition completes; otherwise
+    `run_slideshow` will draw it at after the transition completes; otherwise
     the rows visibly jump vertically when the section starts.
 
     ``outgoing_bg_color`` and ``incoming_bg_color`` make the per-frame

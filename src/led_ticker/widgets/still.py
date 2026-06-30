@@ -3,7 +3,7 @@ on the LED panel.
 
 Counterpart to :class:`led_ticker.widgets.gif.GifPlayer` — see that file
 for shared concept docs (text alignments, transparency compositing,
-run_swap dispatch, native-resolution painting). Both widgets inherit
+run_slideshow dispatch, native-resolution painting). Both widgets inherit
 from :class:`led_ticker.widgets._image_base._BaseImageWidget` so the
 text-overlay surface is identical; the only widget-specific knobs are
 ``hold_time`` (this widget) vs ``play_count`` (gif).
@@ -244,7 +244,7 @@ class StillImage(_BaseImageWidget):
 
         ``loop_count`` and the ``hold_time`` parameter are unused; ``self.hold_time``
         controls duration. Both are accepted for compatibility with the
-        ``_play_widget`` dispatch signature in run_swap (which passes
+        ``_play_widget`` dispatch signature in run_slideshow (which passes
         ``hold_time`` uniformly across play()-style widgets). The gif
         widget is the one that uses ``loop_count`` / ``hold_time``
         (mapped from its ``play_count`` field).

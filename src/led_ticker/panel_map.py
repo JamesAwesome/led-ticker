@@ -323,9 +323,7 @@ def paint_verify(canvas, *, mapper, cols, rows):
             draw_border(canvas, ox, oy, cols, rows, 0, 80, 80)
             draw_corner_dot(canvas, ox + 1, oy + 1, max(3, scale), 255, 0, 0)
             draw_index(canvas, label, ox + 3, oy + 2, scale=scale)
-            index_end_x = (
-                ox + 3 + len(str(label)) * (_DIGIT_W * scale + scale) - scale
-            )
+            index_end_x = ox + 3 + len(str(label)) * (_DIGIT_W * scale + scale) - scale
             _draw_bounded_cell_arrow(
                 canvas, ox, oy, cols, rows, index_end_x=index_end_x
             )

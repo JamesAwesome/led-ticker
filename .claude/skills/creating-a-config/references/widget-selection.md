@@ -40,7 +40,7 @@ Use this guide to **choose** widgets — what each one is for, when to reach for
 
 **When to use:**
 - Handle + scrolling status (e.g. "@User: New subscriber!").
-- Best in `swap` mode so each widget is a complete display unit.
+- Best in `slideshow` mode so each widget is a complete display unit.
 
 **Selection notes:**
 - Needs vertical room: hard ceiling `content_height × scale ≤ panel_h_real` (on bigsign at scale=4, max `content_height = 16`). Don't pick `two_row` for a short canvas.

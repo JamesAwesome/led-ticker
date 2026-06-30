@@ -37,7 +37,7 @@ between_sections = "wipe_left"
 
 # Section 1 — two bordered, animated messages that dissolve into each other.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 5
 transition = "dissolve"
@@ -58,7 +58,7 @@ border = {style = "bands", colors = "candy_cane", band_width = 8}
 # from the led-ticker-flair plugin). The lowres 12×10 pixel-art cat works at
 # this geometry (160×16, scale=1) — no bigsign/scaled canvas required.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 5
 entry_transition = "nyancat.forward"
@@ -75,7 +75,7 @@ border = {style = "bands", colors = "usa", band_width = 10, speed = -2}
 # Needs an internet connection for the live feed; if it's unreachable the
 # section stays blank and the others keep scrolling.
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 content_height = 16
 entry_transition = "nyancat.forward"
 

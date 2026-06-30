@@ -37,7 +37,7 @@ Each snippet cites its source file + line range. The skill copies the snippet ve
 
 **source:** `config/config.firebird.example.toml` lines 59–76
 
-**use when:** bigsign + brand presence + welcoming banner scrolling in `forever_scroll` mode. Good opener for any storefront section.
+**use when:** bigsign + brand presence + welcoming banner in `slideshow` mode. Good opener for any storefront section.
 
 **must customize:** `text` (brand message), `font_color` (brand color), `loop_count`, and the title `text` + `font_color`.
 
@@ -45,7 +45,7 @@ Each snippet cites its source file + line range. The skill copies the snippet ve
 
 ```toml
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 2
 
 [playlist.section.title]
@@ -78,7 +78,7 @@ font_color = [255, 183, 3]
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 20
 loop_count = 1
@@ -150,7 +150,7 @@ font_color = [255, 220, 50]
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "nyancat.forward"
@@ -182,7 +182,7 @@ font_color_temp = [255, 255, 255]
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 7.0
 loop_count = 1
 transition = "nyancat.alternating"
@@ -203,7 +203,7 @@ font_color = "rainbow"
 
 **source:** `config/config.small_sign.toml` lines 125–141
 
-**use when:** small sign (160×16) + RSS headlines scrolling in `forever_scroll` mode. Good for news, blog, or any Atom/RSS feed.
+**use when:** small sign (160×16) + RSS headlines in `slideshow` mode (each headline holds, scrolling if it overflows). Good for news, blog, or any Atom/RSS feed.
 
 **must customize:** `feed_url`, `update_interval` (seconds between fetches), title `text` + `color`.
 
@@ -211,7 +211,7 @@ font_color = "rainbow"
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "pokeball.alternating"
 transition_duration = 2.0
 continuous_scroll = true
@@ -242,7 +242,7 @@ update_interval = 3000
 
 ```toml
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -272,7 +272,7 @@ update_interval = 3000
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_alternating"
 hold_time = 6
 loop_count = 2
@@ -304,7 +304,7 @@ show_icon = true
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6
 loop_count = 1
 
@@ -335,7 +335,7 @@ show_icon = true
 
 ```toml
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 2
 
 [playlist.section.title]
@@ -368,7 +368,7 @@ countdown_date = 2026-06-20
 
 ```toml
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 2
 scale = 2
 
@@ -404,7 +404,7 @@ countdown_date = 2026-09-22
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6
@@ -442,7 +442,7 @@ timezone = "America/New_York"
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6
@@ -480,7 +480,7 @@ timezone = "America/New_York"
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_left"
 transition_duration = 0.5
 hold_time = 6
@@ -505,7 +505,7 @@ timezone = "America/New_York"
 
 **source:** `config/config.gif_test.example.toml` lines 60–87
 
-**use when:** bigsign + animated GIF filling the full panel as a visual art piece. `mode = "swap"` allows an optional section title before the GIF plays.
+**use when:** bigsign + animated GIF filling the full panel as a visual art piece. `mode = "slideshow"` allows an optional section title before the GIF plays.
 
 **must customize:** `path` (GIF asset path), `fit` (`"pillarbox"` for portrait/square, `"stretch"` for wide/abstract, `"crop"` for no black bands), `play_count` (playback repetitions), title `text` + `font_color`.
 
@@ -513,7 +513,7 @@ timezone = "America/New_York"
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.0
 transition = "dissolve"
@@ -537,7 +537,7 @@ play_count = 17
 
 **source:** `config/config.image_test.example.toml` lines 62–72
 
-**use when:** bigsign + a single still image (PNG/JPG) held on the panel. `mode = "swap"` with `hold_time` controls how long the image displays before the next section.
+**use when:** bigsign + a single still image (PNG/JPG) held on the panel. `mode = "slideshow"` with `hold_time` controls how long the image displays before the next section.
 
 **must customize:** `path` (image asset path), `fit` (`"pillarbox"`, `"letterbox"`, `"stretch"`, `"crop"`), `hold_time`, `loop_count`.
 
@@ -545,7 +545,7 @@ play_count = 17
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 transition = "dissolve"
 transition_duration = 0.6
@@ -571,7 +571,7 @@ hold_time = 5.0
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5.0
 loop_count = 1
 transition = "dissolve"
@@ -593,7 +593,7 @@ border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 
 **source:** `config/config.example.toml` lines 44–60
 
-**use when:** small sign (160×16) + simple messages in `forever_scroll` mode. The foundational pattern: section title, one or more text widgets, default BDF font and colors.
+**use when:** small sign (160×16) + simple messages in `ticker` mode. The foundational pattern: section title, one or more text widgets, default BDF font and colors.
 
 **must customize:** `text` (all widget texts), `color` (title color), `font_color` per widget, `loop_count`.
 
@@ -601,7 +601,7 @@ border = {style = "rainbow", speed = 8, char_offset = 12, thickness = 2}
 
 ```toml
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -624,7 +624,7 @@ text = "Always be shipping!"
 
 **source:** `config/config.showroom-bigsign.example.toml` lines 64–77
 
-**use when:** bigsign + a single bold message in `swap` mode with hi-res Inter-Bold font and a per-character rainbow sweep. Good for hero openers or announcement banners.
+**use when:** bigsign + a single bold message in `slideshow` mode with hi-res Inter-Bold font and a per-character rainbow sweep. Good for hero openers or announcement banners.
 
 **must customize:** `text`, `font_size` (max ~32 for bigsign panel height), `font_color` (replace `"rainbow"` with `[r,g,b]` for static brand color), `hold_time`, `transition`.
 
@@ -632,7 +632,7 @@ text = "Always be shipping!"
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 6.0
 loop_count = 1
 transition = "sailor_moon.forward"
@@ -660,7 +660,7 @@ font_color = "rainbow"
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 loop_count = 1

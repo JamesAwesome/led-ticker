@@ -46,7 +46,7 @@ between_sections = "cut"
 # Confirms the simplest path renders: "H:MM AM/PM", centered, no leading zero.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 8
 loop_count = 1
@@ -61,7 +61,7 @@ font_color = "rainbow"
 # Hires Inter font exercises the same text-render path message/countdown use.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 15
 loop_count = 1
@@ -79,7 +79,7 @@ font_color = [255, 255, 255]
 # real 256×64 panel edge while the time stays centered.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 8
 loop_count = 1
@@ -98,7 +98,7 @@ border = "rainbow"
 # the America/New_York UTC offset. Resolved via stdlib zoneinfo (no deps).
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 8
 loop_count = 1
@@ -115,7 +115,7 @@ font_color = "color_cycle"
 # --- timezone override: Tokyo (second tz, visually distinct from New York) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 8
 loop_count = 1
@@ -134,7 +134,7 @@ font_color = "color_cycle"
 # also supports the %-d Linux-ism if you prefer no leading zero.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 content_height = 16
 hold_time = 8
 loop_count = 1

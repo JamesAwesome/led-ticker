@@ -1677,7 +1677,7 @@ class TestRunTransitionCrossScale:
     ):
         """Regression: the incoming wrapper must use the new section's
         `content_height` so widgets like TwoRowMessage compute the same
-        row positions during the dissolve as `run_swap` will after.
+        row positions during the dissolve as `run_slideshow` will after.
         Without this, a section with `content_height=20` saw its rows
         rendered at y-positions for `content_height=16` during the
         dissolve, then jump to the correct positions when the section
@@ -1751,7 +1751,7 @@ class TestRunTransitionCrossScale:
         assert new_wrapper.scale == 4
 
         # Step 2: hand the new wrapper to _play_widget (the real handoff
-        # path used by _show_one in run_swap).
+        # path used by _show_one in run_slideshow).
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
             ticker = Ticker(monitors=[], frame=bigsign_frame)
             result = await ticker._play_widget(new_wrapper, incoming)

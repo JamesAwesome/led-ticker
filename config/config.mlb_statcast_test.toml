@@ -42,7 +42,7 @@ between_sections = {type = "baseball.roll_alternating", duration = 3.2, transiti
 # --- MLB Statcast ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_left"
 transition_duration = 0.5
 hold_time = 8           # hold before/after the overflow scroll

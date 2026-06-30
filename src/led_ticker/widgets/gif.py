@@ -23,7 +23,7 @@ pixel is a native LED, not a scale×scale block), and exposes an async
 
 Two run modes:
     - ``mode = "gif"``  legacy panel-takeover orchestrator (no titles)
-    - ``mode = "swap"`` unified path; gif rides ``_show_one``'s
+    - ``mode = "slideshow"`` unified path; gif rides ``_show_one``'s
                        ``_has_play`` dispatch and works alongside an
                        optional title
 
@@ -66,7 +66,7 @@ Field               Default            Description
                                        down to the nearest integer multiple of
                                        cell height.
 ``play_count``      ``1``              Per-visit gif loop count when dispatched
-                                       via run_swap. Set to ``0`` to play
+                                       via run_slideshow. Set to ``0`` to play
                                        through the section's ``hold_time``
                                        (plays at least 1 loop). Negative values
                                        are rejected. (Still widget uses
@@ -274,7 +274,7 @@ class GifPlayer(_BaseImageWidget):
         When ``loop_count == 0`` (``play_count = 0`` in config): if
         ``hold_time`` is provided, compute how many full gif loops fit in
         that duration (minimum 1). Without ``hold_time`` (e.g.
-        ``forever_scroll`` context) fall back to 1 loop.
+        ``ticker`` context) fall back to 1 loop.
 
         Per CLAUDE.md #1, the SwapOnVSync return value MUST be captured
         every iteration.
@@ -285,7 +285,7 @@ class GifPlayer(_BaseImageWidget):
 
         # play_count = 0 means "play loops that fit in section hold_time".
         # When hold_time is provided, compute the effective loop count; when
-        # it isn't (e.g. forever_scroll context, or no section caller),
+        # it isn't (e.g. ticker context, or no section caller),
         # fall back to 1 loop. Minimum 1 either way.
         if loop_count == 0:
             if hold_time is not None and self._loop_ms > 0:

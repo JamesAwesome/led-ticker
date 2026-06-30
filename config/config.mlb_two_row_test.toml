@@ -58,7 +58,7 @@ between_sections = {type = "baseball.roll_alternating", duration = 3.2, transiti
 # scale = 2 + content_height = 32 → two 16-logical (32-real) bands.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 transition = "baseball.roll_alternating"
@@ -107,7 +107,7 @@ font_threshold = 80
 # A smaller top_font reads as a header above the score/status line.
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 transition = "baseball.roll_alternating"

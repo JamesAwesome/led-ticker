@@ -1,32 +1,32 @@
 ---
 title: Sections and modes
-description: Sections group widgets, modes pick the run style — forever_scroll, infini_scroll, or swap.
+description: Sections group widgets, modes pick the run style — slideshow, ticker, one_at_a_time, or gif.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The `[[playlist.section]]` block is the fundamental unit of a led-ticker program. Each section groups one or more widgets and tells the engine how to run them — whether to scroll them side-by-side, one after another, or hold each in place with transitions between. Three modes are supported: `forever_scroll`, `infini_scroll`, and `swap`.
+The `[[playlist.section]]` block is the fundamental unit of a led-ticker program. Each section groups one or more widgets and tells the engine how to run them. Four modes are available: `slideshow`, `ticker`, `one_at_a_time`, and `gif`.
 
 A playlist is just an ordered list of sections. The engine runs them in sequence, firing a section-to-section transition at each boundary, and loops back to the start when the last section finishes.
 
-## `forever_scroll` — side-by-side ticker
+## `ticker` — side-by-side continuous stream
 
-All widgets in the section scroll left as a continuous stream, separated by `•` bullet characters. The panel never clears between widgets; each one follows immediately after the last with just the bullet for spacing. This reads like a classic news ticker — rapid, dense, and meant to be absorbed at a glance.
+All widgets in the section are joined into a single continuous stream that scrolls left across the panel without stopping. Each widget follows immediately after the last, separated by a `•` bullet character. The stream loops: when the last widget exits the left edge, the first re-enters from the right. This is the classic news ticker or stock crawl — one unbroken ribbon of content.
 
-`forever_scroll` is the best fit for short-text widgets where the reader does not need to dwell: a weather condition, a price, a short announcement. Mix several short widgets together and the combined stream stays lively. Transitions are not used between widgets in this mode — the bullet separator is the only break.
+`ticker` suits short-text widgets that the reader can absorb at a glance: a weather condition, a price update, a brief announcement. Combine several short widgets and the stream stays lively without any pauses. Transitions are not used between widgets in this mode — the bullet separator is the only break.
 
-The separator is customizable per section. Set `separator` to any string — `" * "` or `" | "` are common alternatives — or `""` for a minimal two-space gap with no glyph. `separator_color` accepts the same shapes as widget `font_color` (constant `[r, g, b]`, `"rainbow"`, or a gradient table). `separator_font` and `separator_font_size` let you match the separator's typeface to the rest of the section. All four fields are rejected on non-`forever_scroll` modes.
+The separator is customizable per section. Set `separator` to any string — `" * "` or `" | "` are common alternatives — or `""` for a minimal two-space gap with no glyph. `separator_color` accepts the same shapes as widget `font_color` (constant `[r, g, b]`, `"rainbow"`, or a gradient table). `separator_font` and `separator_font_size` let you match the separator's typeface to the rest of the section. All four fields are rejected on non-`ticker` modes.
 
 <DemoGif
   src="/demos-long/sections-forever_scroll.gif"
-  caption="`forever_scroll` — three messages and a countdown flow together separated by bullets; the panel never clears"
+  caption="`ticker` — three messages and a countdown flow together separated by bullets; the panel never clears"
 />
 
 <TomlExample
   code={`[[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 scroll_step_ms = 35
 
@@ -52,20 +52,20 @@ text = "All ages welcome"
 font_color = [180, 220, 180]`}
 />
 
-## `infini_scroll` — one-at-a-time scroll
+## `one_at_a_time` — sequential scroll
 
-Each widget scrolls fully off the left edge of the panel before the next widget starts scrolling in from the right. Widgets never appear on screen at the same time. This gives each message a clean, independent moment compared to `forever_scroll`, without requiring the reader to catch it during a held window.
+Each widget scrolls all the way across the panel and fully off the left edge before the next widget enters from the right. Widgets never appear on screen at the same time. Each message gets its own clean moment without a held pause.
 
-`infini_scroll` suits medium-length messages that should read as distinct items — enrollment announcements, sale callouts, or any set of messages where you want each one to complete before the next begins. Like `forever_scroll`, no transitions are used between widgets in this mode.
+`one_at_a_time` suits medium-length messages that should read as distinct items — enrollment announcements, sale callouts, or any set of messages where you want each one to complete before the next begins. Unlike `ticker`, there is never any overlap between consecutive messages; unlike `slideshow`, there is no hold and no transition animation. The effect is a clean sequence of individual scrolls.
 
 <DemoGif
   src="/demos-long/sections-infini_scroll.gif"
-  caption="`infini_scroll` — three messages and a countdown each scroll fully off before the next enters; a clean gap between widgets"
+  caption="`one_at_a_time` — three messages and a countdown each scroll fully off before the next enters; a clean gap between widgets"
 />
 
 <TomlExample
   code={`[[playlist.section]]
-mode = "infini_scroll"
+mode = "one_at_a_time"
 loop_count = 1
 scroll_step_ms = 35
 
@@ -91,15 +91,15 @@ text = "Drop-ins welcome"
 font_color = [180, 220, 180]`}
 />
 
-## `swap` — held with transitions
+## `slideshow` — held with transitions
 
-Each widget is displayed for `hold_time` seconds (default `3.0`). If the widget's text overflows the panel width, it scrolls once before stopping; otherwise it holds stationary. When the hold expires a transition animation runs, and the next widget appears. `swap` is the default mode for storefront-window displays where each item needs to be readable on its own.
+Each widget is displayed for `hold_time` seconds (default `3.0`). If the widget's text overflows the panel width, it scrolls once before stopping; otherwise it holds stationary. When the hold expires a transition animation runs, and the next widget appears. `slideshow` is the natural fit for a storefront window display or information board where each item needs to be readable on its own.
 
 The transition used between widgets in the section is configured via the `transition` field. If you omit `transition`, the global `[transitions] default` applies. When a section explicitly sets `transition = "..."`, that transition is also used when the section appears — overriding the global `between_sections` setting for that section's entry.
 
 <DemoGif
   src="/demos-long/sections-swap.gif"
-  caption="`swap` — three messages and a phoenix image each hold for `hold_time`, then a transition (`push_left` here) reveals the next"
+  caption="`slideshow` — three messages and a phoenix image each hold for `hold_time`, then a transition (`push_left` here) reveals the next"
 />
 
 <TomlExample
@@ -108,7 +108,7 @@ default = "push_left"
 duration = 0.5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 
@@ -135,7 +135,7 @@ text = "All ages"
 font_color = [255, 220, 0]`}
 />
 
-For `gif` widgets in `swap` mode, `play_count = 0` plays the gif through the section's `hold_time` — the engine computes how many complete loops fit and plays at least one. See [gif widget — `play_count = 0`](/widgets/gif/#playing-through-hold_time-play_count--0).
+For `gif` widgets in `slideshow` mode, `play_count = 0` plays the gif through the section's `hold_time` — the engine computes how many complete loops fit and plays at least one. See [gif widget — `play_count = 0`](/widgets/gif/#playing-through-hold_time-play_count--0).
 
 ## `loop_count` and section progression
 
@@ -145,11 +145,11 @@ The global `[transitions] between_sections` setting controls what transition pla
 
 ## Tuning scroll cadence with `scroll_step_ms`
 
-Both `forever_scroll` and `infini_scroll` advance one logical pixel per engine tick by default — 50 ms per pixel, or about 20 logical pixels per second. Set `scroll_step_ms` on a section to override that cadence. Lower values (30-40 ms) speed the marquee up for dense content like RSS headlines or rapid stock tickers; higher values (70-100 ms) slow it down for messages that need a deliberate read. The same value also drives the post-hold scroll on `swap` mode for widgets whose content overflows the panel width.
+Both `ticker` and `one_at_a_time` advance one logical pixel per engine tick by default — 50 ms per pixel, or about 20 logical pixels per second. Set `scroll_step_ms` on a section to override that cadence. Lower values (30-40 ms) speed the marquee up for dense content like RSS headlines or rapid stock tickers; higher values (70-100 ms) slow it down for messages that need a deliberate read. The same value also drives the post-hold scroll on `slideshow` mode for widgets whose content overflows the panel width.
 
 <TomlExample
   code={`[[playlist.section]]
-mode = "infini_scroll"
+mode = "one_at_a_time"
 loop_count = 1
 scroll_step_ms = 30   # snappier than the 50 ms default
 
@@ -166,7 +166,7 @@ Setting `bg_color` on a section paints a solid RGB color across the panel before
 
 <TomlExample
   code={`[[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 4.0
 bg_color = [255, 244, 214]   # brand cream — warm neutral behind all widgets in this section
 
@@ -185,7 +185,7 @@ A widget setting its own `bg_color` overrides the section default for that widge
 
 ## The `mode = "gif"` shorthand
 
-`mode = "gif"` is a simpler, direct-play alternative to `mode = "swap"` with a `gif` widget. The fuller setup for displaying gifs is `mode = "swap"` with a `gif` widget in the section's `widget` list — that form exposes the full per-widget knob surface (`hold_time`, `text`, `border`, `fit`, etc.) that the direct `mode = "gif"` form doesn't reach.
+`mode = "gif"` is a simpler, direct-play alternative to `mode = "slideshow"` with a `gif` widget. The fuller setup for displaying gifs is `mode = "slideshow"` with a `gif` widget in the section's `widget` list — that form exposes the full per-widget knob surface (`hold_time`, `text`, `border`, `fit`, etc.) that the direct `mode = "gif"` form doesn't reach.
 
 ## `default` vs `transition`
 
@@ -193,10 +193,10 @@ The `[transitions]` block uses `default = "wipe_left"` for the playlist-wide def
 
 ## Which mode to use
 
-| Mode             | When to use                                                                                        |
-| ---------------- | -------------------------------------------------------------------------------------------------- |
-| `forever_scroll` | Continuous ticker feel; many short widgets that do not need standalone attention                   |
-| `infini_scroll`  | Medium-length messages that should read independently; clean visual separation without held pauses |
-| `swap`           | Storefront or display-board feel; each widget gets a held, readable beat with a transition between |
+| Mode            | What it looks like                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| `ticker`        | All widgets joined in one continuous stream, looping endlessly — the classic news ticker                        |
+| `one_at_a_time` | Each widget scrolls fully across and off before the next enters — clean sequential scrolls, no overlap          |
+| `slideshow`     | Each widget holds on screen for `hold_time`, then a transition reveals the next — storefront / info-board style |
 
 <RelatedPages slugs={["concepts/display", "transitions/index", "widgets/index"]} />

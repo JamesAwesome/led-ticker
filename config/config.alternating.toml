@@ -23,7 +23,7 @@ delay = 3
 
 # --- push_alternating ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_alternating"
 hold_time = 4
 loop_count = 1
@@ -54,7 +54,7 @@ text = "push_alternating DONE"
 
 # --- wipe_alternating ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_alternating"
 hold_time = 4
 loop_count = 1
@@ -85,7 +85,7 @@ text = "wipe_alternating DONE"
 
 # --- nyancat_alternating ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "nyancat.alternating"
 transition_duration = 2.0
 hold_time = 4
@@ -109,7 +109,7 @@ text = "nyancat_alternating DONE"
 
 # --- restart ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3
 loop_count = 1
 

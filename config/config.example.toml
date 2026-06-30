@@ -70,7 +70,7 @@ between_sections = "dissolve"
 # Welcome / brand messages.
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -89,7 +89,7 @@ text = "Always be shipping!"
 # Counts down to any date. Message + remaining days scroll across the panel.
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 2
 
 [playlist.section.title]
@@ -118,7 +118,7 @@ countup_date = 2024-01-01
 # the Pi's system clock. Knobs: https://docs.ledticker.dev/widgets/clock/
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5
 loop_count = 1
 
@@ -138,7 +138,7 @@ font_color = "rainbow"
 # in config/local/ (gitignored). Image/gif knobs: https://docs.ledticker.dev/widgets/gif/
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5
 loop_count = 1
 
@@ -171,7 +171,7 @@ image_align = "center"
 # location can be a city name, zip code, or "lat,lon"):
 #
 # [[playlist.section]]
-# mode = "swap"
+# mode = "slideshow"
 # loop_count = 1
 #
 # [playlist.section.title]

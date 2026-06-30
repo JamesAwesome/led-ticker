@@ -9,9 +9,9 @@
 # flair, and the foundational transitions need no plugins.
 # ──────────────────────────────────────────────────────────────────────
 
-# Forever scroll version — all sections use forever_scroll mode
+# Forever scroll version — all sections use ticker mode
 # Widgets scroll side-by-side as a continuous stream with bullet separators
-# Usage: cp config/config.forever_scroll.toml config/config.toml
+# Usage: cp config/config.ticker.toml config/config.toml
 
 [display]
 rows = 16
@@ -33,7 +33,7 @@ between_sections = {type = "nyancat.alternating", duration = 2.0}
 # --- Messages ---
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -52,7 +52,7 @@ text = "Always be shipping!"
 # --- Weather ---
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -93,7 +93,7 @@ units = "imperial"
 # --- Countdowns ---
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -134,7 +134,7 @@ countdown_date = 2027-01-01
 # --- Nintendo ---
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -150,7 +150,7 @@ update_interval = 3000
 # --- Anime News Network ---
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -166,7 +166,7 @@ update_interval = 3000
 # --- ESPN ---
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]

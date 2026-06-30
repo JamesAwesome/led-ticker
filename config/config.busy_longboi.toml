@@ -57,7 +57,7 @@ size = 8
 #     persists through the push_left transition between them. ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8
 loop_count = 1
 
@@ -69,7 +69,7 @@ font_size = 32
 font_threshold = 80
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8
 loop_count = 1
 

@@ -81,7 +81,7 @@ class TransitionConfig:
 
 @dataclass
 class SectionConfig:
-    mode: str  # "forever_scroll", "infini_scroll", "swap"
+    mode: str  # "slideshow", "ticker", "one_at_a_time", "gif"
     loop_count: int = 1
     title: dict[str, Any] | None = None
     widgets: list[dict[str, Any]] = field(default_factory=list)
@@ -131,26 +131,26 @@ class SectionConfig:
     # back to the engine default (50 ms = 1 logical pixel per engine
     # tick). Lowering to 30-40 ms speeds up dense RSS feeds or
     # storefront layouts where the default reads as sluggish; raising
-    # above 50 makes it more deliberate. Applies to forever_scroll,
-    # infini_scroll, and the post-hold scroll on swap mode. Distinct
+    # above 50 makes it more deliberate. Applies to ticker,
+    # one_at_a_time, and the post-hold scroll on slideshow mode. Distinct
     # from the per-widget `scroll_speed_ms` on gif/image text overlays,
     # which controls a text-marquee cadence inside a single widget
     # rather than the engine's cursor advance across widgets.
     scroll_step_ms: int | None = None
     # Pre-roll delay before the section's first widget begins scrolling
-    # (forever_scroll / infini_scroll only). `None` inherits the
+    # (ticker / one_at_a_time only). `None` inherits the
     # playlist-wide `[title] delay`. An explicit value (including 0.0)
     # overrides — set `start_hold = 0.0` to make this section start
     # immediately while leaving the global delay in place for other
-    # sections. Has no runtime effect on `swap` / `gif` modes; the
+    # sections. Has no runtime effect on `slideshow` / `gif` modes; the
     # validator (rule 25) rejects the field on those.
     start_hold: float | None = None
-    # Per-section override for the forever_scroll loop separator
+    # Per-section override for the ticker loop separator
     # (the small bullet "•" between widgets in side-by-side scroll).
     # `None` inherits today's DEFAULT_BUFFER_MSG (white "•"). An empty
     # string `""` renders as two spaces (no glyph, minimum gap). Any
     # non-empty string is rendered as-is (no auto-padding — caller
-    # controls spacing). Only honored on mode = "forever_scroll";
+    # controls spacing). Only honored on mode = "ticker";
     # rule 26 rejects on other modes.
     separator: str | None = None
     # Font name (BDF alias or hires) for the separator glyph. `None`
@@ -661,8 +661,25 @@ def load_config(path: Path) -> AppConfig:
 
         section_kwargs = _coerce_section(section_raw, i, display, coerce_warnings)
 
+        # Default flipped: forever_scroll -> ticker
+        raw_mode = section_raw.get("mode", "ticker")
+        _MODE_RENAMES = {
+            "swap": "slideshow",
+            "forever_scroll": "ticker",
+            "infini_scroll": "one_at_a_time",
+        }
+        if raw_mode in _MODE_RENAMES:
+            # Local import: avoid config<->validate circular dependency
+            from led_ticker.validate import MigrationError
+
+            new_mode = _MODE_RENAMES[raw_mode]
+            raise MigrationError(
+                f'mode = "{raw_mode}" was renamed to "{new_mode}". '
+                f'Update your config: mode = "{new_mode}".',
+                suggested_fix=f'Rename mode "{raw_mode}" to "{new_mode}".',
+            )
         section = SectionConfig(
-            mode=section_raw.get("mode", "forever_scroll"),
+            mode=raw_mode,
             title=section_raw.get("title"),
             widgets=section_raw.get("widget", []),
             transition=trans,

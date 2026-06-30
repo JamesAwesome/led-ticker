@@ -11,7 +11,7 @@ chain_length = 8
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3
 
 [[playlist.section.widget]]

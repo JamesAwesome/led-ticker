@@ -16,7 +16,7 @@ chain = 5
 default_scale = 1
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5.0
 scroll_step_ms = 25
 

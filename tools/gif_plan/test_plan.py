@@ -100,16 +100,16 @@ class TestTotals:
             "playlist": {
                 "section": [
                     {
-                        "mode": "swap",
+                        "mode": "slideshow",
                         "hold_time": 4.0,
                         "widget": [{"type": "message", "text": "HI"}],
                     },
                     {
-                        "mode": "forever_scroll",
+                        "mode": "ticker",
                         "widget": [{"type": "message", "text": "HI"}],
                     },
                     {
-                        "mode": "swap",
+                        "mode": "slideshow",
                         "loop_count": 0,
                         "widget": [{"type": "message", "text": "HI"}],
                     },
@@ -124,7 +124,7 @@ class TestTotals:
             "playlist": {
                 "section": [
                     {
-                        "mode": "swap",
+                        "mode": "slideshow",
                         "loop_count": 3,
                         "hold_time": 2.0,
                         "widget": [{"type": "message", "text": "HI"}],
@@ -152,7 +152,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 4.0
 
 [[playlist.section.widget]]

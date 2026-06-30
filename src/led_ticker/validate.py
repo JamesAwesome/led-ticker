@@ -62,6 +62,9 @@ class MigrationError(Exception):
         self.fix_replacement_key = fix_replacement_key
 
 
+VALID_MODES: frozenset[str] = frozenset({"slideshow", "ticker", "one_at_a_time", "gif"})
+
+
 # Maps substrings in exception messages to (rule, fix) pairs.
 _ERROR_PATTERNS: list[tuple[str, int | None, str]] = [
     (
@@ -163,6 +166,29 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     ph = _panel_h_real(config.display)
     for i, section in enumerate(config.sections):
+        # Rule 54: unknown mode value.
+        # Old names (swap / forever_scroll / infini_scroll) raise MigrationError
+        # at config-load before validate rules run, so this rule only fires for
+        # values that are neither valid nor retired — pure unknowns like "wobble".
+        if section.mode not in VALID_MODES:
+            issues.append(
+                ValidationIssue(
+                    rule=54,
+                    location=f"section[{i}].mode",
+                    severity="error",
+                    message=(
+                        f"section[{i}].mode: unknown mode {section.mode!r}"
+                        f" — valid modes: " + ", ".join(sorted(VALID_MODES))
+                    ),
+                    fix=(
+                        "Set mode to one of: "
+                        + ", ".join(sorted(VALID_MODES))
+                        + ". Old names (swap, forever_scroll, infini_scroll) have"
+                        " been renamed — check the migration guide."
+                    ),
+                )
+            )
+
         # Rule 1: content_height × scale ceiling.
         # content_height × scale > panel_h_real causes the ScaledCanvas
         # wrapper's y_offset_real to go negative, silently clipping top and
@@ -216,12 +242,12 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
             )
 
         # Rule 25: start_hold is only meaningful on scroll modes
-        # (forever_scroll / infini_scroll), which are the only modes
-        # that call _scroll_and_delay. Setting it on swap / gif has
+        # (ticker / one_at_a_time), which are the only modes
+        # that call _scroll_and_delay. Setting it on slideshow / gif has
         # no runtime effect — surface as an error so users don't think
         # they're tuning something they're not.
         if section.start_hold is not None:
-            if section.mode in ("swap", "gif"):
+            if section.mode in ("slideshow", "gif"):
                 issues.append(
                     ValidationIssue(
                         rule=25,
@@ -229,10 +255,10 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                         severity="error",
                         message=(
                             f"start_hold has no effect on mode={section.mode!r};"
-                            " only forever_scroll / infini_scroll honor it."
+                            " only ticker / one_at_a_time honor it."
                         ),
                         fix=(
-                            "Remove start_hold. For swap mode, use hold_time"
+                            "Remove start_hold. For slideshow mode, use hold_time"
                             " (per-widget hold). For gif mode, the gif's own"
                             " duration controls timing."
                         ),
@@ -249,8 +275,8 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
 
-        # Rule 26: separator_* fields are only honored by forever_scroll.
-        # On swap / gif / infini_scroll, the engine doesn't intersperse a
+        # Rule 26: separator_* fields are only honored by ticker.
+        # On slideshow / gif / one_at_a_time, the engine doesn't intersperse a
         # buffer message, so the fields would silently do nothing. Reject
         # so the misconfiguration surfaces. Single error per section even
         # if multiple separator_* fields are set.
@@ -260,7 +286,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
             or section.separator_font_size is not None
             or section.separator_color is not None
         )
-        if separator_set and section.mode != "forever_scroll":
+        if separator_set and section.mode != "ticker":
             issues.append(
                 ValidationIssue(
                     rule=26,
@@ -269,11 +295,11 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     message=(
                         f"separator_* fields have no effect on"
                         f" mode={section.mode!r};"
-                        " only forever_scroll inserts a separator between loops."
+                        " only ticker inserts a separator between loops."
                     ),
                     fix=(
                         "Remove separator / separator_font / separator_font_size"
-                        " / separator_color, or change mode to 'forever_scroll'."
+                        " / separator_color, or change mode to 'ticker'."
                     ),
                 )
             )
@@ -943,8 +969,8 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
 
-    # Rule 33: prefer mode = "swap" over the mode = "gif" shorthand.
-    # mode = "gif" plays a single gif in a dedicated section; mode = "swap"
+    # Rule 33: prefer mode = "slideshow" over the mode = "gif" shorthand.
+    # mode = "gif" plays a single gif in a dedicated section; mode = "slideshow"
     # with a gif widget gives the same effect plus transitions, hold_time,
     # bg_color, and multi-widget sections — so warn and point users there.
     for i, section in enumerate(config.sections):
@@ -956,12 +982,12 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                     severity="warning",
                     message=(
                         "mode='gif' plays a single gif in a dedicated "
-                        "section. Prefer mode='swap' with a gif widget for "
+                        "section. Prefer mode='slideshow' with a gif widget for "
                         "the full section feature set (transitions, "
                         "hold_time, bg_color, multi-widget sections)."
                     ),
                     fix=(
-                        "Change mode to 'swap'. Each gif widget in the "
+                        "Change mode to 'slideshow'. Each gif widget in the "
                         "section's `widget` list will play through its "
                         "loops then transition."
                     ),
@@ -970,7 +996,7 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
 
     # Rule 36: play_count = 0 + mode = "gif" doesn't get hold_time.
     # play_count = 0 means "play through section's hold_time" — but that
-    # plumbing only exists on the mode = "swap" path (via _play_widget).
+    # plumbing only exists on the mode = "slideshow" path (via _play_widget).
     # The mode = "gif" path calls widget.play() directly without
     # threading hold_time, so play_count = 0 silently falls back to
     # exactly 1 loop. Surface as a warning so users get the heads-up
@@ -993,10 +1019,10 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                             "exactly 1 loop — hold_time isn't threaded "
                             "to the mode='gif' code path. The "
                             "'play through hold_time' semantics only "
-                            "apply in mode='swap'."
+                            "apply in mode='slideshow'."
                         ),
                         fix=(
-                            "Switch the section to mode='swap' (the "
+                            "Switch the section to mode='slideshow' (the "
                             "recommended setup; see rule 33) so "
                             "play_count=0 plays through hold_time. "
                             "Or set play_count to an explicit positive "
@@ -1176,7 +1202,7 @@ def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
 def _check_separator_fonts(
     config: AppConfig,
 ) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
-    """Resolve any `separator_font` set on forever_scroll sections.
+    """Resolve any `separator_font` set on ticker sections.
 
     Returns (errors, warnings). UnknownFontError → rule 24 warning
     (consistent with widget-font behavior). Other ValueError (e.g.
@@ -1187,7 +1213,7 @@ def _check_separator_fonts(
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
-        if section.mode != "forever_scroll":
+        if section.mode != "ticker":
             continue  # Rule 26 already caught the wrong-mode case
         if section.separator_font is None:
             continue
@@ -1231,16 +1257,16 @@ def _check_separator_fonts(
 def _check_wraps_forever_swap_only(
     config: AppConfig,
 ) -> list[ValidationIssue]:
-    """Rule 27: bottom_text_wrap=True is only valid in mode='swap'.
+    """Rule 27: bottom_text_wrap=True is only valid in mode='slideshow'.
 
-    In forever_scroll and infini_scroll modes, widgets must terminate
+    In ticker and one_at_a_time modes, widgets must terminate
     naturally (the section advances based on widget completion).
     A wraps_forever widget never terminates on cursor_pos — it would
     block the chain. Catch at config-load with a clear error.
     """
     errors: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
-        if section.mode == "swap":
+        if section.mode == "slideshow":
             continue
         for j, widget_cfg in enumerate(section.widgets):
             if widget_cfg.get("bottom_text_wrap") is True:
@@ -1251,13 +1277,13 @@ def _check_wraps_forever_swap_only(
                         severity="error",
                         message=(
                             f"bottom_text_wrap=True is only allowed in "
-                            f"mode='swap'; got mode={section.mode!r}. "
+                            f"mode='slideshow'; got mode={section.mode!r}. "
                             f"Other modes expect widgets to terminate "
                             f"naturally — a wrapping widget would block "
                             f"the chain."
                         ),
                         fix=(
-                            "Either change the section mode to 'swap' "
+                            "Either change the section mode to 'slideshow' "
                             "(time-bounded by hold_time), or drop "
                             "bottom_text_wrap from the widget. The "
                             "default off-right→off-left marquee works "
@@ -1272,20 +1298,20 @@ def _check_scroll_through_swap_only(
     config: AppConfig,
 ) -> list[ValidationIssue]:
     """Rule 32: bottom_text_scroll='scroll_through' is only valid in
-    mode='swap'. Parallel to rule 27 for bottom_text_wrap.
+    mode='slideshow'. Parallel to rule 27 for bottom_text_wrap.
 
-    forever_scroll and infini_scroll drive widgets via _scroll_one_by_one /
+    ticker and one_at_a_time drive widgets via _scroll_one_by_one /
     _scroll_side_by_side, which read the widget's reported cursor_pos as
     physical scroll travel. A scroll_through widget inflates cursor_pos
     to `2 * canvas.width + bottom_width + padding` so the engine's
-    swap-mode stop math (`stop_pos = -(cursor - canvas.width) + padding`)
-    lands at -(canvas.width + bottom_width). In non-swap modes that
+    slideshow-mode stop math (`stop_pos = -(cursor - canvas.width) + padding`)
+    lands at -(canvas.width + bottom_width). In non-slideshow modes that
     same inflated value produces 2× the expected scroll travel —
     visible as a full canvas-width of blank ticks per visit.
     """
     errors: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
-        if section.mode == "swap":
+        if section.mode == "slideshow":
             continue
         for j, widget_cfg in enumerate(section.widgets):
             if widget_cfg.get("bottom_text_scroll") == "scroll_through":
@@ -1296,15 +1322,15 @@ def _check_scroll_through_swap_only(
                         severity="error",
                         message=(
                             f"bottom_text_scroll='scroll_through' is only "
-                            f"allowed in mode='swap'; got mode="
+                            f"allowed in mode='slideshow'; got mode="
                             f"{section.mode!r}. Other modes interpret the "
                             f"widget's cursor_pos as physical scroll "
                             f"travel; scroll_through inflates it to "
-                            f"anchor swap-mode stop math, producing 2× "
-                            f"the expected travel in non-swap modes."
+                            f"anchor slideshow-mode stop math, producing 2× "
+                            f"the expected travel in non-slideshow modes."
                         ),
                         fix=(
-                            "Either change the section mode to 'swap' "
+                            "Either change the section mode to 'slideshow' "
                             "(time-bounded by hold_time), or drop "
                             "bottom_text_scroll from the widget. The "
                             "default 'marquee' value works in any mode."

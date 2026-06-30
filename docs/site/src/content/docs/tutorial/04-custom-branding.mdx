@@ -43,7 +43,7 @@ default = "push_left"
 duration = 0.5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 scroll_step_ms = 40
 
@@ -58,7 +58,7 @@ text = "Open Tuesday – Sunday  *  10am – 8pm"
 font_color = [255, 240, 200]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 transition = "push_left"
@@ -74,7 +74,7 @@ text = "10am – 8pm"
 font_color = [225, 48, 108]
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 scroll_step_ms = 40
 
@@ -90,7 +90,7 @@ text = "All ages welcome  *  Drop-ins welcome"
 font_color = [255, 220, 0]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 24
 loop_count = 1
@@ -206,11 +206,11 @@ The `image` widget displays a PNG, JPEG, or WebP still image on the panel. The
 repository ships with `config/assets/phoenix_transparent.png` — a PNG with a
 transparent background — for exactly this use case.
 
-Add a new `swap` section after the `two_row` section:
+Add a new `slideshow` section after the `two_row` section:
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 
@@ -255,7 +255,7 @@ The `image` widget knobs used here:
 
 <DemoGif
   src="/demos-long/tutorial-04b-image.gif"
-  caption="Image widget in a swap section: two message cards, the phoenix logo, then a third message — all joined by push_left transitions."
+  caption="Image widget in a slideshow section: two message cards, the phoenix logo, then a third message — all joined by push_left transitions."
 />
 
 The transparent PNG regions render as black on the panel (LEDs are off), which

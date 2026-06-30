@@ -89,7 +89,7 @@ Below the `[display]` block, add a section with one message widget:
 
 ```toml
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [[playlist.section.widget]]
@@ -107,9 +107,9 @@ A few things to notice:
 opened section. This is a common gotcha for TOML newcomers: single brackets
 `[...]` define a single table, double brackets `[[...]]` append to an array.
 
-**`mode = "forever_scroll"`** — the section runs all its widgets end-to-end in a
-continuous scrolling ticker. The text enters from the right, scrolls left, and
-the loop repeats. Other modes (`swap`, `infini_scroll`) are covered in Chapter 3.
+**`mode = "ticker"`** — the section joins all its widgets into one continuous
+scrolling stream. The text enters from the right, scrolls left, and the loop
+repeats. Other modes (`slideshow`, `one_at_a_time`) are covered in Chapter 3.
 
 **`loop_count = 1`** — how many times to run the section before the playlist
 advances. For a multi-section config, `1` means each section plays once per
@@ -198,7 +198,7 @@ text = "Open Tuesday – Sunday  *  10am – 8pm"
 font_color = [255, 240, 200]
 ```
 
-Re-render. In `forever_scroll` mode both messages appear back-to-back in a
+Re-render. In `ticker` mode both messages appear back-to-back in a
 single continuous stream, separated by a small gap. The `*` character renders
 as a mid-dot separator — a common convention in ticker text.
 
@@ -208,7 +208,7 @@ Chapter 3.
 
 ## What's next
 
-Chapter 3 introduces multiple sections, the `swap` and `infini_scroll` modes, the
+Chapter 3 introduces multiple sections, the `slideshow` and `one_at_a_time` modes, the
 `two_row` widget for two-line layouts, and hi-res emoji. You'll go from a single
 message to a sign that rotates through distinct content cards.
 

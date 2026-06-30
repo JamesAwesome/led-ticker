@@ -12,7 +12,7 @@ def _write(path, body):
     return path
 
 
-_MIN = '[display]\nrows = 16\ncols = 32\n\n[[playlist.section]]\nmode = "swap"\n'
+_MIN = '[display]\nrows = 16\ncols = 32\n\n[[playlist.section]]\nmode = "slideshow"\n'
 
 
 def test_watcher_no_change_when_unchanged(tmp_path):
@@ -77,7 +77,7 @@ async def test_load_and_validate_invalid_returns_string_errors(tmp_path):
     # Uses [[playlist.section]] (the correct TOML key load_config reads).
     bad = (
         "[display]\nrows = 8\ncols = 32\n\n"
-        '[[playlist.section]]\nmode = "swap"\ncontent_height = 20\n'
+        '[[playlist.section]]\nmode = "slideshow"\ncontent_height = 20\n'
     )
     p = _write(tmp_path / "c.toml", bad)
     cfg, errors, transient = await rl.load_and_validate(p)
@@ -94,7 +94,9 @@ async def test_load_and_validate_missing_file_is_transient(tmp_path):
 
 def test_nonreloadable_changed_hardware_field(tmp_path):
     a = load_config(_write(tmp_path / "a.toml", _MIN))
-    b_toml = '[display]\nrows = 32\ncols = 32\n\n[[playlist.section]]\nmode = "swap"\n'
+    b_toml = (
+        '[display]\nrows = 32\ncols = 32\n\n[[playlist.section]]\nmode = "slideshow"\n'
+    )
     b = load_config(_write(tmp_path / "b.toml", b_toml))
     assert "display.rows" in rl.nonreloadable_changed(a, b)
 
@@ -115,7 +117,7 @@ def test_nonreloadable_changed_brightness_is_reloadable(tmp_path):
     a = load_config(_write(tmp_path / "a.toml", _MIN))
     b_toml = (
         "[display]\nrows = 16\ncols = 32\nbrightness = 50\n\n"
-        '[[playlist.section]]\nmode = "swap"\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
     )
     b = load_config(_write(tmp_path / "b.toml", b_toml))
     assert "display.brightness" not in rl.nonreloadable_changed(a, b)
@@ -163,7 +165,7 @@ async def test_apply_reload_evicts_changed_keeps_unchanged(tmp_path):
     a = load_config(
         _write(
             tmp_path / "a.toml",
-            _DISPLAY + '[[playlist.section]]\nmode="swap"\n'
+            _DISPLAY + '[[playlist.section]]\nmode = "slideshow"\n'
             '[[playlist.section.widget]]\ntype="message"\ntext="keep"\n'
             '[[playlist.section.widget]]\ntype="message"\ntext="drop"\n',
         )
@@ -172,7 +174,7 @@ async def test_apply_reload_evicts_changed_keeps_unchanged(tmp_path):
     b = load_config(
         _write(
             tmp_path / "b.toml",
-            _DISPLAY + '[[playlist.section]]\nmode="swap"\n'
+            _DISPLAY + '[[playlist.section]]\nmode = "slideshow"\n'
             '[[playlist.section.widget]]\ntype="message"\ntext="keep"\n',
         )
     )
@@ -243,13 +245,13 @@ async def test_apply_reload_reports_restart_required(tmp_path):
     a = load_config(
         _write(
             tmp_path / "a.toml",
-            _DISPLAY + '[[playlist.section]]\nmode="swap"\n',
+            _DISPLAY + '[[playlist.section]]\nmode = "slideshow"\n',
         )
     )
     b = load_config(
         _write(
             tmp_path / "b.toml",
-            '[display]\nrows=32\ncols=32\n\n[[playlist.section]]\nmode="swap"\n',
+            '[display]\nrows=32\ncols=32\n\n[[playlist.section]]\nmode = "slideshow"\n',
         )
     )
 

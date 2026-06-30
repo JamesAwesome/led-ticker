@@ -23,7 +23,7 @@ delay = 3
 
 # --- nyancat (left-to-right) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "nyancat.forward"
 transition_duration = 2.0
 hold_time = 4
@@ -43,7 +43,7 @@ text = "nyancat DONE"
 
 # --- nyancat (short text) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "nyancat.forward"
 transition_duration = 2.0
 hold_time = 4
@@ -63,7 +63,7 @@ text = "nyancat short DONE"
 
 # --- nyancat_reverse (right-to-left) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "nyancat.reverse"
 transition_duration = 2.0
 hold_time = 4
@@ -83,7 +83,7 @@ text = "nyancat_reverse DONE"
 
 # --- nyancat_reverse (short text) ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "nyancat.reverse"
 transition_duration = 2.0
 hold_time = 4
@@ -103,7 +103,7 @@ text = "reverse short DONE"
 
 # --- restart ---
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 3
 loop_count = 1
 

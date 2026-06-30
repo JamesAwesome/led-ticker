@@ -94,7 +94,7 @@ between_sections = "dissolve"
 # Sections, modes, and timing knobs: https://docs.ledticker.dev/concepts/sections-and-modes/
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 # scale inherits from display.default_scale (4)
 
@@ -116,7 +116,7 @@ text = "Always be shipping!"
 # top and bottom — a visual change of pace between sections.
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 2
 scale = 2
 
@@ -139,7 +139,7 @@ countdown_date = 2026-09-22
 # Swap feed_url for any RSS/Atom URL of your own.
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 1
 
 [playlist.section.title]
@@ -163,7 +163,7 @@ update_interval = 3000
 # which already lists it) and rebuild — see https://docs.ledticker.dev/plugins/ .
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "scroll"
 transition_duration = 4.0
 loop_count = 0
@@ -183,7 +183,7 @@ final_hold_hours = 6
 # under `<config_dir>/assets/` and reference by relative path.
 #
 # [[playlist.section]]
-# mode = "swap"
+# mode = "slideshow"
 # loop_count = 2
 #
 # [[playlist.section.widget]]
@@ -197,7 +197,7 @@ final_hold_hours = 6
 # location can be a city name, zip code, or "lat,lon".
 #
 # [[playlist.section]]
-# mode = "swap"
+# mode = "slideshow"
 # loop_count = 1
 #
 # [[playlist.section.widget]]

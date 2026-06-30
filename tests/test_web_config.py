@@ -11,7 +11,7 @@ cols = 32
 chain_length = 5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 
 [[playlist.section.widget]]
 type = "message"
@@ -80,7 +80,7 @@ def test_web_old_keys_raise_rename_error(tmp_path, old_line, match):
 def test_read_web_config_lightweight(tmp_path):
     # read_web_config must work even when the playlist is invalid —
     # the sidecar serves the validate tab precisely when the config is broken.
-    broken = '[web]\nhttp_port = 9090\n\n[[playlist.section]]\nmode = "swap"\n'
+    broken = '[web]\nhttp_port = 9090\n\n[[playlist.section]]\nmode = "slideshow"\n'
     assert read_web_config(_write(tmp_path, broken)) == WebConfig(http_port=9090)
 
 

@@ -35,7 +35,7 @@ between_sections = "cut"
 # --- Pacman family (currently lowres-only — preview before deciding on hires) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -49,7 +49,7 @@ loop_count = 2
   font_color = [255, 220, 0]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -63,7 +63,7 @@ loop_count = 2
   font_color = [255, 100, 100]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -84,7 +84,7 @@ loop_count = 2
 # --- Baseball family --------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -98,7 +98,7 @@ loop_count = 2
   font_color = [255, 255, 255]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -112,7 +112,7 @@ loop_count = 2
   font_color = [200, 220, 255]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -133,7 +133,7 @@ loop_count = 2
 # --- Pokeball family --------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -147,7 +147,7 @@ loop_count = 2
   font_color = [255, 200, 50]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -161,7 +161,7 @@ loop_count = 2
   font_color = [255, 100, 50]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -181,7 +181,7 @@ loop_count = 2
 
 # show_pokeball=False — sprite running with a black trail, no ball.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -197,7 +197,7 @@ loop_count = 2
 
 # show_pikachu=False — ball alone, no sprite.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -214,7 +214,7 @@ loop_count = 2
 # --- Nyancat family ---------------------------------------------------------
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -228,7 +228,7 @@ loop_count = 2
   font_color = [255, 220, 70]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -242,7 +242,7 @@ loop_count = 2
   font_color = [70, 200, 255]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -264,7 +264,7 @@ loop_count = 2
 
 # sailor_moon: no hi-res asset registered → renders as lowres Moon Stick wand.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 
@@ -279,7 +279,7 @@ loop_count = 2
 
 # cut: baseline. Instant snap, no sprite.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 2.0
 loop_count = 2
 

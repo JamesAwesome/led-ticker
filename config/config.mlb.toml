@@ -30,10 +30,10 @@ duration = 0.5
 easing = "ease_out"
 between_sections = {type = "baseball.roll_alternating", duration = 2.0}
 
-# --- MLB Scores (swap mode) ---
+# --- MLB Scores (slideshow mode) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "baseball.roll_alternating"
 transition_duration = 2.0
 hold_time = 6

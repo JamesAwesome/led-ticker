@@ -60,6 +60,7 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "easing",
         "between_sections",
         "transition_fps",
+        "separator_color",
     },
     # [[playlist.section]] — covers the user-facing knobs.
     # transition_specified is on the SectionConfig dataclass but not a

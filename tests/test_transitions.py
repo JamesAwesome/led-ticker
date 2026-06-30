@@ -912,6 +912,35 @@ class TestScrollInlinedDrawing:
         assert len(white_calls) >= 1, "No bullet pixels were painted"
 
 
+class TestScrollSeparatorColor:
+    def test_build_trans_obj_scroll_color_sets_spec(self):
+        from led_ticker.app.factories import _build_trans_obj
+        from led_ticker.config import TransitionConfig
+
+        scroll = _build_trans_obj(
+            TransitionConfig(type="scroll", separator_color=[80, 80, 80])
+        )
+        rgb = scroll._spec.color.color_for(0, 0, 1)
+        got = rgb if isinstance(rgb, tuple) else (rgb.red, rgb.green, rgb.blue)
+        assert got == (80, 80, 80)
+
+    def test_build_trans_obj_scroll_default_is_white_dot(self):
+        from led_ticker.app.factories import _build_trans_obj
+        from led_ticker.config import TransitionConfig
+        from led_ticker.separator import DEFAULT_DOT_SPEC
+
+        scroll = _build_trans_obj(TransitionConfig(type="scroll"))
+        assert scroll._spec is DEFAULT_DOT_SPEC
+
+    def test_scroll_frame_paints_configured_color(self, canvas, make_widget):
+        from led_ticker.separator import SeparatorSpec
+
+        scroll = Scroll(spec=SeparatorSpec(kind="dot", color=(10, 20, 30), size=2))
+        scroll.frame_at(0.5, canvas, make_widget(40), make_widget(40))
+        colors = {c.args[2:5] for c in canvas.SetPixel.call_args_list}
+        assert (10, 20, 30) in colors
+
+
 # --- PushAlternating ---
 
 

@@ -7,6 +7,7 @@ from led_ticker._types import Canvas, ColorTuple
 from led_ticker.separator import (
     DEFAULT_DOT_SPEC,
     SCROLL_GAP,
+    SeparatorSpec,
     render_separator,
     scroll_separator_width,
 )
@@ -183,8 +184,10 @@ class Scroll(_OutgoingScaleSweep):
     intentional and correct; do not "fix" this to use `_phys`.
     """
 
-    def __init__(self, **kwargs: Any) -> None:
-        self._spec = DEFAULT_DOT_SPEC
+    def __init__(
+        self, *, spec: SeparatorSpec = DEFAULT_DOT_SPEC, **kwargs: Any
+    ) -> None:
+        self._spec = spec
         self._sep_w: int = scroll_separator_width(self._spec)
         self._gap: int = SCROLL_GAP
 

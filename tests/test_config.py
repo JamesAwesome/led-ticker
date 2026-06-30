@@ -1236,3 +1236,21 @@ class TestModeMigration:
         assert "slideshow" in msg
         assert "play_count" in msg
         assert "docs.ledticker.dev/widgets/gif" in msg
+
+
+def test_transition_separator_color_parsed_and_not_in_extra(tmp_path):
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        "[display]\nrows=16\ncols=32\nchain_length=5\n\n"
+        "[[playlist.section]]\nmode='slideshow'\n"
+        "widget_transition={type='scroll', separator_color=[80,80,80]}\n"
+        "[[playlist.section.widget]]\ntype='message'\ntext='hi'\n"
+    )
+    from led_ticker.config import load_config
+
+    loaded = load_config(str(cfg))
+    wt = loaded.sections[0].widget_transition
+    assert wt.type == "scroll"
+    assert wt.separator_color == [80, 80, 80]
+    # must be a first-class field, NOT swept into plugin `extra`
+    assert "separator_color" not in wt.extra

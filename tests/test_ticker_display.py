@@ -2288,3 +2288,29 @@ class TestScrollDriftCompensation:
         assert sleep_calls, "no sleep calls recorded"
         for s in sleep_calls:
             assert s == 0.0, f"expected 0.0 (clamped), got {s}"
+
+
+class TestScrollBetweenSeparatorColor:
+    def test_draw_scroll_frame_uses_spec_color(self):
+        from unittest.mock import MagicMock
+
+        from led_ticker.separator import SeparatorSpec
+        from led_ticker.ticker import _draw_scroll_frame
+
+        canvas = MagicMock()
+        canvas.width, canvas.height = 160, 16
+        out, inc = MagicMock(), MagicMock()
+        spec = SeparatorSpec(kind="dot", color=(10, 20, 30), size=2)
+        _draw_scroll_frame(
+            canvas,
+            out,
+            inc,
+            outgoing_pos=0,
+            bullet_x=50,
+            incoming_pos=200,
+            clear_start=160,
+            spec=spec,
+            frame=0,
+        )
+        colors = {c.args[2:5] for c in canvas.SetPixel.call_args_list}
+        assert (10, 20, 30) in colors

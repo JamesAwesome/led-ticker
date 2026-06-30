@@ -401,6 +401,14 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
         kwargs["colors"] = trans_cfg.colors
     elif trans_cfg.color is not None:
         kwargs["color"] = trans_cfg.color
+    if trans_cfg.type == "scroll" and trans_cfg.separator_color is not None:
+        from led_ticker.app.coercion import _coerce_color_provider
+        from led_ticker.separator import SeparatorSpec
+
+        kwargs["spec"] = SeparatorSpec(
+            kind="dot",
+            color=_coerce_color_provider(trans_cfg.separator_color, "separator_color"),
+        )
     return cls(**kwargs)
 
 

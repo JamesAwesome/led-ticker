@@ -30,19 +30,19 @@ def test_clock_compute_formats_now():
 
 def test_date_compute_with_timezone():
     s = DateSource(id="date.ny", fmt="%Y", tz="America/New_York")
-    assert s.compute() == datetime.datetime.now(
-        datetime.UTC
-    ).astimezone(__import__("zoneinfo").ZoneInfo("America/New_York")).strftime("%Y")
+    assert s.compute() == datetime.datetime.now(datetime.UTC).astimezone(
+        __import__("zoneinfo").ZoneInfo("America/New_York")
+    ).strftime("%Y")
 
 
 def test_refresh_bumps_version_only_on_change():
     s = StaticSource(id="x", value="a")
-    s.refresh()                      # first refresh sets current, version -> 1
+    s.refresh()  # first refresh sets current, version -> 1
     assert s.current == "a"
     v1 = s.version
-    changed = s.refresh()            # unchanged value
+    changed = s.refresh()  # unchanged value
     assert changed is False
-    assert s.version == v1           # NO bump when value is identical
+    assert s.version == v1  # NO bump when value is identical
 
 
 def test_refresh_writes_current_before_version():
@@ -51,7 +51,7 @@ def test_refresh_writes_current_before_version():
     # changed=True, and version strictly increments).
     s = StaticSource(id="x", value="a")
     s.refresh()
-    s.value = "b"                    # change the underlying value
+    s.value = "b"  # change the underlying value
     assert s.refresh() is True
     assert s.current == "b"
     assert s.version >= 2
@@ -106,7 +106,7 @@ def test_declared_source_is_substituted():
 def test_emoji_slug_is_preserved_not_substituted():
     # :heart: is an emoji slug, not a source — left intact for draw_with_emoji
     f = TokenizedField("love :heart: it")
-    assert f.has_tokens is False           # emoji slugs are not source candidates
+    assert f.has_tokens is False  # emoji slugs are not source candidates
     assert f.resolve(_reg()) == ("love :heart: it", False)
 
 
@@ -119,11 +119,11 @@ def test_changed_flips_only_on_version_move():
     s = StaticSource(id="x", value="a")
     reg = _reg(s)
     f = TokenizedField("v=:x:")
-    assert f.resolve(reg) == ("v=a", True)     # first resolve: changed
-    assert f.resolve(reg) == ("v=a", False)    # no version move: unchanged
+    assert f.resolve(reg) == ("v=a", True)  # first resolve: changed
+    assert f.resolve(reg) == ("v=a", False)  # no version move: unchanged
     s.value = "b"
     s.refresh()
-    assert f.resolve(reg) == ("v=b", True)     # version moved: changed
+    assert f.resolve(reg) == ("v=b", True)  # version moved: changed
 
 
 def test_source_colliding_with_emoji_name_is_left_for_emoji():
@@ -223,10 +223,10 @@ def test_resolve_reresolves_when_registry_object_changes():
     # after their first refresh. A surviving TokenizedField must NOT use its
     # stale cached text when handed the new registry object, even if the new
     # registry's version numbers happen to match the saved _last_versions.
-    reg_a = _reg(StaticSource(id="x", value="a"))   # refresh → version=1
+    reg_a = _reg(StaticSource(id="x", value="a"))  # refresh → version=1
     f = TokenizedField(":x:")
     assert f.resolve(reg_a) == ("a", True)
-    assert f.resolve(reg_a) == ("a", False)          # same registry: fast-path
+    assert f.resolve(reg_a) == ("a", False)  # same registry: fast-path
 
     reg_b = _reg(StaticSource(id="x", value="NEWVAL"))  # fresh registry, also version=1
     # Version dict would be {'x': 1} == {'x': 1} → stale code returns ("a", False)

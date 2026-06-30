@@ -39,7 +39,7 @@ class DataSource:
         value = self.compute()
         if value == self.current and self.version != 0:
             return False
-        self.current = value          # current BEFORE version (contract)
+        self.current = value  # current BEFORE version (contract)
         self.version += 1
         return True
 
@@ -142,7 +142,7 @@ class TokenizedField:
             if not is_emoji_slug(slug) and slug not in self._candidate_ids:
                 self._candidate_ids.append(slug)
         self._last_versions: dict[str, int] = {}
-        self._last_registry_id: int = 0   # id() of the last registry resolved against
+        self._last_registry_id: int = 0  # id() of the last registry resolved against
         self._cached: str = text
         self._first: bool = True
 
@@ -168,7 +168,7 @@ class TokenizedField:
         def _sub(match: re.Match[str]) -> str:
             slug = match.group()[1:-1]
             if is_emoji_slug(slug):
-                return match.group()           # emoji wins; leave intact
+                return match.group()  # emoji wins; leave intact
             src = registry.get(slug)
             return src.current if src is not None else match.group()
 

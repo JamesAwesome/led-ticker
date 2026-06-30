@@ -39,7 +39,7 @@ bottom_text = "Open daily 10–6 · all levels welcome"`}
 />
 
 <TomlExample code={`[[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 16
 
@@ -62,7 +62,7 @@ bottom_align = "left"`} />
 `top_row_height = 10` gives the top band 10 logical rows; the bottom gets the remainder (14). The top font's line-height has to fit the band — Inter-Bold @ 14 is 9 logical rows at scale=2, which fits the 10-row band. To go more aggressive (`top_row_height = 6` for a thinner tag), pair it with a smaller hi-res font like Inter-Regular @ 8 — but Regular at that size gets hard to read at typical viewing distances, so the bolder pairing here is the recommended starting point.
 
 <TomlExample code={`[[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 24
 
@@ -88,7 +88,7 @@ bottom_color = [255, 240, 200]`} />
 Hi-res fonts at these sizes need taller bands than the default 8 logical rows. Bump `content_height` from 16 to 24 so each row gets 12 logical rows — Inter-Bold @ 18 measures 12 logical at scale=2 and only fits if the band is at least that tall.
 
 <TomlExample code={`[[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 24
 
@@ -113,7 +113,7 @@ bottom_color = [255, 240, 200]`} />
 The hi-res sprite is 32 real pixels tall. At `scale = 2` it's 16 logical pixels, which exactly matches `top_row_height = 16` — the sprite anchors at the top of the band with no bleed into the bottom row. Smaller bands fall back to the 8×8 lo-res sprite automatically.
 
 <TomlExample code={`[[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 24
 
@@ -161,7 +161,7 @@ Notes:
 - `bottom_text_wrap` always wraps when set, even if the bottom text fits the canvas.
 - Top row never wraps (no `top_text_wrap` field exists).
 - The separator color inherits `bottom_color` (NOT `font_color`).
-- `bottom_text_wrap` is only allowed in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes, validation refuses it.
+- `bottom_text_wrap` is only allowed in `mode = "slideshow"`. In `ticker` / `one_at_a_time` modes, validation refuses it.
 
 ### Scroll-through mode (one pass, offscreen to offscreen)
 
@@ -197,7 +197,7 @@ Notes:
 
 - Mutually exclusive with `bottom_text_wrap = true` — pick one. Scroll-through repeats N offscreen-to-offscreen passes; wrap is a seamless tiled marquee.
 - Requires non-empty `bottom_text`.
-- Only valid in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes validation refuses it (rule 32), same as `bottom_text_wrap`.
+- Only valid in `mode = "slideshow"`. In `ticker` / `one_at_a_time` modes validation refuses it (rule 32), same as `bottom_text_wrap`.
 - **Pass count is controlled by `bottom_text_loops`** (default `0` = one pass per visit). Set `bottom_text_loops = N` to make the widget run N full passes before the section transitions:
 
   ```toml

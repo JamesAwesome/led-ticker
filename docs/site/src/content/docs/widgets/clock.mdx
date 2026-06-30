@@ -153,7 +153,7 @@ Give each timezone its own `swap` section to rotate through several cities, each
 
 <TomlExample
   code={`[[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5
 
 [[playlist.section.widget]]
@@ -162,7 +162,7 @@ timezone = "America/New_York"
 format = "NYC %H:%M %Z"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 5
 
 [[playlist.section.widget]]
@@ -171,14 +171,14 @@ timezone = "Asia/Tokyo"
 format = "TYO %H:%M %Z"`}
 />
 
-## Swap mode
+## Slideshow mode
 
-The clock widget is designed for `swap`-mode sections, where the engine holds each widget for `hold_time` seconds and redraws every tick. In a `scroll` or `forever_scroll` section the widget will scroll across the panel like any other text widget — which may not be what you want for a clock.
+The clock widget is designed for `slideshow`-mode sections, where the engine holds each widget for `hold_time` seconds and redraws every tick. In a `scroll` or `ticker` section the widget will scroll across the panel like any other text widget — which may not be what you want for a clock.
 
 <TomlExample
-  title="Recommended: swap section for a clock"
+  title="Recommended: slideshow section for a clock"
   code={`[playlist.section]
-mode = "swap"
+mode = "slideshow"
 hold_time = 30
 
 [[playlist.section.widget]]

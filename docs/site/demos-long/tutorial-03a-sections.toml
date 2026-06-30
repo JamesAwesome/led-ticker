@@ -1,12 +1,12 @@
 # render-duration: 12
-# Demonstrates two sections in one config: a forever_scroll section
-# (continuous ticker) and a swap section (held messages with transitions).
+# Demonstrates two sections in one config: a ticker section
+# (continuous ticker) and a slideshow section (held messages with transitions).
 # The reader sees both modes side-by-side in a single render.
 #
 # Timing:
-#   Section 1 forever_scroll: "Welcome to Firebird Yoga" + "Open Tuesday – Sunday  *  10am – 8pm"
+#   Section 1 ticker: "Welcome to Firebird Yoga" + "Open Tuesday – Sunday  *  10am – 8pm"
 #     scroll at step_ms=40 across 64 logical px → ~10s for one pass
-#   Section 2 swap: "Open daily" (2.5s) → push_left → "10am - 8pm" (2.5s)
+#   Section 2 slideshow: "Open daily" (2.5s) → push_left → "10am - 8pm" (2.5s)
 #     → push_left; cycle = ~6s. loop_count=1 means one pass through both.
 #   Total ≈ 16s; 20s gives a comfortable tail.
 [display]
@@ -24,7 +24,7 @@ default = "push_left"
 duration = 0.5
 
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 3
 hold_time = 1.0
 scroll_step_ms = 40
@@ -40,7 +40,7 @@ text = "Open Tuesday – Sunday  *  10am – 8pm"
 font_color = [255, 240, 200]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 transition = "push_left"

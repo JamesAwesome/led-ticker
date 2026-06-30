@@ -9,7 +9,7 @@ brightness = 60
 
 # 1. Frost — cool blue rest state, white highlight, slow + wide sweep.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 4.0
 
@@ -20,7 +20,7 @@ font_color = {style = "shimmer", base = "blue", shimmer = "white", speed = 5, wi
 
 # 2. Gold coin — dark amber base, classic gold #FFD700 highlight, narrow + fast.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 4.0
 
@@ -31,7 +31,7 @@ font_color = {style = "shimmer", base = [90, 55, 0], shimmer = [255, 215, 0], sp
 
 # 3. Hot ember — near-black red base, orange highlight, medium speed + narrow.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 4.0
 
@@ -42,7 +42,7 @@ font_color = {style = "shimmer", base = [60, 10, 0], shimmer = [255, 120, 30], s
 
 # 4. Neon breathe — near-black base, bright cyan highlight, wide + no pause.
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 4.0
 

@@ -3,7 +3,7 @@
 [![CI](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/JamesAwesome/led-ticker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-![led-ticker — a live LED ticker scrolling weather, crypto, and transit widgets side by side](https://docs.ledticker.dev/demos-long/sections-forever_scroll.gif)
+![led-ticker — a live LED ticker scrolling weather, crypto, and transit widgets side by side](https://docs.ledticker.dev/demos-long/sections-ticker.gif)
 
 **led-ticker** is an open-source Python toolkit that drives RGB LED matrix panels — storefront marquees, gym and class schedules, sports scores, transit times, scrolling messages — from a Raspberry Pi, all from a single TOML config. Try it on your laptop with **no hardware** in about two minutes, then deploy the same Docker image to a Pi when your panels arrive.
 

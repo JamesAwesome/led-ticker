@@ -163,8 +163,8 @@ Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls
 | `animation` on a widget that doesn't support it                  | error    | remove it; use `font_color = "rainbow"` instead                     |
 | `animation = "typewriter"` on `gif` / `image` with conflicts     | error    | drop `bottom_text`, scroll mode, or empty `text`                    |
 | Per-row font line-height exceeds the band on `two_row` / two-row | error    | smaller `font_size`, or raise `content_height`                      |
-| `start_hold` on `swap` / `gif` section or negative value         | error    | remove `start_hold` or set it to ≥ 0                                |
-| `separator_*` set on a non-`forever_scroll` section              | error    | remove the field, or switch to `forever_scroll`                     |
+| `start_hold` on `slideshow` / `gif` section or negative value    | error    | remove `start_hold` or set it to ≥ 0                                |
+| `separator_*` set on a non-`ticker` section                      | error    | remove the field, or switch to `ticker`                             |
 | `bottom_text_loops` on `two_row` without `bottom_text_wrap`      | error    | set `bottom_text_wrap = true`, or drop the field                    |
 | `text_loops` on a `two_row` widget (rule 29)                     | error    | rename to `bottom_text_loops`                                       |
 | `scroll_step_ms <= 0` on a section (rule 31)                     | error    | set to a positive integer (e.g. 35)                                 |
@@ -178,9 +178,9 @@ Quick reference. Each row maps to a longer entry on [Validation rules](/pitfalls
 | Held `top_text` wider than the logical canvas                    | warning  | shorten text, smaller font, or lower `scale`                        |
 | `font` name is not bundled and not in `config/fonts/`            | warning  | drop the font file on the deploy target                             |
 | `hold_time` set alongside `bottom_text_loops` on `two_row`       | warning  | drop one (or accept `max()` semantics)                              |
-| `mode = "gif"` → prefer `mode = "swap"` (rule 33)                | warning  | use `mode = "swap"` with a `gif` widget                             |
+| `mode = "gif"` → prefer `mode = "slideshow"` (rule 33)           | warning  | use `mode = "slideshow"` with a `gif` widget                        |
 | `default = "..."` written inside a section block (rule 35)       | warning  | rename to `transition = "..."`                                      |
-| `play_count = 0` inside a `mode = "gif"` section (rule 36)       | warning  | switch to `mode = "swap"` or set positive count                     |
+| `play_count = 0` inside a `mode = "gif"` section (rule 36)       | warning  | switch to `mode = "slideshow"` or set positive count                |
 
 ## Discovering widget fields — `--list-fields`
 
@@ -207,7 +207,7 @@ Anything that depends on runtime state — a stale `WEATHERAPI_KEY`, an unreacha
 
 ### Warnings are advisory, not blocking
 
-The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds, or a `mode = "gif"` section that would benefit from the full `swap`-mode feature set. Treat them as a checklist before you call a config done.
+The ticker will start, scroll, and swap when only warnings are present, but the warning usually points at a rendering quirk you don't actually want — a `two_row` widget cramped into a 64px logical canvas, a `transition_duration` that looks like milliseconds when the engine wants seconds, or a `mode = "gif"` section that would benefit from the full `slideshow`-mode feature set. Treat them as a checklist before you call a config done.
 
 Pass `--strict` to promote all warnings to errors and enforce a warning-clean config in CI. See the [Strict mode](#strict-mode--promote-warnings-to-errors) section above.
 

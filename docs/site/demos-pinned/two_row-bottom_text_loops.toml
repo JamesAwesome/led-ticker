@@ -15,7 +15,7 @@ brightness = 60
 default = "cut"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 1.0          # too short on its own — the loops floor kicks in
 scroll_step_ms = 30

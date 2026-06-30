@@ -19,7 +19,7 @@ between_sections = "wipe_left"
 duration = 0.8
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 
@@ -29,7 +29,7 @@ text = "BDF 6x12"
 font = "6x12"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 4.0
 

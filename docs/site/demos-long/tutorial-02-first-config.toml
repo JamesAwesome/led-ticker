@@ -10,7 +10,7 @@ brightness = 60
 [title]
 delay = 0   # no title card; suppress the 5s default per-section title hold
 [[playlist.section]]
-mode = "forever_scroll"
+mode = "ticker"
 loop_count = 3
 hold_time = 1.0
 scroll_step_ms = 15

@@ -146,7 +146,7 @@ Notes:
 - Top row never wraps (refused by validation; no `top_text_wrap` field exists).
 - The separator color inherits `bottom_color` (NOT `font_color`) — separator is part of the bottom row.
 - v1's `text_wrap` stays single-row only — in two-row mode use `bottom_text_wrap`.
-- `bottom_text_wrap` is only allowed in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes, validation refuses it (those modes expect widgets to terminate naturally).
+- `bottom_text_wrap` is only allowed in `mode = "slideshow"`. In `ticker` / `one_at_a_time` modes, validation refuses it (those modes expect widgets to terminate naturally).
 
 ### Scroll-through mode (bottom row, one offscreen pass)
 
@@ -174,7 +174,7 @@ Notes:
 
 - Mutually exclusive with `bottom_text_wrap = true` — pick one. Scroll-through is one pass; wrap is a seamless tile.
 - Requires non-empty `bottom_text` (two-row mode). Single-row text scroll lives under `text_align = "scroll"` / `"scroll_over"`.
-- Only valid in `mode = "swap"`. In `forever_scroll` / `infini_scroll` modes validation refuses it (rule 32).
+- Only valid in `mode = "slideshow"`. In `ticker` / `one_at_a_time` modes validation refuses it (rule 32).
 - `hold_time` is honored as a _floor_: at least one full pass per visit, or `text_loops × (canvas_width + bottom_width)` if larger, or whatever `hold_time` admits — whichever is greatest. The bottom row keeps cycling until that floor is met.
 - **Loop count for the bottom-row wrap:** use `text_loops` here on gif/image widgets (same field that controls single-row wrap loops). On the [`two_row`](/widgets/two_row/) widget — which is always two-row, not optionally — the equivalent field is named `bottom_text_loops` to match its bottom-prefix convention. The validator catches the cross-widget typo (rule 29) and points you at the right name.
 
@@ -249,7 +249,7 @@ When you want a gif to fill its section's duration rather than playing a fixed n
 
 ```toml
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 hold_time = 8.0
 
 [[playlist.section.widget]]

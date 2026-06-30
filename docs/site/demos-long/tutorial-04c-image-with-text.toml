@@ -24,7 +24,7 @@ default = "push_left"
 duration = 0.5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 
@@ -34,7 +34,7 @@ text = "Welcome to Firebird Yoga"
 font_color = [225, 48, 108]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 8.0
 
@@ -54,7 +54,7 @@ bottom_font_size = 22
 bottom_color = [255, 240, 200]
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 

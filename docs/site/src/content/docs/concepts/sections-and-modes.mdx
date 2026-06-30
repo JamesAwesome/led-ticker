@@ -20,7 +20,7 @@ All widgets in the section are joined into a single continuous stream that scrol
 The separator is customizable per section. Set `separator` to any string — `" * "` or `" | "` are common alternatives — or `""` for a minimal two-space gap with no glyph. `separator_color` accepts the same shapes as widget `font_color` (constant `[r, g, b]`, `"rainbow"`, or a gradient table). `separator_font` and `separator_font_size` let you match the separator's typeface to the rest of the section. All four fields are rejected on non-`ticker` modes.
 
 <DemoGif
-  src="/demos-long/sections-forever_scroll.gif"
+  src="/demos-long/sections-ticker.gif"
   caption="`ticker` — three messages and a countdown flow together separated by bullets; the panel never clears"
 />
 
@@ -59,7 +59,7 @@ Each widget scrolls all the way across the panel and fully off the left edge bef
 `one_at_a_time` suits medium-length messages that should read as distinct items — enrollment announcements, sale callouts, or any set of messages where you want each one to complete before the next begins. Unlike `ticker`, there is never any overlap between consecutive messages; unlike `slideshow`, there is no hold and no transition animation. The effect is a clean sequence of individual scrolls.
 
 <DemoGif
-  src="/demos-long/sections-infini_scroll.gif"
+  src="/demos-long/sections-one_at_a_time.gif"
   caption="`one_at_a_time` — three messages and a countdown each scroll fully off before the next enters; a clean gap between widgets"
 />
 

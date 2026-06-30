@@ -21,6 +21,7 @@ from led_ticker.separator import (
     DEFAULT_CIRCLE_SPEC,
     DEFAULT_DOT_SPEC,
     SCROLL_GAP,
+    SeparatorSpec,
     render_separator,
     scroll_separator_width,
 )
@@ -480,7 +481,8 @@ class Ticker:
         loop = asyncio.get_running_loop()
         try:
             w = canvas.width
-            sep_w = scroll_separator_width()
+            spec = getattr(self.transition_fn, "_spec", DEFAULT_DOT_SPEC)
+            sep_w = scroll_separator_width(spec)
             total_travel = w + sep_w
             for offset in range(total_travel + 1):
                 t0 = loop.time()
@@ -497,6 +499,8 @@ class Ticker:
                     bullet_x,
                     incoming_pos,
                     clear_start,
+                    spec=spec,
+                    frame=offset,
                 )
                 canvas = _swap(canvas, self.frame)
                 await asyncio.sleep(max(0.0, self.scroll_speed - (loop.time() - t0)))
@@ -1221,6 +1225,8 @@ def _draw_scroll_frame(
     bullet_x: int,
     incoming_pos: int,
     clear_start: int,
+    spec: SeparatorSpec = DEFAULT_DOT_SPEC,
+    frame: int = 0,
 ) -> None:
     """Draw one frame of scroll transition: outgoing | gap | bullet | gap | incoming."""
     w = canvas.width
@@ -1231,9 +1237,7 @@ def _draw_scroll_frame(
     if 0 <= clear_start < w:
         canvas.SubFill(clear_start, 0, w - clear_start, h, 0, 0, 0)
 
-    # frame=0 is a Phase-1 placeholder (dot is constant white). Phase 2 will
-    # plumb the derived scroll frame here to animate a configured separator color.
-    render_separator(canvas, bullet_x, 0, DEFAULT_DOT_SPEC)
+    render_separator(canvas, bullet_x, frame, spec)
 
     if incoming_pos < w:
         incoming.draw(canvas, cursor_pos=incoming_pos)

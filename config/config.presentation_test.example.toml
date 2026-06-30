@@ -1,12 +1,6 @@
-# ── Plugin dependencies ───────────────────────────────────────────────
-# Requires these led-ticker plugins. Install via
-# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
-# and rebuild before running:
-#   led-ticker-weather  weather.current
-#   led-ticker-rss      rss.feed
-# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
-# flair, and the foundational transitions need no plugins.
-# ──────────────────────────────────────────────────────────────────────
+# requires-plugins: led-ticker-rss, led-ticker-weather
+# Install via config/requirements-plugins.txt (or the web UI Store), then restart.
+# See https://docs.ledticker.dev/plugins/
 
 # Presentation effects smoke test — Pi 5 bigsign.
 #

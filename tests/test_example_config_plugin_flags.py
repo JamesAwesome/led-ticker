@@ -1,8 +1,16 @@
+import re
 import subprocess
 import sys
 import tomllib
+from pathlib import Path
 
-from led_ticker._config_scan import plugin_dependency_warning, required_plugins
+from led_ticker._config_scan import (
+    _load,
+    _namespace_to_package,
+    _referenced_namespaces,
+    plugin_dependency_warning,
+    required_plugins,
+)
 
 
 def _cfg(toml: str) -> dict:
@@ -117,3 +125,110 @@ def test_no_warning_when_required_plugin_is_loaded():
 
 def test_no_warning_for_plugin_free_config():
     assert plugin_dependency_warning({"display": {"rows": 16}}, [], []) is None
+
+
+# ---------------------------------------------------------------------------
+# Tripwire: # requires-plugins: header enforcement
+# ---------------------------------------------------------------------------
+
+_CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+
+# User-facing starters: the line (incl. `none`) is mandatory. Dev fixtures are
+# exempt unless they use plugins. An explicit list — a filename heuristic would
+# misclassify config.gif_text.example.toml (contains "text", not a fixture marker).
+STARTERS = {
+    "config.example.toml",
+    "config.bigsign.example.toml",
+    "config.firebird.example.toml",
+    "config.try.example.toml",
+    "config.showroom-bigsign.example.toml",
+    "config.bigsign.firebird.example.toml",
+}
+
+_LINE = re.compile(r"^#\s*requires-plugins:\s*(.*?)\s*$", re.MULTILINE)
+
+
+def _declared(path: Path) -> set[str] | None:
+    """Parsed `# requires-plugins:` set, or None if the line is absent. `none`
+    -> empty set. Lenient: whitespace/trailing-comma/case-insensitive none."""
+    matches = _LINE.findall(path.read_text(encoding="utf-8"))
+    assert len(matches) <= 1, f"{path.name}: expected at most one requires-plugins line"
+    if not matches:
+        return None
+    body = matches[0].strip()
+    if body.lower() == "none" or body == "":
+        return set() if body.lower() == "none" else _fail_empty(path)
+    return {p.strip() for p in body.split(",") if p.strip()}
+
+
+def _fail_empty(path: Path):
+    raise AssertionError(f"{path.name}: empty `# requires-plugins:` — use `none`")
+
+
+def _example_configs() -> list[Path]:
+    return sorted(_CONFIG_DIR.glob("config.*.example.toml"))
+
+
+def test_starters_header_matches_derived():
+    for path in sorted(_CONFIG_DIR.glob("config.*.example.toml")):
+        if path.name not in STARTERS:
+            continue
+        declared = _declared(path)
+        derived = required_plugins(path)
+        assert declared is not None, (
+            f"{path.name}: missing `# requires-plugins:` line (starters require it, "
+            f"`none` included). Set it to: # requires-plugins: "
+            f"{', '.join(sorted(derived)) or 'none'}"
+        )
+        assert declared == derived, (
+            f"{path.name}: header {sorted(declared)} != derived {sorted(derived)}. "
+            f"missing {sorted(derived - declared)}; "
+            f"stale {sorted(declared - derived)}. "
+            f"Set the line to: # requires-plugins: "
+            f"{', '.join(sorted(derived)) or 'none'}"
+        )
+
+
+def test_example_is_plugin_free():
+    path = _CONFIG_DIR / "config.example.toml"
+    assert required_plugins(path) == set()
+    assert _declared(path) == set()  # declares `none`
+
+
+def test_any_plugin_using_example_declares_it():
+    for path in _example_configs():
+        derived = required_plugins(path)
+        if not derived:
+            continue
+        declared = _declared(path)
+        assert declared is not None, (
+            f"{path.name}: uses plugins but has no `# requires-plugins:` line. "
+            f"Add: # requires-plugins: {', '.join(sorted(derived))}"
+        )
+        assert declared == derived, (
+            f"{path.name}: header {sorted(declared)} != derived {sorted(derived)}"
+        )
+
+
+def test_catalog_covers_every_referenced_namespace():
+    # Runs against the UNFILTERED namespace set (not required_plugins, which
+    # already drops unknowns) so a config referencing an uncatalogued plugin
+    # namespace fails loudly.
+    known = set(_namespace_to_package())
+    # Built-in backends are legal bare values that are not plugins.
+    builtins = {"rgbmatrix", "headless"}
+    for path in _example_configs():
+        refs = _referenced_namespaces(_load(path))
+        # Only namespaces that look like plugins (the walk also surfaces bare
+        # backend names); a dotted ref to an unknown namespace is the real risk.
+        unknown = {
+            ns for ns in refs
+            if ns not in known and ns not in builtins
+        }
+        # Filter to things that actually appeared as a dotted/plugin ref:
+        # bare non-backend strings never enter refs except via backend, handled
+        # by the builtins set above.
+        assert not unknown, (
+            f"{path.name} references namespaces not in the catalog: {sorted(unknown)}. "
+            f"Add them to src/led_ticker/plugins_catalog.json or fix the typo."
+        )

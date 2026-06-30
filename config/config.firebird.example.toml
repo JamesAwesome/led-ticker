@@ -1,11 +1,6 @@
-# ── Plugin dependencies ───────────────────────────────────────────────
-# Requires these led-ticker plugins. Install via
-# config/requirements-plugins.txt (copy requirements-plugins.example.txt)
-# and rebuild before running:
-#   led-ticker-flair  nyancat / pokeball / sailor_moon transitions
-# Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
-# flair, and the foundational transitions need no plugins.
-# ──────────────────────────────────────────────────────────────────────
+# requires-plugins: led-ticker-flair
+# Install via config/requirements-plugins.txt (or the web UI Store), then restart.
+# See https://docs.ledticker.dev/plugins/
 
 # Firebird Yoga — store-window display config (Pi 5 bigsign).
 #

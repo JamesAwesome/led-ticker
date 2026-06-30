@@ -12,6 +12,8 @@
 # Copy this to config.toml and adjust the playlist sections for your content.
 # Full config-options reference: https://docs.ledticker.dev/reference/config-options/
 
+# requires-plugins: none
+
 [display]
 rows = 16
 cols = 32

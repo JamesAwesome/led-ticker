@@ -26,7 +26,7 @@ every panel knob (`rows`, `cols`, `chain_length`, `panel_type`, `gpio_slowdown`,
 **~15 min · Docker on the Pi · `reveal`/`verify` need the panels powered; `derive` needs no hardware.**
 
 - The sign assembled and powered, panels chained as you intend to run them.
-- The led-ticker Docker image built once: `make build-docker` (the `-docker`
+- The led-ticker Docker image built once: `make build` (the `-docker`
   targets below run inside it).
 - Your config TOML with a correct `[display]` block (`rows`, `cols`,
   `chain_length`, `parallel`). The mapper is the only unknown we're solving for.
@@ -44,7 +44,7 @@ mapper tool assumes the hardware layer is already working.
 
 All commands below use the **`-docker` targets** — the supported path on a
 deployed sign. They run inside the production image, so build it once first with
-`make build-docker`. (A dev host with the repo and `uv` installed can drop the
+`make build`. (A dev host with the repo and `uv` installed can drop the
 `-docker` suffix; see the [subcommand reference](#subcommand-reference).)
 
 ## Bigsign worked example

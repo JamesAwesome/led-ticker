@@ -4,10 +4,10 @@
 #
 # Usage:
 #   make setup                         # first time: preflight + seed + build + start
-#   make rebuild                       # rebuild image (real version) + restart all services
-#   docker compose logs -f             # tail logs
-#   docker compose restart             # restart after editing config
-#   docker compose down                # stop and remove
+#   make update                        # rebuild image (real version) + recreate services
+#   make logs                          # tail logs
+#   make restart                       # restart after editing config
+#   make down                          # stop and remove
 #
 # Files (relative to this compose file's directory):
 #   ./config/config.toml     # display + playlist config

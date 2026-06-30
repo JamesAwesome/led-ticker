@@ -68,3 +68,27 @@ def test_dev_preflights_uv():
     m = re.search(r"(?ms)^dev:.*?(?=^\S)", MAKEFILE)
     assert m, "dev target not found"
     assert "command -v uv" in m.group(0), "make dev must preflight uv"
+
+
+def test_no_shipped_file_references_retired_make_targets():
+    roots = [
+        "README.md",
+        "compose.yaml",
+        "Dockerfile",
+        "scripts",
+        "docs/site/src/content",
+    ]
+    retired = ["make build-docker", "make rebuild"]
+    offenders = []
+    for root in roots:
+        p = REPO_ROOT / root
+        files = [p] if p.is_file() else [f for f in p.rglob("*") if f.is_file()]
+        for f in files:
+            try:
+                text = f.read_text()
+            except UnicodeDecodeError, OSError:
+                continue
+            for tok in retired:
+                if tok in text:
+                    offenders.append(f"{f.relative_to(REPO_ROOT)}: {tok!r}")
+    assert not offenders, f"retired target names still referenced: {offenders}"

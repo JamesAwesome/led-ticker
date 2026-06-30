@@ -146,14 +146,14 @@ Once your config renders the way you want, push it to a Pi. Deployment is
 
 ```bash
 make setup      # Docker preflight + config/.env seed + bring-up (first time)
-make rebuild    # rebuild the image (real version) + restart everything (subsequent deploys)
+make update     # rebuild the image (real version) + recreate services (subsequent deploys)
 ```
 
 `make setup` (or `make setup MODE=deploy`) checks that Docker is installed,
 seeds `config/config.toml` and `.env` if they don't exist yet, and runs
-`docker compose up -d`. After that, `make rebuild` rebuilds the image (with a
-real version baked in) and restarts the display **and** the webui together for
-every subsequent deploy.
+`docker compose up -d`. After that, `make update` rebuilds the image (with a
+real version baked in) and recreates the running services for every subsequent
+deploy.
 
 Key behaviors built into `compose.yaml`:
 

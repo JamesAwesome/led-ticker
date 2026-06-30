@@ -655,10 +655,48 @@ Expected: no violations.
 Run: `grep -rn 'uvx' Makefile scripts/setup.sh .github/workflows/ci.yml`
 Expected: no matches.
 
-- [ ] **Step 4 (optional, if Docker is available on the dev host): end-to-end image build**
+- [ ] **Step 4: Build the production image**
 
-Run: `make build-docker && docker run --rm --entrypoint sh led-ticker -c "pip show led-ticker-core | awk '/^Version:/{print \$2}'"`
-Expected: a real version (e.g. `2.4.1.dev3`), NOT `0.0.0`. If Docker isn't available locally, this is verified on the Pi at deploy time instead.
+This is a REQUIRED end-to-end check (needs Docker + network for the plugin step).
+If the dev host has no Docker, run Steps 4-6 on the Pi at deploy time instead and
+record the output in the PR.
+
+Run: `make build-docker`
+Expected: build succeeds (the new Dockerfile guard does NOT trip — meaning a real
+version was passed). A `0.0.0` build would `exit 1` here with the guard's ERROR.
+
+- [ ] **Step 5: Verify the installed core version is real and matches the host**
+
+Run:
+```bash
+HOST_VER="$(sh scripts/compute-version.sh)"
+IMG_VER="$(docker run --rm --entrypoint sh led-ticker -c "pip show led-ticker-core | awk '/^Version:/{print \$2}'")"
+echo "host=$HOST_VER image=$IMG_VER"
+test -n "$IMG_VER" && [ "$IMG_VER" != "0.0.0" ] && [ "$IMG_VER" = "$HOST_VER" ] && echo OK
+```
+Expected: `host=<v> image=<v>` with a real version (e.g. `2.4.1.dev3`), the two
+equal, and a final `OK`. NOT `0.0.0`, NOT empty.
+
+- [ ] **Step 6: Verify plugins actually resolve against the live-env freeze**
+
+This reproduces the exact runtime path `plugin_reconcile.py` uses (freeze the live
+env via `pip list --format=freeze`, then `pip install -c` that snapshot) — the
+step that previously failed with `ResolutionImpossible` against
+`led-ticker-core==0.0.0`. `led-ticker-baseball` requires `led-ticker-core>=2.1`.
+
+Run:
+```bash
+docker run --rm --entrypoint sh led-ticker -c '
+  set -e
+  pip list --format=freeze > /tmp/constraints.txt
+  echo "core line: $(grep "^led-ticker-core==" /tmp/constraints.txt)"
+  pip install --dry-run --no-cache-dir -c /tmp/constraints.txt led-ticker-baseball
+'
+```
+Expected: the `core line:` shows a real version (not `==0.0.0`) and the dry-run
+install ends with pip's "Would install … led-ticker-baseball-<ver>" — NO
+`ResolutionImpossible`. (Needs outbound PyPI access; on an air-gapped host skip
+with a note.)
 
 ---
 

@@ -63,6 +63,29 @@ duration = 0.5
 easing = "ease_out"
 between_sections = "dissolve"
 
+# --- Value tokens (optional) ---
+# Declare live-value sources here and reference them in any widget text field
+# with :id: — the same syntax as inline emoji. The three built-in types are
+# clock (wall-clock time), date (calendar date), and static (fixed string).
+# Full guide: https://docs.ledticker.dev/concepts/value-tokens/
+#
+# [[source]]
+# id = "clock.now"              # reference as :clock.now: in any text field
+# type = "clock"
+# format = "%-I:%M %p"         # strftime — "9:01 AM"
+# timezone = "America/New_York" # IANA name; omit = Pi system clock (often UTC)
+#
+# [[source]]
+# id = "date.today"
+# type = "date"
+# format = "%A"                 # "Monday", "Tuesday", …
+# timezone = "America/New_York"
+#
+# [[source]]
+# id = "brand.tagline"
+# type = "static"
+# value = "Breathe. Move. Rise."   # fixed text; reference as :brand.tagline:
+
 # --- Playlist ---
 # Each [[playlist.section]] displays in order, then the whole playlist loops.
 # Sections, modes, and timing knobs: https://docs.ledticker.dev/concepts/sections-and-modes/

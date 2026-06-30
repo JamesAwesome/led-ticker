@@ -9,7 +9,7 @@ This page is the cross-cutting reference for every TOML knob in
 led-ticker, grouped by config section. Per-widget options live on each
 widget's page — this page covers the top-level blocks that wrap them:
 `[display]`, `[title]`, `[transitions]`, `[[playlist.section]]`,
-`[busy_light]`, and `[web]`.
+`[[source]]`, `[busy_light]`, and `[web]`.
 Field names and defaults match the dataclasses in
 `src/led_ticker/config.py`. For per-widget knobs see [Widgets](/widgets/).
 
@@ -161,6 +161,20 @@ list.
 ## `[[playlist.section.widget]]`
 
 Per-widget options live on each widget's page. See [Widgets](/widgets/).
+
+## `[[source]]`
+
+Each `[[source]]` block declares a named value source that widget `text =` fields can reference with the `:id:` token syntax. Sources are global — they are not nested inside any section. You can declare as many `[[source]]` blocks as you need. See [Value tokens](/concepts/value-tokens/) for the full guide.
+
+| Field      | Type   | Required | Notes                                                                                                                                               |
+| ---------- | ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`       | string | yes      | Token name. Must match `[a-z_][a-z0-9_.]*`. Referenced in widget text as `:id:`. Must not equal an existing emoji slug; duplicate ids are rejected. |
+| `type`     | string | yes      | Source class. Built-in: `"clock"`, `"date"`, `"static"`. Plugins may register additional types via `api.source`.                                    |
+| `format`   | string | see note | strftime format string. Required for `clock` and `date`; ignored by `static`.                                                                       |
+| `timezone` | string | no       | IANA timezone name (e.g. `"America/New_York"`). Applies to `clock` and `date`. Omit to follow the Pi's system clock (often UTC on a fresh Pi).      |
+| `value`    | string | see note | Fixed string. Required for `static`; ignored by `clock` and `date`.                                                                                 |
+
+All sources refresh once per second. The version counter increments only when the computed value actually changes, so constant-width clock formats (`%H:%M`) never cause a layout reflow.
 
 ## `[busy_light]`
 

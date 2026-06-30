@@ -34,7 +34,7 @@ make panel-test-docker
 docker compose start
 ```
 
-The `panel-test-docker` target runs `docker run --rm -it --privileged --network host` against the existing `led-ticker` image — same privilege flags as `compose.yaml`. The script is bind-mounted from the repo, so iteration on the script itself doesn't require `make build-docker`. The first run does require the image to exist (`make build-docker` once).
+The `panel-test-docker` target runs `docker run --rm -it --privileged --network host` against the existing `led-ticker` image — same privilege flags as `compose.yaml`. The script is bind-mounted from the repo, so iteration on the script itself doesn't require `make build`. The first run does require the image to exist (`make build` once).
 
 ## What it does
 

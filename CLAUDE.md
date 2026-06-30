@@ -25,7 +25,7 @@ make format        # ruff format
 make validate      # led-ticker validate CONFIG=path.toml (config preflight); supports --list-fields <type> (e.g. --list-fields message) to print a widget's recognized TOML fields
 make render-emoji-previews  # re-generate emoji preview PNGs after adding new slugs
 make clean         # remove build artifacts
-make build-docker  # production image (single image, both Pis)
+make build         # production image (single image, both Pis)
 ```
 
 Full CLI + Make-target reference: <https://docs.ledticker.dev/reference/cli/>

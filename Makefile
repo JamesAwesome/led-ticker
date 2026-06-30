@@ -1,8 +1,13 @@
-.PHONY: dev hooks test lint typecheck format clean build-docker rebuild try try-down setup docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker panel-map-derive-docker
+.PHONY: dev hooks test lint typecheck format clean build up update restart down logs try try-down setup docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker panel-map-derive-docker
 
 # --- Developer Setup ---
 
 dev:  ## Install package with dev dependencies and pre-commit hooks
+	@command -v uv >/dev/null 2>&1 || { \
+	  echo "uv is required for development but was not found."; \
+	  echo "Install it:  curl -LsSf https://astral.sh/uv/install.sh | sh"; \
+	  echo "(or 'brew install uv' — see https://docs.astral.sh/uv/getting-started/installation/)"; \
+	  exit 1; }
 	uv sync --extra dev
 	uv run pre-commit install
 	uv run pre-commit install --hook-type pre-push
@@ -49,14 +54,14 @@ panel-test:  ## Cycle full panel through R/G/B/W/B. Usage: make panel-test [CONF
 	  --hold $(HOLD)
 
 # Run the panel-test inside the production Docker image — this is what you'll
-# run on longboi/bigsign/smallsign over SSH. Requires `make build-docker` to
+# run on longboi/bigsign/smallsign over SSH. Requires `make build` to
 # have run at least once.
 #
 # IMPORTANT: stop the running ticker first or the diagnostic will fight it for
 # the matrix:
-#   docker compose stop
+#   make down
 #   make panel-test-docker
-#   docker compose start
+#   make up
 #
 # --privileged + --network host match compose.yaml so behavior is identical to
 # prod. -it gives the script a TTY so Ctrl-C reaches Python and the black-
@@ -75,7 +80,7 @@ panel-test-docker:  ## Cycle R/G/B/W/B inside Docker. Stop the running ticker fi
 #
 # Four-step workflow to build a pixel_mapper_config Remap string. On a deployed
 # sign use the -docker targets (run inside the production image — needs
-# `make build-docker` once). The bare targets are for a dev host with the repo
+# `make build` once). The bare targets are for a dev host with the repo
 # + `uv` installed.
 #   1. make panel-map-reveal-docker   — photograph the lit numbered pattern
 #   2. Transcribe the grid into a file (e.g. LAYOUT=/tmp/grid.txt)
@@ -134,16 +139,28 @@ BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git re
 # .git) bakes a real version instead of the 0.0.0 scm fallback. Computing it
 # inside each recipe means a missing version aborts that build loudly.
 
-build-docker:  ## Build the production image only (no start; used by the *-docker diagnostics)
+build:  ## Build the production image only (no start; prerequisite for the *-docker diagnostics)
 	@VER="$$(sh scripts/compute-version.sh)" || exit 1; \
 	docker build -t led-ticker \
 	  --build-arg BUILD_REF="$(BUILD_REF)" \
 	  --build-arg SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" .
 
-rebuild:  ## Update a running deploy after 'git pull' — rebuild + recreate all services (incl. webui)
+up:  ## Start the sign without rebuilding (set COMPOSE_PROFILES=webui in .env to include the web UI)
+	docker compose up -d
+
+update:  ## Update a running deploy after 'git pull': rebuild the image (real version) + recreate services
 	@git fetch --tags --quiet 2>/dev/null || true; \
 	VER="$$(sh scripts/compute-version.sh)" || exit 1; \
-	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" COMPOSE_PROFILES=webui docker compose up -d --build --force-recreate
+	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" docker compose up -d --build --force-recreate
+
+restart:  ## Restart the sign without rebuilding
+	docker compose restart
+
+down:  ## Stop and remove the sign's containers
+	docker compose down
+
+logs:  ## Follow the sign's logs (Ctrl-C to stop)
+	docker compose logs -f
 
 try:  ## Try led-ticker with NO hardware: headless engine + webui preview at http://localhost:8080
 	@echo "building + starting (first build takes a minute)... then open http://localhost:8080 and click the live preview  (stop: Ctrl-C, then make try-down)"
@@ -160,7 +177,7 @@ setup:  ## One-command setup: check Docker, seed config/.env, bring up. Usage: m
 
 # --- Cleanup ---
 
-clean:  ## Remove build artifacts and caches
+clean:  ## Remove build artifacts and caches (does NOT stop containers — use 'make down' for that)
 	rm -rf .venv/ .pytest_cache/ .mypy_cache/ .ruff_cache/ .coverage htmlcov/ dist/ *.egg-info src/*.egg-info
 
 # --- Docs site ---

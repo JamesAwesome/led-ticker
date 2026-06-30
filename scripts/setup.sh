@@ -141,15 +141,15 @@ if [ "$MODE" = "deploy" ]; then
     cat <<'EOF'
 
   Next steps:
-    • View live logs:       docker compose logs -f
+    • View live logs:       make logs
     • Open the web UI:      http://localhost:8080
                             (requires COMPOSE_PROFILES=webui — see below)
-    • Stop:                 docker compose down
+    • Stop:                 make down
 
   Web UI (optional sidecar):
     Bring everything up with the web UI enabled:
-      make rebuild
-    (or add COMPOSE_PROFILES=webui to a .env and re-run make setup)
+      COMPOSE_PROFILES=webui make up
+    (or add COMPOSE_PROFILES=webui to a .env so every make up/update includes it)
 
 EOF
 fi

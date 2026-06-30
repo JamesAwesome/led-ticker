@@ -170,7 +170,7 @@ scale = 2
 [[playlist.section.widget]]
 type = "countdown"
 text = "Days to New Year"
-countdown_date = "2027-01-01"
+countdown_date = 2027-01-01      # native TOML date (unquoted)
 font_color = [255, 255, 255]
 border = {style = "bands", colors = "usa", band_width = 8}
 

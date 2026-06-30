@@ -71,6 +71,52 @@ class Transition(Protocol):
         ...
 
 
+class _OutgoingScaleSweep:
+    """Mixin for hard-edged (visible moving edge) transitions — wipe, push,
+    split, scroll.
+
+    For a CROSS-SCALE transition (the next section uses a different
+    `default_scale`/section `scale`), `run_transition` re-wraps the canvas at
+    the incoming scale at `t >= scale_switch_at`. The default (0.5) suits
+    SOFT transitions (dissolve, color_flash): their fade/flash hides the
+    integer scale change at the midpoint. A hard-edged sweep has no fade, so a
+    midpoint switch is visible as the bar + content abruptly resizing
+    half-way through (a bigsign bug, 2026-06-30).
+
+    Setting `scale_switch_at = 1.0` renders the WHOLE sweep at the OUTGOING
+    scale and snaps to the incoming scale only on the final frame — the size
+    "pop" lands on the arriving content as it settles (least-jarring per a
+    motion-design review) instead of mid-sweep. Only affects cross-scale
+    transitions; same-scale is untouched (`needs_switch` is false).
+    """
+
+    scale_switch_at: float = 1.0
+
+
+def _phys(canvas: Any) -> tuple[Any, int, int, int, int]:
+    """Return (real, rw, rh, scale, y_offset_real) for physical-resolution painting.
+
+    Unwraps any ScaledCanvas wrapper and extracts the physical panel
+    dimensions, scale factor, and vertical content offset. Used by
+    hard-edged transitions (wipe, push, split) to paint their sweep bar
+    and blackout SubFill at the full physical panel resolution rather
+    than the logical content band.
+
+    At scale=1 (smallsign or a plain canvas) the caller gets the same
+    object back with the same width/height it already had — no behaviour
+    change. On banded wrappers (scale=2 on a 64-row bigsign, giving a
+    centred 32-row content band), the caller gets the 64-row real canvas
+    so it can fill the top/bottom letterbox bands that the wrapper's own
+    SubFill/SetPixel never touch.
+    """
+    from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
+
+    if isinstance(canvas, ScaledCanvas):
+        real = unwrap_to_real(canvas)
+        return real, real.width, real.height, canvas.scale, canvas.y_offset_real
+    return canvas, canvas.width, canvas.height, 1, 0
+
+
 _TRANSITION_REGISTRY: dict[str, type[Transition]] = {}
 
 # name -> (message, suggested_fix) for a transition removed from core.
@@ -251,9 +297,12 @@ async def run_transition(
 
     # `scale_switch_at` controls when the canvas is re-wrapped at incoming_scale.
     # Default 0.5 (dissolve behavior): outgoing fades out at its scale, incoming
-    # fades in at its own scale.  Wipe-style sprite transitions (e.g. sailor moon)
-    # set this to 0.0 so the canvas is at incoming_scale from the very first frame
-    # — the wand sprite stays physically consistent and there is no snap midway.
+    # fades in at its own scale.  Hard-edged transitions that inherit
+    # `_OutgoingScaleSweep` set this to 1.0 so the whole sweep renders at the
+    # outgoing scale and the size change only lands on the final arriving frame.
+    # The scale_switch_at <= 0.0 early-switch path is public surface for plugin
+    # transitions (historically used by wand/sprite-trail families); no in-core
+    # transition currently sets it below the default.
     scale_switch_at: float = getattr(transition, "scale_switch_at", 0.5)
 
     if needs_switch and scale_switch_at <= 0.0:
@@ -311,15 +360,19 @@ async def run_transition(
                 )
 
             active = incoming_canvas if incoming_canvas is not None else canvas
-            # Per-frame reset. The outgoing section is dominant before
-            # t=0.5 — paint its bg so the wine/yellow/whatever stays
-            # visible behind the outgoing widget for the first half.
-            # At t>=0.5 the incoming section's bg takes over, matching
-            # `incoming_scale`'s switch point. None on either side
-            # falls back to Clear() — that's the legacy black-flash
-            # behavior, fine for transitions between two no-bg
-            # sections but a visible stutter when either side has bg.
-            reset_bg = outgoing_bg_color if t < 0.5 else incoming_bg_color
+            # Per-frame reset. The bg cut-over MUST track `scale_switch_at`
+            # (the point the canvas re-wraps to incoming_scale and the
+            # incoming content takes over), NOT a hardcoded 0.5. While the
+            # outgoing content is dominant (t < scale_switch_at) paint the
+            # OUTGOING bg behind it; once the incoming takes over, paint the
+            # incoming bg. For a soft dissolve (scale_switch_at=0.5) this is
+            # the old midpoint behavior; for a hard-edged sweep
+            # (`_OutgoingScaleSweep`, scale_switch_at=1.0) it keeps the
+            # outgoing bg until the final frame — otherwise the incoming bg
+            # leaks through behind the still-present outgoing content for the
+            # second half of the wipe. None on either side falls back to
+            # Clear() (legacy black-flash; fine for two no-bg sections).
+            reset_bg = outgoing_bg_color if t < scale_switch_at else incoming_bg_color
             if reset_bg is not None:
                 active.Fill(*reset_bg)
             else:

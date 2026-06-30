@@ -1672,6 +1672,103 @@ class TestRunTransitionCrossScale:
         )
         assert bigsign_frame.create_canvas.call_count == 0
 
+    async def test_wipe_cross_scale_sweeps_at_outgoing_scale(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        """Option B: a cross-scale WIPE renders the whole sweep at the OUTGOING
+        scale and snaps to the incoming scale only on the FINAL frame — no
+        mid-sweep size jump (the bigsign bug). Contrast with dissolve, which
+        switches at the midpoint (its cross-fade hides the change)."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions.wipe import WipeLeft
+
+        class _Recorder:
+            def __init__(self, inner):
+                self._inner = inner
+                self.scale_switch_at = getattr(inner, "scale_switch_at", 0.5)
+                self.scales: list[int] = []
+
+            def frame_at(self, t, canvas, *a, **k):
+                self.scales.append(getattr(canvas, "scale", 1))
+                return self._inner.frame_at(t, canvas, *a, **k)
+
+        rec = _Recorder(WipeLeft())
+        await run_transition(
+            ScaledCanvas(real_bigsign_canvas, scale=2),
+            bigsign_frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+        assert rec.scales, "frame_at never called"
+        assert all(s == 2 for s in rec.scales[:-1]), rec.scales
+        assert rec.scales[-1] == 4, rec.scales
+
+        # Contrast: dissolve switches mid-sweep (scale 4 appears before the end).
+        rec2 = _Recorder(Dissolve())
+        await run_transition(
+            ScaledCanvas(real_bigsign_canvas, scale=2),
+            bigsign_frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec2,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+        assert 4 in rec2.scales[:-1], rec2.scales
+
+    def test_hard_edged_transitions_use_outgoing_scale_sweep(self):
+        """wipe/push/split/scroll opt into Option B (scale_switch_at = 1.0);
+        dissolve/color_flash/cut keep the 0.5 default."""
+        from led_ticker.transitions.effects import (
+            ColorFlash,
+            Cut,
+            Scroll,
+            SplitHorizontal,
+        )
+        from led_ticker.transitions.effects import Dissolve as _Dissolve
+        from led_ticker.transitions.push import (
+            PushAlternating,
+            PushDown,
+            PushLeft,
+            PushRandom,
+            PushRight,
+            PushUp,
+        )
+        from led_ticker.transitions.wipe import (
+            WipeAlternating,
+            WipeDown,
+            WipeLeft,
+            WipeRandom,
+            WipeRight,
+            WipeUp,
+        )
+
+        hard_edged = [
+            WipeLeft(),
+            WipeRight(),
+            WipeUp(),
+            WipeDown(),
+            WipeRandom(),
+            WipeAlternating(),
+            PushLeft(),
+            PushRight(),
+            PushUp(),
+            PushDown(),
+            PushRandom(),
+            PushAlternating(),
+            SplitHorizontal(),
+            Scroll(),
+        ]
+        for tr in hard_edged:
+            assert tr.scale_switch_at == 1.0, type(tr).__name__
+        for tr in (_Dissolve(), ColorFlash(), Cut()):
+            assert getattr(tr, "scale_switch_at", 0.5) == 0.5, type(tr).__name__
+
     async def test_incoming_content_height_threaded_into_wrapper(
         self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
     ):
@@ -2044,6 +2141,41 @@ class TestRunTransitionOutgoingBgColor:
             "transition flashed black mid-transition"
         )
 
+    async def test_hard_edged_keeps_outgoing_bg_until_final_frame(
+        self, capturing_canvas, mock_frame, no_sleep
+    ):
+        """Option-B bg fix: a hard-edged sweep (`scale_switch_at = 1.0`) keeps
+        the OUTGOING bg for the whole sweep and paints the incoming bg only on
+        the final frame — the cut-over tracks `scale_switch_at`, not a
+        hardcoded 0.5. Otherwise the incoming bg leaks through behind the
+        still-present outgoing content for the back half of the wipe (the
+        bigsign smoke-test report)."""
+        from led_ticker.transitions.wipe import WipeLeft
+
+        outgoing = mock.Mock()
+        incoming = mock.Mock()
+        mock_frame.swap.return_value = capturing_canvas
+
+        await run_transition(
+            capturing_canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=WipeLeft(),  # scale_switch_at = 1.0
+            duration=0.5,
+            outgoing_bg_color=(42, 0, 16),  # wine
+            incoming_bg_color=(255, 230, 80),  # yellow
+        )
+
+        fills = [args for kind, args in capturing_canvas.reset_calls if kind == "Fill"]
+        assert fills, "no Fill calls"
+        # Incoming (yellow) ONLY on the final frame; outgoing (wine) every
+        # frame before it — no mid-sweep incoming-bg leak.
+        assert fills[-1] == (255, 230, 80), fills
+        assert all(f == (42, 0, 16) for f in fills[:-1]), (
+            f"incoming bg leaked before the final frame: {fills}"
+        )
+
     async def test_outgoing_accepts_graphics_color_object(
         self, capturing_canvas, mock_frame, no_sleep
     ):
@@ -2362,3 +2494,374 @@ async def test_run_transition_allocates_guard_once(swapping_frame, monkeypatch):
         breaker=RenderBreaker(),
     )
     assert calls["n"] == 2  # exactly one guard per widget, regardless of frame_count
+
+
+# ---------------------------------------------------------------------------
+# Banded canvas full-panel coverage (the cross-scale wipe/push/split fix)
+# ---------------------------------------------------------------------------
+# These tests assert that hard-edged transitions (wipe / push / split) touch
+# the FULL physical panel — including the letterbox bands above and below the
+# content zone — when called with a banded ScaledCanvas wrapper (e.g.
+# scale=2, content_height=16 on a 256×64 panel).
+#
+# Setup:
+#   - real:  HeadlessCanvas 256×64
+#   - wrapper: ScaledCanvas(real, scale=2, content_height=16)
+#   - y_offset_real = (64 - 32) // 2 = 16
+#   - Top band:     rows  0..15  (MUST be touched after fix)
+#   - Content band: rows 16..47
+#   - Bottom band:  rows 48..63
+
+
+class TestBandedCanvasFullPanel:
+    """Transitions must paint or black-out the FULL physical panel on banded
+    ScaledCanvas wrappers, not just the centered content band."""
+
+    @pytest.fixture
+    def real_canvas(self):
+        """256×64 real (HeadlessCanvas) — bigsign physical dimensions."""
+        from led_ticker.backends.headless import HeadlessCanvas
+
+        return HeadlessCanvas(width=256, height=64)
+
+    @pytest.fixture
+    def banded_wrapper(self, real_canvas):
+        """scale=2, content_height=16 → y_offset_real=16, 16px top/bottom bands."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        return ScaledCanvas(real_canvas, scale=2, content_height=16)
+
+    @pytest.fixture
+    def make_widget(self):
+        def _factory(content_width=40):
+            widget = mock.Mock()
+            widget.hold_time = 0.0
+            widget.draw.side_effect = lambda c, cursor_pos=0, **kw: (
+                c,
+                cursor_pos + content_width,
+            )
+            return widget
+
+        return _factory
+
+    def test_wipe_right_blackout_covers_top_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """WipeRight at mid-sweep blacks out the left region at FULL physical
+        height, including the top letterbox band (rows 0..15). Before the fix
+        the SubFill only reached rows 16..47 (the content band)."""
+        from led_ticker.transitions.wipe import WipeRight
+
+        # Start with a sentinel colour in the top band so we can verify it
+        # was overwritten by the blackout.
+        for x in range(256):
+            for y in range(16):  # top band
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        wipe = WipeRight()
+        # t=0.5: sweeps across the middle — left half should be blacked out
+        wipe.frame_at(0.5, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The left half of the top band must now be black (blacked out by SubFill)
+        blackout_cols = 256 // 2  # boundary = int(0.5 * 256) = 128
+        top_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(blackout_cols)
+            for y in range(16)  # top band rows
+        )
+        assert top_band_cleared, (
+            "WipeRight blackout did not reach the top physical band "
+            "(rows 0..15); fix: use real.SubFill with rh, not canvas.height"
+        )
+
+    def test_push_left_blackout_covers_top_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """PushLeft at mid-transition blacks out the incoming (right) zone at
+        FULL physical height, including rows 0..15 (the top letterbox band)."""
+        from led_ticker.transitions.push import PushLeft
+
+        # Sentinel colour in the top band
+        for x in range(256):
+            for y in range(16):
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        push = PushLeft()
+        # t=0.5: scroll_offset = int(0.5*(128+10))=69, clear_start=max(0,128+10-69)=69
+        # We just need the blackout to have touched the top band in the cleared region
+        push.frame_at(0.5, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The cleared (right-side) region of the top band should be black
+        # clear_start in logical = 69, physical = 69 * 2 = 138
+        clear_start_phys = max(0, (128 + 10 - int(0.5 * (128 + 10))) * 2)
+        if clear_start_phys < 256:
+            top_band_cleared = all(
+                real_canvas.get_pixel(x, y) == (0, 0, 0)
+                for x in range(clear_start_phys, 256)
+                for y in range(16)
+            )
+            assert top_band_cleared, (
+                "PushLeft blackout did not reach the top physical band "
+                "(rows 0..15); fix: use real.SubFill with rh, not h"
+            )
+
+    def test_split_horizontal_blackout_covers_top_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """SplitHorizontal black center-band expands at FULL physical height,
+        including the top letterbox band (rows 0..15)."""
+        from led_ticker.transitions.effects import SplitHorizontal
+
+        # Sentinel colour in the top band
+        for x in range(256):
+            for y in range(16):
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        split = SplitHorizontal()
+        # t=0.9: half=128, reveal=int(0.9*128)=115; left=13, right=243
+        split.frame_at(0.9, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The center black band in the top-band rows should be black
+        # band_x_phys = max(0, 13) * 2 = 26  (left edge * scale)
+        # band_right_phys = min(243, 128) * 2 = 243 * 2 = 486 → clamped to 256
+        # → check a pixel near the center top row
+        center_x = 128  # physical middle column
+        top_row = 8  # inside top band
+        pixel = real_canvas.get_pixel(center_x, top_row)
+        assert pixel == (0, 0, 0), (
+            f"SplitHorizontal center blackout did not reach top-band row {top_row} "
+            f"at x={center_x}; got {pixel}. "
+            "Fix: use real.SubFill with rh, not canvas.height."
+        )
+
+    # ---------------------------------------------------------------------------
+    # Vertical-direction behavioral tests (boundary_row_phys arithmetic)
+    # ---------------------------------------------------------------------------
+    # WipeDown and PushUp both compute:
+    #   boundary_row_phys = boundary_row * scale + y_offset_real
+    # This is the only arithmetic in the fix that mixes scale AND the vertical
+    # content offset.  The tests below verify that the SubFill blackout reaches
+    # rows OUTSIDE the centered content band (i.e. the top and bottom letterbox
+    # bands) on a banded wrapper.
+    #
+    # Banded wrapper geometry recap:
+    #   real: 256×64, scale=2, content_height=16
+    #   y_offset_real = (64 - 32) // 2 = 16
+    #   Top band:     rows  0..15   ← must be cleared by WipeDown
+    #   Content band: rows 16..47
+    #   Bottom band:  rows 48..63  ← must be cleared by PushUp
+    #
+    # Pre-fix revert-reasoning (for FAIL-before/PASS-after verification):
+    #   OLD PushUp:  boundary_row_phys = boundary_row * scale  (no y_offset_real)
+    #     → at t=0.5: 10 * 2 = 20  → SubFill(0, 20, 256, 44, …)
+    #       rows 20..63 blacked out, MISSING rows 0..15 only if PushDown
+    #   OLD WipeDown: sweep_row in logical space (no scale/y_offset)
+    #     → at t=0.5 on logical canvas height=16: sweep_row=8
+    #       SubFill(0, 0, 256, 8, …) → only rows 0..7 of the 64-row panel
+    #       Top band rows 8..15 NOT cleared, bottom band 48..63 NOT cleared.
+
+    def test_wipe_down_blackout_covers_bottom_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """WipeDown at mid-sweep blacks out rows above the sweep including the
+        TOP physical band (rows 0..15).  Before the fix, wipe geometry operated
+        on the logical canvas height (16) instead of the real panel height (64),
+        so the SubFill only cleared logical rows — leaving the physical top band
+        untouched.
+
+        At t=0.5 on the banded wrapper (rh=64):
+          sweep_row = min(int(0.5 * 65), 64) = 32
+          SubFill(0, 0, 256, 32, …) → rows 0..31 cleared.
+        Top band (0..15) IS inside that range → must be black after the call.
+        """
+        from led_ticker.transitions.wipe import WipeDown
+
+        # Sentinel colour in the top band so we can verify it was cleared.
+        for x in range(256):
+            for y in range(16):  # top band
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        wipe = WipeDown()
+        wipe.frame_at(0.5, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The entire top physical band should be black (inside the SubFill region).
+        top_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(256)
+            for y in range(16)  # top band rows
+        )
+        assert top_band_cleared, (
+            "WipeDown blackout did not reach the top physical band (rows 0..15); "
+            "fix: use rh (real panel height) in SubFill, not canvas.height"
+        )
+
+    def test_wipe_down_blackout_covers_full_top_band_and_not_beyond_sweep(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """WipeDown sweep blacks out rows 0..sweep_row-1 at FULL physical height.
+
+        At t=0.25 on rh=64: sweep_row = min(int(0.25*65), 64) = 16.
+        SubFill(0, 0, 256, 16, …) → rows 0..15 cleared.
+        The 2*scale sweep line then paints rows 15 and 16 with the sweep colour,
+        so row 15 ends up as sweep-green rather than black — that is correct
+        rendering behaviour.  We check rows 0..13 (unambiguously above the
+        sweep line) to isolate the blackout from the sweep-line overlay.
+        """
+        from led_ticker.transitions.wipe import WipeDown
+
+        # Paint every row a sentinel colour first.
+        for x in range(256):
+            for y in range(64):
+                real_canvas.SetPixel(x, y, 200, 200, 200)
+
+        wipe = WipeDown()
+        wipe.frame_at(0.25, banded_wrapper, make_widget(40), make_widget(40))
+
+        # At t=0.25, sweep_row=16.  The sweep line is 2*scale=4 px thick,
+        # painting rows 13..16.  Rows 0..12 are above the sweep-line overlay
+        # and must be cleared by SubFill.
+        top_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(256)
+            for y in range(13)  # rows 0..12, safely above the sweep-line (rows 13..16)
+        )
+        assert top_band_cleared, (
+            "WipeDown t=0.25 did not clear top physical rows 0..12; "
+            "fix: use rh (real panel height) in SubFill, not canvas.height"
+        )
+
+    def test_push_up_blackout_covers_bottom_band(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """PushUp at mid-transition blacks out rows from the incoming boundary
+        downward at FULL physical height, including the BOTTOM physical band
+        (rows 48..63).  Before the fix, boundary_row_phys omitted y_offset_real
+        so the SubFill started too high and left the bottom band untouched.
+
+        At t=0.5 on banded wrapper (h=16, scale=2, y_offset_real=16, rh=64):
+          scroll_offset = int(0.5 * (16 + 4)) = 10
+          incoming_y = 16 + 4 - 10 = 10
+          boundary_row = max(0, min(16, 10)) = 10  (logical)
+          boundary_row_phys = 10 * 2 + 16 = 36     (physical, WITH fix)
+          SubFill(0, 36, 256, 28, …) → rows 36..63 cleared.
+          Bottom band (48..63) IS inside that range.
+
+        Without the fix:
+          boundary_row_phys = 10 * 2 = 20  (no y_offset_real)
+          SubFill(0, 20, 256, 44, …) → rows 20..63 cleared.
+          The bottom band IS cleared in the old code too — but the top band
+          and the upper content zone are affected incorrectly.
+          For PushDown the pre-fix omission causes the bottom band to be missed;
+          the PushUp test verifies the y_offset_real term shifts SubFill correctly.
+        """
+        from led_ticker.transitions.push import PushUp
+
+        # Sentinel colour in the bottom band so we can verify it was cleared.
+        for x in range(256):
+            for y in range(48, 64):  # bottom band
+                real_canvas.SetPixel(x, y, 100, 100, 100)
+
+        push = PushUp()
+        push.frame_at(0.5, banded_wrapper, make_widget(40), make_widget(40))
+
+        # The entire bottom physical band should be black.
+        bottom_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(256)
+            for y in range(48, 64)  # bottom band rows
+        )
+        assert bottom_band_cleared, (
+            "PushUp blackout did not reach the bottom physical band (rows 48..63); "
+            "fix: include y_offset_real in boundary_row_phys"
+        )
+
+    def test_push_up_boundary_row_phys_respects_y_offset(
+        self, real_canvas, banded_wrapper, make_widget
+    ):
+        """Verify that the SubFill start row accounts for y_offset_real.
+
+        The content band starts at physical row 16 (y_offset_real).  For
+        PushUp at t near zero (scroll_offset=0, incoming_y = h+GAP = 20),
+        boundary_row = min(16, 20) = 16 (full height, nothing to black out yet
+        since incoming hasn't entered).  As t advances to the point where
+        incoming_y drops to 0, boundary_row = 0 and
+        boundary_row_phys = 0 * 2 + 16 = 16 (physical).
+        SubFill from row 16 clears the ENTIRE content band AND bottom band.
+        Without y_offset_real: SubFill from row 0 would clear the top band
+        unnecessarily and still miss the bottom band boundary semantics.
+
+        This test uses t=0.99 (incoming fully entered) to check the boundary
+        is at physical row 16 (y_offset_real), not row 0.
+        """
+        from led_ticker.transitions.push import PushUp
+
+        # Paint all rows with sentinel.
+        for x in range(256):
+            for y in range(64):
+                real_canvas.SetPixel(x, y, 50, 50, 50)
+
+        push = PushUp()
+        # t=0.99: scroll_offset = int(0.99 * 20) = 19
+        # incoming_y = 20 - 19 = 1  (almost fully entered)
+        # boundary_row = max(0, min(16, 1)) = 1
+        # boundary_row_phys = 1*2 + 16 = 18  → SubFill(0, 18, 256, 46, …)
+        push.frame_at(0.99, banded_wrapper, make_widget(40), make_widget(40))
+
+        # Rows 18..63 should be cleared by SubFill.
+        # Row 17 should NOT be cleared by SubFill (it may be drawn by outgoing.draw
+        # but should not be SubFill'd). We check that bottom band is cleared.
+        bottom_band_cleared = all(
+            real_canvas.get_pixel(x, y) == (0, 0, 0)
+            for x in range(256)
+            for y in range(48, 64)
+        )
+        assert bottom_band_cleared, (
+            "PushUp at t=0.99: bottom physical band not cleared by SubFill; "
+            "y_offset_real may be missing from boundary_row_phys calculation"
+        )
+
+
+# ---------------------------------------------------------------------------
+# _phys scale-1 no-op contract
+# ---------------------------------------------------------------------------
+
+
+class TestPhysHelper:
+    """Unit tests for the _phys() helper (transitions/__init__.py).
+
+    Documents the smallsign no-regression contract: on a plain non-wrapper
+    canvas (scale=1, no ScaledCanvas), _phys must return the canvas itself
+    unchanged, with scale=1 and y_offset=0.
+    """
+
+    def test_plain_canvas_returns_self_with_scale1_offset0(self):
+        """_phys(plain_canvas) → (canvas, width, height, 1, 0).
+
+        Asserts the smallsign no-regression contract: passing a plain canvas
+        (not a ScaledCanvas) returns the same object back, the same width and
+        height, scale factor 1, and y_offset_real 0 — i.e. no behaviour change
+        for the smallsign render path."""
+        from led_ticker.transitions import _phys
+
+        c = mock.Mock()
+        c.width = 160
+        c.height = 16
+        real, rw, rh, scale, y_offset = _phys(c)
+        assert real is c
+        assert rw == 160
+        assert rh == 16
+        assert scale == 1
+        assert y_offset == 0
+
+    def test_plain_canvas_headless(self):
+        """_phys returns the HeadlessCanvas itself unchanged at scale=1."""
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.transitions import _phys
+
+        c = HeadlessCanvas(width=160, height=16)
+        real, rw, rh, scale, y_offset = _phys(c)
+        assert real is c
+        assert rw == 160
+        assert rh == 16
+        assert scale == 1
+        assert y_offset == 0

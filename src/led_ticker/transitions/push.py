@@ -4,11 +4,16 @@ import random
 from typing import Any
 
 from led_ticker._types import Canvas
-from led_ticker.transitions import Transition, register_transition
+from led_ticker.transitions import (
+    Transition,
+    _OutgoingScaleSweep,
+    _phys,
+    register_transition,
+)
 
 
 @register_transition("push_left")
-class PushLeft:
+class PushLeft(_OutgoingScaleSweep):
     """Rapid scroll — outgoing slides left, incoming enters from right.
 
     Uses draw-blackout-draw: draw outgoing at its scroll position,
@@ -25,15 +30,15 @@ class PushLeft:
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, _yo = _phys(canvas)
+        w = canvas.width  # logical width (cursor_pos units for draw)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        # scroll_offset sweeps from 0 to (canvas.width + gap)
+        # scroll_offset sweeps from 0 to (logical width + gap) in logical units
         total_travel = w + self.GAP
         scroll_offset = int(t * total_travel)
 
@@ -45,10 +50,12 @@ class PushLeft:
         # 1. Draw outgoing (may bleed across entire canvas)
         outgoing.draw(canvas, cursor_pos=outgoing_pos)
 
-        # 2. Black out from incoming_pos to canvas width (clear the right zone)
-        clear_start = max(0, incoming_pos)
-        if clear_start < w:
-            canvas.SubFill(clear_start, 0, w - clear_start, h, 0, 0, 0)
+        # 2. Black out from incoming_pos to canvas right edge at FULL physical
+        #    height — prevents text bleed AND clears the letterbox bands.
+        clear_start_logical = max(0, incoming_pos)
+        if clear_start_logical < w:
+            clear_start_phys = clear_start_logical * scale
+            real.SubFill(clear_start_phys, 0, rw - clear_start_phys, rh, 0, 0, 0)
 
         # 3. Draw incoming on the cleared right side
         if incoming_pos < w:
@@ -58,7 +65,7 @@ class PushLeft:
 
 
 @register_transition("push_right")
-class PushRight:
+class PushRight(_OutgoingScaleSweep):
     """Rightward push — incoming enters from left, outgoing exits right.
 
     DrawText always renders rightward from cursor_pos, so we cannot
@@ -80,15 +87,15 @@ class PushRight:
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, _yo = _phys(canvas)
+        w = canvas.width  # logical width (cursor_pos units for draw)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
             return canvas
 
-        boundary = int(t * w)
+        boundary = int(t * w)  # logical units (cursor_pos)
 
         if boundary <= 0:
             # First frame: show outgoing at its natural hold position
@@ -101,8 +108,10 @@ class PushRight:
         # 1. Draw incoming sliding in from left
         incoming.draw(canvas, cursor_pos=incoming_pos)
 
-        # 2. Black out right zone — clip incoming to left zone only
-        canvas.SubFill(boundary, 0, w - boundary, h, 0, 0, 0)
+        # 2. Black out right zone at FULL physical height — clips incoming bleed
+        #    and also clears the letterbox bands.
+        boundary_phys = boundary * scale
+        real.SubFill(boundary_phys, 0, rw - boundary_phys, rh, 0, 0, 0)
 
         # 3. Draw outgoing starting at boundary (no bleed into left zone
         #    since DrawText only renders rightward from cursor_pos)
@@ -112,7 +121,7 @@ class PushRight:
 
 
 @register_transition("push_up")
-class PushUp:
+class PushUp(_OutgoingScaleSweep):
     """Rapid scroll — outgoing slides up, incoming enters from bottom.
 
     Vertical version of PushLeft.  Uses y_offset to shift both widgets
@@ -127,8 +136,8 @@ class PushUp:
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, y_offset_real = _phys(canvas)
+        h = canvas.height  # logical content height (y_offset units for draw)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -147,10 +156,12 @@ class PushUp:
         # 1. Draw outgoing shifted up (at its scrolled position)
         outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos, y_offset=outgoing_y)
 
-        # 2. Black out rows from boundary downward (incoming zone)
-        boundary_row = max(0, min(h, incoming_y))
-        if boundary_row < h:
-            canvas.SubFill(0, boundary_row, w, h - boundary_row, 0, 0, 0)
+        # 2. Black out rows from the incoming boundary downward at FULL physical
+        #    width — includes letterbox bands so the incoming zone is fully clear.
+        boundary_row = max(0, min(h, incoming_y))  # logical
+        boundary_row_phys = boundary_row * scale + y_offset_real
+        if boundary_row_phys < rh:
+            real.SubFill(0, boundary_row_phys, rw, rh - boundary_row_phys, 0, 0, 0)
 
         # 3. Draw incoming on the cleared bottom zone
         if incoming_y < h:
@@ -160,7 +171,7 @@ class PushUp:
 
 
 @register_transition("push_down")
-class PushDown:
+class PushDown(_OutgoingScaleSweep):
     """Rapid scroll — outgoing slides down, incoming enters from top.
 
     Mirror of PushUp.  Uses y_offset to shift both widgets vertically,
@@ -175,8 +186,8 @@ class PushDown:
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, y_offset_real = _phys(canvas)
+        h = canvas.height  # logical content height (y_offset units for draw)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
@@ -196,10 +207,12 @@ class PushDown:
         if incoming_y + h > 0:
             incoming.draw(canvas, cursor_pos=0, y_offset=incoming_y)
 
-        # 2. Black out rows from boundary downward (outgoing zone)
-        boundary_row = max(0, min(h, incoming_y + h))
-        if boundary_row < h:
-            canvas.SubFill(0, boundary_row, w, h - boundary_row, 0, 0, 0)
+        # 2. Black out rows from the boundary downward (outgoing zone) at FULL
+        #    physical width — includes letterbox bands.
+        boundary_row = max(0, min(h, incoming_y + h))  # logical
+        boundary_row_phys = boundary_row * scale + y_offset_real
+        if boundary_row_phys < rh:
+            real.SubFill(0, boundary_row_phys, rw, rh - boundary_row_phys, 0, 0, 0)
 
         # 3. Draw outgoing shifted down on the cleared bottom zone
         outgoing.draw(
@@ -212,7 +225,7 @@ class PushDown:
 
 
 @register_transition("push_random")
-class PushRandom:
+class PushRandom(_OutgoingScaleSweep):
     """Picks a random push direction on each swap.
 
     Never repeats the same direction back-to-back.
@@ -247,7 +260,7 @@ class PushRandom:
 
 
 @register_transition("push_alternating")
-class PushAlternating:
+class PushAlternating(_OutgoingScaleSweep):
     """Cycles through push_left -> push_right -> push_up -> push_down."""
 
     def __init__(self, **kwargs: Any) -> None:

@@ -4,10 +4,10 @@ import random
 from typing import Any
 
 from led_ticker._types import Canvas, ColorTuple
-from led_ticker.transitions import register_transition
+from led_ticker.transitions import _OutgoingScaleSweep, _phys, register_transition
 
 
-class _BaseWipe:
+class _BaseWipe(_OutgoingScaleSweep):
     """Base class for wipe transitions. Not registered as a transition."""
 
     DEFAULT_COLOR: ColorTuple = (0, 255, 255)
@@ -33,25 +33,24 @@ class WipeUp(_BaseWipe):
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, _yo = _phys(canvas)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
-        # Sweep line moves from bottom (h-1) to top (0)
-        sweep_row = max(0, h - 1 - min(int(t * h), h - 1))
+        # Sweep line moves from bottom (rh-1) to top (0) in physical rows.
+        sweep_row = max(0, rh - 1 - min(int(t * rh), rh - 1))
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            # Black out rows below sweep (erased region)
-            if sweep_row < h - 1:
-                canvas.SubFill(0, sweep_row + 1, w, h - sweep_row - 1, 0, 0, 0)
-            # Sweep line (2px thick)
-            for dy in range(2):
+            # Black out rows below sweep at full physical width/height.
+            if sweep_row < rh - 1:
+                real.SubFill(0, sweep_row + 1, rw, rh - sweep_row - 1, 0, 0, 0)
+            # Sweep line (2*scale px thick) spans full physical width.
+            for dy in range(2 * scale):
                 row = sweep_row + dy
-                if 0 <= row < h:
-                    for x in range(w):
-                        canvas.SetPixel(x, row, *self.color)
+                if 0 <= row < rh:
+                    for x in range(rw):
+                        real.SetPixel(x, row, *self.color)
         return canvas
 
 
@@ -64,25 +63,24 @@ class WipeLeft(_BaseWipe):
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, _yo = _phys(canvas)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
-        boundary = min(int(t * (w + 1)), w)
+        boundary = min(int(t * (rw + 1)), rw)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            line_x = w - boundary
-            # Black out right of sweep line (erased region)
+            line_x = rw - boundary
+            # Black out right of sweep line at full physical height.
             if boundary > 0:
-                canvas.SubFill(line_x, 0, w - line_x, h, 0, 0, 0)
-            # Sweep line at line_x
-            sweep_w = min(2, line_x)
+                real.SubFill(line_x, 0, rw - line_x, rh, 0, 0, 0)
+            # Sweep line (2*scale px thick) spans full physical height.
+            sweep_w = min(2 * scale, line_x)
             if sweep_w > 0:
-                for y in range(h):
+                for y in range(rh):
                     for dx in range(sweep_w):
-                        canvas.SetPixel(line_x - 1 - dx, y, *self.color)
+                        real.SetPixel(line_x - 1 - dx, y, *self.color)
         return canvas
 
 
@@ -95,24 +93,23 @@ class WipeRight(_BaseWipe):
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, _yo = _phys(canvas)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
-        boundary = min(int(t * (w + 1)), w)
+        boundary = min(int(t * (rw + 1)), rw)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            # Black out left of boundary (erased region)
+            # Black out left of boundary at full physical height.
             if boundary > 0:
-                canvas.SubFill(0, 0, boundary, h, 0, 0, 0)
-            # Sweep line at boundary
-            sweep_w = min(2, w - boundary)
+                real.SubFill(0, 0, boundary, rh, 0, 0, 0)
+            # Sweep line (2*scale px thick) spans full physical height.
+            sweep_w = min(2 * scale, rw - boundary)
             if sweep_w > 0:
-                for y in range(h):
+                for y in range(rh):
                     for dx in range(sweep_w):
-                        canvas.SetPixel(boundary + dx, y, *self.color)
+                        real.SetPixel(boundary + dx, y, *self.color)
         return canvas
 
 
@@ -126,29 +123,28 @@ class WipeDown(_BaseWipe):
     def frame_at(
         self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
     ) -> Canvas:
-        w = canvas.width
-        h = getattr(canvas, "height", 16)
+        real, rw, rh, scale, _yo = _phys(canvas)
         outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
-        sweep_row = min(int(t * (h + 1)), h)
+        sweep_row = min(int(t * (rh + 1)), rh)
 
         if t >= 1.0:
             incoming.draw(canvas, cursor_pos=0)
         else:
             outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
-            # Black out rows above sweep (erased region)
+            # Black out rows above sweep at full physical width.
             if sweep_row > 0:
-                canvas.SubFill(0, 0, w, min(sweep_row, h), 0, 0, 0)
-            # Sweep line (2px thick)
-            for dy in range(2):
+                real.SubFill(0, 0, rw, min(sweep_row, rh), 0, 0, 0)
+            # Sweep line (2*scale px thick) spans full physical width.
+            for dy in range(2 * scale):
                 row = sweep_row - dy
-                if 0 <= row < h:
-                    for x in range(w):
-                        canvas.SetPixel(x, row, *self.color)
+                if 0 <= row < rh:
+                    for x in range(rw):
+                        real.SetPixel(x, row, *self.color)
         return canvas
 
 
 @register_transition("wipe_random")
-class WipeRandom:
+class WipeRandom(_OutgoingScaleSweep):
     """Picks a random wipe direction and sweep color on each swap.
 
     Never repeats the same direction back-to-back. Color is drawn
@@ -199,7 +195,7 @@ class WipeRandom:
 
 
 @register_transition("wipe_alternating")
-class WipeAlternating:
+class WipeAlternating(_OutgoingScaleSweep):
     """Cycles through wipe_left -> wipe_right -> wipe_up -> wipe_down."""
 
     def __init__(

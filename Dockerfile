@@ -68,6 +68,12 @@ ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LED_TICKER_CORE=$SETUPTOOLS_SCM_PRETEND_V
 # constraints — so constraints-core.txt records led-ticker-core at the real
 # version, not the 0.0.0 fallback the deps layer would have (it had no version).
 RUN pip install --no-deps . \
+ && CORE_VER="$(pip show led-ticker-core | awk '/^Version:/{print $2}')" \
+ && if [ "$CORE_VER" = "0.0.0" ]; then \
+        echo "ERROR: led-ticker-core built as 0.0.0 — no version was passed to the build." >&2; \
+        echo "Deploy with 'make setup' (first time) or 'make rebuild' (update); they compute it." >&2; \
+        exit 1; \
+    fi \
  && pip list --format=freeze > /code/constraints-core.txt
 
 # Build stamp — branch@shortsha, computed on the host by `make build-docker` /

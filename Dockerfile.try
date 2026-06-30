@@ -33,6 +33,9 @@ COPY src ./src
 # runs the latest matching PyPI RELEASE of core, plus the source's bundled config.
 # That's intentional for an evaluation try (you see the released code). To preview
 # uncommitted local core changes, use `make dev` and run led-ticker directly.
+# NOTE: the production Dockerfile's "fail if core==0.0.0" guard is intentionally
+# absent here — the try image is SUPPOSED to build core at 0.0.0 and pull the
+# released core from PyPI. Do not copy that guard into this file.
 RUN pip install --no-cache-dir . \
  && pip list --format=freeze | grep -v '^led-ticker-core==' > /code/constraints-core.txt
 # Install curated keyless plugins for the try-it showcase.

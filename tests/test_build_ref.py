@@ -5,7 +5,7 @@ from led_ticker._build import build_ref
 
 
 def test_env_wins(monkeypatch):
-    # The host-passed build ref (make rebuild) takes precedence.
+    # The host-passed build ref (make update) takes precedence.
     monkeypatch.setenv("LED_TICKER_BUILD_REF", "feat/x@abc1234")
     assert build_ref() == "feat/x@abc1234"
 
@@ -19,7 +19,7 @@ def test_git_fallback_when_env_unset(monkeypatch):
 
 def test_literal_unknown_env_falls_through(monkeypatch):
     # A bare `docker compose build` leaves the env empty/"unknown"; with no git
-    # in the image that resolves to "unknown" — deploy via `make rebuild`.
+    # in the image that resolves to "unknown" — deploy via `make update`.
     monkeypatch.setenv("LED_TICKER_BUILD_REF", "unknown")
     monkeypatch.setattr(_build, "_git_ref", lambda: None)
     monkeypatch.setattr(_build, "_package_version", lambda: None)

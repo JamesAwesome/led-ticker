@@ -3,7 +3,7 @@
 Resolved in priority order:
 
 1. ``LED_TICKER_BUILD_REF`` env — ``branch@shortsha``, computed on the host by
-   ``make build-docker`` / ``make rebuild`` and passed into the image as a build
+   ``make build`` / ``make update`` and passed into the image as a build
    arg (the Dockerfile sets it as ``ENV``). The literal ``"unknown"`` and empty
    values are treated as not-set.
 2. git at runtime, when running from a checkout (local dev or a custom

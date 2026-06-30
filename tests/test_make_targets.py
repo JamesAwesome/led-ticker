@@ -71,12 +71,15 @@ def test_dev_preflights_uv():
 
 
 def test_no_shipped_file_references_retired_make_targets():
+    # tests/ is intentionally excluded: this file contains the retired-name literals.
     roots = [
         "README.md",
         "compose.yaml",
         "Dockerfile",
         "scripts",
         "docs/site/src/content",
+        "CLAUDE.md",
+        "src",
     ]
     retired = ["make build-docker", "make rebuild"]
     offenders = []

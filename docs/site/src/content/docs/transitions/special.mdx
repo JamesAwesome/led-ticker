@@ -29,6 +29,11 @@ The special family covers transitions that don't fit the push / wipe / sprite sh
   caption="scroll — seamless continuous scroll with a bullet separator"
 />
 
+The scroll separator is a small white dot by default. Recolor it (e.g. to tone
+it down on bright content) with `separator_color` on the transition table —
+`transition = { type = "scroll", separator_color = [80, 80, 80] }` — accepting
+the same values as a widget `font_color`, including `"rainbow"`.
+
 ## Variants
 
 <OptionsTable source="transitions/special" />

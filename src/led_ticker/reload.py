@@ -5,10 +5,13 @@ render cycle. Validation gates the swap; a bad/missing config never reaches the
 loop (the panel keeps running the old config)."""
 
 import hashlib
+import logging
 import os
 from dataclasses import fields
 from pathlib import Path
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 
 def config_hash(path: Path) -> str | None:
@@ -152,9 +155,25 @@ async def _apply_reload(
     # and spawn a new one for the fresh registry. Mirror the schedule-respawn
     # pattern: cancel old, spawn new, return the new task handle so the caller
     # can cancel it on the next reload.
-    new_reg = DataRegistry()
-    for source_cfg in new_config.sources:
-        new_reg.add(build_source(source_cfg))
+    #
+    # Safety net: if any build_source call raises (e.g. unknown source type
+    # from a hand-edited config.toml typo) we MUST NOT crash the display loop
+    # and MUST NOT leave a half-applied registry. On error, keep the old
+    # registry + old refresh task live and let the rest of the reload
+    # (widgets, schedule) proceed on the last-good sources. The user can fix
+    # their typo and reload again.
+    try:
+        new_reg = DataRegistry()
+        for source_cfg in new_config.sources:
+            new_reg.add(build_source(source_cfg))
+    except Exception as exc:  # noqa: BLE001 - a bad source must not crash the loop
+        _log.error(
+            "reload: source registry rebuild failed (%s: %s) — "
+            "keeping old sources; fix the config and reload again",
+            type(exc).__name__,
+            exc,
+        )
+        return schedule_task, source_refresh_task, restart_required
     set_data_registry(new_reg)
     if source_refresh_task is not None:
         source_refresh_task.cancel()

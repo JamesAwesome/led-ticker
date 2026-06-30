@@ -19,7 +19,7 @@ default_scale = 4
 brightness = 60
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 loop_count = 1

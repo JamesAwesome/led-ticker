@@ -16,7 +16,7 @@ default = "scroll"
 duration = 1.0
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 3.0
 

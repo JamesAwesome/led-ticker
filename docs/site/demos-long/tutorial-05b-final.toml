@@ -31,7 +31,7 @@ between_sections = "dissolve"
 # --- Section 1: Welcome card with rainbow font + border ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 
@@ -44,7 +44,7 @@ border = "rainbow"
 # --- Section 2: Brand card with hi-res Instagram emoji (scale=2) ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 32
 loop_count = 1
@@ -70,7 +70,7 @@ bottom_color = [255, 240, 200]
 # --- Section 3: Info messages ---
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 

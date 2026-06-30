@@ -16,7 +16,7 @@ default = "split"
 duration = 0.9
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 3.0
 

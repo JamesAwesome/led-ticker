@@ -17,7 +17,7 @@ default = "color_flash"
 duration = 0.6
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 1.5
 transition = "color_flash"
@@ -32,7 +32,7 @@ type = "message"
 text = "pop"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 1.5
 transition = "color_flash"
@@ -47,7 +47,7 @@ type = "message"
 text = "flash"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 1.5
 transition = "color_flash"

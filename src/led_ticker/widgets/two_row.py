@@ -4,7 +4,7 @@ Renders TWO independent text strings on the same canvas:
 - Top row stays at a fixed position (held)
 - Bottom row scrolls left when its content overflows the canvas width
 
-Best in `swap` mode: each `TwoRowMessage` is its own display unit. The
+Best in `slideshow` mode: each `TwoRowMessage` is its own display unit. The
 top-row string is meant for a stable identifier (handle, headline, brand
 tag) and the bottom row for promotional copy that can be longer than
 the canvas width.

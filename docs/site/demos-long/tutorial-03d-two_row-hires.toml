@@ -23,7 +23,7 @@ default = "push_left"
 duration = 0.5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 scale = 2
 content_height = 24
 loop_count = 3

@@ -22,7 +22,7 @@ brightness = 60
 between_sections = "cut"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_left"
 transition_duration = 0.9
 loop_count = 1
@@ -37,7 +37,7 @@ type = "message"
 text = "←"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_right"
 transition_duration = 0.9
 loop_count = 1
@@ -52,7 +52,7 @@ type = "message"
 text = "→"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_up"
 transition_duration = 0.9
 loop_count = 1
@@ -67,7 +67,7 @@ type = "message"
 text = "↑"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_down"
 transition_duration = 0.9
 loop_count = 1
@@ -82,7 +82,7 @@ type = "message"
 text = "↓"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "push_random"
 transition_duration = 0.9
 loop_count = 1

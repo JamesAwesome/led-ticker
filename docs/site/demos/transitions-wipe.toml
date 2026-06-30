@@ -22,7 +22,7 @@ brightness = 60
 between_sections = "cut"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_left"
 transition_duration = 0.9
 loop_count = 1
@@ -37,7 +37,7 @@ type = "message"
 text = "← cyan"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_right"
 transition_duration = 0.9
 loop_count = 1
@@ -52,7 +52,7 @@ type = "message"
 text = "magenta →"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_up"
 transition_duration = 0.9
 loop_count = 1
@@ -67,7 +67,7 @@ type = "message"
 text = "↑ white"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_down"
 transition_duration = 0.9
 loop_count = 1
@@ -82,7 +82,7 @@ type = "message"
 text = "↓ green"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 transition = "wipe_random"
 transition_duration = 0.9
 transition_colors = [[0,255,255], [255,0,255], [255,255,255], [0,255,0]]

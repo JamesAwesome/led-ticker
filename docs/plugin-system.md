@@ -277,7 +277,7 @@ class TelnetBackend:
         ...
 ```
 
-`HeadlessCanvas` is the right canvas type to reuse — `HeadlessCanvas.get_pixel(x, y)` lets you read back individual pixel values for serialization, which no other canvas type supports (constraint #3: no GetPixel on real canvases). The two-buffer flip above (rather than a fresh `HeadlessCanvas` per `swap`) avoids per-frame heap pressure on a backend that runs for hours.
+`HeadlessCanvas` is the right canvas type to reuse — `HeadlessCanvas.get_pixel(x, y)` lets you read back individual pixel values for serialization, which no other canvas type supports (constraint #3: no GetPixel on real canvases). The two-buffer flip above (rather than a fresh `HeadlessCanvas` per `swap()`) avoids per-frame heap pressure on a backend that runs for hours.
 
 ### Wiring it up
 

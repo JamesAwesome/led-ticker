@@ -17,7 +17,7 @@ default = "push_left"
 duration = 0.5
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 2.5
 transition = "push_left"

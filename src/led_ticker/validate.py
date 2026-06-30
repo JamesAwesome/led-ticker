@@ -1254,7 +1254,7 @@ def _check_separator_fonts(
     return errors, warnings
 
 
-def _check_wraps_forever_swap_only(
+def _check_wraps_slideshow_only(
     config: AppConfig,
 ) -> list[ValidationIssue]:
     """Rule 27: bottom_text_wrap=True is only valid in mode='slideshow'.
@@ -1294,7 +1294,7 @@ def _check_wraps_forever_swap_only(
     return errors
 
 
-def _check_scroll_through_swap_only(
+def _check_scroll_through_slideshow_only(
     config: AppConfig,
 ) -> list[ValidationIssue]:
     """Rule 32: bottom_text_scroll='scroll_through' is only valid in
@@ -2063,12 +2063,12 @@ async def validate_config(
     errors.extend(sep_errors)
     warnings.extend(sep_warnings)
 
-    # Phase 1c (cont.): rule 27 — bottom_text_wrap requires mode=swap.
-    errors.extend(_check_wraps_forever_swap_only(config))
+    # Phase 1c (cont.): rule 27 — bottom_text_wrap requires mode=slideshow.
+    errors.extend(_check_wraps_slideshow_only(config))
 
     # Phase 1c (cont.): rule 32 — bottom_text_scroll='scroll_through'
-    # requires mode=swap (parallel to rule 27).
-    errors.extend(_check_scroll_through_swap_only(config))
+    # requires mode=slideshow (parallel to rule 27).
+    errors.extend(_check_scroll_through_slideshow_only(config))
 
     # Phase 1d: Per-row band-layout checks for two_row / image-two_row.
     # Only meaningful when build succeeded — otherwise the widget might

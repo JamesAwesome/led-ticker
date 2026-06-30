@@ -40,7 +40,7 @@ cutoff: header 5s < ~8s needed
 
 The estimate is coarse and intentionally ignores some cases:
 
-- `forever_scroll` / `infini_scroll` / `loop_count = 0` sections — runtime-dependent, contribute 0.
+- `ticker` / `one_at_a_time` / `loop_count = 0` sections — runtime-dependent, contribute 0.
 - Data-fetch widgets (`weather.current`, crypto, `rss.feed`, and plugin data widgets like `baseball.scores`) — depend on fetched data, contribute 0.
 - Bigsign `pixel_mapper_config` — naive canvas-width used.
 - Wrap floors, two-row overlay marquee, hires width, inter-widget transition time — not modelled; treat the number as a lower bound for transition-heavy playlists.

@@ -10,7 +10,7 @@ brightness = 60
 default = "cut"
 
 [[playlist.section]]
-mode = "swap"
+mode = "slideshow"
 loop_count = 1
 hold_time = 5.0
 

@@ -38,7 +38,13 @@ from led_ticker.colors import (
 )
 from led_ticker.config import SectionConfig, SourceConfig, TransitionConfig
 from led_ticker.frame import LedFrame
-from led_ticker.sources import ClockSource, DataSource, DateSource, StaticSource
+from led_ticker.sources import (
+    _PLUGIN_SOURCE_TYPES,  # noqa: PLC2701 — private but same package
+    ClockSource,
+    DataSource,
+    DateSource,
+    StaticSource,
+)
 from led_ticker.transitions import Transition, get_transition_class
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
@@ -1265,11 +1271,13 @@ _SOURCE_TYPES: dict[str, type[DataSource]] = {
 def get_source_class(source_type: str) -> type[DataSource]:
     """Return the DataSource subclass for `source_type`.
 
-    Raises ValueError on unknown types. Plugin source types (namespaced,
-    dotted) will merge in via the plugin registry in Task 4; this dict
-    holds the core types only.
+    Checks core types first, then plugin-registered types (namespaced,
+    dotted — populated by the plugin loader via ``api.source()``). Raises
+    ValueError on unknown types.
     """
     cls = _SOURCE_TYPES.get(source_type)
+    if cls is None:
+        cls = _PLUGIN_SOURCE_TYPES.get(source_type)
     if cls is None:
         raise ValueError(f"Unknown source type: {source_type!r}")
     return cls

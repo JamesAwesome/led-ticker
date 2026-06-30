@@ -73,6 +73,7 @@ from led_ticker.scaled_canvas import (
     paint_hires,
     unwrap_to_real,
 )
+from led_ticker.sources import DataSource
 from led_ticker.text_render import draw_text_per_char
 from led_ticker.transitions import Transition
 from led_ticker.transitions._hires_loader import (
@@ -107,6 +108,7 @@ __all__ = [
     "Color",
     "ColorTuple",
     "Container",
+    "DataSource",
     "DrawResult",
     "EMOJI_ROW_CAP",
     "ColorProvider",
@@ -243,6 +245,7 @@ class PluginAPI:
             "hires_emojis": {},
             "fonts": {},
             "backends": {},
+            "sources": {},
         }
         # Lifecycle hooks are ordered lists of callables (no name key), so they
         # live outside _buffers and are NOT committed to a registry — the loader
@@ -300,6 +303,21 @@ class PluginAPI:
 
         def deco(cls: _T) -> _T:
             self._buffers["backends"][self._qualify(name)] = cls
+            return cls
+
+        return deco
+
+    def source(self, name: str) -> Callable[[_T], _T]:
+        """Register a DataSource subclass under ``namespace.name``.
+
+        The registered class is reachable via ``get_source_class("namespace.name")``
+        once committed by the loader. Used in TOML as the ``type`` of a
+        ``[[source]]`` block: ``type = "namespace.name"``. The class must subclass
+        :class:`DataSource` and implement ``compute() -> str``.
+        """
+
+        def deco(cls: _T) -> _T:
+            self._buffers["sources"][self._qualify(name)] = cls
             return cls
 
         return deco

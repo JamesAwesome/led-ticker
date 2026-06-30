@@ -43,7 +43,7 @@ Two rules govern every registration:
 
 ## Registration methods
 
-`PluginAPI` exposes thirteen registration methods. The **decorator** forms register a class; the **call** forms register a value directly. Several examples below draw onto a **canvas** — the pixel grid for the current frame (the [`Canvas`](#exported-names) type, listed under Exported names).
+`PluginAPI` exposes fourteen registration methods. The **decorator** forms register a class; the **call** forms register a value directly. Several examples below draw onto a **canvas** — the pixel grid for the current frame (the [`Canvas`](#exported-names) type, listed under Exported names).
 
 {/* <!-- api-methods:start --> */}
 
@@ -57,6 +57,7 @@ Two rules govern every registration:
 | `api.color_provider(style)` | decorator | A [color provider](/concepts/color-providers/) class                                                   |
 | `api.animation(style)`      | decorator | An [animation](/concepts/animations/) class                                                            |
 | `api.border(name)`          | decorator | A [border effect](/concepts/borders/) class                                                            |
+| `api.source(name)`          | decorator | A `DataSource` subclass under `namespace.name` — powers inline `:namespace.name:` value tokens        |
 | `api.easing(name, fn)`      | call      | An easing function `(float) -> float`                                                                  |
 
 ```python
@@ -143,6 +144,7 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 | `Animation`         | The [animation](/concepts/animations/) protocol (`frame_for`)                                                                                     |
 | `BorderEffect`      | The [border](/concepts/borders/) protocol (`paint`)                                                                                               |
 | `BorderEffectBase`  | Base that enforces the `frame_invariant` class attr                                                                                               |
+| `DataSource`        | Base class for an inline value source — subclass, implement `compute() -> str`, register with `api.source(name)`                                  |
 | `SegmentMessage`    | Re-exported single-line message widget (compose stories from it)                                                                                  |
 | `TwoRowMessage`     | Re-exported two-row widget                                                                                                                        |
 | `TickerMessage`     | Re-exported single-region scrolling message widget (compose/subclass for rich stories)                                                            |

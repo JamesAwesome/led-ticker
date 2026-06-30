@@ -19,6 +19,7 @@ from led_ticker.config import PluginsConfig, _parse_plugins_block
 from led_ticker.fonts.hires_loader import _PLUGIN_FONTS
 from led_ticker.pixel_emoji import EMOJI_REGISTRY, HIRES_REGISTRY
 from led_ticker.plugin import API_VERSION, PluginAPI
+from led_ticker.sources import _PLUGIN_SOURCE_TYPES
 from led_ticker.transitions import _TRANSITION_REGISTRY, EASING
 from led_ticker.widgets import _WIDGET_REGISTRY
 
@@ -39,6 +40,7 @@ _REGISTRY_MAP: dict[str, dict[str, Any]] = {
     "hires_emojis": HIRES_REGISTRY,
     "fonts": _PLUGIN_FONTS,
     "backends": _BACKEND_REGISTRY,
+    "sources": _PLUGIN_SOURCE_TYPES,
 }
 
 

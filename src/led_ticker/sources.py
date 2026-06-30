@@ -71,6 +71,13 @@ class DateSource(ClockSource):
     """Same machinery as ClockSource; separate type for config clarity."""
 
 
+# Plugin-registered source types (namespaced, e.g. "acme.live"). Populated by
+# the plugin loader via _commit(); read by factories.get_source_class(). Kept
+# here (not in factories.py) so the loader can import it from sources without
+# pulling in the heavier factories module.
+_PLUGIN_SOURCE_TYPES: dict[str, type[DataSource]] = {}
+
+
 class DataRegistry:
     def __init__(self) -> None:
         self._by_id: dict[str, DataSource] = {}

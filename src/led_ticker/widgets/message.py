@@ -14,6 +14,7 @@ from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.pixel_emoji import EMOJI_PATTERN
+from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
@@ -60,9 +61,64 @@ class TickerMessage(FrameAwareBase):
     _content_width: int = attrs.field(init=False, default=-1)
     _has_emoji: bool = attrs.field(init=False, default=False)
     _baseline_y: int = attrs.field(init=False, default=-1)
+    # Inline-value-token state. `_token` scans `self.text` once at
+    # construction for `:source.id:` tokens (emoji slugs are skipped by
+    # TokenizedField). `_resolved_text` caches the substituted string
+    # the last time we resolved against the live registry. A field with
+    # no source tokens reports `has_tokens == False` and the widget is
+    # byte-identical to today (every token step is gated on it).
+    _token: TokenizedField | None = attrs.field(init=False, default=None)
+    _resolved_text: str = attrs.field(init=False, default="")
+    # True for the duration of a typewriter reveal so resolution stays
+    # frozen across the reveal (stable slice length + stable per-char
+    # hue anchor). Cleared at visit reset and when the reveal completes.
+    _anim_resolution_lock: bool = attrs.field(init=False, default=False)
 
     def __attrs_post_init__(self) -> None:
+        # `_has_emoji` is computed on the RAW text — emoji slugs survive
+        # token substitution, so the emoji render path must still fire.
         self._has_emoji = bool(EMOJI_PATTERN.search(self.text))
+        self._token = TokenizedField(self.text)
+        self._resolved_text = self.text
+
+    def _resolve_into_full_text(self) -> str:
+        """Return the display string, resolving tokens against the live
+        registry unless resolution is currently frozen.
+
+        Freeze sources: `_resolution_locked` (scroll / transition, set on
+        the FrameAwareBase) and `_anim_resolution_lock` (an in-flight
+        typewriter reveal). While frozen we reuse the cached substituted
+        string so content width / slice length / hue anchor stay stable.
+        """
+        if self._token is None or not self._token.has_tokens:
+            return self.text
+        frozen = self._resolution_locked or self._anim_resolution_lock
+        if not frozen:
+            resolved, changed = self._token.resolve(get_data_registry())
+            if changed:
+                # Invalidate the width cache so the next measure
+                # re-decides hold-vs-scroll / re-centers (held re-center).
+                self._content_width = -1
+            self._resolved_text = resolved
+        return self._resolved_text
+
+    def resolve_tokens_now(self) -> None:
+        """Force a token resolve and invalidate the width cache.
+
+        Called by the engine immediately BEFORE a scroll's `stop_pos` is
+        computed so the scroll measures the current value, then resolution
+        is locked for the scroll loop. No-op for non-token widgets."""
+        if self._token is None or not self._token.has_tokens:
+            return
+        resolved, _ = self._token.resolve(get_data_registry())
+        self._resolved_text = resolved
+        self._content_width = -1
+
+    def reset_frame(self) -> None:
+        # Visit entry: drop any typewriter resolution lock so the next
+        # visit's reveal re-resolves from the current value.
+        super().reset_frame()
+        self._anim_resolution_lock = False
 
     def draw(
         self,
@@ -78,10 +134,26 @@ class TickerMessage(FrameAwareBase):
             font_color = _ConstantColor(font_color)
         provider: ColorProvider = font_color or self.font_color
 
+        # Resolve inline value tokens (when not frozen). For a non-token
+        # message this returns `self.text` unchanged — byte-identical to
+        # today. For a typewriter reveal we lock resolution for the whole
+        # reveal so the sliced string length stays stable; the lock is set
+        # BEFORE the first resolve of the visit so the reveal runs against
+        # a single substituted string.
+        if (
+            self.animation is not None
+            and self._token is not None
+            and self._token.has_tokens
+            and not self._anim_resolution_lock
+        ):
+            # Resolve once at the start of the reveal, then freeze.
+            self.resolve_tokens_now()
+            self._anim_resolution_lock = True
+        full_text = self._resolve_into_full_text()
+
         # If animation is set, ask it for the slice. Animations don't
         # currently override cursor position (Bounce was removed); if a
         # future animation needs that, re-add the override branch.
-        full_text = self.text
         if self.animation is not None:
             if self._content_width < 0:
                 # Measure once for animation use; emoji path measures below.
@@ -109,12 +181,12 @@ class TickerMessage(FrameAwareBase):
 
                 self._content_width = measure_width(
                     self.font,
-                    self.text,
+                    full_text,
                     canvas,
                 )
             else:
                 self._content_width = get_text_width(
-                    self.font, self.text, padding=0, canvas=canvas
+                    self.font, full_text, padding=0, canvas=canvas
                 )
         content_width = self._content_width
         cursor_pos, end_padding = compute_cursor(
@@ -163,7 +235,7 @@ class TickerMessage(FrameAwareBase):
                 visible_text,
                 y_offset=y_offset,
                 frame=self.frame_for("font_color"),
-                total_chars=count_text_chars(self.text),
+                total_chars=count_text_chars(full_text),
             )
         elif provider.per_char:
             # Per-char rendering: iterate visible_text, draw each char
@@ -185,7 +257,7 @@ class TickerMessage(FrameAwareBase):
                 lambda idx, total: provider.color_for(
                     self.frame_for("font_color"), idx, total
                 ),
-                total_chars=len(self.text),
+                total_chars=len(full_text),
             )
         else:
             color = provider.color_for(

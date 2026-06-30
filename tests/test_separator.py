@@ -1,9 +1,4 @@
-"""Unit + parity tests for the shared separator renderer (Phase 1).
-
-Parity tests compare render_separator against the still-present
-ticker._draw_hires_circle / ticker._draw_bullet to prove byte-identical
-output before the consumers are rewired.
-"""
+"""Unit tests for the shared separator renderer."""
 
 from unittest.mock import MagicMock
 
@@ -55,28 +50,6 @@ def test_render_dot_parity_with_ticker_draw_bullet():
     _draw_bullet(a, x=12)
     render_separator(b, x=12, frame=0, spec=DEFAULT_DOT_SPEC)
     assert a.SetPixel.call_args_list == b.SetPixel.call_args_list
-
-
-def test_render_circle_parity_with_ticker_draw_hires_circle():
-    """render_separator circle == the existing _draw_hires_circle (still present).
-
-    The widget passes x = cursor_pos + _CIRCLE_LOGICAL_PAD; _draw_hires_circle
-    bakes that pad into its own centering, so compare at matching x."""
-    from led_ticker.separator import _CIRCLE_LOGICAL_PAD
-    from led_ticker.ticker import _draw_hires_circle
-
-    real_a = MagicMock()
-    real_a.width, real_a.height = 256, 64
-    canvas_a = ScaledCanvas(real_a, scale=4, content_height=16)
-    real_b = MagicMock()
-    real_b.width, real_b.height = 256, 64
-    canvas_b = ScaledCanvas(real_b, scale=4, content_height=16)
-
-    _draw_hires_circle(canvas_a, cursor_pos=0, color=(255, 255, 255))
-    render_separator(
-        canvas_b, x=0 + _CIRCLE_LOGICAL_PAD, frame=0, spec=DEFAULT_CIRCLE_SPEC
-    )
-    assert real_a.SetPixel.call_args_list == real_b.SetPixel.call_args_list
 
 
 def test_render_circle_uses_provider_color_via_frame():

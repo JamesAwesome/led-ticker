@@ -1,7 +1,6 @@
 """Display orchestrator for scrolling/swapping widgets on LED panels."""
 
 import asyncio
-import functools
 import inspect
 import itertools
 import logging
@@ -16,11 +15,11 @@ from led_ticker._types import Canvas, ColorTuple
 from led_ticker.colors import RGB_WHITE
 from led_ticker.drawing import get_widget_padding
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
-from led_ticker.scaled_canvas import (
-    ScaledCanvas,
-    is_scaled,
-    paint_hires,
-    unwrap_to_real,
+from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
+from led_ticker.separator import (
+    _CIRCLE_LOGICAL_PAD,
+    DEFAULT_CIRCLE_SPEC,
+    render_separator,
 )
 from led_ticker.widgets._image_fit import reset_canvas
 from led_ticker.widgets.message import TickerMessage
@@ -39,67 +38,6 @@ class RestartRequested(Exception):
     app-level loop catches this and calls `sys.exit(0)` for a clean
     supervisor restart.
     """
-
-
-# Logical footprint of the hi-res circle separator: 1 left pad + 8
-# circle + 1 right pad = 10 logical px. Matches today's " \u2022 " BDF
-# advance closely enough that _scroll_side_by_side layout doesn't
-# shift. Disk diameter at scale=4 = 32 physical px (same horizontal
-# footprint as a hi-res inline emoji).
-_CIRCLE_LOGICAL_PAD = 1
-_CIRCLE_LOGICAL_RADIUS = 4  # 8-logical-px diameter
-_CIRCLE_LOGICAL_ADVANCE = 2 * _CIRCLE_LOGICAL_PAD + 2 * _CIRCLE_LOGICAL_RADIUS  # = 10
-
-
-@functools.cache
-def _build_circle_offsets(radius_physical: int) -> list[tuple[int, int]]:
-    """Build the filled-disk offset table for a given physical radius.
-
-    Integer math only: row half-width = floor(sqrt(r\u00b2 - dy\u00b2)) computed
-    via incremental search per row. Returns offsets relative to the
-    disk center as (dx, dy). Used once per scale value and cached on
-    the helper below.
-    """
-    offsets: list[tuple[int, int]] = []
-    r_sq = radius_physical * radius_physical
-    for dy in range(-radius_physical, radius_physical + 1):
-        # Largest dx with dx\u00b2 + dy\u00b2 \u2264 r\u00b2.
-        dx_max = 0
-        while (dx_max + 1) * (dx_max + 1) + dy * dy <= r_sq:
-            dx_max += 1
-        for dx in range(-dx_max, dx_max + 1):
-            offsets.append((dx, dy))
-    return offsets
-
-
-def _draw_hires_circle(
-    canvas: ScaledCanvas, cursor_pos: int, color: ColorTuple
-) -> tuple[ScaledCanvas, int]:
-    """Paint a filled disk at physical resolution centered in the
-    canvas's content band. Will be called by draw methods on ScaledCanvas
-    (added in upcoming tasks); plain Canvas paths go through TickerMessage's
-    BDF rendering.
-
-    Logical footprint is 10 px wide (1 left pad + 8 disk + 1 right pad)
-    matching today's " \u2022 " BDF advance so _scroll_side_by_side layout
-    stays stable.
-    """
-    if isinstance(color, tuple):
-        r, g, b = color
-    else:
-        r, g, b = color.red, color.green, color.blue
-
-    def _paint(real: Any, scale: int, y_offset_real: int) -> None:
-        radius_physical = _CIRCLE_LOGICAL_RADIUS * scale
-        offsets = _build_circle_offsets(radius_physical)
-        cx_physical = (cursor_pos + _CIRCLE_LOGICAL_PAD) * scale + radius_physical
-        cy_physical = y_offset_real + (canvas.height * scale) // 2
-        set_px = real.SetPixel
-        for dx, dy in offsets:
-            set_px(cx_physical + dx, cy_physical + dy, r, g, b)
-
-    paint_hires(canvas, _paint)
-    return canvas, cursor_pos + _CIRCLE_LOGICAL_ADVANCE
 
 
 @attrs.define
@@ -127,8 +65,14 @@ class _CircleBufferMsg(TickerMessage):
         font_color: Any = None,
     ):
         if is_scaled(canvas):
-            color = self.font_color.color_for(self.frame_for("font_color"), 0, 1)
-            return _draw_hires_circle(canvas, cursor_pos, color)
+            advance = render_separator(
+                canvas,
+                cursor_pos + _CIRCLE_LOGICAL_PAD,
+                self.frame_for("font_color"),
+                attrs.evolve(DEFAULT_CIRCLE_SPEC, color=self.font_color),
+            )
+            new_pos = cursor_pos + _CIRCLE_LOGICAL_PAD + advance + _CIRCLE_LOGICAL_PAD
+            return canvas, new_pos
         return super().draw(
             canvas, cursor_pos, y_offset=y_offset, font_color=font_color
         )

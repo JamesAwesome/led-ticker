@@ -575,3 +575,43 @@ class TestBuildSourceRegistry:
             assert registry.get("s") is None  # was skipped
         finally:
             _PLUGIN_SOURCE_TYPES.pop("acme.strict", None)
+
+
+@pytest.mark.asyncio
+async def test_idle_on_empty_playlist_idles_and_warns_once(monkeypatch, caplog):
+    """An empty playlist idles (1s sleep, NOT a busy-loop) and warns once."""
+    import logging
+
+    slept = []
+
+    async def _fake_sleep(s):
+        slept.append(s)
+
+    monkeypatch.setattr(run_mod.asyncio, "sleep", _fake_sleep)
+
+    with caplog.at_level(logging.WARNING):
+        idled, warned = await run_mod._idle_on_empty_playlist([], False)
+    assert idled is True and warned is True
+    assert slept == [1.0]  # idled once, did not busy-spin
+    assert any("no sections" in r.getMessage() for r in caplog.records)
+
+    # Already warned -> idles again but does NOT re-log.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        idled2, warned2 = await run_mod._idle_on_empty_playlist([], True)
+    assert idled2 is True and warned2 is True
+    assert not any("no sections" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_idle_on_empty_playlist_passthrough_when_sections_present(monkeypatch):
+    """With sections present: no idle, no log, and the warned flag resets."""
+    slept = []
+
+    async def _fake_sleep(s):
+        slept.append(s)
+
+    monkeypatch.setattr(run_mod.asyncio, "sleep", _fake_sleep)
+    idled, warned = await run_mod._idle_on_empty_playlist(["section"], True)
+    assert idled is False and warned is False  # resets so a later empty re-warns
+    assert slept == []  # no idle when there is content to render

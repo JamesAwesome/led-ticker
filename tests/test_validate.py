@@ -4112,3 +4112,37 @@ async def test_rule60_separator_size_positive_is_valid(conf):
         """
     result = await validate_config(conf(cfg))
     assert not any(e.rule == 60 for e in result.errors)
+
+
+async def test_empty_playlist_is_an_error(conf):
+    """A config with no sections displays nothing — flagged as an error."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        default_scale = 1
+        """
+    result = await validate_config(conf(cfg))
+    assert result.valid is False
+    assert any("no sections" in e.message for e in result.errors)
+
+
+async def test_wrong_schema_sections_flagged_as_empty_playlist(conf):
+    """[[sections]] is the wrong key (correct: [[playlist.section]]); it parses
+    to 0 sections and must be flagged, not silently accepted (the exact typo
+    that darked a panel)."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        default_scale = 1
+
+        [[sections]]
+        mode = "slideshow"
+        [[sections.widgets]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert result.valid is False
+    assert any("no sections" in e.message for e in result.errors)

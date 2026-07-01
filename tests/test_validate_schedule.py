@@ -10,7 +10,13 @@ def _cfg(tmp_path, body):
 
 
 def _base(extra):
-    return f"[display]\nrows=16\ncols=64\nbrightness=60\n{extra}"
+    # A minimal but complete playlist so these schedule tests exercise a
+    # realistic config (a section-less playlist is now itself an error).
+    section = (
+        '[[playlist.section]]\nmode="slideshow"\n'
+        '[[playlist.section.widget]]\ntype="message"\ntext="hi"\n'
+    )
+    return f"[display]\nrows=16\ncols=64\nbrightness=60\n{extra}\n{section}"
 
 
 async def _validate(tmp_path, extra):

@@ -112,7 +112,7 @@ The Status tab's **Monitors** panel tracks the health of every live-data source 
 
 **The roll-up badge.** Next to the "Health" heading in the Monitors panel, a small colored badge summarizes the worst state across all monitors at a glance — red for error, amber for stale, green for all-ok.
 
-**Per-monitor states.** Each row shows the source or widget name, its kind, and one of four states:
+**Per-monitor states.** Each row shows the source or widget name, its **type** (the source or widget class, like `weather.current` or `rss.feed`), and its current **value** (the last resolved data, like `72°F Sunny` or `5 items`). The type appears as muted text below the name so you can tell what a monitor is; the value confirms it's returning real data. Each row also shows one of four states:
 
 | State       | Meaning                                                                                                                                                                                                 |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

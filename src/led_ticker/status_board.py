@@ -244,16 +244,21 @@ def _monitor_value(obj: Any) -> str:
     - Container-like (has ``feed_stories``): ``"{n} items"``
     - Anything else: ``""``
 
+    ``current = None`` is treated the same as absent — returns ``""`` rather
+    than the literal string ``"None"``. Core ``DataSource.current`` defaults
+    to ``""`` so real sources are unaffected; this defends a source that sets
+    ``current = None`` before its first successful fetch.
+
     Truncated to ≤80 chars. Guarded — never raises.
     """
     try:
         current = getattr(obj, "current", _SENTINEL)
-        if current is not _SENTINEL:
+        if current is not _SENTINEL and current is not None:
             return str(current)[:80]
-        if hasattr(obj, "feed_stories"):
+        if current is _SENTINEL and hasattr(obj, "feed_stories"):
             return f"{len(obj.feed_stories)} items"
         return ""
-    except Exception:  # noqa: BLE001 - must never raise
+    except Exception:  # noqa: BLE001 — must never raise
         return ""
 
 

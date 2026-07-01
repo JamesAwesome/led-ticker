@@ -193,11 +193,6 @@ async def run_monitor_loop(
 
         try:
             await widget.update()
-            consecutive_errors = 0
-            if _mon_name is not None:
-                status_board.record_monitor_update(
-                    _mon_name, status_board._monitor_value(widget)
-                )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -217,3 +212,14 @@ async def run_monitor_loop(
                 type(widget).__name__,
                 consecutive_errors,
             )
+        else:
+            # `else` runs only when update() did NOT raise — so a raise in
+            # _monitor_value / record_monitor_update cannot be miscounted as
+            # an update failure (would have bumped consecutive_errors and
+            # logged "Error updating" for a SUCCESSFUL update).
+            consecutive_errors = 0
+            if _mon_name is not None:
+                with contextlib.suppress(Exception):
+                    status_board.record_monitor_update(
+                        _mon_name, status_board._monitor_value(widget)
+                    )

@@ -906,6 +906,64 @@ async def test_run_monitor_loop_records_value_for_source_with_current(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_raising_monitor_value_does_not_count_as_update_failure(
+    tmp_path, monkeypatch
+):
+    """A raise in _monitor_value on a SUCCESSFUL update must NOT bump
+    consecutive_errors or record a monitor error.
+
+    Before the else-clause fix, _monitor_value and record_monitor_update sat
+    inside the same try that wrapped update() — a raise there would hit the
+    except branch, increment consecutive_errors, and log "Error updating" even
+    though update() itself succeeded.
+    """
+    import asyncio
+
+    import led_ticker.status_board as sb
+    from led_ticker.status_board import StatusBoard
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    sb.set_active_board(board)
+
+    class _GoodWidget:
+        name = "good_widget"
+        feed_stories: list = []
+
+        def __init__(self):
+            self.updated = asyncio.Event()
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    def _exploding_value(obj: object) -> str:
+        raise RuntimeError("value compute exploded")
+
+    monkeypatch.setattr(sb, "_monitor_value", _exploding_value)
+
+    monitor = _GoodWidget()
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
+        )
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)  # let the post-update else branch run
+
+        entry = board.monitors.get("good_widget")
+        assert entry is not None, "monitor must be registered"
+        assert entry.get("error") is None, (
+            "a raise in _monitor_value must NOT record a monitor error "
+            "(the update itself succeeded)"
+        )
+        # The loop must still be running — it did not crash.
+        assert not task.done(), "loop must survive a raising _monitor_value"
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        sb.set_active_board(None)
+
+
+@pytest.mark.asyncio
 async def test_run_monitor_loop_records_value_for_container(tmp_path):
     """After a successful Container update, value reflects 'N items'."""
     import asyncio

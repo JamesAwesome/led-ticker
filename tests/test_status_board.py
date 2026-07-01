@@ -750,6 +750,23 @@ def test_monitor_value_truncates_to_80_chars():
     assert len(result) == 80
 
 
+def test_monitor_value_none_current_returns_empty():
+    """_monitor_value returns '' when .current is None (pre-fetch state).
+
+    A source that sets current=None before its first successful poll must
+    not render as the literal string 'None' in the monitor panel.
+    Core DataSource.current defaults to '' so real sources are unaffected.
+    """
+    from types import SimpleNamespace
+
+    from led_ticker.status_board import _monitor_value
+
+    obj = SimpleNamespace(current=None)
+    assert _monitor_value(obj) == "", (
+        "current=None must be treated like absent (pre-fetch), not rendered as 'None'"
+    )
+
+
 def test_monitor_value_guarded_on_exception():
     """_monitor_value returns '' if accessing .current raises."""
     from led_ticker.status_board import _monitor_value

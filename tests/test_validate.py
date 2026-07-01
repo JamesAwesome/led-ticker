@@ -3693,6 +3693,94 @@ class TestRule56Sources:
             f"undeclared token should NOT trigger rule 56; got: {rule_56}"
         )
 
+    async def test_source_validate_config_hook_surfaces_errors(self, conf):
+        """A plugin source's validate_config hook is run during preflight.
+
+        A source class that declares ``validate_config(cls, cfg) -> list[str]``
+        should have its errors surfaced as rule-56 errors during ``validate_config``.
+        A source with a valid config should produce no rule-56 error from the hook.
+        """
+        import attrs
+
+        from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+        @attrs.define(eq=False)
+        class _FakeLive(PolledDataSource):
+            async def update(self) -> None: ...
+
+            @classmethod
+            def validate_config(cls, cfg):
+                if "location" not in cfg:
+                    return ["acme.live: location is required"]
+                return []
+
+        _PLUGIN_SOURCE_TYPES["acme.live"] = _FakeLive
+        try:
+            # Missing required field → validate_config hook must surface the error.
+            bad_cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+                [[source]]
+                id = "x"
+                type = "acme.live"
+                """)
+            bad_result = await validate_config(conf(bad_cfg))
+            rule_56 = [e for e in bad_result.errors if e.rule == 56]
+            assert any("location is required" in e.message for e in rule_56), (
+                f"expected rule-56 error from validate_config hook; "
+                f"got errors={[(e.rule, e.message) for e in bad_result.errors]}"
+            )
+
+            # Present field → no hook error.
+            ok_cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+                [[source]]
+                id = "x"
+                type = "acme.live"
+                location = "NYC"
+                """)
+            ok_result = await validate_config(conf(ok_cfg))
+            rule_56_ok = [
+                e for e in ok_result.errors
+                if e.rule == 56 and "location is required" in e.message
+            ]
+            assert not rule_56_ok, (
+                f"valid acme.live source should not trigger hook error; "
+                f"got: {rule_56_ok}"
+            )
+        finally:
+            _PLUGIN_SOURCE_TYPES.pop("acme.live", None)
+
+    async def test_source_validate_config_hook_raising_surfaces_error(self, conf):
+        """A validate_config hook that raises → clear rule-56 error, not a crash."""
+        import attrs
+
+        from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+        @attrs.define(eq=False)
+        class _BrokenLive(PolledDataSource):
+            async def update(self) -> None: ...
+
+            @classmethod
+            def validate_config(cls, cfg):
+                raise RuntimeError("hook exploded")
+
+        _PLUGIN_SOURCE_TYPES["acme.broken"] = _BrokenLive
+        try:
+            cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+                [[source]]
+                id = "y"
+                type = "acme.broken"
+                """)
+            result = await validate_config(conf(cfg))
+            rule_56 = [e for e in result.errors if e.rule == 56]
+            assert any("validate_config raised" in e.message for e in rule_56), (
+                f"expected rule-56 error for raising validate_config; "
+                f"got errors={[(e.rule, e.message) for e in result.errors]}"
+            )
+        finally:
+            _PLUGIN_SOURCE_TYPES.pop("acme.broken", None)
+
 
 # ---------------------------------------------------------------------------
 # Rule 57: separator_color on a non-scroll transition home

@@ -321,6 +321,45 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
 
+        # Plugin validate_config hook — mirrors _run_validate_config in
+        # factories.py. Core types (ClockSource, DateSource, StaticSource)
+        # don't define validate_config so they're unaffected. A hook that
+        # raises is caught and surfaced as a clear error rather than a crash.
+        validator = getattr(cls, "validate_config", None)
+        if validator is not None:
+            try:
+                messages = validator(dict(src.raw))
+            except Exception as exc:
+                issues.append(
+                    ValidationIssue(
+                        rule=56,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f"[[source]] {src.id!r} (type={src.type!r}): "
+                            f"validate_config raised: {exc}"
+                        ),
+                        fix=(
+                            "The source plugin's validate_config hook raised an "
+                            "unexpected exception. Check the plugin implementation."
+                        ),
+                    )
+                )
+            else:
+                for msg in (messages or []):
+                    issues.append(
+                        ValidationIssue(
+                            rule=56,
+                            location=loc,
+                            severity="error",
+                            message=msg,
+                            fix=(
+                                "Fix the [[source]] configuration as described "
+                                "above, or consult the plugin's documentation."
+                            ),
+                        )
+                    )
+
     return issues
 
 

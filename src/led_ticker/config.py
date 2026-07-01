@@ -92,6 +92,9 @@ class TransitionConfig:
     separator: str | None = None
     separator_font: str | None = None
     separator_font_size: int | None = None
+    # The scroll transition's dot size in logical px (Phase 3). `None` = default
+    # (2). No effect on a glyph separator. Honored ONLY by type="scroll".
+    separator_size: int | None = None
     # Non-built-in keys from a plugin transition's TOML table (e.g. {type=
     # "pokeball.forward", show_pikachu=false} -> extra={"show_pikachu": False}).
     # Passed to the plugin transition's constructor; empty for built-in transitions.
@@ -179,6 +182,10 @@ class SectionConfig:
     separator_font: str | None = None
     # Required for hires fonts; ignored for BDF.
     separator_font_size: int | None = None
+    # Ticker-mode separator circle size in logical px (Phase 3). `None` = default
+    # (8 → radius 4). Only affects the bigsign hi-res circle; the smallsign BDF
+    # "•" is unaffected. Honored ONLY by mode="ticker".
+    separator_size: int | None = None
     # Color provider config. Accepts the same shapes as widget
     # `font_color`: [r, g, b], "rainbow", "color_cycle", or
     # {style = "gradient", ...}. Raw value here; normalized to
@@ -402,6 +409,7 @@ _BUILTIN_TRANSITION_KEYS: frozenset[str] = frozenset(
         "separator",
         "separator_font",
         "separator_font_size",
+        "separator_size",
     }
 )
 
@@ -508,6 +516,7 @@ def _coerce_section(
         "scroll_step_ms": _maybe("scroll_step_ms", coerce_int, None),
         "start_hold": _maybe("start_hold", coerce_float, None),
         "separator_font_size": _maybe("separator_font_size", coerce_int, None),
+        "separator_size": _maybe("separator_size", coerce_int, None),
     }
 
 
@@ -562,6 +571,7 @@ def _parse_transition(
         separator=raw.get("separator"),
         separator_font=raw.get("separator_font"),
         separator_font_size=raw.get("separator_font_size"),
+        separator_size=raw.get("separator_size"),
         extra=extra,
     )
 

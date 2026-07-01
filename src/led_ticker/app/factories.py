@@ -1010,15 +1010,15 @@ def _resolve_separator_spec(
 def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
     """Build a per-section ticker separator widget.
 
-    Returns None when all four separator_* fields are unset — Ticker
+    Returns None when all five separator_* fields are unset — Ticker
     falls back to DEFAULT_BUFFER_MSG (a _CircleBufferMsg that adapts
     to canvas type at draw time).
 
     Routing:
-    - All four unset → None (inherit default circle).
-    - Color-only override → _CircleBufferMsg with the user's color
-      (still adapts to canvas type — circle on bigsign, BDF '•' on
-      smallsign — just with a different fill).
+    - All five unset → None (inherit default circle).
+    - Color-only and/or size-only override → _CircleBufferMsg with the
+      user's color/size (still adapts to canvas type — circle on bigsign,
+      BDF '•' on smallsign — just with different fill/radius).
     - Any of separator / separator_font / separator_font_size set
       → TickerMessage with literal text/font rendering (today's
       behavior, unchanged).
@@ -1029,19 +1029,23 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
         or section.separator_font_size is not None
     )
     color_set = section.separator_color is not None
+    size_set = section.separator_size is not None
 
-    if not text_or_font_set and not color_set:
+    if not text_or_font_set and not color_set and not size_set:
         return None
 
     color_provider = _coerce_color_provider(
         section.separator_color if color_set else RGB_WHITE
     )
+    size: int = section.separator_size if section.separator_size is not None else 8
 
     if not text_or_font_set:
-        # Color-only: still want the hi-res circle on bigsign.
+        # Color/size-only: still want the hi-res circle on bigsign.
         from led_ticker.ticker import _CircleBufferMsg
 
-        return _CircleBufferMsg(text=" • ", center=False, font_color=color_provider)
+        return _CircleBufferMsg(
+            text=" • ", center=False, font_color=color_provider, size=size
+        )
 
     # Explicit text / font: TickerMessage with literal rendering.
     text = section.separator if section.separator is not None else "•"

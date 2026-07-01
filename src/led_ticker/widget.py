@@ -1,6 +1,7 @@
 """Widget protocols and shared lifecycle helpers."""
 
 import asyncio
+import contextlib
 import contextvars
 import logging
 from typing import Any, Protocol, runtime_checkable
@@ -145,6 +146,17 @@ async def run_monitor_loop(
     the loop, so an immediate first cycle here would double-fetch. Only the first
     cycle is affected; the error-backoff path is unchanged.
     """
+    # Register in the monitor roster (best-effort). Sources duck-type via .polled;
+    # data widgets via .draw. Anything that is NEITHER (e.g. the busy-light overlay)
+    # is not a data monitor and is skipped. No import of `sources` (circular).
+    _mon_name = status_board._monitor_name(widget)
+    if getattr(widget, "polled", False):
+        _mon_name = status_board.register_monitor(_mon_name, "source", interval)
+    elif hasattr(widget, "draw"):
+        _mon_name = status_board.register_monitor(_mon_name, "widget", interval)
+    else:
+        _mon_name = None  # not a monitor (busy_light etc.) — don't record
+
     if splay:
         from random import randint
 
@@ -173,13 +185,22 @@ async def run_monitor_loop(
         try:
             await widget.update()
             consecutive_errors = 0
-            status_board.record_monitor_update(
-                getattr(widget, "name", None) or type(widget).__name__
-            )
+            if _mon_name is not None:
+                status_board.record_monitor_update(_mon_name)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
             consecutive_errors += 1
+            if _mon_name is not None:
+                retry_in = min(
+                    _MAX_BACKOFF, _MIN_BACKOFF * (2 ** (consecutive_errors - 1))
+                )
+                # Belt-and-suspenders: recorder is internally guarded, but wrap
+                # the call site too — instrumentation must never reach the loop.
+                with contextlib.suppress(Exception):
+                    status_board.record_monitor_error(
+                        _mon_name, str(exc)[:200], consecutive_errors, retry_in
+                    )
             logger.exception(
                 "Error updating %s (attempt %d), will back off",
                 type(widget).__name__,

@@ -1,6 +1,7 @@
 """Engine instrumentation: monitor updates and widget visits reach the board."""
 
 import asyncio
+import contextlib
 import inspect
 import logging
 import types
@@ -20,15 +21,13 @@ class _OneShotMonitor:
     def __init__(self):
         self.updated = asyncio.Event()
 
+    def draw(self, *a, **k): ...
+
     async def update(self):
         self.updated.set()
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason="Task 3 wires run_monitor_loop to call register_monitor; passes then",
-    strict=False,
-)
 async def test_run_monitor_loop_records_update(tmp_path):
     board = StatusBoard(path=tmp_path / "status.json")
     status_board.set_active_board(board)
@@ -45,10 +44,6 @@ async def test_run_monitor_loop_records_update(tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason="Task 3 wires run_monitor_loop to call register_monitor; passes then",
-    strict=False,
-)
 async def test_run_monitor_loop_falls_back_to_class_name(tmp_path):
     board = StatusBoard(path=tmp_path / "status.json")
     status_board.set_active_board(board)
@@ -56,6 +51,8 @@ async def test_run_monitor_loop_falls_back_to_class_name(tmp_path):
     class Nameless:
         def __init__(self):
             self.updated = asyncio.Event()
+
+        def draw(self, *a, **k): ...
 
         async def update(self):
             self.updated.set()
@@ -70,6 +67,102 @@ async def test_run_monitor_loop_falls_back_to_class_name(tmp_path):
     finally:
         task.cancel()
         status_board.clear_active_board()
+
+
+@pytest.mark.asyncio
+async def test_register_on_entry_and_error_with_retry(tmp_path):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+
+    class _FailingWidget:
+        name = "flaky"
+
+        def draw(self, *a, **k): ...
+
+        async def update(self):
+            raise ValueError("boom")
+
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(_FailingWidget(), 0.01, splay=False, immediate=True)
+        )
+        for _ in range(30):
+            await asyncio.sleep(0)
+            if board.monitors.get("flaky", {}).get("error"):
+                break
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        m = board.monitors["flaky"]
+        assert m["kind"] == "widget"
+        err = m["error"]
+        assert err and "boom" in err["message"] and err["consecutive"] >= 1
+        assert err["retry_in"] > 0  # the backoff hint
+    finally:
+        sb.set_active_board(None)
+
+
+@pytest.mark.asyncio
+async def test_busy_light_like_not_registered(tmp_path):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+
+    class _BusyLike:  # no .draw, no .polled -> not a monitor
+        name = "busy"
+
+        async def update(self): ...
+
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(_BusyLike(), 0.01, splay=False, immediate=True)
+        )
+        for _ in range(10):
+            await asyncio.sleep(0)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        assert "busy" not in board.monitors
+    finally:
+        sb.set_active_board(None)
+
+
+@pytest.mark.asyncio
+async def test_status_error_never_escapes_loop(tmp_path, monkeypatch):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+
+    def _boom(*a, **k):
+        raise RuntimeError("board down")
+
+    # If the raising recorder reached the loop unwrapped it would kill it.
+    monkeypatch.setattr(sb, "record_monitor_error", _boom)
+
+    class _Flaky:
+        name = "x"
+
+        def draw(self, *a, **k): ...
+
+        async def update(self):
+            raise ValueError("nope")
+
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(_Flaky(), 0.01, splay=False, immediate=True)
+        )
+        for _ in range(10):
+            await asyncio.sleep(0)
+        assert not task.done()  # loop survived a raising recorder
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        sb.set_active_board(None)
 
 
 def test_show_one_calls_record_widget_visit():

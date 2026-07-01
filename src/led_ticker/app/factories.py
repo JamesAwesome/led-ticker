@@ -406,12 +406,14 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
         or trans_cfg.separator is not None
         or trans_cfg.separator_font is not None
         or trans_cfg.separator_font_size is not None
+        or trans_cfg.separator_size is not None
     ):
         kwargs["spec"] = _resolve_separator_spec(
             separator=trans_cfg.separator,
             separator_color=trans_cfg.separator_color,
             separator_font=trans_cfg.separator_font,
             separator_font_size=trans_cfg.separator_font_size,
+            separator_size=trans_cfg.separator_size,
             default_kind="dot",
         )
     return cls(**kwargs)
@@ -949,6 +951,7 @@ def _resolve_separator_spec(
     separator_color: Any,
     separator_font: str | None,
     separator_font_size: int | None,
+    separator_size: int | None = None,
     default_kind: str,
 ) -> Any:
     """Build a SeparatorSpec from the separator_* config family.
@@ -956,6 +959,8 @@ def _resolve_separator_spec(
     default_kind selects the site's default mark ("dot" for the scroll
     transition, "circle" for the ticker separator). Color-only keeps that
     default kind recolored; any glyph field switches to kind="glyph".
+    separator_size applies to the dot/circle path only; it is a no-op on
+    the glyph path (glyph size is controlled by separator_font_size).
     """
     import attrs
 
@@ -973,9 +978,10 @@ def _resolve_separator_spec(
         or separator_font_size is not None
     )
     color_set = separator_color is not None
+    size_set = separator_size is not None
     # Defensive: unreachable via _build_trans_obj (which only calls this when at
     # least one separator_* field is set); here for standalone/future callers.
-    if not glyph_set and not color_set:
+    if not glyph_set and not color_set and not size_set:
         return base
 
     color = (
@@ -984,7 +990,11 @@ def _resolve_separator_spec(
         else RGB_WHITE
     )
     if not glyph_set:
-        return attrs.evolve(base, color=color)
+        # color/size-only: keep the default kind, recolored/resized.
+        changes: dict[str, Any] = {"color": color}
+        if size_set:
+            changes["size"] = separator_size
+        return attrs.evolve(base, **changes)
 
     from led_ticker.fonts import FONT_DEFAULT, resolve_font
 

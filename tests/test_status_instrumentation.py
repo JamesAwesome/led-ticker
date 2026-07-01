@@ -14,14 +14,17 @@ from led_ticker.widget import run_monitor_loop
 
 
 class _OneShotMonitor:
-    """Updatable that succeeds once then cancels its own loop."""
+    """Updatable that succeeds once then cancels its own loop.
+
+    Mirrors a real Container: has ``feed_stories`` + ``update()`` but NO
+    ``.draw`` — verifying the container-shape registration path (Finding 1).
+    """
 
     name = "RSS BBC"
+    feed_stories: list = []
 
     def __init__(self):
         self.updated = asyncio.Event()
-
-    def draw(self, *a, **k): ...
 
     async def update(self):
         self.updated.set()
@@ -49,10 +52,10 @@ async def test_run_monitor_loop_falls_back_to_class_name(tmp_path):
     status_board.set_active_board(board)
 
     class Nameless:
+        feed_stories: list = []
+
         def __init__(self):
             self.updated = asyncio.Event()
-
-        def draw(self, *a, **k): ...
 
         async def update(self):
             self.updated.set()
@@ -78,8 +81,7 @@ async def test_register_on_entry_and_error_with_retry(tmp_path):
 
     class _FailingWidget:
         name = "flaky"
-
-        def draw(self, *a, **k): ...
+        feed_stories: list = []
 
         async def update(self):
             raise ValueError("boom")
@@ -111,7 +113,7 @@ async def test_busy_light_like_not_registered(tmp_path):
     board = sb.StatusBoard(path=tmp_path / "s.json")
     sb.set_active_board(board)
 
-    class _BusyLike:  # no .draw, no .polled -> not a monitor
+    class _BusyLike:  # no .draw, no .feed_stories, no .polled -> not a monitor
         name = "busy"
 
         async def update(self): ...
@@ -131,6 +133,41 @@ async def test_busy_light_like_not_registered(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_container_widget_registers(tmp_path):
+    """Container monitors (feed_stories + update, NO .draw) must appear in
+    board.monitors — verifies Finding 1 fix in run_monitor_loop."""
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+
+    class _Container:  # mirrors rss.feed / calendar.events shape
+        name = "RSS BBC"
+        feed_stories: list = []
+
+        def __init__(self):
+            self.updated = asyncio.Event()
+
+        async def update(self):
+            self.updated.set()
+
+    monitor = _Container()
+    try:
+        task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)  # let the post-update record run
+        entry = board.monitors.get("RSS BBC")
+        assert entry is not None, (
+            "Container widget (feed_stories + update, no .draw) must be "
+            "registered in board.monitors"
+        )
+        assert entry["kind"] == "widget"
+    finally:
+        task.cancel()
+        sb.set_active_board(None)
+
+
+@pytest.mark.asyncio
 async def test_status_error_never_escapes_loop(tmp_path, monkeypatch):
     import led_ticker.status_board as sb
 
@@ -145,8 +182,7 @@ async def test_status_error_never_escapes_loop(tmp_path, monkeypatch):
 
     class _Flaky:
         name = "x"
-
-        def draw(self, *a, **k): ...
+        feed_stories: list = []
 
         async def update(self):
             raise ValueError("nope")

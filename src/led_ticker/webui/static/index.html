@@ -466,16 +466,20 @@ function renderMonitors(st, signOk) {
   const badge = $("monitors-badge");
   const tbody = $("monitors").tBodies[0];
 
-  // Empty / absent (graceful degradation for older schema)
-  if (!monitors || !monitors.length) {
+  // Empty / absent (graceful degradation for older schema or malformed payloads).
+  // Array.isArray rejects strings/null/objects whose .length would be truthy but
+  // whose .map would throw; filter drops null/non-object entries defensively.
+  if (!Array.isArray(monitors) || !monitors.length) {
     badge.style.display = "none";
     tbody.innerHTML = '<tr><td class="muted">No live-data monitors configured</td></tr>';
     return;
   }
 
   const nowSec = Date.now() / 1000;
-  // Compute state for each monitor
-  const entries = monitors.map((m) => ({m, s: monitorState(m, nowSec)}));
+  // Compute state for each monitor; skip null/non-object entries defensively.
+  const entries = monitors
+    .filter((m) => m && typeof m === "object")
+    .map((m) => ({m, s: monitorState(m, nowSec)}));
 
   // Sort worst-first (error > stale > waiting > ok), then by name
   entries.sort((a, b) => {

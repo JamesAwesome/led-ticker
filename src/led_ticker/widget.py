@@ -147,15 +147,19 @@ async def run_monitor_loop(
     cycle is affected; the error-backoff path is unchanged.
     """
     # Register in the monitor roster (best-effort). Sources duck-type via .polled;
-    # data widgets via .draw. Anything that is NEITHER (e.g. the busy-light overlay)
-    # is not a data monitor and is skipped. No import of `sources` (circular).
-    _mon_name = status_board._monitor_name(widget)
-    if getattr(widget, "polled", False):
-        _mon_name = status_board.register_monitor(_mon_name, "source", interval)
-    elif hasattr(widget, "draw"):
-        _mon_name = status_board.register_monitor(_mon_name, "widget", interval)
-    else:
-        _mon_name = None  # not a monitor (busy_light etc.) — don't record
+    # data widgets via .draw OR .feed_stories (Container monitors such as rss.feed,
+    # crypto.coingecko, baseball.*, calendar.events — they carry feed_stories + update()
+    # but NO .draw; the drawable child stories are never passed to run_monitor_loop).
+    # Anything that is NONE of the above (e.g. busy_light which has .update()/.paint()
+    # but no .draw/.feed_stories/.polled) is not a data monitor and is skipped.
+    # No import of `sources` (circular).
+    _mon_name = None
+    with contextlib.suppress(Exception):
+        _name = status_board._monitor_name(widget)
+        if getattr(widget, "polled", False):
+            _mon_name = status_board.register_monitor(_name, "source", interval)
+        elif hasattr(widget, "draw") or hasattr(widget, "feed_stories"):
+            _mon_name = status_board.register_monitor(_name, "widget", interval)
 
     if splay:
         from random import randint

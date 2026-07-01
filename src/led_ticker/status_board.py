@@ -198,28 +198,30 @@ def _monitor_name(obj: Any) -> str:
 
 
 def register_monitor(name: str, kind: str, interval: float) -> str:
-    """Add/refresh a monitor roster entry (preserving last_ok/error on re-register).
-    On a name collision append #N so each monitor gets a distinct row. Returns
-    the final (possibly suffixed) name. Never raises."""
+    """Add a monitor roster entry.
+
+    On a name collision (a key already taken) append #N so distinct monitors
+    get distinct rows. Re-registration of the same monitor only happens after a
+    reload clear, so no phantom entry accumulates. Returns the final (possibly
+    suffixed) name. Never raises.
+    """
     if _ACTIVE is None:
         return name
     try:
         m = _ACTIVE.monitors
         if name in m:
-            # same key already taken -> suffix
+            # same key already taken -> suffix so each monitor gets a distinct row
             n, final = 2, f"{name}#2"
             while final in m:
                 n += 1
                 final = f"{name}#{n}"
             name = final
-        entry = m.get(name) or {
+        m[name] = {
             "kind": kind,
             "interval": interval,
             "last_ok": None,
             "error": None,
         }
-        entry["kind"], entry["interval"] = kind, interval
-        m[name] = entry
         _ACTIVE.publish()
     except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
         pass

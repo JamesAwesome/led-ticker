@@ -157,6 +157,22 @@ def test_record_monitor_update_with_active_board(tmp_path):
         status_board.clear_active_board()
 
 
+def test_record_monitor_update_self_heals_unregistered(tmp_path):
+    """record_monitor_update on a name not in monitors.setdefault-materialises
+    the row (mirrors record_monitor_error's self-heal behaviour)."""
+    board = _board(tmp_path)
+    status_board.set_active_board(board)
+    try:
+        # Deliberately skip register_monitor — update arrives for an unknown name.
+        status_board.record_monitor_update("ghost.feed")
+        assert "ghost.feed" in board.monitors, "self-heal: row should be created"
+        entry = board.monitors["ghost.feed"]
+        assert entry["last_ok"] is not None, "last_ok should be set"
+        assert entry["error"] is None, "error should be None on first success"
+    finally:
+        status_board.clear_active_board()
+
+
 def test_record_section_publishes_immediately(tmp_path):
     board = _board(tmp_path, min_interval=3600.0)
     status_board.set_active_board(board)

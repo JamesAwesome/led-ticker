@@ -51,7 +51,6 @@ class StatusBoard:
     config_validation: dict[str, Any] = attrs.field(factory=dict)
     section: dict[str, Any] = attrs.field(factory=dict)
     widget: dict[str, Any] = attrs.field(factory=dict)
-    monitor_updates: dict[str, float] = attrs.field(factory=dict)
     # name -> {kind, interval, last_ok, error}. Registered on poll-loop entry,
     # updated on success, error-recorded on failure; cleared on reload.
     monitors: dict[str, dict] = attrs.field(factory=dict)
@@ -265,17 +264,17 @@ def clear_monitors() -> None:
 
 
 def record_monitor_update(name: str) -> None:
-    if _ACTIVE is not None:
-        try:
-            now = time.time()
-            _ACTIVE.monitor_updates[name] = now
-            entry = _ACTIVE.monitors.get(name)
-            if entry is not None:
-                entry["last_ok"] = now
-                entry["error"] = None
-            _ACTIVE.publish()
-        except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
-            pass
+    if _ACTIVE is None:
+        return
+    try:
+        entry = _ACTIVE.monitors.setdefault(
+            name, {"kind": "widget", "interval": 0.0, "last_ok": None, "error": None}
+        )
+        entry["last_ok"] = time.time()
+        entry["error"] = None
+        _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        pass
 
 
 def record_widget_visit(widget: Any) -> None:

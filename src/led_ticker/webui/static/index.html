@@ -83,6 +83,7 @@
   .mon-badge-stale { background: #2a1f0a; border: 1px solid #6a4a10; color: #c94; }
   .mon-badge-error { background: #2a0a0a; border: 1px solid #7a1a1a; color: #f66; }
   .mon-liveness-warn { color: #c94; font-size: .85rem; margin: .3rem 0 .1rem; }
+  .mon-type { color: #888; font-size: .8em; display: block; }
 
   /* Tablet + phone: give the (JS-populated, sometimes long) build ref its own
      row so the top row never crowds — also clears the 641–800px middle zone. */
@@ -505,7 +506,7 @@ function renderMonitors(st, signOk) {
 
   // Liveness gate: if the snapshot itself is stale, grey out rows + show a note
   const livenessWarn = !signOk
-    ? '<tr><td colspan="6" class="mon-liveness-warn">sign not reporting — monitor state may be stale</td></tr>'
+    ? '<tr><td colspan="7" class="mon-liveness-warn">sign not reporting — monitor state may be stale</td></tr>'
     : "";
 
   const dotClass = {ok: "mon-dot-ok", stale: "mon-dot-stale", error: "mon-dot-error", waiting: "mon-dot-waiting"};
@@ -521,7 +522,9 @@ function renderMonitors(st, signOk) {
       errCell = `<span class="error">${esc(m.error.message)} ×${m.error.consecutive}</span>`;
       if (m.error.retry_in != null) errCell += ` <span class="muted">· retrying in ${fmtDur(m.error.retry_in)}</span>`;
     }
-    return `<tr${greyStyle}><td>${dot}${esc(m.name)}</td><td>${kind}</td><td class="muted">${s}</td><td class="muted">${esc(updated)}</td><td class="muted">${esc(interval)}</td><td>${errCell}</td></tr>`;
+    const typeSub = m.type ? `<span class="mon-type">${esc(m.type)}</span>` : "";
+    const valueCell = m.value ? esc(m.value) : "—";
+    return `<tr${greyStyle}><td>${dot}${esc(m.name)}${typeSub}</td><td>${kind}</td><td class="muted">${s}</td><td class="muted">${valueCell}</td><td class="muted">${esc(updated)}</td><td class="muted">${esc(interval)}</td><td>${errCell}</td></tr>`;
   }).join("");
 
   tbody.innerHTML = livenessWarn + rows;

@@ -28,11 +28,11 @@ def _as_provider(color: Any) -> ColorProvider:
 
 @attrs.define
 class SeparatorSpec:
-    kind: str  # "dot" | "circle"  (Phase 2 adds "glyph")
+    kind: str  # "dot" | "circle" | "glyph"
     color: Any = RGB_WHITE  # ColorTuple or ColorProvider; normalized on read
     size: int = 2  # dot: square side; circle: disk diameter (logical px)
-    glyph: str = ""  # Phase 2
-    font: Any = None  # Phase 2
+    glyph: str = ""  # kind == "glyph": the character(s) to render
+    font: Any = None  # kind == "glyph": resolved BDF/hires font
 
 
 # Per-site defaults reproducing today's appearance exactly.

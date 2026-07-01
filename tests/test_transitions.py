@@ -945,11 +945,12 @@ class TestScrollSeparatorGlyph:
     def test_glyph_spec_built_with_default_font(self):
         from led_ticker.app.factories import _build_trans_obj
         from led_ticker.config import TransitionConfig
+        from led_ticker.fonts import FONT_DEFAULT
 
         scroll = _build_trans_obj(TransitionConfig(type="scroll", separator="-"))
         assert scroll._spec.kind == "glyph"
         assert scroll._spec.glyph == "-"
-        assert scroll._spec.font is not None  # FONT_DEFAULT
+        assert scroll._spec.font is FONT_DEFAULT
 
     def test_glyph_spec_resolves_named_font(self):
         from led_ticker.app.factories import _build_trans_obj

@@ -462,6 +462,10 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     fix=(
                         "Remove separator / separator_font / separator_font_size"
                         " / separator_color, or change mode to 'ticker'."
+                        " If you meant the scroll TRANSITION's separator,"
+                        " put these fields inside the transition instead,"
+                        " e.g. `widget_transition = { type = 'scroll',"
+                        " separator = '...' }`."
                     ),
                 )
             )
@@ -834,7 +838,8 @@ def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue
                 location=location,
                 severity="error",
                 message=(
-                    "separator / separator_color / separator_font fields are "
+                    "separator / separator_color / separator_font"
+                    " / separator_font_size fields are "
                     f"only honored by the scroll transition; type="
                     f"{trans_cfg.type!r} ignores them."
                 ),
@@ -875,6 +880,7 @@ def _check_scroll_separator_font(
     """
     from led_ticker.config import TransitionConfig
     from led_ticker.fonts import UnknownFontError, resolve_font
+    from led_ticker.fonts.hires_loader import HiresFont
 
     _UNKNOWN_FONT_FIX = (
         "Drop the font file into config/fonts/ on the deploy"
@@ -895,10 +901,52 @@ def _check_scroll_separator_font(
             return
         if trans_cfg.type != "scroll":
             return
+        # Rule 58: separator_font_size without separator_font is silently
+        # ignored (resolver falls to FONT_DEFAULT). Warn early.
+        if (
+            trans_cfg.separator_font is None
+            and trans_cfg.separator_font_size is not None
+        ):
+            warnings.append(
+                ValidationIssue(
+                    rule=58,
+                    location=f"{location}.separator_font_size",
+                    severity="warning",
+                    message=(
+                        "separator_font_size has no effect without separator_font"
+                    ),
+                    fix=(
+                        "Set separator_font (a BDF alias or hires font name),"
+                        " or remove separator_font_size."
+                    ),
+                )
+            )
         if trans_cfg.separator_font is None:
             return  # direct (not getattr) so pyright narrows to str below
         try:
-            resolve_font(trans_cfg.separator_font, size=trans_cfg.separator_font_size)
+            font = resolve_font(
+                trans_cfg.separator_font, size=trans_cfg.separator_font_size
+            )
+            # Rule 59: hires font on a scale-1 (smallsign) sign paints at
+            # physical scale 1 — separator_width's SCALE_FALLBACK=4 reserves
+            # too much horizontal space → mid-scroll overlap.
+            if isinstance(font, HiresFont) and config.display.default_scale == 1:
+                warnings.append(
+                    ValidationIssue(
+                        rule=59,
+                        location=f"{location}.separator_font",
+                        severity="warning",
+                        message=(
+                            "a hires separator_font on a scale-1 (smallsign)"
+                            " sign may misalign the scroll; use a BDF font"
+                            " (e.g. 6x12) at scale 1"
+                        ),
+                        fix=(
+                            "Use a BDF separator_font at default_scale=1,"
+                            " or run at default_scale=4 (bigsign)."
+                        ),
+                    )
+                )
         except UnknownFontError as exc:
             warnings.append(
                 ValidationIssue(

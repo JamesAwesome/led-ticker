@@ -895,8 +895,8 @@ def _check_scroll_separator_font(
             return
         if trans_cfg.type != "scroll":
             return
-        if getattr(trans_cfg, "separator_font", None) is None:
-            return
+        if trans_cfg.separator_font is None:
+            return  # direct (not getattr) so pyright narrows to str below
         try:
             resolve_font(trans_cfg.separator_font, size=trans_cfg.separator_font_size)
         except UnknownFontError as exc:

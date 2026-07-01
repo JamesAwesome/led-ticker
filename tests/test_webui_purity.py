@@ -1,6 +1,7 @@
 """The sidecar must be importable without rgbmatrix — it runs unprivileged
 on machines (or containers) with no matrix hardware libs at all."""
 
+import importlib.resources
 import os
 import subprocess
 import sys
@@ -48,6 +49,17 @@ def test_webui_import_does_not_touch_rgbmatrix():
     )
     assert proc.returncode == 0, proc.stderr
     assert "PURE" in proc.stdout
+
+
+def test_index_html_uses_st_monitors_not_monitor_updates():
+    """Smoke: index.html must reference st.monitors (schema 9) not the old
+    st.monitor_updates dict (removed in the monitors health panel migration)."""
+    html_path = importlib.resources.files("led_ticker.webui") / "static" / "index.html"
+    html = html_path.read_text(encoding="utf-8")
+    assert "st.monitors" in html, "index.html must reference st.monitors"
+    assert "st.monitor_updates" not in html, (
+        "index.html must not reference the removed st.monitor_updates"
+    )
 
 
 def test_cli_imports_without_rgbmatrix():

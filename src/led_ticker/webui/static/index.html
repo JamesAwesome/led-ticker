@@ -71,6 +71,18 @@
   /* Config-editor restart-required notice */
   .restart-notice { background: #1a1a2a; border: 1px solid #3a3a6a; border-radius: 6px; padding: .75rem 1rem; margin-top: .75rem; font-size: .9rem; display: none; }
   .restart-notice strong { color: #99f; }
+  /* Monitor health panel */
+  .mon-dot { display: inline-block; width: .65em; height: .65em; border-radius: 50%; margin-right: .35em; vertical-align: middle; }
+  .mon-dot-ok     { background: #4c4; }
+  .mon-dot-stale  { background: #c94; }
+  .mon-dot-error  { background: #c44; }
+  .mon-dot-waiting { background: #666; }
+  .mon-kind { font-family: ui-monospace, monospace; font-size: .78rem; background: #252525; border: 1px solid #3a3a3a; border-radius: 4px; padding: .05rem .35rem; color: #aaa; }
+  .mon-badge { font-size: .8rem; font-family: ui-monospace, monospace; padding: .15rem .6rem; border-radius: 10px; font-weight: 600; margin-left: .5rem; }
+  .mon-badge-ok    { background: #143014; border: 1px solid #2a6a2a; color: #6c6; }
+  .mon-badge-stale { background: #2a1f0a; border: 1px solid #6a4a10; color: #c94; }
+  .mon-badge-error { background: #2a0a0a; border: 1px solid #7a1a1a; color: #f66; }
+  .mon-liveness-warn { color: #c94; font-size: .85rem; margin: .3rem 0 .1rem; }
 
   /* Tablet + phone: give the (JS-populated, sometimes long) build ref its own
      row so the top row never crowds — also clears the 641–800px middle zone. */
@@ -122,7 +134,7 @@
       <div id="now-widget" class="marquee">—</div>
     </div>
     <div class="card">
-      <strong>Health</strong>
+      <strong>Health</strong> <span id="monitors-badge" style="display:none;"></span>
       <table id="monitors"><tbody></tbody></table>
       <pre id="logtail" class="muted">no recent warnings</pre>
     </div>
@@ -429,6 +441,88 @@ function fmtAgo(ts) {
   return Math.round(s / 3600) + "h ago";
 }
 
+function fmtDur(sec) {
+  if (sec == null || sec < 1) return "~0s";
+  if (sec < 90) return "~" + Math.round(sec) + "s";
+  return "~" + Math.round(sec / 60) + "m";
+}
+
+// Monitor state from a status.json monitors[] entry. Client-side so relative
+// times stay live between publishes. Rules (spec): error wins over stale;
+// backoff (has error) is "error", never "stale"; stale = no error AND
+// now - last_ok > interval + splay grace; waiting = never succeeded, neutral.
+const SPLAY_GRACE = 60; // seconds — covers run_monitor_loop's up-to-60s splay
+function monitorState(m, nowSec) {
+  if (m.error) return "error";
+  if (m.last_ok == null) return "waiting";
+  if (nowSec - m.last_ok > (m.interval || 0) + (m.interval || 0) + SPLAY_GRACE) return "stale";
+  return "ok";
+}
+
+const MONITOR_STATE_ORDER = {error: 0, stale: 1, waiting: 2, ok: 3};
+
+function renderMonitors(st, signOk) {
+  const monitors = st.monitors;
+  const badge = $("monitors-badge");
+  const tbody = $("monitors").tBodies[0];
+
+  // Empty / absent (graceful degradation for older schema)
+  if (!monitors || !monitors.length) {
+    badge.style.display = "none";
+    tbody.innerHTML = '<tr><td class="muted">No live-data monitors configured</td></tr>';
+    return;
+  }
+
+  const nowSec = Date.now() / 1000;
+  // Compute state for each monitor
+  const entries = monitors.map((m) => ({m, s: monitorState(m, nowSec)}));
+
+  // Sort worst-first (error > stale > waiting > ok), then by name
+  entries.sort((a, b) => {
+    const od = MONITOR_STATE_ORDER[a.s] - MONITOR_STATE_ORDER[b.s];
+    if (od !== 0) return od;
+    return String(a.m.name).localeCompare(String(b.m.name));
+  });
+
+  // Count by state for the badge
+  const counts = {ok: 0, stale: 0, error: 0, waiting: 0};
+  for (const {s} of entries) counts[s] = (counts[s] || 0) + 1;
+
+  // Badge: color = worst present (error→red, stale→amber, else green; waiting neutral)
+  const badgeCls = counts.error ? "mon-badge-error" : counts.stale ? "mon-badge-stale" : "mon-badge-ok";
+  const badgeParts = [];
+  if (counts.ok)      badgeParts.push(counts.ok + " ok");
+  if (counts.stale)   badgeParts.push(counts.stale + " stale");
+  if (counts.error)   badgeParts.push(counts.error + " error");
+  if (counts.waiting) badgeParts.push(counts.waiting + " waiting");
+  badge.className = "mon-badge " + badgeCls;
+  badge.textContent = badgeParts.join(" · ");
+  badge.style.display = "";
+
+  // Liveness gate: if the snapshot itself is stale, grey out rows + show a note
+  const livenessWarn = !signOk
+    ? '<tr><td colspan="5" class="mon-liveness-warn">sign not reporting — monitor state may be stale</td></tr>'
+    : "";
+
+  const dotClass = {ok: "mon-dot-ok", stale: "mon-dot-stale", error: "mon-dot-error", waiting: "mon-dot-waiting"};
+  const greyStyle = !signOk ? ' style="opacity:.45"' : "";
+
+  const rows = entries.map(({m, s}) => {
+    const dot = `<span class="mon-dot ${dotClass[s]}"></span>`;
+    const kind = `<span class="mon-kind">${esc(m.kind || "")}</span>`;
+    const updated = m.last_ok != null ? "updated " + fmtAgo(m.last_ok) : "—";
+    const interval = m.interval != null ? m.interval + "s" : "—";
+    let errCell = "";
+    if (m.error) {
+      errCell = `<span class="error">${esc(m.error.message)} ×${m.error.consecutive}</span>`;
+      if (m.error.retry_in != null) errCell += ` <span class="muted">· retrying in ${fmtDur(m.error.retry_in)}</span>`;
+    }
+    return `<tr${greyStyle}><td>${dot}${esc(m.name)}</td><td>${kind}</td><td class="muted">${s}</td><td class="muted">${esc(updated)}</td><td class="muted">${esc(interval)}</td><td>${errCell}</td></tr>`;
+  }).join("");
+
+  tbody.innerHTML = livenessWarn + rows;
+}
+
 function renderBuildStamp(body) {
   const el = $("build-stamp");
   if (!el) return;
@@ -490,9 +584,7 @@ async function poll() {
       : "—";
     const w = st.widget || {};
     $("now-widget").textContent = w.type ? (w.summary ? `${w.type}: ${w.summary}` : w.type) : "—";
-    $("monitors").tBodies[0].innerHTML = Object.entries(st.monitor_updates || {})
-      .map(([n, ts]) => `<tr><td>${esc(n)}</td><td>${fmtAgo(ts)}</td></tr>`).join("")
-      || '<tr><td class="muted">no async monitors</td></tr>';
+    renderMonitors(st, body.state === "ok" && stallPolls < 2);
     const fails = (st.failed_plugins || []).map((p) => `<tr><td>${esc(p.namespace)}</td><td class="error">failed: ${esc(p.error)}</td></tr>`);
     $("plugins").tBodies[0].innerHTML = (st.plugins || [])
       .map((p) => {

@@ -501,7 +501,7 @@ function renderMonitors(st, signOk) {
 
   // Liveness gate: if the snapshot itself is stale, grey out rows + show a note
   const livenessWarn = !signOk
-    ? '<tr><td colspan="5" class="mon-liveness-warn">sign not reporting — monitor state may be stale</td></tr>'
+    ? '<tr><td colspan="6" class="mon-liveness-warn">sign not reporting — monitor state may be stale</td></tr>'
     : "";
 
   const dotClass = {ok: "mon-dot-ok", stale: "mon-dot-stale", error: "mon-dot-error", waiting: "mon-dot-waiting"};

@@ -101,6 +101,28 @@ The Overlays card is **read-only**. The busy light's on/off state is controlled 
   block do not publish overlay state, and the card will not appear.
 </Aside>
 
+### Status tab — Monitors
+
+The Status tab's **Monitors** panel tracks the health of every live-data source and data widget running on the sign — automatically, with nothing to configure beyond adding the source or plugin in the first place.
+
+**What it covers.** Two kinds of live-data workers show up here:
+
+- **Polled `[[source]]` value-tokens** — sources like `:weather.nyc:` or `:crypto.btc:` that fetch their value from an API on a repeating interval (see [Value tokens](/concepts/value-tokens/)).
+- **Data widgets** — plugin widgets that pull data in the background (weather, RSS, crypto, calendar, sports, pool, and others).
+
+**The roll-up badge.** Next to the "Health" heading in the Monitors panel, a small colored badge summarizes the worst state across all monitors at a glance — red for error, amber for stale, green for all-ok.
+
+**Per-monitor states.** Each row shows the source or widget name, its kind, and one of four states:
+
+| State       | Meaning                                                                                                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ok**      | Updated within its expected interval — data is fresh.                                                                                                                                                   |
+| **error**   | The last fetch failed. The row shows the error message, a consecutive-failure count, and a "retrying in …" countdown to the next attempt.                                                               |
+| **stale**   | No successful update for well past the expected interval — the fetch task may be wedged. Stale differs from error: there is no error message because the fetch never returned, not even with a failure. |
+| **waiting** | The source has not completed its first fetch yet. This appears briefly at startup.                                                                                                                      |
+
+**"Sign not reporting."** If the display process stops publishing its status snapshot, all monitor rows grey out and a warning appears at the top of the panel: "sign not reporting — monitor state may be stale." This prevents a frozen snapshot from being mistaken for a healthy sign. Once the display process resumes, the warning clears automatically.
+
 ### Status tab — snapshot fields
 
 The display process publishes a `status.json` file (schema version 6) containing the state of the running display. The web UI renders this snapshot; advanced users and integrations can also read it directly. Notable fields:
@@ -292,6 +314,7 @@ The dashboard header shows the deployed build, as `branch@sha`. Use it to confir
     "concepts/hot-reload",
     "reference/config-options",
     "concepts/busy-light",
+    "concepts/value-tokens",
     "reference/cli",
   ]}
 />

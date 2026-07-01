@@ -91,12 +91,20 @@ Per monitor, from `(interval, last_ok, error, now)` — recomputed each client t
 - **Schema tripwire** bumped to 9; snapshot contains `monitors`, not top-level `monitor_updates`.
 - **Web UI:** if the state-compute is factored out, unit-test the ok/error/stale/waiting transitions + the sign-liveness gate.
 
+## Documentation
+
+Ships **with** the feature (not a follow-up):
+
+- **Web-UI docs** — add a **"Monitors"** section to the existing page `docs/site/src/content/docs/concepts/web-status-ui.mdx`: what the panel shows, where it lives (the Status tab + the roll-up badge), and how to read each state — **ok / error** (with the message + retry hint) **/ stale / waiting** — plus the "sign not reporting" gate. Note it covers **both** `[[source]]` value-token sources and data widgets automatically, with no config to enable it.
+- **Cross-links** — from the value-tokens concept page (`concepts/value-tokens.mdx`, the "Live (polled) sources" section) so someone debugging a dead `:weather.nyc:` token finds the health panel; and from the RelatedPages on the web-status page.
+- DOCS-STYLE (no "footgun", no release-history framing). `make docs-build` + `make docs-lint` clean; the docs-config-options drift gate stays green (no new config fields — the panel is automatic).
+
 ## Scope
 
-**In (v1):** read-only at-a-glance health (running / error / stale / waiting) for polled sources + data widgets, with the roll-up badge, live relative times, retry hints, worst-first sort, sign-liveness gate, graceful empty state.
+**In (v1):** read-only at-a-glance health (running / error / stale / waiting) for polled sources + data widgets, with the roll-up badge, live relative times, retry hints, worst-first sort, sign-liveness gate, graceful empty state — **and the docs above**.
 
 **Out (YAGNI — possible later behind the same data):** manual retry/restart buttons; per-monitor history / graphs; alerting / notifications; a dedicated Monitors tab; an error taxonomy beyond faithfully showing the message.
 
 ## Sequencing
 
-**One coordinated effort** (core + web UI are the same repo). Order: (1) the board's `monitors` dict + `register_monitor`/`record_monitor_error`/`clear_monitors` + `_monitor_name`; (2) `run_monitor_loop` wiring (duck-typed kind, busy_light exclusion, register-first-line, error+retry_in); (3) reload prune; (4) snapshot schema 8→9 + drop top-level `monitor_updates` + migrate tests; (5) the web UI panel + badge + sign-liveness gate — data exists before the UI consumes it.
+**One coordinated effort** (core + web UI + docs are the same repo). Order: (1) the board's `monitors` dict + `register_monitor`/`record_monitor_error`/`clear_monitors` + `_monitor_name`; (2) `run_monitor_loop` wiring (duck-typed kind, busy_light exclusion, register-first-line, error+retry_in); (3) reload prune; (4) snapshot schema 8→9 + drop top-level `monitor_updates` + migrate tests; (5) the web UI panel + badge + sign-liveness gate; (6) the docs section + cross-links — data exists before the UI consumes it, and the docs land with the UI.

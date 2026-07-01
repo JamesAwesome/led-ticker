@@ -3,6 +3,13 @@
 import pytest
 
 
+def test_polled_data_source_is_public():
+    import led_ticker.plugin as plugin
+    from led_ticker.plugin import PolledDataSource  # noqa: F401
+
+    assert "PolledDataSource" in plugin.__all__
+
+
 def test_api_source_registers_and_resolves():
     from led_ticker.plugin import PluginAPI
     from led_ticker.sources import DataSource

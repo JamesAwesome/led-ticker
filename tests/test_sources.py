@@ -1,12 +1,14 @@
 import asyncio
 import datetime
 
+import attrs
 import pytest
 
 from led_ticker.sources import (
     ClockSource,
     DataRegistry,
     DateSource,
+    PolledDataSource,
     StaticSource,
     TokenizedField,
     get_data_registry,
@@ -218,6 +220,175 @@ class TestSourceFactory:
         assert src.value == ""
 
 
+def test_set_value_write_order_and_bump_only_on_change():
+    s = StaticSource(id="x", value="a")
+    assert s._set_value("a") is True  # first set bumps from version 0
+    assert (s.current, s.version) == ("a", 1)
+    assert s._set_value("a") is False  # unchanged → no bump
+    assert s.version == 1
+    assert s._set_value("b") is True  # changed → bump
+    assert (s.current, s.version) == ("b", 2)
+
+
+def test_polled_source_is_polled_and_holds_session_interval():
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None:
+            self._set_value("hello")
+
+    s = _Fake(id="acme.live", session="SESS", interval=42)
+    assert s.polled is True
+    assert s.session == "SESS"
+    assert s.interval == 42
+    assert s.current == "" and s.version == 0  # nothing until update()
+
+
+@pytest.mark.asyncio
+async def test_polled_update_sets_value_write_order():
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None:
+            await asyncio.sleep(0)  # the fetch await happens BEFORE...
+            self._set_value("123")  # ...the synchronous current+version set
+
+    s = _Fake(id="acme.live")
+    await s.update()
+    assert (s.current, s.version) == ("123", 1)
+
+
+def test_polled_compute_raises():
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None: ...
+
+    with pytest.raises(NotImplementedError):
+        _Fake(id="x").compute()
+
+
+def test_sync_refresh_still_works():
+    s = StaticSource(id="x", value="z")
+    assert s.refresh() is True and s.current == "z" and s.version == 1
+    assert s.refresh() is False and s.version == 1
+
+
+def test_build_source_injects_session_and_interval_for_polled(monkeypatch):
+    import attrs
+
+    from led_ticker.app.factories import build_source
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        location: str = ""
+
+        async def update(self) -> None: ...
+
+    _PLUGIN_SOURCE_TYPES["acme.live"] = _Fake
+    try:
+        cfg = SourceConfig(
+            id="x",
+            type="acme.live",
+            raw={"id": "x", "type": "acme.live", "location": "NYC", "interval": 60},
+        )
+        src = build_source(cfg, session="SESS")
+        assert isinstance(src, _Fake)
+        assert src.session == "SESS" and src.interval == 60 and src.location == "NYC"
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.live", None)
+
+
+def test_build_source_sync_unchanged():
+    from led_ticker.app.factories import build_source
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import ClockSource
+
+    cfg = SourceConfig(
+        id="c", type="clock", raw={"id": "c", "type": "clock", "format": "%H"}
+    )
+    src = build_source(cfg)  # no session
+    assert isinstance(src, ClockSource) and src.fmt == "%H"
+
+
+@pytest.mark.asyncio
+async def test_spawn_source_refresh_spawns_polled_loops():
+    import attrs
+
+    from led_ticker.sources import DataRegistry, PolledDataSource, spawn_source_refresh
+
+    polled_calls = []
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None:
+            polled_calls.append(1)
+            self._set_value("v")
+
+    reg = DataRegistry()
+    reg.add(_Fake(id="p", interval=0.01))
+    tasks = spawn_source_refresh(reg)
+    # one 1 Hz sync task + one polled loop task
+    assert isinstance(tasks, list) and len(tasks) == 2
+    await asyncio.sleep(0.05)
+    assert polled_calls, "polled update() was never called by run_monitor_loop"
+    for t in tasks:
+        t.cancel()
+
+
+@pytest.mark.asyncio
+async def test_one_hz_ticker_does_not_poll_polled_source():
+    import attrs
+
+    from led_ticker.sources import (
+        DataRegistry,
+        PolledDataSource,
+        run_source_refresh_loop,
+    )
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None: ...
+
+    reg = DataRegistry()
+    s = _Fake(id="p")
+    reg.add(s)
+    task = asyncio.create_task(run_source_refresh_loop(reg, interval=0.01))
+    await asyncio.sleep(0.05)
+    assert s.version == 0  # the sync ticker never touched the polled source
+    task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_polled_loop_survives_raising_update():
+    """A poll that raises is logged but the loop keeps running — panel never dies."""
+    import attrs
+
+    from led_ticker.sources import DataRegistry, PolledDataSource, spawn_source_refresh
+
+    call_count = 0
+    success_count = 0
+
+    @attrs.define(eq=False)
+    class _Flaky(PolledDataSource):
+        async def update(self) -> None:
+            nonlocal call_count, success_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("transient failure")
+            success_count += 1
+            self._set_value("ok")
+
+    reg = DataRegistry()
+    reg.add(_Flaky(id="flaky", interval=0.01))
+    tasks = spawn_source_refresh(reg)
+    # Wait long enough for backoff + retry (run_monitor_loop backs off on error)
+    await asyncio.sleep(0.2)
+    # The loop must still be running (not cancelled/done due to the exception)
+    assert not all(t.done() for t in tasks), "tasks must still be running after a raise"
+    for t in tasks:
+        t.cancel()
+
+
 def test_resolve_reresolves_when_registry_object_changes():
     # Hot-reload installs a FRESH DataRegistry; sources start at version=1
     # after their first refresh. A surviving TokenizedField must NOT use its
@@ -235,3 +406,70 @@ def test_resolve_reresolves_when_registry_object_changes():
         f"Expected 'NEWVAL' from new registry, got {result_text!r}"
     )
     assert result_changed is True
+
+
+# ---------------------------------------------------------------------------
+# build_source reserved-key drop
+# ---------------------------------------------------------------------------
+
+
+def test_build_source_drops_session_key_from_kwargs():
+    """A [[source]] key literally named 'session' must NOT collide with the
+    injected ``session=`` arg — the injected session wins and no
+    'multiple values for keyword argument' error is raised."""
+    import attrs
+
+    from led_ticker.app.factories import build_source
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None: ...
+
+    _PLUGIN_SOURCE_TYPES["acme.sessionkey"] = _Fake
+    try:
+        cfg = SourceConfig(
+            id="x",
+            type="acme.sessionkey",
+            raw={
+                "id": "x",
+                "type": "acme.sessionkey",
+                "session": "SHOULD_BE_DROPPED",  # reserved key — must not reach cls()
+            },
+        )
+        src = build_source(cfg, session="INJECTED")
+        # The injected session wins; the config value was silently dropped.
+        assert src.session == "INJECTED"
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.sessionkey", None)
+
+
+def test_build_source_drops_polled_key_from_kwargs():
+    """A [[source]] key named 'polled' must not override the base DataSource attr."""
+    import attrs
+
+    from led_ticker.app.factories import build_source
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None: ...
+
+    _PLUGIN_SOURCE_TYPES["acme.polledkey"] = _Fake
+    try:
+        cfg = SourceConfig(
+            id="x",
+            type="acme.polledkey",
+            raw={
+                "id": "x",
+                "type": "acme.polledkey",
+                "polled": False,  # reserved — must be dropped, not forwarded
+            },
+        )
+        # Should not raise "multiple values" / should use the default polled=True.
+        src = build_source(cfg, session=None)
+        assert src.polled is True  # default from PolledDataSource, not overridden
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.polledkey", None)

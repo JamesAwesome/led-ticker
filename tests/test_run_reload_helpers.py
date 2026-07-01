@@ -484,3 +484,94 @@ async def test_per_section_reload_swaps_config_and_restarts_cycle(monkeypatch):
         f"no section should have reached Ticker (reload broke at section A "
         f"before render, cycle 2 stopped at top); got {ran_sections!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# build_source_registry — startup guard (asymmetric with reload)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildSourceRegistry:
+    """build_source_registry must skip-and-log bad sources rather than raising."""
+
+    def _good_source_cfg(self):
+        from led_ticker.config import SourceConfig
+
+        return SourceConfig(
+            id="good",
+            type="static",
+            raw={"id": "good", "type": "static", "value": "hello"},
+        )
+
+    def _bad_source_cfg(self):
+        """An unknown type → build_source raises ValueError."""
+        from led_ticker.config import SourceConfig
+
+        return SourceConfig(
+            id="bad",
+            type="no_such_type_xyz",
+            raw={"id": "bad", "type": "no_such_type_xyz"},
+        )
+
+    def test_bad_source_is_skipped_not_raised(self):
+        """A [[source]] that makes build_source raise does NOT propagate out of
+        build_source_registry — the helper logs-and-skips, the panel keeps booting."""
+        registry = run_mod.build_source_registry([self._bad_source_cfg()], session=None)
+        # Registry is empty (bad source skipped), but no exception was raised.
+        from led_ticker.sources import DataRegistry
+
+        assert isinstance(registry, DataRegistry)
+        assert registry.ids() == set()  # no source landed
+
+    def test_good_sources_survive_a_bad_peer(self):
+        """The good source(s) in a mixed list are still registered even when a peer
+        fails — the panel boots with the working sources."""
+        registry = run_mod.build_source_registry(
+            [self._bad_source_cfg(), self._good_source_cfg()], session=None
+        )
+        assert registry.get("good") is not None
+        assert registry.get("bad") is None
+
+    def test_bad_source_is_logged_at_error(self, caplog):
+        """Skipped sources are logged at ERROR level with the source id and type."""
+        import logging
+
+        with caplog.at_level(logging.ERROR):
+            run_mod.build_source_registry([self._bad_source_cfg()], session=None)
+        assert any(
+            "no_such_type_xyz" in r.message and r.levelno == logging.ERROR
+            for r in caplog.records
+        ), f"expected ERROR log mentioning the bad source type; got: {caplog.records}"
+
+    def test_unexpected_kwarg_from_polled_source_is_skipped(self, monkeypatch):
+        """A PolledDataSource whose constructor rejects an unexpected kwarg is
+        skip-and-logged, not raised.  Covers the generic **kwargs passthrough path."""
+        import attrs
+
+        from led_ticker.config import SourceConfig
+        from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+        @attrs.define(eq=False)
+        class _StrictFake(PolledDataSource):
+            # Only accepts `location`; an unexpected kwarg raises TypeError.
+            location: str = ""
+
+            async def update(self) -> None: ...
+
+        _PLUGIN_SOURCE_TYPES["acme.strict"] = _StrictFake
+        try:
+            cfg = SourceConfig(
+                id="s",
+                type="acme.strict",
+                raw={
+                    "id": "s",
+                    "type": "acme.strict",
+                    "location": "NYC",
+                    "unexpected_extra_key": "boom",  # no matching attr → TypeError
+                },
+            )
+            # Should not raise:
+            registry = run_mod.build_source_registry([cfg], session=None)
+            assert registry.get("s") is None  # was skipped
+        finally:
+            _PLUGIN_SOURCE_TYPES.pop("acme.strict", None)

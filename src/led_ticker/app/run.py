@@ -253,6 +253,35 @@ def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
         return None
 
 
+def build_source_registry(sources: list, session: Any) -> DataRegistry:
+    """Build a DataRegistry from a list of SourceConfig objects.
+
+    Each source is built with ``build_source``; failures are logged and skipped
+    so that a single bad ``[[source]]`` block cannot crash startup and go dark.
+    The registry returned contains every source that succeeded; ``set_data_registry``
+    is NOT called here — the caller is responsible (mirrors reload.py separation).
+
+    Mirrors the "a bad source must not crash the loop" guard in ``reload.py``
+    ``_apply_reload``, but at per-source granularity instead of atomic-or-nothing:
+    at startup we want as many sources as possible; on reload the atomic swap
+    protects a running display from a half-built registry.
+    """
+    registry = DataRegistry()
+    for source_cfg in sources:
+        try:
+            registry.add(build_source(source_cfg, session=session))
+        except Exception as exc:  # noqa: BLE001 - bad source must not crash startup
+            logging.error(
+                "startup: source %r (type %r) failed to build (%s: %s) — "
+                "skipping; fix the [[source]] block and restart",
+                getattr(source_cfg, "id", "?"),
+                getattr(source_cfg, "type", "?"),
+                type(exc).__name__,
+                exc,
+            )
+    return registry
+
+
 class _ReloadResult(NamedTuple):
     config: Any
     default_section_trans: Any
@@ -271,15 +300,17 @@ async def _detect_and_apply_reload(
     schedule_task: Any,
     source_refresh_task: Any,
     led_frame: Any,
+    session: Any = None,
 ) -> _ReloadResult | None:
     """Check the watcher; if the config changed and validates, apply it.
 
     Returns a _ReloadResult (new config + rebuilt section-default transition +
-    new schedule task + new source-refresh task) when a reload was applied, else
-    None for: no change, transient mid-write, or a rejected (invalid) config.
+    new schedule task + new source-refresh task list) when a reload was applied,
+    else None for: no change, transient mid-write, or a rejected (invalid) config.
     Records reload status as a side effect — moved verbatim from the old inline
     run-loop block so the detection cadence (now per-section) is the only
-    behavior change."""
+    behavior change. ``session`` is forwarded to ``_apply_reload`` so polled
+    sources built during a hot-reload share the same aiohttp.ClientSession."""
     if not watcher.changed():
         return None
     new_config, errors, transient = await _reload.load_and_validate(config_path)
@@ -299,6 +330,7 @@ async def _detect_and_apply_reload(
         schedule_task=schedule_task,
         respawn_schedule=lambda ot, cfg: _respawn_schedule(ot, cfg, led_frame),
         source_refresh_task=source_refresh_task,
+        session=session,
     )
     default_section_trans = _build_trans_obj_guarded(new_config.between_sections)
     for w in getattr(new_config, "_coerce_warnings", []):
@@ -722,20 +754,6 @@ async def run(config_path: Path) -> None:
 
         schedule_task: Any = await _respawn_schedule(None, config, led_frame)
 
-        # Build the data-source registry from [[source]] blocks, prime each
-        # source once, and spawn the 1 Hz refresh loop. Must run BEFORE widget
-        # construction so TokenizedField instances created during widget build
-        # can resolve against an already-populated registry. Runs post-frame-
-        # build (inside the try: after led_frame.setup()) but uses only
-        # spawn_tracked (asyncio task) and no privileged FS — safe at this
-        # point regardless of whether the rgbmatrix backend has dropped root
-        # (constraint #13).
-        _source_registry = DataRegistry()
-        for _source_cfg in config.sources:
-            _source_registry.add(build_source(_source_cfg))
-        set_data_registry(_source_registry)
-        source_refresh_task: Any = spawn_source_refresh(_source_registry)
-
         # Default inter-section transition built once at startup. Used for
         # sections that don't specify their own `transition` field — see
         # the per-section override logic below.
@@ -750,7 +768,27 @@ async def run(config_path: Path) -> None:
             config.display.rows if config.display.default_scale == 1 else None
         )
 
+        # Sentinel: source_refresh_task is set inside the session block (after
+        # the shared session exists so polled sources receive it). Declared here
+        # so hot-reload code that references the name doesn't see an unbound
+        # variable on an early-exit path.
+        source_refresh_task: Any = None
+
         async with aiohttp.ClientSession() as session:
+            # Build the data-source registry from [[source]] blocks inside the
+            # session block so polled (network-backed) PolledDataSource subclasses
+            # receive the shared aiohttp.ClientSession. Must run BEFORE widget
+            # construction so TokenizedField instances created during widget build
+            # can resolve against an already-populated registry. Uses only
+            # spawn_tracked (asyncio task) and no privileged FS — safe regardless
+            # of whether the rgbmatrix backend has dropped root (constraint #13).
+            _source_registry = build_source_registry(config.sources, session=session)
+            set_data_registry(_source_registry)
+            # spawn_source_refresh returns a LIST: the 1 Hz sync task + one
+            # run_monitor_loop task per polled source. Store as a list so
+            # hot-reload (Task 5) can cancel them all.
+            source_refresh_task = spawn_source_refresh(_source_registry)
+
             last_widget: Any = None  # track for section-to-section transitions
             last_scroll_pos: int = 0  # track scroll pos for between-section transitions
             last_scale: int = config.display.default_scale  # outgoing section's scale
@@ -791,6 +829,7 @@ async def run(config_path: Path) -> None:
                         schedule_task=schedule_task,
                         source_refresh_task=source_refresh_task,
                         led_frame=led_frame,
+                        session=session,
                     )
                     if _reload_res is not None:
                         config = _reload_res.config
@@ -813,6 +852,7 @@ async def run(config_path: Path) -> None:
                             schedule_task=schedule_task,
                             source_refresh_task=source_refresh_task,
                             led_frame=led_frame,
+                            session=session,
                         )
                         if _reload_res is not None:
                             config = _reload_res.config

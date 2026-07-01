@@ -542,3 +542,82 @@ def test_snapshot_carries_build_ref(tmp_path, monkeypatch):
     monkeypatch.setenv("LED_TICKER_BUILD_REF", "feat/x@abc1234")
     snap = _board(tmp_path).snapshot()
     assert snap["build"] == "feat/x@abc1234"
+
+
+# --- Task 1: monitors roster + register/error/clear + _monitor_name -----------
+
+
+def test_monitor_name_prefers_id_then_name_then_class():
+    from led_ticker.status_board import _monitor_name
+
+    class _Src:  # a source: has .id
+        id = "weather.nyc"
+
+    class _Wid:  # a widget with a .name
+        name = "RSS BBC"
+
+    class _Bare:
+        pass
+
+    assert _monitor_name(_Src()) == "weather.nyc"
+    assert _monitor_name(_Wid()) == "RSS BBC"
+    assert _monitor_name(_Bare()) == "_Bare"
+
+
+def test_register_record_update_and_error(tmp_path):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        sb.register_monitor("weather.nyc", "source", 1800)
+        assert board.monitors["weather.nyc"] == {
+            "kind": "source",
+            "interval": 1800,
+            "last_ok": None,
+            "error": None,
+        }
+        sb.record_monitor_error("weather.nyc", "401 Unauthorized", 3, 240.0)
+        assert board.monitors["weather.nyc"]["error"] == {
+            "message": "401 Unauthorized",
+            "consecutive": 3,
+            "at": board.monitors["weather.nyc"]["error"]["at"],
+            "retry_in": 240.0,
+        }
+        sb.record_monitor_update("weather.nyc")
+        assert board.monitors["weather.nyc"]["last_ok"] is not None
+        assert board.monitors["weather.nyc"]["error"] is None  # cleared on success
+    finally:
+        sb.clear_active_board()
+
+
+def test_register_monitor_name_collision_suffixes(tmp_path):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        n1 = sb.register_monitor("WeatherCurrentMonitor", "widget", 10800)
+        n2 = sb.register_monitor("WeatherCurrentMonitor", "widget", 10800)
+        assert n1 == "WeatherCurrentMonitor"
+        assert n2 == "WeatherCurrentMonitor#2"
+        assert set(board.monitors) == {
+            "WeatherCurrentMonitor",
+            "WeatherCurrentMonitor#2",
+        }
+    finally:
+        sb.clear_active_board()
+
+
+def test_clear_monitors(tmp_path):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        sb.register_monitor("a", "source", 60)
+        sb.register_monitor("b", "widget", 60)
+        sb.clear_monitors()
+        assert board.monitors == {}
+    finally:
+        sb.clear_active_board()

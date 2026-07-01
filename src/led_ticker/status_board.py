@@ -52,6 +52,9 @@ class StatusBoard:
     section: dict[str, Any] = attrs.field(factory=dict)
     widget: dict[str, Any] = attrs.field(factory=dict)
     monitor_updates: dict[str, float] = attrs.field(factory=dict)
+    # name -> {kind, interval, last_ok, error}. Registered on poll-loop entry,
+    # updated on success, error-recorded on failure; cleared on reload.
+    monitors: dict[str, dict] = attrs.field(factory=dict)
     # Incremented by LedFrame.swap() via record_swap(); serialized by the
     # heartbeat. A counter that stops advancing while the file stays fresh
     # is how the page distinguishes a wedged render loop from a healthy
@@ -186,9 +189,85 @@ def get_active_board() -> StatusBoard | None:
     return _ACTIVE
 
 
+def _monitor_name(obj: Any) -> str:
+    """Stable monitor key: a source's .id, else a widget's .name, else classname.
+    (Fixes the collision where two polled sources both keyed as their classname.)"""
+    return getattr(obj, "id", None) or getattr(obj, "name", None) or type(obj).__name__
+
+
+def register_monitor(name: str, kind: str, interval: float) -> str:
+    """Add/refresh a monitor roster entry (preserving last_ok/error on re-register).
+    On a name collision append #N so each monitor gets a distinct row. Returns
+    the final (possibly suffixed) name. Never raises."""
+    if _ACTIVE is None:
+        return name
+    try:
+        m = _ACTIVE.monitors
+        if name in m:
+            # same key already taken -> suffix
+            n, final = 2, f"{name}#2"
+            while final in m:
+                n += 1
+                final = f"{name}#{n}"
+            name = final
+        entry = m.get(name) or {
+            "kind": kind,
+            "interval": interval,
+            "last_ok": None,
+            "error": None,
+        }
+        entry["kind"], entry["interval"] = kind, interval
+        m[name] = entry
+        _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        pass
+    return name
+
+
+def record_monitor_error(
+    name: str, message: str, consecutive: int, retry_in: float
+) -> None:
+    """Record a failed poll for the named monitor.
+
+    Instrumentation only — never raises."""
+    if _ACTIVE is None:
+        return
+    try:
+        entry = _ACTIVE.monitors.setdefault(
+            name, {"kind": "widget", "interval": 0.0, "last_ok": None, "error": None}
+        )
+        entry["error"] = {
+            "message": message,
+            "consecutive": consecutive,
+            "at": time.time(),
+            "retry_in": retry_in,
+        }
+        _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        pass
+
+
+def clear_monitors() -> None:
+    """Empty the monitors roster (called on config reload).
+
+    Instrumentation only — never raises."""
+    if _ACTIVE is None:
+        return
+    try:
+        _ACTIVE.monitors.clear()
+        _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        pass
+
+
 def record_monitor_update(name: str) -> None:
     if _ACTIVE is not None:
-        _ACTIVE.monitor_updates[name] = time.time()
+        now = time.time()
+        _ACTIVE.monitor_updates[name] = now
+        entry = _ACTIVE.monitors.get(name)
+        if entry is not None:
+            entry["last_ok"] = now
+            entry["error"] = None
         _ACTIVE.publish()
 
 

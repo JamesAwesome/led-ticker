@@ -253,6 +253,35 @@ def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
         return None
 
 
+def build_source_registry(sources: list, session: Any) -> DataRegistry:
+    """Build a DataRegistry from a list of SourceConfig objects.
+
+    Each source is built with ``build_source``; failures are logged and skipped
+    so that a single bad ``[[source]]`` block cannot crash startup and go dark.
+    The registry returned contains every source that succeeded; ``set_data_registry``
+    is NOT called here — the caller is responsible (mirrors reload.py separation).
+
+    Mirrors the "a bad source must not crash the loop" guard in ``reload.py``
+    ``_apply_reload``, but at per-source granularity instead of atomic-or-nothing:
+    at startup we want as many sources as possible; on reload the atomic swap
+    protects a running display from a half-built registry.
+    """
+    registry = DataRegistry()
+    for source_cfg in sources:
+        try:
+            registry.add(build_source(source_cfg, session=session))
+        except Exception as exc:  # noqa: BLE001 - bad source must not crash startup
+            logging.error(
+                "startup: source %r (type %r) failed to build (%s: %s) — "
+                "skipping; fix the [[source]] block and restart",
+                getattr(source_cfg, "id", "?"),
+                getattr(source_cfg, "type", "?"),
+                type(exc).__name__,
+                exc,
+            )
+    return registry
+
+
 class _ReloadResult(NamedTuple):
     config: Any
     default_section_trans: Any
@@ -753,9 +782,7 @@ async def run(config_path: Path) -> None:
             # can resolve against an already-populated registry. Uses only
             # spawn_tracked (asyncio task) and no privileged FS — safe regardless
             # of whether the rgbmatrix backend has dropped root (constraint #13).
-            _source_registry = DataRegistry()
-            for _source_cfg in config.sources:
-                _source_registry.add(build_source(_source_cfg, session=session))
+            _source_registry = build_source_registry(config.sources, session=session)
             set_data_registry(_source_registry)
             # spawn_source_refresh returns a LIST: the 1 Hz sync task + one
             # run_monitor_loop task per polled source. Store as a list so

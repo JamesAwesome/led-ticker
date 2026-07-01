@@ -406,3 +406,70 @@ def test_resolve_reresolves_when_registry_object_changes():
         f"Expected 'NEWVAL' from new registry, got {result_text!r}"
     )
     assert result_changed is True
+
+
+# ---------------------------------------------------------------------------
+# build_source reserved-key drop
+# ---------------------------------------------------------------------------
+
+
+def test_build_source_drops_session_key_from_kwargs():
+    """A [[source]] key literally named 'session' must NOT collide with the
+    injected ``session=`` arg — the injected session wins and no
+    'multiple values for keyword argument' error is raised."""
+    import attrs
+
+    from led_ticker.app.factories import build_source
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None: ...
+
+    _PLUGIN_SOURCE_TYPES["acme.sessionkey"] = _Fake
+    try:
+        cfg = SourceConfig(
+            id="x",
+            type="acme.sessionkey",
+            raw={
+                "id": "x",
+                "type": "acme.sessionkey",
+                "session": "SHOULD_BE_DROPPED",  # reserved key — must not reach cls()
+            },
+        )
+        src = build_source(cfg, session="INJECTED")
+        # The injected session wins; the config value was silently dropped.
+        assert src.session == "INJECTED"
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.sessionkey", None)
+
+
+def test_build_source_drops_polled_key_from_kwargs():
+    """A [[source]] key named 'polled' must not override the base DataSource attr."""
+    import attrs
+
+    from led_ticker.app.factories import build_source
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None: ...
+
+    _PLUGIN_SOURCE_TYPES["acme.polledkey"] = _Fake
+    try:
+        cfg = SourceConfig(
+            id="x",
+            type="acme.polledkey",
+            raw={
+                "id": "x",
+                "type": "acme.polledkey",
+                "polled": False,  # reserved — must be dropped, not forwarded
+            },
+        )
+        # Should not raise "multiple values" / should use the default polled=True.
+        src = build_source(cfg, session=None)
+        assert src.polled is True  # default from PolledDataSource, not overridden
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.polledkey", None)

@@ -1378,9 +1378,19 @@ def build_source(cfg: SourceConfig, session: Any = None) -> DataSource:
         # Generic kwarg passthrough for plugin polled sources: id + injected
         # session/interval + the remaining [[source]] kwargs (location, format,
         # placeholder, …). Drop reserved keys so they don't collide.
-        kwargs = {
-            k: v for k, v in cfg.raw.items() if k not in ("id", "type", "interval")
+        # Drop keys that are injected or reserved on PolledDataSource / DataSource so
+        # a [[source]] block that happens to contain a key with one of these names
+        # can't collide with or override the injected constructor arg.
+        # - "id"/"type"/"interval": already excluded (framework fields)
+        # - "session": injected by build_source; a config key named "session" would
+        #   produce "multiple values for keyword argument 'session'"
+        # - "polled"/"current"/"version": DataSource base attrs; a config key with
+        #   these names would bypass the attrs init contract
+        _RESERVED = {
+            "id", "type", "interval",  # framework fields
+            "session", "polled", "current", "version",  # injected / base attrs
         }
+        kwargs = {k: v for k, v in cfg.raw.items() if k not in _RESERVED}
         return cls(
             id=cfg.id,
             session=session,

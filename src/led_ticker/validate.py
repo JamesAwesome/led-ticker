@@ -863,7 +863,7 @@ def _check_scroll_separator_font(
     Mirrors `_check_separator_fonts` (section-level separator_font) but for
     TransitionConfig homes:
       - UnknownFontError  → rule 24 warning (font may live on the deploy target)
-      - ValueError containing "requires font_size" → rule 5 error
+      - ValueError containing "requires a size" → rule 5 error
 
     When `separator_font_size` is omitted, `resolve_font` raises a generic
     ValueError ("requires a size") before it can confirm the name is known.
@@ -932,7 +932,10 @@ def _check_scroll_separator_font(
                     return
                 except ValueError:
                     pass  # fall through to the error path below
-            rule = 5 if "requires font_size" in msg else None
+            # resolve_font's missing-size message is "requires a size"
+            # (fonts/__init__.py) — NOT "requires font_size". Match the real
+            # text so a hires font with no size classifies as rule 5.
+            rule = 5 if "requires a size" in msg else None
             errors.append(
                 ValidationIssue(
                     rule=rule,

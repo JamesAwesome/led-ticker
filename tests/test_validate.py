@@ -3789,3 +3789,48 @@ async def test_scroll_unknown_separator_font_warns(conf):
         """
     result = await validate_config(conf(cfg))
     assert any("no_such_font" in (w.message or "") for w in result.warnings)
+
+
+async def test_scroll_hires_separator_font_without_size_errors(conf):
+    """Known hires separator_font with no separator_font_size → rule-5 error
+    (the re-probe path: font name is valid, size is missing). Closes the
+    review's untested rule-5 branch."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "scroll", separator_font = "Inter-Bold" }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 5 for e in result.errors)
+
+
+async def test_scroll_unknown_separator_font_warns_with_rule_24(conf):
+    """The unknown-font warning is specifically rule 24 (locks the mapping)."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "scroll", separator_font = "no_such_font" }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 24 for w in result.warnings)

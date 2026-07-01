@@ -71,8 +71,8 @@ def test_makefile_and_docs_page_exist() -> None:
 
 
 def test_make_targets_have_help_comments() -> None:
-    """Sanity: the Makefile actually uses the `## ` help convention, so the
-    source-of-truth parse isn't silently empty."""
+    """Quick check: the Makefile actually uses the `## ` help convention, so
+    the source-of-truth parse isn't silently empty."""
     assert _makefile_targets(), (
         "No `## `-commented targets parsed from the Makefile — the help "
         "convention may have changed; update _MAKE_TARGET_RE."

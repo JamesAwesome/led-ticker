@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -90,7 +90,9 @@ class StatusBoard:
             "config_validation": self.config_validation,
             "section": self.section,
             "widget": self.widget,
-            "monitor_updates": self.monitor_updates,
+            "monitors": [
+                {"name": name, **entry} for name, entry in self.monitors.items()
+            ],
             "swap_count": self.swap_count,
             "overlays": {"roster": self.overlay_roster, "busy": self.busy},
             "log_tail": list(self.log_tail),
@@ -262,13 +264,16 @@ def clear_monitors() -> None:
 
 def record_monitor_update(name: str) -> None:
     if _ACTIVE is not None:
-        now = time.time()
-        _ACTIVE.monitor_updates[name] = now
-        entry = _ACTIVE.monitors.get(name)
-        if entry is not None:
-            entry["last_ok"] = now
-            entry["error"] = None
-        _ACTIVE.publish()
+        try:
+            now = time.time()
+            _ACTIVE.monitor_updates[name] = now
+            entry = _ACTIVE.monitors.get(name)
+            if entry is not None:
+                entry["last_ok"] = now
+                entry["error"] = None
+            _ACTIVE.publish()
+        except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+            pass
 
 
 def record_widget_visit(widget: Any) -> None:

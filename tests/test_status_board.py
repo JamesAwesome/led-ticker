@@ -25,7 +25,7 @@ EXPECTED_TOP_LEVEL_KEYS = {
     "config_validation",
     "section",
     "widget",
-    "monitor_updates",
+    "monitors",
     "swap_count",
     "overlays",
     "log_tail",
@@ -44,7 +44,7 @@ def test_schema_tripwire(tmp_path):
         "SCHEMA_VERSION in src/led_ticker/status_board.py (the sidecar refuses "
         "schemas it doesn't know)."
     )
-    assert snap["schema"] == SCHEMA_VERSION == 8
+    assert snap["schema"] == SCHEMA_VERSION == 9
     assert "disabled_widgets" in snap
 
 
@@ -147,9 +147,12 @@ def test_record_monitor_update_with_active_board(tmp_path):
     board = _board(tmp_path)
     status_board.set_active_board(board)
     try:
+        # register_monitor first (realistic path), then update — monitors is the
+        # public dict serialized in snapshot as "monitors" list since schema 9.
+        status_board.register_monitor("RSS BBC", "widget", 60)
         status_board.record_monitor_update("RSS BBC")
-        assert "RSS BBC" in board.monitor_updates
-        assert board.monitor_updates["RSS BBC"] > 0
+        assert "RSS BBC" in board.monitors
+        assert board.monitors["RSS BBC"]["last_ok"] is not None
     finally:
         status_board.clear_active_board()
 
@@ -621,3 +624,25 @@ def test_clear_monitors(tmp_path):
         assert board.monitors == {}
     finally:
         sb.clear_active_board()
+
+
+# --- Task 2: snapshot schema 8->9 — monitors[] replaces top-level monitor_updates ---
+
+
+def test_snapshot_serializes_monitors_not_monitor_updates(tmp_path):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        sb.register_monitor("weather.nyc", "source", 1800)
+        sb.record_monitor_update("weather.nyc")
+        snap = board.snapshot()
+        assert "monitor_updates" not in snap
+        entries = {m["name"]: m for m in snap["monitors"]}
+        assert entries["weather.nyc"]["kind"] == "source"
+        assert entries["weather.nyc"]["interval"] == 1800
+        assert entries["weather.nyc"]["last_ok"] is not None
+        assert entries["weather.nyc"]["error"] is None
+    finally:
+        sb.set_active_board(None)

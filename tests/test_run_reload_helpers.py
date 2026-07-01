@@ -516,9 +516,7 @@ class TestBuildSourceRegistry:
     def test_bad_source_is_skipped_not_raised(self):
         """A [[source]] that makes build_source raise does NOT propagate out of
         build_source_registry — the helper logs-and-skips, the panel keeps booting."""
-        registry = run_mod.build_source_registry(
-            [self._bad_source_cfg()], session=None
-        )
+        registry = run_mod.build_source_registry([self._bad_source_cfg()], session=None)
         # Registry is empty (bad source skipped), but no exception was raised.
         from led_ticker.sources import DataRegistry
 

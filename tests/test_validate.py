@@ -3740,7 +3740,8 @@ class TestRule56Sources:
                 """)
             ok_result = await validate_config(conf(ok_cfg))
             rule_56_ok = [
-                e for e in ok_result.errors
+                e
+                for e in ok_result.errors
                 if e.rule == 56 and "location is required" in e.message
             ]
             assert not rule_56_ok, (

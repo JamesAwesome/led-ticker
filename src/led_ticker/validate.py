@@ -346,7 +346,7 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
                     )
                 )
             else:
-                for msg in (messages or []):
+                for msg in messages or []:
                     issues.append(
                         ValidationIssue(
                             rule=56,

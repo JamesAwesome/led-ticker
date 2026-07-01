@@ -1387,8 +1387,13 @@ def build_source(cfg: SourceConfig, session: Any = None) -> DataSource:
         # - "polled"/"current"/"version": DataSource base attrs; a config key with
         #   these names would bypass the attrs init contract
         _RESERVED = {
-            "id", "type", "interval",  # framework fields
-            "session", "polled", "current", "version",  # injected / base attrs
+            "id",
+            "type",
+            "interval",  # framework fields
+            "session",
+            "polled",
+            "current",
+            "version",  # injected / base attrs
         }
         kwargs = {k: v for k, v in cfg.raw.items() if k not in _RESERVED}
         return cls(

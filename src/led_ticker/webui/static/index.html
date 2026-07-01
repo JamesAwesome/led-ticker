@@ -84,6 +84,7 @@
   .mon-badge-error { background: #2a0a0a; border: 1px solid #7a1a1a; color: #f66; }
   .mon-liveness-warn { color: #c94; font-size: .85rem; margin: .3rem 0 .1rem; }
   .mon-type { color: #888; font-size: .8em; display: block; }
+  .mon-val { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* Tablet + phone: give the (JS-populated, sometimes long) build ref its own
      row so the top row never crowds — also clears the 641–800px middle zone. */
@@ -524,7 +525,8 @@ function renderMonitors(st, signOk) {
     }
     const typeSub = m.type ? `<span class="mon-type">${esc(m.type)}</span>` : "";
     const valueCell = m.value ? esc(m.value) : "—";
-    return `<tr${greyStyle}><td>${dot}${esc(m.name)}${typeSub}</td><td>${kind}</td><td class="muted">${s}</td><td class="muted">${valueCell}</td><td class="muted">${esc(updated)}</td><td class="muted">${esc(interval)}</td><td>${errCell}</td></tr>`;
+    const valueTitle = m.value ? esc(m.value) : "";
+    return `<tr${greyStyle}><td>${dot}${esc(m.name)}${typeSub}</td><td>${kind}</td><td class="muted">${s}</td><td class="muted mon-val" title="${valueTitle}">${valueCell}</td><td class="muted">${esc(updated)}</td><td class="muted">${esc(interval)}</td><td>${errCell}</td></tr>`;
   }).join("");
 
   tbody.innerHTML = livenessWarn + rows;

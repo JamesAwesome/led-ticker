@@ -120,14 +120,23 @@ async def _apply_reload(
     schedule_task: Any,
     respawn_schedule: Any,
     source_refresh_task: Any = None,
+    session: Any = None,
 ) -> tuple[Any, Any, list[str]]:
     """Apply a validated new config in place. Evicts changed/removed widgets
     (cancelling their captured background tasks), resets the render breaker and its
     status mirror, respawns the schedule ticker, and atomically swaps the source
     registry + respawns the 1 Hz source-refresh ticker. Returns
-    (schedule_task, new_source_refresh_task, restart_required). The CALLER swaps
+    (schedule_task, new_source_refresh_task_list, restart_required). The CALLER swaps
     `config`, rebuilds the section-default transition, drains coerce warnings,
-    logs, and records status."""
+    logs, and records status.
+
+    ``source_refresh_task`` is a LIST of task handles (the 1 Hz sync task + one
+    ``run_monitor_loop`` per polled source) as returned by ``spawn_source_refresh``.
+    On a successful swap every handle in the list is cancelled and a new list is
+    spawned; on a build failure the old list is returned unchanged (atomic-or-nothing).
+    ``session`` is the shared aiohttp.ClientSession; forwarded to ``build_source`` so
+    polled (network-backed) sources constructed during a reload share the same session
+    as those built at startup."""
     from led_ticker import status_board  # noqa: PLC0415
     from led_ticker.app.factories import _cache_key, build_source  # noqa: PLC0415
     from led_ticker.sources import (  # noqa: PLC0415
@@ -151,21 +160,21 @@ async def _apply_reload(
 
     # Atomic registry swap: build the new registry fully before installing it,
     # so the concurrent 1 Hz ticker never iterates a half-built dict.
-    # Then cancel the old ticker (it holds a reference to the old registry)
-    # and spawn a new one for the fresh registry. Mirror the schedule-respawn
-    # pattern: cancel old, spawn new, return the new task handle so the caller
-    # can cancel it on the next reload.
+    # Then cancel ALL old task handles (the list holds the 1 Hz sync task + one
+    # run_monitor_loop per polled source) and spawn a new list for the fresh
+    # registry. Mirror the schedule-respawn pattern: cancel old, spawn new,
+    # return the new list so the caller can cancel them all on the next reload.
     #
-    # Safety net: if any build_source call raises (e.g. unknown source type
-    # from a hand-edited config.toml typo) we MUST NOT crash the display loop
-    # and MUST NOT leave a half-applied registry. On error, keep the old
-    # registry + old refresh task live and let the rest of the reload
-    # (widgets, schedule) proceed on the last-good sources. The user can fix
-    # their typo and reload again.
+    # Safety net (atomic-or-nothing): if any build_source call raises (e.g.
+    # unknown source type from a hand-edited config.toml typo) we MUST NOT
+    # crash the display loop and MUST NOT leave a half-applied registry or cancel
+    # any old handles. On error, keep the old registry + old task list live and
+    # let the rest of the reload (widgets, schedule) proceed on the last-good
+    # sources. The user can fix their typo and reload again.
     try:
         new_reg = DataRegistry()
         for source_cfg in new_config.sources:
-            new_reg.add(build_source(source_cfg))
+            new_reg.add(build_source(source_cfg, session=session))
     except Exception as exc:  # noqa: BLE001 - a bad source must not crash the loop
         _log.error(
             "reload: source registry rebuild failed (%s: %s) — "
@@ -175,8 +184,18 @@ async def _apply_reload(
         )
         return schedule_task, source_refresh_task, restart_required
     set_data_registry(new_reg)
+    # Cancel every old handle: the 1 Hz sync task AND any polled-source loops.
+    # source_refresh_task is a list (Task 5 shape from spawn_source_refresh), or
+    # None (very first startup before any reload). Normalise defensively so the
+    # cancel loop is uniform regardless of shape.
     if source_refresh_task is not None:
-        source_refresh_task.cancel()
-    new_source_refresh_task = spawn_source_refresh(new_reg)
+        handles = (
+            source_refresh_task
+            if isinstance(source_refresh_task, list)
+            else [source_refresh_task]
+        )
+        for handle in handles:
+            handle.cancel()
+    new_source_refresh_tasks = spawn_source_refresh(new_reg)
 
-    return schedule_task, new_source_refresh_task, restart_required
+    return schedule_task, new_source_refresh_tasks, restart_required

@@ -480,3 +480,162 @@ async def test_apply_reload_bad_source_type_does_not_crash(tmp_path):
 
     # Cleanup
     old_refresh_task.cancel()
+
+
+# ---------------------------------------------------------------------------
+# Task 5: list-of-handles hot-reload tests
+# ---------------------------------------------------------------------------
+
+
+async def test_apply_reload_cancels_all_handles_in_old_list(tmp_path):
+    """When source_refresh_task is a LIST (Task 5 shape), every handle must be
+    cancelled on a successful reload and a NEW list must be returned."""
+    from led_ticker.sources import DataRegistry, set_data_registry
+
+    old_reg = DataRegistry()
+    set_data_registry(old_reg)
+
+    a = load_config(_write(tmp_path / "a.toml", _DISPLAY_WITH_SOURCE + _SECTION))
+    b = load_config(_write(tmp_path / "b.toml", _DISPLAY_WITH_SOURCE_B + _SECTION))
+
+    # Simulate the Task 5 shape: old source_refresh_task is a LIST of handles
+    old_handle_1 = asyncio.ensure_future(asyncio.sleep(3600))
+    old_handle_2 = asyncio.ensure_future(asyncio.sleep(3600))
+    old_task_list = [old_handle_1, old_handle_2]
+
+    async def fake_respawn(old_task, cfg):
+        return None
+
+    _new_sched, new_src_tasks, _ = await rl._apply_reload(
+        b,
+        old_config=a,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=RenderBreaker(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+        source_refresh_task=old_task_list,
+    )
+
+    await asyncio.sleep(0)  # let cancellations propagate
+    assert old_handle_1.cancelled(), "handle 1 in old list must be cancelled"
+    assert old_handle_2.cancelled(), "handle 2 in old list must be cancelled"
+
+    # spawn_source_refresh returns a list; verify new result is a non-empty list
+    assert isinstance(new_src_tasks, list) and len(new_src_tasks) > 0
+    assert new_src_tasks is not old_task_list
+    for t in new_src_tasks:
+        t.cancel()
+
+
+async def test_apply_reload_bad_source_keeps_old_task_list_intact(tmp_path):
+    """CRITICAL: if build_source raises, _apply_reload must NOT cancel ANY
+    handle in the old list — all old handles must remain live."""
+    import types
+
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import DataRegistry, get_data_registry, set_data_registry
+
+    old_reg = DataRegistry()
+    set_data_registry(old_reg)
+
+    base_cfg = load_config(_write(tmp_path / "base.toml", _DISPLAY + _SECTION))
+    bad_source = SourceConfig(id="bad.src", type="no_such_type")
+    new_config = types.SimpleNamespace(
+        sections=base_cfg.sections,
+        sources=[bad_source],
+        display=base_cfg.display,
+        busy_light=base_cfg.busy_light,
+        plugins=base_cfg.plugins,
+        web=getattr(base_cfg, "web", None),
+    )
+
+    # Simulate the Task 5 shape: old source_refresh_task is a LIST of handles
+    old_handle_1 = asyncio.ensure_future(asyncio.sleep(3600))
+    old_handle_2 = asyncio.ensure_future(asyncio.sleep(3600))
+    old_task_list = [old_handle_1, old_handle_2]
+
+    async def fake_respawn(old_task, cfg):
+        return "SCHEDULE_TASK"
+
+    _new_sched, returned_tasks, _ = await rl._apply_reload(
+        new_config,
+        old_config=base_cfg,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=RenderBreaker(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+        source_refresh_task=old_task_list,
+    )
+
+    await asyncio.sleep(0)
+    # Old registry identity must be unchanged
+    assert get_data_registry() is old_reg
+
+    # Neither old handle must be cancelled — they're still the live tickers
+    assert not old_handle_1.cancelled(), (
+        "handle 1 must remain live after failed rebuild"
+    )
+    assert not old_handle_2.cancelled(), (
+        "handle 2 must remain live after failed rebuild"
+    )
+
+    # The returned value must be the original list (unchanged)
+    assert returned_tasks is old_task_list
+
+    # Cleanup
+    old_handle_1.cancel()
+    old_handle_2.cancel()
+
+
+async def test_apply_reload_session_passed_to_build_source(tmp_path):
+    """The session kwarg received by _apply_reload must be forwarded to
+    build_source so polled sources get the shared aiohttp.ClientSession."""
+    from unittest.mock import patch
+
+    from led_ticker.sources import DataRegistry, set_data_registry
+
+    old_reg = DataRegistry()
+    set_data_registry(old_reg)
+
+    base_cfg = load_config(
+        _write(tmp_path / "base.toml", _DISPLAY_WITH_SOURCE + _SECTION)
+    )
+
+    async def fake_respawn(old_task, cfg):
+        return None
+
+    sentinel_session = object()
+    captured_sessions: list = []
+
+    import led_ticker.app.factories as _factories
+
+    original_build_source = _factories.build_source
+
+    def patched_build_source(cfg, session=None):
+        captured_sessions.append(session)
+        return original_build_source(cfg, session=session)
+
+    # Patch in the factories module so the local import inside _apply_reload picks
+    # it up (the function does `from led_ticker.app.factories import build_source`
+    # on each call, binding to the module's current attribute at that moment).
+    with patch.object(_factories, "build_source", patched_build_source):
+        await rl._apply_reload(
+            base_cfg,
+            old_config=base_cfg,
+            widget_cache={},
+            widget_tasks={},
+            render_breaker=RenderBreaker(),
+            schedule_task=None,
+            respawn_schedule=fake_respawn,
+            source_refresh_task=None,
+            session=sentinel_session,
+        )
+
+    # Every build_source call must have received the sentinel session
+    assert len(captured_sessions) > 0
+    assert all(s is sentinel_session for s in captured_sessions), (
+        "expected sentinel session for all build_source calls, "
+        f"got: {captured_sessions}"
+    )

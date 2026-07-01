@@ -271,15 +271,17 @@ async def _detect_and_apply_reload(
     schedule_task: Any,
     source_refresh_task: Any,
     led_frame: Any,
+    session: Any = None,
 ) -> _ReloadResult | None:
     """Check the watcher; if the config changed and validates, apply it.
 
     Returns a _ReloadResult (new config + rebuilt section-default transition +
-    new schedule task + new source-refresh task) when a reload was applied, else
-    None for: no change, transient mid-write, or a rejected (invalid) config.
+    new schedule task + new source-refresh task list) when a reload was applied,
+    else None for: no change, transient mid-write, or a rejected (invalid) config.
     Records reload status as a side effect — moved verbatim from the old inline
     run-loop block so the detection cadence (now per-section) is the only
-    behavior change."""
+    behavior change. ``session`` is forwarded to ``_apply_reload`` so polled
+    sources built during a hot-reload share the same aiohttp.ClientSession."""
     if not watcher.changed():
         return None
     new_config, errors, transient = await _reload.load_and_validate(config_path)
@@ -299,6 +301,7 @@ async def _detect_and_apply_reload(
         schedule_task=schedule_task,
         respawn_schedule=lambda ot, cfg: _respawn_schedule(ot, cfg, led_frame),
         source_refresh_task=source_refresh_task,
+        session=session,
     )
     default_section_trans = _build_trans_obj_guarded(new_config.between_sections)
     for w in getattr(new_config, "_coerce_warnings", []):
@@ -799,6 +802,7 @@ async def run(config_path: Path) -> None:
                         schedule_task=schedule_task,
                         source_refresh_task=source_refresh_task,
                         led_frame=led_frame,
+                        session=session,
                     )
                     if _reload_res is not None:
                         config = _reload_res.config
@@ -821,6 +825,7 @@ async def run(config_path: Path) -> None:
                             schedule_task=schedule_task,
                             source_refresh_task=source_refresh_task,
                             led_frame=led_frame,
+                            session=session,
                         )
                         if _reload_res is not None:
                             config = _reload_res.config

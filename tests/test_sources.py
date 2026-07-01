@@ -1,12 +1,14 @@
 import asyncio
 import datetime
 
+import attrs
 import pytest
 
 from led_ticker.sources import (
     ClockSource,
     DataRegistry,
     DateSource,
+    PolledDataSource,
     StaticSource,
     TokenizedField,
     get_data_registry,
@@ -216,6 +218,57 @@ class TestSourceFactory:
         )
         src = build_source(sc)
         assert src.value == ""
+
+
+def test_set_value_write_order_and_bump_only_on_change():
+    s = StaticSource(id="x", value="a")
+    assert s._set_value("a") is True  # first set bumps from version 0
+    assert (s.current, s.version) == ("a", 1)
+    assert s._set_value("a") is False  # unchanged → no bump
+    assert s.version == 1
+    assert s._set_value("b") is True  # changed → bump
+    assert (s.current, s.version) == ("b", 2)
+
+
+def test_polled_source_is_polled_and_holds_session_interval():
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None:
+            self._set_value("hello")
+
+    s = _Fake(id="acme.live", session="SESS", interval=42)
+    assert s.polled is True
+    assert s.session == "SESS"
+    assert s.interval == 42
+    assert s.current == "" and s.version == 0  # nothing until update()
+
+
+@pytest.mark.asyncio
+async def test_polled_update_sets_value_write_order():
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None:
+            await asyncio.sleep(0)  # the fetch await happens BEFORE...
+            self._set_value("123")  # ...the synchronous current+version set
+
+    s = _Fake(id="acme.live")
+    await s.update()
+    assert (s.current, s.version) == ("123", 1)
+
+
+def test_polled_compute_raises():
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None: ...
+
+    with pytest.raises(NotImplementedError):
+        _Fake(id="x").compute()
+
+
+def test_sync_refresh_still_works():
+    s = StaticSource(id="x", value="z")
+    assert s.refresh() is True and s.current == "z" and s.version == 1
+    assert s.refresh() is False and s.version == 1
 
 
 def test_resolve_reresolves_when_registry_object_changes():

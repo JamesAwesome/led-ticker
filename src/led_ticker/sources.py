@@ -34,14 +34,21 @@ class DataSource:
     def compute(self) -> str:
         raise NotImplementedError
 
-    def refresh(self) -> bool:
-        """Recompute; bump version iff the value changed. Returns changed."""
-        value = self.compute()
-        if value == self.current and self.version != 0:
+    def _set_value(self, new: str) -> bool:
+        """Apply a new value with the write-order contract: write `current`
+        BEFORE `version`, with no await between, and bump `version` only when
+        the value actually changed. Returns whether it changed. This is the
+        SINGLE enforcement point for the contract (sync refresh + polled
+        update both go through it)."""
+        if new == self.current and self.version != 0:
             return False
-        self.current = value  # current BEFORE version (contract)
+        self.current = new  # current BEFORE version (contract)
         self.version += 1
         return True
+
+    def refresh(self) -> bool:
+        """Recompute (sync) and apply via _set_value."""
+        return self._set_value(self.compute())
 
 
 @attrs.define(eq=False)
@@ -69,6 +76,33 @@ class ClockSource(DataSource):
 @attrs.define(eq=False)
 class DateSource(ClockSource):
     """Same machinery as ClockSource; separate type for config clarity."""
+
+
+@attrs.define(eq=False)
+class PolledDataSource(DataSource):
+    """Base for asynchronous (network-backed) sources — weather, prices, etc.
+
+    The subclass implements `async def update()`, which performs its awaited
+    fetch and then calls `self._set_value(<formatted string>)` (synchronous —
+    honoring the write-order contract). Core spawns a supervised
+    `run_monitor_loop(self, self.interval)` per polled source (backoff +
+    survives exceptions); the 1 Hz sync ticker skips it (`polled` is True).
+    `draw()` only ever reads `current` — it never awaits.
+    """
+
+    # `session` is an injected shared aiohttp.ClientSession (typed Any here to
+    # keep core import-light; the plugin source types it). `interval` is the
+    # poll period in seconds (from the [[source]] block; default 30 min).
+    polled: bool = attrs.field(default=True, kw_only=True)
+    session: Any = attrs.field(default=None, kw_only=True)
+    interval: int = attrs.field(default=1800, kw_only=True)
+
+    async def update(self) -> None:
+        """Fetch + `self._set_value(...)`. Subclass responsibility."""
+        raise NotImplementedError
+
+    def compute(self) -> str:
+        raise NotImplementedError("polled sources update via async update()")
 
 
 # Plugin-registered source types (namespaced, e.g. "acme.live"). Populated by

@@ -156,10 +156,15 @@ async def run_monitor_loop(
     _mon_name = None
     with contextlib.suppress(Exception):
         _name = status_board._monitor_name(widget)
+        _mtype = status_board._monitor_type(widget)
         if getattr(widget, "polled", False):
-            _mon_name = status_board.register_monitor(_name, "source", interval)
+            _mon_name = status_board.register_monitor(
+                _name, "source", interval, mtype=_mtype
+            )
         elif hasattr(widget, "draw") or hasattr(widget, "feed_stories"):
-            _mon_name = status_board.register_monitor(_name, "widget", interval)
+            _mon_name = status_board.register_monitor(
+                _name, "widget", interval, mtype=_mtype
+            )
 
     if splay:
         from random import randint
@@ -190,7 +195,9 @@ async def run_monitor_loop(
             await widget.update()
             consecutive_errors = 0
             if _mon_name is not None:
-                status_board.record_monitor_update(_mon_name)
+                status_board.record_monitor_update(
+                    _mon_name, status_board._monitor_value(widget)
+                )
         except asyncio.CancelledError:
             raise
         except Exception as exc:

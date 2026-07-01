@@ -813,3 +813,132 @@ class TestConsumeRestartMarker:
             "_restart_requested must consume (delete) the marker via "
             "_consume_restart_marker before returning True"
         )
+
+
+# --- Task 3: type + value propagation through run_monitor_loop ---------------
+
+
+@pytest.mark.asyncio
+async def test_run_monitor_loop_records_type_for_polled_source(tmp_path):
+    """A polled source registered in _PLUGIN_SOURCE_TYPES appears with its
+    type name in the monitor entry after a successful update."""
+    import asyncio
+
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+    from led_ticker.status_board import StatusBoard
+
+    class _FakeWeather(PolledDataSource):
+        polled = True
+        id = "fake_weather_src"
+
+        def __init__(self):
+            super().__init__(id="fake_weather_src", interval=60)
+            self.updated = asyncio.Event()
+            self._current = "72°F Sunny"
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    _PLUGIN_SOURCE_TYPES["acme.weather"] = _FakeWeather
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    monitor = _FakeWeather()
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
+        )
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)
+        entry = board.monitors.get(monitor.id)
+        assert entry is not None, "polled source must be in monitors"
+        assert entry["type"] == "acme.weather", (
+            f"type should be 'acme.weather', got {entry['type']!r}"
+        )
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.weather", None)
+        status_board.clear_active_board()
+
+
+@pytest.mark.asyncio
+async def test_run_monitor_loop_records_value_for_source_with_current(tmp_path):
+    """After a successful update, record_monitor_update is called with the
+    source's .current value, so the monitor entry carries it."""
+    import asyncio
+
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+    from led_ticker.status_board import StatusBoard
+
+    class _FakeWeather(PolledDataSource):
+        polled = True
+
+        def __init__(self):
+            super().__init__(id="fake_weather_val", interval=60)
+            self.updated = asyncio.Event()
+            self.current = "72°F Sunny"
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    _PLUGIN_SOURCE_TYPES["acme.weather2"] = _FakeWeather
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    monitor = _FakeWeather()
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
+        )
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)
+        entry = board.monitors.get(monitor.id)
+        assert entry is not None
+        assert entry["value"] == "72°F Sunny", (
+            f"value should be '72°F Sunny', got {entry['value']!r}"
+        )
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.weather2", None)
+        status_board.clear_active_board()
+
+
+@pytest.mark.asyncio
+async def test_run_monitor_loop_records_value_for_container(tmp_path):
+    """After a successful Container update, value reflects 'N items'."""
+    import asyncio
+
+    from led_ticker.status_board import StatusBoard
+
+    class _FakeContainer:
+        name = "RSS Fake"
+        feed_stories: list = []
+
+        def __init__(self):
+            self.updated = asyncio.Event()
+            self.feed_stories = ["story1", "story2"]
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    monitor = _FakeContainer()
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
+        )
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)
+        entry = board.monitors.get("RSS Fake")
+        assert entry is not None
+        assert entry["value"] == "2 items", (
+            f"value should be '2 items', got {entry['value']!r}"
+        )
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        status_board.clear_active_board()

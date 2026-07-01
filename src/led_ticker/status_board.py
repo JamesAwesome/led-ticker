@@ -196,13 +196,77 @@ def _monitor_name(obj: Any) -> str:
     return getattr(obj, "id", None) or getattr(obj, "name", None) or type(obj).__name__
 
 
-def register_monitor(name: str, kind: str, interval: float) -> str:
+def _monitor_type(obj: Any) -> str:
+    """Return the registered type name for type(obj).
+
+    Builds a reverse map from the plugin source registry (name→class,
+    ``_PLUGIN_SOURCE_TYPES``) plus the core source types (clock/date/static,
+    via ``app.factories._SOURCE_TYPES``) and the widget registry
+    (``widgets._WIDGET_REGISTRY``). Imports are function-level (lazy) to
+    avoid import cycles: status_board is imported early by widget.py, which
+    is in turn imported by factories and widgets.
+
+    Returns the first registered name whose class ``is type(obj)``, or ""
+    if not found or on any error. Guarded — never raises.
+    """
+    try:
+        cls = type(obj)
+        from led_ticker.sources import _PLUGIN_SOURCE_TYPES
+
+        for name, klass in _PLUGIN_SOURCE_TYPES.items():
+            if klass is cls:
+                return name
+        try:
+            from led_ticker.app.factories import _SOURCE_TYPES
+
+            for name, klass in _SOURCE_TYPES.items():
+                if klass is cls:
+                    return name
+        except Exception:  # noqa: BLE001
+            pass
+        from led_ticker.widgets import _WIDGET_REGISTRY
+
+        for name, klass in _WIDGET_REGISTRY.items():
+            if klass is cls:
+                return name
+        return ""
+    except Exception:  # noqa: BLE001 - must never raise
+        return ""
+
+
+_SENTINEL = object()  # used by _monitor_value to distinguish missing vs None
+
+
+def _monitor_value(obj: Any) -> str:
+    """Return a human-readable current value for a monitor object.
+
+    - DataSource/PolledDataSource-like: ``str(obj.current)``
+    - Container-like (has ``feed_stories``): ``"{n} items"``
+    - Anything else: ``""``
+
+    Truncated to ≤80 chars. Guarded — never raises.
+    """
+    try:
+        current = getattr(obj, "current", _SENTINEL)
+        if current is not _SENTINEL:
+            return str(current)[:80]
+        if hasattr(obj, "feed_stories"):
+            return f"{len(obj.feed_stories)} items"
+        return ""
+    except Exception:  # noqa: BLE001 - must never raise
+        return ""
+
+
+def register_monitor(name: str, kind: str, interval: float, mtype: str = "") -> str:
     """Add a monitor roster entry.
 
     On a name collision (a key already taken) append #N so distinct monitors
     get distinct rows. Re-registration of the same monitor only happens after a
     reload clear, so no phantom entry accumulates. Returns the final (possibly
     suffixed) name. Never raises.
+
+    ``mtype`` is the registered type name (e.g. "weather.current"); stored
+    statically in the entry's ``type`` field.
     """
     if _ACTIVE is None:
         return name
@@ -218,6 +282,8 @@ def register_monitor(name: str, kind: str, interval: float) -> str:
         m[name] = {
             "kind": kind,
             "interval": interval,
+            "type": mtype,
+            "value": "",
             "last_ok": None,
             "error": None,
         }
@@ -237,7 +303,15 @@ def record_monitor_error(
         return
     try:
         entry = _ACTIVE.monitors.setdefault(
-            name, {"kind": "widget", "interval": 0.0, "last_ok": None, "error": None}
+            name,
+            {
+                "kind": "widget",
+                "interval": 0.0,
+                "type": "",
+                "value": "",
+                "last_ok": None,
+                "error": None,
+            },
         )
         entry["error"] = {
             "message": message,
@@ -263,15 +337,30 @@ def clear_monitors() -> None:
         pass
 
 
-def record_monitor_update(name: str) -> None:
+def record_monitor_update(name: str, value: str = "") -> None:
+    """Record a successful poll for the named monitor.
+
+    ``value`` is the current resolved value (e.g. "72°F Sunny" for a weather
+    source; "5 items" for a feed Container). Updated on each success; left
+    unchanged when omitted. Instrumentation only — never raises.
+    """
     if _ACTIVE is None:
         return
     try:
         entry = _ACTIVE.monitors.setdefault(
-            name, {"kind": "widget", "interval": 0.0, "last_ok": None, "error": None}
+            name,
+            {
+                "kind": "widget",
+                "interval": 0.0,
+                "type": "",
+                "value": "",
+                "last_ok": None,
+                "error": None,
+            },
         )
         entry["last_ok"] = time.time()
         entry["error"] = None
+        entry["value"] = value
         _ACTIVE.publish()
     except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
         pass

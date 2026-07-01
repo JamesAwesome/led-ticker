@@ -593,6 +593,8 @@ def test_register_record_update_and_error(tmp_path):
         assert board.monitors["weather.nyc"] == {
             "kind": "source",
             "interval": 1800,
+            "type": "",
+            "value": "",
             "last_ok": None,
             "error": None,
         }
@@ -662,3 +664,187 @@ def test_snapshot_serializes_monitors_not_monitor_updates(tmp_path):
         assert entries["weather.nyc"]["error"] is None
     finally:
         sb.set_active_board(None)
+
+
+# --- Task 3: type + value fields in monitor entries --------------------------
+
+
+def test_monitor_type_plugin_source(tmp_path):
+    """_monitor_type returns the registered type name for a plugin source class."""
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+    from led_ticker.status_board import _monitor_type
+
+    class _FakeSource(PolledDataSource):
+        def __init__(self):
+            super().__init__(id="fake.src", interval=60)
+
+        async def update(self) -> None: ...
+
+    _PLUGIN_SOURCE_TYPES["acme.live"] = _FakeSource
+    try:
+        assert _monitor_type(_FakeSource()) == "acme.live"
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.live", None)
+
+
+def test_monitor_type_widget(tmp_path):
+    """_monitor_type returns the registered type name for a widget class."""
+    from led_ticker.status_board import _monitor_type
+    from led_ticker.widgets import _WIDGET_REGISTRY
+
+    class _FakeWidget:
+        pass
+
+    _WIDGET_REGISTRY["acme.widget"] = _FakeWidget
+    try:
+        assert _monitor_type(_FakeWidget()) == "acme.widget"
+    finally:
+        _WIDGET_REGISTRY.pop("acme.widget", None)
+
+
+def test_monitor_type_unregistered_returns_empty():
+    """_monitor_type returns '' for an unregistered object."""
+    from led_ticker.status_board import _monitor_type
+
+    class _Unknown:
+        pass
+
+    assert _monitor_type(_Unknown()) == ""
+
+
+def test_monitor_value_current_attr():
+    """_monitor_value returns str(obj.current) when .current exists."""
+    from types import SimpleNamespace
+
+    from led_ticker.status_board import _monitor_value
+
+    obj = SimpleNamespace(current="72°F")
+    assert _monitor_value(obj) == "72°F"
+
+
+def test_monitor_value_feed_stories():
+    """_monitor_value returns 'N items' for a Container-like object."""
+    from types import SimpleNamespace
+
+    from led_ticker.status_board import _monitor_value
+
+    obj = SimpleNamespace(feed_stories=[1, 2, 3])
+    assert _monitor_value(obj) == "3 items"
+
+
+def test_monitor_value_bare_object():
+    """_monitor_value returns '' for an object without .current or .feed_stories."""
+    from led_ticker.status_board import _monitor_value
+
+    assert _monitor_value(object()) == ""
+
+
+def test_monitor_value_truncates_to_80_chars():
+    """_monitor_value truncates long current values to 80 chars."""
+    from types import SimpleNamespace
+
+    from led_ticker.status_board import _monitor_value
+
+    obj = SimpleNamespace(current="x" * 200)
+    result = _monitor_value(obj)
+    assert len(result) == 80
+
+
+def test_monitor_value_guarded_on_exception():
+    """_monitor_value returns '' if accessing .current raises."""
+    from led_ticker.status_board import _monitor_value
+
+    class _Bad:
+        @property
+        def current(self):
+            raise RuntimeError("broken")
+
+    assert _monitor_value(_Bad()) == ""
+
+
+def test_register_monitor_with_mtype_stores_type(tmp_path):
+    """register_monitor(name, kind, interval, mtype=...) stores type in entry."""
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        sb.register_monitor("weather.nyc", "source", 1800, mtype="weather.current")
+        entry = board.monitors["weather.nyc"]
+        assert entry["type"] == "weather.current"
+        assert entry["value"] == ""
+    finally:
+        sb.clear_active_board()
+
+
+def test_record_monitor_update_with_value(tmp_path):
+    """record_monitor_update(name, value=...) stores value in entry."""
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        sb.register_monitor("weather.nyc", "source", 1800, mtype="weather.current")
+        sb.record_monitor_update("weather.nyc", "72°F Sunny")
+        entry = board.monitors["weather.nyc"]
+        assert entry["value"] == "72°F Sunny"
+        assert entry["last_ok"] is not None
+        assert entry["error"] is None
+    finally:
+        sb.clear_active_board()
+
+
+def test_monitor_entry_has_all_six_keys(tmp_path):
+    """Every monitor entry has exactly the six expected keys."""
+    import led_ticker.status_board as sb
+
+    expected_keys = {"kind", "interval", "type", "value", "last_ok", "error"}
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        sb.register_monitor("a", "source", 60)
+        assert set(board.monitors["a"].keys()) == expected_keys
+
+        # setdefault path via record_monitor_update (self-heal)
+        sb.record_monitor_update("ghost.monitor", "val")
+        assert set(board.monitors["ghost.monitor"].keys()) == expected_keys
+
+        # setdefault path via record_monitor_error
+        sb.record_monitor_error("err.monitor", "oops", 1, 60.0)
+        assert set(board.monitors["err.monitor"].keys()) == expected_keys
+    finally:
+        sb.clear_active_board()
+
+
+def test_snapshot_monitors_include_type_and_value(tmp_path):
+    """snapshot() includes type and value in each monitor entry."""
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        sb.register_monitor("weather.nyc", "source", 1800, mtype="weather.current")
+        sb.record_monitor_update("weather.nyc", "72°F Sunny")
+        snap = board.snapshot()
+        entries = {m["name"]: m for m in snap["monitors"]}
+        assert entries["weather.nyc"]["type"] == "weather.current"
+        assert entries["weather.nyc"]["value"] == "72°F Sunny"
+    finally:
+        sb.set_active_board(None)
+
+
+def test_schema_tripwire_still_9_no_top_level_change(tmp_path):
+    """Adding type/value INSIDE monitor entries must NOT change the top-level
+    key set or SCHEMA_VERSION (nested additions are version-compatible)."""
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+    try:
+        sb.register_monitor("x", "source", 60, mtype="acme.src")
+        sb.record_monitor_update("x", "hello")
+        snap = board.snapshot()
+        assert snap["schema"] == 9
+        assert set(snap.keys()) == EXPECTED_TOP_LEVEL_KEYS
+    finally:
+        sb.clear_active_board()

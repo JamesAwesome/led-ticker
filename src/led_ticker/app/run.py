@@ -722,20 +722,6 @@ async def run(config_path: Path) -> None:
 
         schedule_task: Any = await _respawn_schedule(None, config, led_frame)
 
-        # Build the data-source registry from [[source]] blocks, prime each
-        # source once, and spawn the 1 Hz refresh loop. Must run BEFORE widget
-        # construction so TokenizedField instances created during widget build
-        # can resolve against an already-populated registry. Runs post-frame-
-        # build (inside the try: after led_frame.setup()) but uses only
-        # spawn_tracked (asyncio task) and no privileged FS — safe at this
-        # point regardless of whether the rgbmatrix backend has dropped root
-        # (constraint #13).
-        _source_registry = DataRegistry()
-        for _source_cfg in config.sources:
-            _source_registry.add(build_source(_source_cfg))
-        set_data_registry(_source_registry)
-        source_refresh_task: Any = spawn_source_refresh(_source_registry)
-
         # Default inter-section transition built once at startup. Used for
         # sections that don't specify their own `transition` field — see
         # the per-section override logic below.
@@ -750,7 +736,29 @@ async def run(config_path: Path) -> None:
             config.display.rows if config.display.default_scale == 1 else None
         )
 
+        # Sentinel: source_refresh_task is set inside the session block (after
+        # the shared session exists so polled sources receive it). Declared here
+        # so hot-reload code that references the name doesn't see an unbound
+        # variable on an early-exit path.
+        source_refresh_task: Any = None
+
         async with aiohttp.ClientSession() as session:
+            # Build the data-source registry from [[source]] blocks inside the
+            # session block so polled (network-backed) PolledDataSource subclasses
+            # receive the shared aiohttp.ClientSession. Must run BEFORE widget
+            # construction so TokenizedField instances created during widget build
+            # can resolve against an already-populated registry. Uses only
+            # spawn_tracked (asyncio task) and no privileged FS — safe regardless
+            # of whether the rgbmatrix backend has dropped root (constraint #13).
+            _source_registry = DataRegistry()
+            for _source_cfg in config.sources:
+                _source_registry.add(build_source(_source_cfg, session=session))
+            set_data_registry(_source_registry)
+            # spawn_source_refresh returns a LIST: the 1 Hz sync task + one
+            # run_monitor_loop task per polled source. Store as a list so
+            # hot-reload (Task 5) can cancel them all.
+            source_refresh_task = spawn_source_refresh(_source_registry)
+
             last_widget: Any = None  # track for section-to-section transitions
             last_scroll_pos: int = 0  # track scroll pos for between-section transitions
             last_scale: int = config.display.default_scale  # outgoing section's scale

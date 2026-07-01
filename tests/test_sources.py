@@ -310,6 +310,85 @@ def test_build_source_sync_unchanged():
     assert isinstance(src, ClockSource) and src.fmt == "%H"
 
 
+@pytest.mark.asyncio
+async def test_spawn_source_refresh_spawns_polled_loops():
+    import attrs
+
+    from led_ticker.sources import DataRegistry, PolledDataSource, spawn_source_refresh
+
+    polled_calls = []
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None:
+            polled_calls.append(1)
+            self._set_value("v")
+
+    reg = DataRegistry()
+    reg.add(_Fake(id="p", interval=0.01))
+    tasks = spawn_source_refresh(reg)
+    # one 1 Hz sync task + one polled loop task
+    assert isinstance(tasks, list) and len(tasks) == 2
+    await asyncio.sleep(0.05)
+    assert polled_calls, "polled update() was never called by run_monitor_loop"
+    for t in tasks:
+        t.cancel()
+
+
+@pytest.mark.asyncio
+async def test_one_hz_ticker_does_not_poll_polled_source():
+    import attrs
+
+    from led_ticker.sources import (
+        DataRegistry,
+        PolledDataSource,
+        run_source_refresh_loop,
+    )
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None: ...
+
+    reg = DataRegistry()
+    s = _Fake(id="p")
+    reg.add(s)
+    task = asyncio.create_task(run_source_refresh_loop(reg, interval=0.01))
+    await asyncio.sleep(0.05)
+    assert s.version == 0  # the sync ticker never touched the polled source
+    task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_polled_loop_survives_raising_update():
+    """A poll that raises is logged but the loop keeps running — panel never dies."""
+    import attrs
+
+    from led_ticker.sources import DataRegistry, PolledDataSource, spawn_source_refresh
+
+    call_count = 0
+    success_count = 0
+
+    @attrs.define(eq=False)
+    class _Flaky(PolledDataSource):
+        async def update(self) -> None:
+            nonlocal call_count, success_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("transient failure")
+            success_count += 1
+            self._set_value("ok")
+
+    reg = DataRegistry()
+    reg.add(_Flaky(id="flaky", interval=0.01))
+    tasks = spawn_source_refresh(reg)
+    # Wait long enough for backoff + retry (run_monitor_loop backs off on error)
+    await asyncio.sleep(0.2)
+    # The loop must still be running (not cancelled/done due to the exception)
+    assert not all(t.done() for t in tasks), "tasks must still be running after a raise"
+    for t in tasks:
+        t.cancel()
+
+
 def test_resolve_reresolves_when_registry_object_changes():
     # Hot-reload installs a FRESH DataRegistry; sources start at version=1
     # after their first refresh. A surviving TokenizedField must NOT use its

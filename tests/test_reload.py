@@ -342,10 +342,12 @@ async def test_apply_reload_cancels_old_ticker_and_spawns_new(tmp_path):
     await asyncio.sleep(0)  # let cancellation propagate
     assert old_refresh_task.cancelled(), "old source-refresh task must be cancelled"
 
-    # A new Task handle is returned and is not the old one
-    assert new_src_task is not None
+    # spawn_source_refresh now returns a LIST of handles (1 Hz sync task + one per
+    # polled source). A new non-empty list is returned and is not the old single task.
+    assert isinstance(new_src_task, list) and len(new_src_task) > 0
     assert new_src_task is not old_refresh_task
-    new_src_task.cancel()  # clean up
+    for t in new_src_task:
+        t.cancel()  # clean up
 
     # The new registry must have been spawned a refresh task (verify via registry)
     assert get_data_registry().get("brand.tag") is not None

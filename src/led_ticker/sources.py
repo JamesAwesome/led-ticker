@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 import attrs
 
 from led_ticker.pixel_emoji import EMOJI_PATTERN, is_emoji_slug
-from led_ticker.widget import spawn_tracked
+from led_ticker.widget import run_monitor_loop, spawn_tracked
 
 
 @attrs.define(eq=False)
@@ -153,12 +153,22 @@ async def run_source_refresh_loop(
         await asyncio.sleep(interval)
 
 
-def spawn_source_refresh(registry: DataRegistry) -> Any:
-    """Prime each source once, then spawn the 1 Hz loop (tracked task)."""
+def spawn_source_refresh(registry: DataRegistry) -> list:
+    """Prime sync sources, spawn the shared 1 Hz sync loop, AND spawn a
+    supervised ``run_monitor_loop`` per POLLED source. Returns every task
+    handle (the 1 Hz sync task + one per polled source) so the caller can
+    cancel them all on hot-reload."""
+    tasks: list = []
     for source in registry.sources():
         if not source.polled:
             source.refresh()
-    return spawn_tracked(run_source_refresh_loop(registry))
+    tasks.append(spawn_tracked(run_source_refresh_loop(registry)))
+    for source in registry.sources():
+        if isinstance(source, PolledDataSource):
+            tasks.append(
+                spawn_tracked(run_monitor_loop(source, source.interval, splay=False))
+            )
+    return tasks
 
 
 class TokenizedField:

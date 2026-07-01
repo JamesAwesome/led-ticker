@@ -28,14 +28,26 @@ def _w(start, end, brightness):
     return ScheduleWindow(start=start, end=end, brightness=brightness, days=[])
 
 
-async def _run_once(coro_fn):
-    """Run a _schedule_ticker with a huge interval so only the immediate apply()
-    fires, then cancel."""
-    task = asyncio.ensure_future(coro_fn())
-    await asyncio.sleep(0)  # let the immediate apply() run
-    task.cancel()
+def _run_immediate(monkeypatch, coro_fn):
+    """Drive a schedule ticker through exactly its immediate apply(), then stop
+    — deterministically.
+
+    ``apply()`` runs synchronously BEFORE the first ``await asyncio.sleep(interval)``,
+    so raising CancelledError from that first sleep guarantees apply() already
+    completed. This replaces the old ``ensure_future + await sleep(0) + cancel``
+    harness, whose apply()-before-cancel ordering relied on a single event-loop
+    yield and flaked on starved CI runners (apply not run in time -> brightness
+    stuck at base; the lingering/cancelling task also logged during teardown ->
+    the 'I/O operation on closed file' flood). No background task, no sleep(0),
+    no cancel race — the whole run is synchronous within one asyncio.run.
+    """
+
+    async def _stop_at_first_sleep(_seconds):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(run_mod.asyncio, "sleep", _stop_at_first_sleep)
     with pytest.raises(asyncio.CancelledError):
-        await task
+        asyncio.run(coro_fn())
 
 
 def test_ticker_applies_brightness_immediately(monkeypatch):
@@ -45,8 +57,8 @@ def test_ticker_applies_brightness_immediately(monkeypatch):
     async def go():
         await run_mod._schedule_ticker(frame, sched, None, 100, interval=10_000)
 
-    asyncio.run(_run_once(go))
-    assert frame.brightness == 42  # applied on frame 1, no sleep needed
+    _run_immediate(monkeypatch, go)
+    assert frame.brightness == 42  # applied on frame 1, before any sleep
 
 
 def test_override_provider_wins(monkeypatch):
@@ -58,7 +70,7 @@ def test_override_provider_wins(monkeypatch):
             frame, sched, None, 100, override=lambda: 7, interval=10_000
         )
 
-    asyncio.run(_run_once(go))
+    _run_immediate(monkeypatch, go)
     assert frame.brightness == 7  # override beats the schedule
 
 
@@ -70,9 +82,10 @@ def test_logs_only_on_change(monkeypatch, caplog):
         async def go():
             await run_mod._schedule_ticker(frame, sched, None, 100, interval=10_000)
 
-        asyncio.run(_run_once(go))
+        _run_immediate(monkeypatch, go)
     msgs = [r.message for r in caplog.records if "brightness ->" in r.message]
-    assert len(msgs) == 1 and "42" in msgs[0]
+    # The deterministic single apply logs the change exactly once, to 42.
+    assert msgs == ["schedule: brightness -> 42"]
 
 
 def test_logs_suppressed_across_repeated_same_value_ticks(caplog):
@@ -152,23 +165,21 @@ def test_supervised_resets_to_base_on_fatal(monkeypatch, caplog):
     assert any("schedul" in r.message.lower() for r in caplog.records)
 
 
-def test_invalid_timezone_string_does_not_crash_supervised(caplog):
+def test_invalid_timezone_string_does_not_crash_supervised(monkeypatch, caplog):
     """_supervised_schedule with an invalid tz string must not raise.
     It logs a warning and the ticker still applies brightness (FIX 1)."""
     frame = _frame()
     sched = _sched(_w("00:00", "23:59", 42))
 
     async def go():
-        task = asyncio.ensure_future(
-            run_mod._supervised_schedule(frame, sched, "Not/AZone", 100)
-        )
-        await asyncio.sleep(0)
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+        # _supervised_schedule resolves the (invalid) tz + logs, then awaits
+        # _schedule_ticker whose immediate apply() runs before the first sleep;
+        # the patched sleep then raises CancelledError, which _supervised_schedule
+        # re-raises. Deterministic — no ensure_future/sleep(0)/cancel race.
+        await run_mod._supervised_schedule(frame, sched, "Not/AZone", 100)
 
     with caplog.at_level(logging.WARNING):
-        asyncio.run(go())
+        _run_immediate(monkeypatch, go)
 
     assert frame.brightness == 42
     assert any(

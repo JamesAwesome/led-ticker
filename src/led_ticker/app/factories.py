@@ -406,12 +406,14 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
         or trans_cfg.separator is not None
         or trans_cfg.separator_font is not None
         or trans_cfg.separator_font_size is not None
+        or trans_cfg.separator_size is not None
     ):
         kwargs["spec"] = _resolve_separator_spec(
             separator=trans_cfg.separator,
             separator_color=trans_cfg.separator_color,
             separator_font=trans_cfg.separator_font,
             separator_font_size=trans_cfg.separator_font_size,
+            separator_size=trans_cfg.separator_size,
             default_kind="dot",
         )
     return cls(**kwargs)
@@ -949,6 +951,7 @@ def _resolve_separator_spec(
     separator_color: Any,
     separator_font: str | None,
     separator_font_size: int | None,
+    separator_size: int | None = None,
     default_kind: str,
 ) -> Any:
     """Build a SeparatorSpec from the separator_* config family.
@@ -956,6 +959,8 @@ def _resolve_separator_spec(
     default_kind selects the site's default mark ("dot" for the scroll
     transition, "circle" for the ticker separator). Color-only keeps that
     default kind recolored; any glyph field switches to kind="glyph".
+    separator_size applies to the dot/circle path only; it is a no-op on
+    the glyph path (glyph size is controlled by separator_font_size).
     """
     import attrs
 
@@ -973,9 +978,10 @@ def _resolve_separator_spec(
         or separator_font_size is not None
     )
     color_set = separator_color is not None
+    size_set = separator_size is not None
     # Defensive: unreachable via _build_trans_obj (which only calls this when at
     # least one separator_* field is set); here for standalone/future callers.
-    if not glyph_set and not color_set:
+    if not glyph_set and not color_set and not size_set:
         return base
 
     color = (
@@ -984,7 +990,11 @@ def _resolve_separator_spec(
         else RGB_WHITE
     )
     if not glyph_set:
-        return attrs.evolve(base, color=color)
+        # color/size-only: keep the default kind, recolored/resized.
+        changes: dict[str, Any] = {"color": color}
+        if size_set:
+            changes["size"] = separator_size
+        return attrs.evolve(base, **changes)
 
     from led_ticker.fonts import FONT_DEFAULT, resolve_font
 
@@ -1000,15 +1010,15 @@ def _resolve_separator_spec(
 def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
     """Build a per-section ticker separator widget.
 
-    Returns None when all four separator_* fields are unset — Ticker
+    Returns None when all five separator_* fields are unset — Ticker
     falls back to DEFAULT_BUFFER_MSG (a _CircleBufferMsg that adapts
     to canvas type at draw time).
 
     Routing:
-    - All four unset → None (inherit default circle).
-    - Color-only override → _CircleBufferMsg with the user's color
-      (still adapts to canvas type — circle on bigsign, BDF '•' on
-      smallsign — just with a different fill).
+    - All five unset → None (inherit default circle).
+    - Color-only and/or size-only override → _CircleBufferMsg with the
+      user's color/size (still adapts to canvas type — circle on bigsign,
+      BDF '•' on smallsign — just with different fill/radius).
     - Any of separator / separator_font / separator_font_size set
       → TickerMessage with literal text/font rendering (today's
       behavior, unchanged).
@@ -1019,19 +1029,23 @@ def _resolve_buffer_msg(section: SectionConfig) -> TickerMessage | None:
         or section.separator_font_size is not None
     )
     color_set = section.separator_color is not None
+    size_set = section.separator_size is not None
 
-    if not text_or_font_set and not color_set:
+    if not text_or_font_set and not color_set and not size_set:
         return None
 
     color_provider = _coerce_color_provider(
         section.separator_color if color_set else RGB_WHITE
     )
+    size: int = section.separator_size if section.separator_size is not None else 8
 
     if not text_or_font_set:
-        # Color-only: still want the hi-res circle on bigsign.
+        # Color/size-only: still want the hi-res circle on bigsign.
         from led_ticker.ticker import _CircleBufferMsg
 
-        return _CircleBufferMsg(text=" • ", center=False, font_color=color_provider)
+        return _CircleBufferMsg(
+            text=" • ", center=False, font_color=color_provider, size=size
+        )
 
     # Explicit text / font: TickerMessage with literal rendering.
     text = section.separator if section.separator is not None else "•"

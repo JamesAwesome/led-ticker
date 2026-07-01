@@ -981,6 +981,34 @@ class TestScrollSeparatorGlyph:
         assert scroll._spec is DEFAULT_DOT_SPEC
 
 
+class TestScrollSeparatorSize:
+    def test_size_only_sets_dot_size(self):
+        from led_ticker.app.factories import _build_trans_obj
+        from led_ticker.config import TransitionConfig
+
+        scroll = _build_trans_obj(TransitionConfig(type="scroll", separator_size=5))
+        assert scroll._spec.kind == "dot"
+        assert scroll._spec.size == 5
+        assert scroll._sep_w == 6 + 5 + 6  # gap + size + gap
+
+    def test_default_size_unchanged(self):
+        from led_ticker.app.factories import _build_trans_obj
+        from led_ticker.config import TransitionConfig
+        from led_ticker.separator import DEFAULT_DOT_SPEC
+
+        scroll = _build_trans_obj(TransitionConfig(type="scroll"))
+        assert scroll._spec is DEFAULT_DOT_SPEC
+
+    def test_size_ignored_for_glyph(self):
+        from led_ticker.app.factories import _build_trans_obj
+        from led_ticker.config import TransitionConfig
+
+        scroll = _build_trans_obj(
+            TransitionConfig(type="scroll", separator="-", separator_size=5)
+        )
+        assert scroll._spec.kind == "glyph"  # size does not switch/resize a glyph
+
+
 # --- PushAlternating ---
 
 

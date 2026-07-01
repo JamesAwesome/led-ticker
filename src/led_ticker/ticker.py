@@ -60,6 +60,8 @@ class _CircleBufferMsg(TickerMessage):
     provider, not on the widget.
     """
 
+    size: int = 8
+
     def draw(
         self,
         canvas: Canvas,
@@ -73,7 +75,9 @@ class _CircleBufferMsg(TickerMessage):
                 canvas,
                 cursor_pos + _CIRCLE_LOGICAL_PAD,
                 self.frame_for("font_color"),
-                attrs.evolve(DEFAULT_CIRCLE_SPEC, color=self.font_color),
+                attrs.evolve(
+                    DEFAULT_CIRCLE_SPEC, color=self.font_color, size=self.size
+                ),
             )
             new_pos = cursor_pos + _CIRCLE_LOGICAL_PAD + advance + _CIRCLE_LOGICAL_PAD
             return canvas, new_pos

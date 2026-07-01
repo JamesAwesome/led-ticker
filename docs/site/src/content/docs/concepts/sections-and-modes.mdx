@@ -17,7 +17,7 @@ All widgets in the section are joined into a single continuous stream that scrol
 
 `ticker` suits short-text widgets that the reader can absorb at a glance: a weather condition, a price update, a brief announcement. Combine several short widgets and the stream stays lively without any pauses. Transitions are not used between widgets in this mode — the bullet separator is the only break.
 
-The separator is customizable per section. Set `separator` to any string — `" * "` or `" | "` are common alternatives — or `""` for a minimal two-space gap with no glyph. `separator_color` accepts the same shapes as widget `font_color` (constant `[r, g, b]`, `"rainbow"`, or a gradient table). `separator_font` and `separator_font_size` let you match the separator's typeface to the rest of the section. All four fields are rejected on non-`ticker` modes.
+The separator is customizable per section. Set `separator` to any string — `" * "` or `" | "` are common alternatives — or `""` for a minimal two-space gap with no glyph. `separator_color` accepts the same shapes as widget `font_color` (constant `[r, g, b]`, `"rainbow"`, or a gradient table). `separator_font` and `separator_font_size` let you match the separator's typeface to the rest of the section. All four fields are rejected on non-`ticker` modes. `separator_size` shrinks or grows the bigsign separator circle (default 8; radius = size ÷ 2); it does not affect the smallsign BDF `•`.
 
 <DemoGif
   src="/demos-long/sections-ticker.gif"

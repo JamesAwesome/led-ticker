@@ -344,6 +344,27 @@ def test_default_buffer_msg_is_circle_buffer_msg():
     assert DEFAULT_BUFFER_MSG.text == " • "
 
 
+def test_circle_buffer_msg_size_shrinks_circle():
+    """separator_size drives the hi-res circle radius (radius = size // 2)."""
+    from unittest.mock import MagicMock
+
+    from led_ticker.ticker import _CircleBufferMsg
+
+    real = MagicMock()
+    real.width, real.height = 256, 64
+    canvas = ScaledCanvas(real, scale=4, content_height=16)
+
+    big = _CircleBufferMsg(text=" • ", center=False, font_color=RGB_WHITE, size=8)
+    small = _CircleBufferMsg(text=" • ", center=False, font_color=RGB_WHITE, size=4)
+
+    _, big_cursor = big.draw(canvas, cursor_pos=0)
+    real.SetPixel.reset_mock()
+    _, small_cursor = small.draw(canvas, cursor_pos=0)
+
+    # size 4 → radius 2 → fewer painted pixels + a shorter advance than size 8.
+    assert small_cursor < big_cursor
+
+
 class TestHasPlayDispatch:
     def test_returns_true_for_async_play(self):
         class AsyncWidget:

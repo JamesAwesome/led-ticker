@@ -123,7 +123,7 @@ jobs:
       # changes. `--ignore-glob` (anchored to the dir segment) is used
       # rather than `--ignore=tools/gif_plan`, which `testpaths` defeats.
       # `make test` locally still runs it via testpaths.
-      - run: PYTHONPATH=tests/stubs uv run --extra dev pytest --cov=src/led_ticker --cov-report=term-missing "--ignore-glob=*/gif_plan/*"
+      - run: uv run --extra dev pytest --cov=src/led_ticker --cov-report=term-missing "--ignore-glob=*/gif_plan/*"
 
   gif-plan-test:
     needs: changes
@@ -136,7 +136,7 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
-      - run: PYTHONPATH=tests/stubs uv run --extra dev pytest tools/gif_plan/
+      - run: uv run --extra dev pytest tools/gif_plan/
 
   docs-lint:
     needs: changes

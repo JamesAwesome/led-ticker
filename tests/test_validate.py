@@ -3746,3 +3746,46 @@ async def test_rule57_separator_color_on_between_sections_errors(conf):
     errs = [e for e in result.errors if e.rule == 57]
     assert errs, "rule 57 should fire on a non-scroll between_sections"
     assert "between_sections" in errs[0].location
+
+
+async def test_rule57_separator_glyph_on_non_scroll_errors(conf):
+    """Rule 57 fires when `separator` (glyph) is set on a non-scroll transition."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "dissolve", separator = "-" }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 57 for e in result.errors)
+
+
+async def test_scroll_unknown_separator_font_warns(conf):
+    """An unknown separator_font on a scroll transition emits a rule-24 warning."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "scroll", separator_font = "no_such_font" }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert any("no_such_font" in (w.message or "") for w in result.warnings)

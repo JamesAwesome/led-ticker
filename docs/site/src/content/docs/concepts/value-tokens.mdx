@@ -152,7 +152,7 @@ interval = 300                  # fetch every 5 minutes
 
 **Before the first fetch completes**, the token shows a short placeholder (e.g. `…`) so your layout is never blank. Once the first value arrives, it replaces the placeholder and the token updates live on the same reflow path as clock and date — any widget that references it rebuilds its display string and recalculates layout automatically.
 
-If a fetch fails, the previous value is kept and the task retries on the next `interval`. A crashed fetch task is supervised and restarted, so a transient network error doesn't freeze the token permanently.
+If a fetch fails, the previous value is kept and the task retries on the next `interval`. A crashed fetch task is supervised and restarted, so a transient network error doesn't freeze the token permanently. If a polled source like `:weather.nyc:` stops updating, the [web UI's Monitors panel](/concepts/web-status-ui/#status-tab--monitors) shows whether it is erroring (with the error message and a retry countdown) or stale (fetch wedged, no response).
 
 ### Example: live weather
 

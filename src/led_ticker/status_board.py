@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # tests/test_status_board.py). Additive fields nested inside existing
 # entries (e.g. plugins[].names, added in v1.1) are version-compatible:
 # readers must tolerate their absence.
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 MIN_PUBLISH_INTERVAL = 2.0
 LOG_TAIL_MAX = 50
 
@@ -51,7 +51,9 @@ class StatusBoard:
     config_validation: dict[str, Any] = attrs.field(factory=dict)
     section: dict[str, Any] = attrs.field(factory=dict)
     widget: dict[str, Any] = attrs.field(factory=dict)
-    monitor_updates: dict[str, float] = attrs.field(factory=dict)
+    # name -> {kind, interval, last_ok, error}. Registered on poll-loop entry,
+    # updated on success, error-recorded on failure; cleared on reload.
+    monitors: dict[str, dict] = attrs.field(factory=dict)
     # Incremented by LedFrame.swap() via record_swap(); serialized by the
     # heartbeat. A counter that stops advancing while the file stays fresh
     # is how the page distinguishes a wedged render loop from a healthy
@@ -87,7 +89,9 @@ class StatusBoard:
             "config_validation": self.config_validation,
             "section": self.section,
             "widget": self.widget,
-            "monitor_updates": self.monitor_updates,
+            "monitors": [
+                {"name": name, **entry} for name, entry in self.monitors.items()
+            ],
             "swap_count": self.swap_count,
             "overlays": {"roster": self.overlay_roster, "busy": self.busy},
             "log_tail": list(self.log_tail),
@@ -186,10 +190,185 @@ def get_active_board() -> StatusBoard | None:
     return _ACTIVE
 
 
-def record_monitor_update(name: str) -> None:
-    if _ACTIVE is not None:
-        _ACTIVE.monitor_updates[name] = time.time()
+def _monitor_name(obj: Any) -> str:
+    """Stable monitor key: a source's .id, else a widget's .name, else classname.
+    (Fixes the collision where two polled sources both keyed as their classname.)"""
+    return getattr(obj, "id", None) or getattr(obj, "name", None) or type(obj).__name__
+
+
+def _monitor_type(obj: Any) -> str:
+    """Return the registered type name for type(obj).
+
+    Builds a reverse map from the plugin source registry (name→class,
+    ``_PLUGIN_SOURCE_TYPES``) plus the core source types (clock/date/static,
+    via ``app.factories._SOURCE_TYPES``) and the widget registry
+    (``widgets._WIDGET_REGISTRY``). Imports are function-level (lazy) to
+    avoid import cycles: status_board is imported early by widget.py, which
+    is in turn imported by factories and widgets.
+
+    Returns the first registered name whose class ``is type(obj)``, or ""
+    if not found or on any error. Guarded — never raises.
+    """
+    try:
+        cls = type(obj)
+        from led_ticker.sources import _PLUGIN_SOURCE_TYPES
+
+        for name, klass in _PLUGIN_SOURCE_TYPES.items():
+            if klass is cls:
+                return name
+        try:
+            from led_ticker.app.factories import _SOURCE_TYPES
+
+            for name, klass in _SOURCE_TYPES.items():
+                if klass is cls:
+                    return name
+        except Exception:  # noqa: BLE001
+            pass
+        from led_ticker.widgets import _WIDGET_REGISTRY
+
+        for name, klass in _WIDGET_REGISTRY.items():
+            if klass is cls:
+                return name
+        return ""
+    except Exception:  # noqa: BLE001 - must never raise
+        return ""
+
+
+_SENTINEL = object()  # used by _monitor_value to distinguish missing vs None
+
+
+def _monitor_value(obj: Any) -> str:
+    """Return a human-readable current value for a monitor object.
+
+    - DataSource/PolledDataSource-like: ``str(obj.current)``
+    - Container-like (has ``feed_stories``): ``"{n} items"``
+    - Anything else: ``""``
+
+    ``current = None`` is treated the same as absent — returns ``""`` rather
+    than the literal string ``"None"``. Core ``DataSource.current`` defaults
+    to ``""`` so real sources are unaffected; this defends a source that sets
+    ``current = None`` before its first successful fetch.
+
+    Truncated to ≤80 chars. Guarded — never raises.
+    """
+    try:
+        current = getattr(obj, "current", _SENTINEL)
+        if current is not _SENTINEL and current is not None:
+            return str(current)[:80]
+        if current is _SENTINEL and hasattr(obj, "feed_stories"):
+            return f"{len(obj.feed_stories)} items"
+        return ""
+    except Exception:  # noqa: BLE001 — must never raise
+        return ""
+
+
+def register_monitor(name: str, kind: str, interval: float, mtype: str = "") -> str:
+    """Add a monitor roster entry.
+
+    On a name collision (a key already taken) append #N so distinct monitors
+    get distinct rows. Re-registration of the same monitor only happens after a
+    reload clear, so no phantom entry accumulates. Returns the final (possibly
+    suffixed) name. Never raises.
+
+    ``mtype`` is the registered type name (e.g. "weather.current"); stored
+    statically in the entry's ``type`` field.
+    """
+    if _ACTIVE is None:
+        return name
+    try:
+        m = _ACTIVE.monitors
+        if name in m:
+            # same key already taken -> suffix so each monitor gets a distinct row
+            n, final = 2, f"{name}#2"
+            while final in m:
+                n += 1
+                final = f"{name}#{n}"
+            name = final
+        m[name] = {
+            "kind": kind,
+            "interval": interval,
+            "type": mtype,
+            "value": "",
+            "last_ok": None,
+            "error": None,
+        }
         _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        pass
+    return name
+
+
+def record_monitor_error(
+    name: str, message: str, consecutive: int, retry_in: float
+) -> None:
+    """Record a failed poll for the named monitor.
+
+    Instrumentation only — never raises."""
+    if _ACTIVE is None:
+        return
+    try:
+        entry = _ACTIVE.monitors.setdefault(
+            name,
+            {
+                "kind": "widget",
+                "interval": 0.0,
+                "type": "",
+                "value": "",
+                "last_ok": None,
+                "error": None,
+            },
+        )
+        entry["error"] = {
+            "message": message,
+            "consecutive": consecutive,
+            "at": time.time(),
+            "retry_in": retry_in,
+        }
+        _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        pass
+
+
+def clear_monitors() -> None:
+    """Empty the monitors roster (called on config reload).
+
+    Instrumentation only — never raises."""
+    if _ACTIVE is None:
+        return
+    try:
+        _ACTIVE.monitors.clear()
+        _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        pass
+
+
+def record_monitor_update(name: str, value: str = "") -> None:
+    """Record a successful poll for the named monitor.
+
+    ``value`` is the current resolved value (e.g. "72°F Sunny" for a weather
+    source; "5 items" for a feed Container). Updated on each success; left
+    unchanged when omitted. Instrumentation only — never raises.
+    """
+    if _ACTIVE is None:
+        return
+    try:
+        entry = _ACTIVE.monitors.setdefault(
+            name,
+            {
+                "kind": "widget",
+                "interval": 0.0,
+                "type": "",
+                "value": "",
+                "last_ok": None,
+                "error": None,
+            },
+        )
+        entry["last_ok"] = time.time()
+        entry["error"] = None
+        entry["value"] = value
+        _ACTIVE.publish()
+    except Exception:  # noqa: BLE001 - instrumentation must never reach the engine
+        pass
 
 
 def record_widget_visit(widget: Any) -> None:

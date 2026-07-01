@@ -1,6 +1,7 @@
 """Widget protocols and shared lifecycle helpers."""
 
 import asyncio
+import contextlib
 import contextvars
 import logging
 from typing import Any, Protocol, runtime_checkable
@@ -145,6 +146,26 @@ async def run_monitor_loop(
     the loop, so an immediate first cycle here would double-fetch. Only the first
     cycle is affected; the error-backoff path is unchanged.
     """
+    # Register in the monitor roster (best-effort). Sources duck-type via .polled;
+    # data widgets via .draw OR .feed_stories (Container monitors such as rss.feed,
+    # crypto.coingecko, baseball.*, calendar.events — they carry feed_stories + update()
+    # but NO .draw; the drawable child stories are never passed to run_monitor_loop).
+    # Anything that is NONE of the above (e.g. busy_light which has .update()/.paint()
+    # but no .draw/.feed_stories/.polled) is not a data monitor and is skipped.
+    # No import of `sources` (circular).
+    _mon_name = None
+    with contextlib.suppress(Exception):
+        _name = status_board._monitor_name(widget)
+        _mtype = status_board._monitor_type(widget)
+        if getattr(widget, "polled", False):
+            _mon_name = status_board.register_monitor(
+                _name, "source", interval, mtype=_mtype
+            )
+        elif hasattr(widget, "draw") or hasattr(widget, "feed_stories"):
+            _mon_name = status_board.register_monitor(
+                _name, "widget", interval, mtype=_mtype
+            )
+
     if splay:
         from random import randint
 
@@ -172,16 +193,33 @@ async def run_monitor_loop(
 
         try:
             await widget.update()
-            consecutive_errors = 0
-            status_board.record_monitor_update(
-                getattr(widget, "name", None) or type(widget).__name__
-            )
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
             consecutive_errors += 1
+            if _mon_name is not None:
+                retry_in = min(
+                    _MAX_BACKOFF, _MIN_BACKOFF * (2 ** (consecutive_errors - 1))
+                )
+                # Belt-and-suspenders: recorder is internally guarded, but wrap
+                # the call site too — instrumentation must never reach the loop.
+                with contextlib.suppress(Exception):
+                    status_board.record_monitor_error(
+                        _mon_name, str(exc)[:200], consecutive_errors, retry_in
+                    )
             logger.exception(
                 "Error updating %s (attempt %d), will back off",
                 type(widget).__name__,
                 consecutive_errors,
             )
+        else:
+            # `else` runs only when update() did NOT raise — so a raise in
+            # _monitor_value / record_monitor_update cannot be miscounted as
+            # an update failure (would have bumped consecutive_errors and
+            # logged "Error updating" for a SUCCESSFUL update).
+            consecutive_errors = 0
+            if _mon_name is not None:
+                with contextlib.suppress(Exception):
+                    status_board.record_monitor_update(
+                        _mon_name, status_board._monitor_value(widget)
+                    )

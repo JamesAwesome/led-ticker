@@ -64,6 +64,7 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "separator",
         "separator_font",
         "separator_font_size",
+        "separator_size",
     },
     # [[playlist.section]] — covers the user-facing knobs.
     # transition_specified is on the SectionConfig dataclass but not a
@@ -90,6 +91,7 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "separator_color",
         "separator_font",
         "separator_font_size",
+        "separator_size",
         "start_hold",
         "transition_specified",
     },

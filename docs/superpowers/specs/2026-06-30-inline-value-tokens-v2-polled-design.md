@@ -10,8 +10,8 @@ Make a live weather token work: `text = "NYC: :weather.nyc:"` → `"NYC: 72°F S
 
 ## Spans two repos, sequenced
 
-- **Core (led-ticker):** the polled-source *mechanism* — `PolledDataSource` base, the deferred spawn wiring, shared-session injection, a plugin-source `validate_config` hook, and a tiny fake polled source for tests. **No weather code.** Ships first as a new minor (~**v3.2.0**).
-- **Plugin (led-ticker-plugins/weather):** `WeatherSource` via `api.source`, pinning `led-ticker-core>=3.2.0`. Lands after the core release.
+- **Core (led-ticker):** the polled-source *mechanism* — `PolledDataSource` base, the deferred spawn wiring, shared-session injection, a plugin-source `validate_config` hook, and a tiny fake polled source for tests. **No weather code.** Ships first as a new minor (~**v4.1.0**).
+- **Plugin (led-ticker-plugins/weather):** `WeatherSource` via `api.source`, pinning `led-ticker-core>=4.1.0`. Lands after the core release.
 
 This spec covers both; the implementation plan is **core-first**, then a separate plugin plan.
 
@@ -96,6 +96,6 @@ format = "{temp_f}°F {condition}"   # optional; default "{temp_f}°F {condition
 
 ## Sequencing & releases
 
-1. **Core PR** (this spec's §1 + §3-width-reuse + §5-core tests) on `feat/value-tokens-v2-polled` → review → merge → cut **v3.2.0** (minor; adds the polled-source mechanism + the `PolledDataSource` public surface).
-2. **Plugin PR** (led-ticker-plugins/weather: §2) pinning `led-ticker-core>=3.2.0` → review → merge → release the weather plugin.
+1. **Core PR** (this spec's §1 + §3-width-reuse + §5-core tests) on `feat/value-tokens-v2-polled` → review → merge → cut **v4.1.0** (minor; adds the polled-source mechanism + the `PolledDataSource` public surface).
+2. **Plugin PR** (led-ticker-plugins/weather: §2) pinning `led-ticker-core>=4.1.0` → review → merge → release the weather plugin.
 3. Docs: a "polled sources / weather" section on the value-tokens concept page (core docs) + the weather plugin README.

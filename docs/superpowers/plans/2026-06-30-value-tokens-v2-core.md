@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.14 (PEP 649), attrs, asyncio, aiohttp (already a dep).
 
-**Source of truth:** `docs/superpowers/specs/2026-06-30-inline-value-tokens-v2-polled-design.md` (§1, §3, §5). The weather plugin (§2) is a SEPARATE plan after the v3.2.0 core release.
+**Source of truth:** `docs/superpowers/specs/2026-06-30-inline-value-tokens-v2-polled-design.md` (§1, §3, §5). The weather plugin (§2) is a SEPARATE plan after the v4.1.0 core release.
 
 ## Global Constraints
 
@@ -413,4 +413,4 @@ def test_source_validate_config_hook_surfaces_errors():
 - **Type consistency:** `_set_value`, `PolledDataSource(session, interval, update())`, `build_source(cfg, session)`, `spawn_source_refresh -> list`, the source `validate_config` hook — names used identically across tasks.
 - **The write-order contract (T1) + supervised-never-crash (T4/T5) are the load-bearing properties** — their tests are mandatory; do not weaken them.
 - Tasks 3–6 require reading the current `build_source`/`run.py`/`reload.py`/`validate.py` bodies — the steps give the new code + the integration recipe; match the surrounding style.
-- After this core plan merges + **v3.2.0** is cut, the weather source ships in a SEPARATE led-ticker-plugins plan (spec §2).
+- After this core plan merges + **v4.1.0** is cut, the weather source ships in a SEPARATE led-ticker-plugins plan (spec §2).

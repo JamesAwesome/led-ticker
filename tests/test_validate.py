@@ -3946,3 +3946,80 @@ async def test_rule57_separator_glyph_on_between_sections_errors(conf):
     result = await validate_config(conf(cfg))
     assert not result.valid
     assert any(e.rule == 57 for e in result.errors)
+
+
+# ---------------------------------------------------------------------------
+# Rule 60: separator_size must be a positive integer (> 0).
+# ---------------------------------------------------------------------------
+
+
+async def test_rule60_separator_size_zero_on_scroll_transition_errors(conf):
+    """separator_size = 0 on a scroll widget_transition → rule-60 error.
+
+    The transition IS scroll (in scope for rule 57), so only the value-bound
+    rule should fire, not rule 57.
+    """
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "scroll", separator_size = 0 }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    rule60_errs = [e for e in result.errors if e.rule == 60]
+    assert rule60_errs, "rule 60 should fire for separator_size=0"
+    # Must NOT also fire rule 57 (scroll is a valid transition for separators)
+    assert not any(e.rule == 57 for e in result.errors)
+
+
+async def test_rule60_separator_size_negative_on_ticker_section_errors(conf):
+    """separator_size = -3 on a ticker section → rule-60 error."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "ticker"
+        separator_size = -3
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 60 for e in result.errors)
+
+
+async def test_rule60_separator_size_positive_is_valid(conf):
+    """separator_size = 4 on a scroll widget_transition → no rule-60 error."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "scroll", separator_size = 4 }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(e.rule == 60 for e in result.errors)

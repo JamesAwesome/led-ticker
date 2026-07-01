@@ -1009,6 +1009,63 @@ def _check_scroll_separator_font(
     return errors, warnings
 
 
+def _check_separator_size_positive(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 60: separator_size must be a positive integer (> 0).
+
+    A value of 0 paints nothing / creates a phantom gap; a negative value
+    feeds a negative width into scroll geometry.  Reject non-positive values
+    wherever separator_size is set — both on TransitionConfig homes (all four:
+    between_sections / transition / entry_transition / widget_transition) and
+    on SectionConfig.
+
+    This check is orthogonal to rule 26 (section scope) and rule 57
+    (transition scope) — it fires for any non-positive value regardless of
+    whether the location is in-scope for those rules.
+    """
+    from led_ticker.config import TransitionConfig
+
+    issues: list[ValidationIssue] = []
+
+    def _check_trans(trans_cfg: TransitionConfig | None, location: str) -> None:
+        if trans_cfg is None:
+            return
+        size = trans_cfg.separator_size
+        if size is not None and size <= 0:
+            issues.append(
+                ValidationIssue(
+                    rule=60,
+                    location=location,
+                    severity="error",
+                    message=(f"separator_size must be a positive integer; got {size}"),
+                    fix=("Set separator_size to a positive number of pixels, e.g. 4."),
+                )
+            )
+
+    if config.between_sections_specified:
+        _check_trans(config.between_sections, "transitions.between_sections")
+    for i, section in enumerate(config.sections):
+        if section.transition_specified:
+            _check_trans(section.transition, f"section[{i}].transition")
+        if section.entry_transition is not None:
+            _check_trans(section.entry_transition, f"section[{i}].entry_transition")
+        if section.widget_transition is not None:
+            _check_trans(section.widget_transition, f"section[{i}].widget_transition")
+        # Section-level separator_size (rule-26 scope is orthogonal).
+        size = section.separator_size
+        if size is not None and size <= 0:
+            issues.append(
+                ValidationIssue(
+                    rule=60,
+                    location=f"section[{i}]",
+                    severity="error",
+                    message=(f"separator_size must be a positive integer; got {size}"),
+                    fix=("Set separator_size to a positive number of pixels, e.g. 4."),
+                )
+            )
+
+    return issues
+
+
 # Rule 53: plugin transition config kwargs (unknown/missing keys).
 def _check_plugin_transition_kwargs(config: AppConfig) -> list[ValidationIssue]:
     """Validate kwargs for plugin (dotted-type) transitions at validate time.
@@ -2281,6 +2338,11 @@ async def validate_config(
     _scroll_sep_errors, _scroll_sep_warnings = _check_scroll_separator_font(config)
     errors.extend(_scroll_sep_errors)
     warnings.extend(_scroll_sep_warnings)
+
+    # Phase 1b (cont.): Rule 60 — separator_size must be a positive integer.
+    # Orthogonal to rules 26 / 57 (scope checks) — a non-positive value is
+    # invalid regardless of location.
+    errors.extend(_check_separator_size_positive(config))
 
     # Phase 1b (cont.): Plugin transition kwargs check.
     # For dotted-type (plugin) transitions, attempt to build the transition

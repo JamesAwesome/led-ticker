@@ -56,6 +56,8 @@ AWTRIX3 turns a ~$50 Ulanzi TC001 (ESP32, 32×8 pixel matrix) into a capable clo
 
 led-ticker's sweet spot is large, bright, multi-panel HUB75 signs that drive their own news, weather, crypto, sports, and calendar feeds from a TOML config — fully open, self-hosted, no cloud, no smart-home backend, no subscription. If that matches what you're building, start with [Getting started](/getting-started/) or jump straight to [building your own sign](/hardware/building-your-own/).
 
+One capability that sets led-ticker apart is **inline [value tokens](/concepts/value-tokens/)**: drop a `:weather.nyc:` or `:clock.now:` token into any widget's text and it resolves to a live, self-updating value — so a single scrolling message can read `NYC: 72°F Sunny · 9:01 AM`, each piece refreshing on its own. Live data isn't confined to dedicated widgets; it composes into ordinary text anywhere on the sign.
+
 ## Common questions
 
 ### Does led-ticker run on a Raspberry Pi 5?

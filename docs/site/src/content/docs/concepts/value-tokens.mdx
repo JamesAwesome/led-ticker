@@ -154,7 +154,28 @@ interval = 300                  # fetch every 5 minutes
 
 If a fetch fails, the previous value is kept and the task retries on the next `interval`. A crashed fetch task is supervised and restarted, so a transient network error doesn't freeze the token permanently.
 
-The [weather plugin](/plugins/available/#weather) (`type = "weather.current"`) is a concrete polled source — it fetches current conditions on a configurable interval and formats them into a token string.
+### Example: live weather
+
+The [weather plugin](/plugins/available/#weather) contributes a `weather.current` source. Declare it once:
+
+```toml
+[[source]]
+id       = "weather.nyc"
+type     = "weather.current"         # from the weather plugin
+location = "New York, US"            # name / ZIP / "lat,lon"
+interval = 1800                      # refresh every 30 minutes
+format   = "{temp_f}°F {condition}"  # optional; this is the default
+```
+
+Then reference it in any widget's text:
+
+```toml
+[[playlist.section.widget]]
+type = "message"
+text = "NYC: :weather.nyc:"          # → "NYC: 72°F Clear", updating live
+```
+
+The `format` string interpolates the current-conditions fields `temp_f`, `temp_c`, `condition`, `feelslike_f`, `feelslike_c`, `humidity`, `wind_mph`, and `emoji`. The `emoji` field expands to a condition icon that renders as a sprite, so `format = "{temp_f}° {emoji}"` gives `72° ☀`. The API key comes from `WEATHERAPI_KEY` in your `.env` (never in config); see the [weather plugin](/plugins/available/#weather) for setup.
 
 ## Tips
 

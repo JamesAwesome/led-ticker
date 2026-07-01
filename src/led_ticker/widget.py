@@ -130,12 +130,20 @@ async def run_monitor_loop(
     widget: Updatable,
     interval: float,
     splay: bool = True,
+    immediate: bool = False,
 ) -> None:
     """Generic monitor loop with exponential backoff on errors.
 
     On success, waits `interval` seconds before the next update.
     On error, backs off exponentially from 60s to 1 hour, then
     resets to `interval` on the next successful update.
+
+    When ``immediate`` is True, the FIRST ``update()`` runs before the initial
+    ``interval`` wait, so a polled source shows real data within one request
+    instead of after a full interval (otherwise a 15-30 min blank for weather).
+    Data widgets leave it False: they eager-fetch in ``start()`` before spawning
+    the loop, so an immediate first cycle here would double-fetch. Only the first
+    cycle is affected; the error-backoff path is unchanged.
     """
     if splay:
         from random import randint
@@ -143,6 +151,7 @@ async def run_monitor_loop(
         interval += randint(0, 60)
 
     consecutive_errors: int = 0
+    first: bool = True
 
     while True:
         if consecutive_errors > 0:
@@ -157,8 +166,9 @@ async def run_monitor_loop(
                 consecutive_errors,
             )
             await asyncio.sleep(backoff)
-        else:
+        elif not (first and immediate):
             await asyncio.sleep(interval)
+        first = False
 
         try:
             await widget.update()

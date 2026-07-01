@@ -165,8 +165,16 @@ def spawn_source_refresh(registry: DataRegistry) -> list:
     tasks.append(spawn_tracked(run_source_refresh_loop(registry)))
     for source in registry.sources():
         if isinstance(source, PolledDataSource):
+            # immediate=True: fetch once right away so the token shows real data
+            # within a request instead of after a full `interval` (a 15-30 min
+            # blank for weather). The fetch runs concurrently — it never blocks
+            # startup or the render loop.
             tasks.append(
-                spawn_tracked(run_monitor_loop(source, source.interval, splay=False))
+                spawn_tracked(
+                    run_monitor_loop(
+                        source, source.interval, splay=False, immediate=True
+                    )
+                )
             )
     return tasks
 

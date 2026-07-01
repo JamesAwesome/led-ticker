@@ -336,6 +336,31 @@ async def test_spawn_source_refresh_spawns_polled_loops():
 
 
 @pytest.mark.asyncio
+async def test_spawn_source_refresh_polled_first_fetch_is_immediate():
+    """A polled source fetches at startup (immediate first cycle) rather than
+    waiting a full `interval` — so a `:weather.x:` token shows real data within
+    one request instead of after 15-30 min of placeholder."""
+    import attrs
+
+    from led_ticker.sources import DataRegistry, PolledDataSource, spawn_source_refresh
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        async def update(self) -> None:
+            self._set_value("v")
+
+    reg = DataRegistry()
+    reg.add(_Fake(id="p", interval=100))  # long interval; without immediate = 100s wait
+    tasks = spawn_source_refresh(reg)
+    await asyncio.sleep(0.05)
+    assert reg.get("p").version >= 1, (
+        "immediate first fetch should update before the interval elapses"
+    )
+    for t in tasks:
+        t.cancel()
+
+
+@pytest.mark.asyncio
 async def test_one_hz_ticker_does_not_poll_polled_source():
     import attrs
 

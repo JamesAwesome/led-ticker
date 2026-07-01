@@ -172,6 +172,104 @@ async def test_backoff_increases_on_consecutive_errors(monkeypatch):
     assert sleep_durations[2] == _MIN_BACKOFF * 2
 
 
+def _event_recorder(monkeypatch):
+    """Record sleeps + update() calls in order (mock sleep is instant)."""
+    _real_sleep = asyncio.sleep
+    events: list[tuple[str, float | None]] = []
+
+    async def _recording_sleep(seconds):
+        events.append(("sleep", seconds))
+        await _real_sleep(0)
+
+    monkeypatch.setattr("led_ticker.widget.asyncio.sleep", _recording_sleep)
+    return events, _real_sleep
+
+
+async def test_immediate_updates_before_first_interval_wait(monkeypatch):
+    """immediate=True: the first update() runs BEFORE the initial interval wait,
+    so a polled source shows real data within one request instead of after a
+    full `interval`."""
+    events, _real_sleep = _event_recorder(monkeypatch)
+    w = SimpleAsyncWidget()
+    orig = w.update
+
+    async def _tracked_update():
+        events.append(("update", None))
+        await orig()
+
+    w.update = _tracked_update
+
+    task = asyncio.create_task(
+        run_monitor_loop(w, interval=999, splay=False, immediate=True),
+    )
+    for _ in range(5):
+        await _real_sleep(0)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    # The very first thing is an update — not a 999s wait.
+    assert events[0] == ("update", None)
+    assert w.update_count >= 1
+
+
+async def test_default_waits_interval_before_first_update(monkeypatch):
+    """immediate defaults False (unchanged): the loop waits `interval` before the
+    first update. Data widgets rely on this — they eager-fetch in start() first,
+    so an immediate first cycle would double-fetch."""
+    events, _real_sleep = _event_recorder(monkeypatch)
+    w = SimpleAsyncWidget()
+    orig = w.update
+
+    async def _tracked_update():
+        events.append(("update", None))
+        await orig()
+
+    w.update = _tracked_update
+
+    task = asyncio.create_task(
+        run_monitor_loop(w, interval=999, splay=False),
+    )
+    for _ in range(5):
+        await _real_sleep(0)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    # First event is the interval wait; update hasn't fired yet.
+    assert events[0] == ("sleep", 999)
+
+
+async def test_immediate_first_fetch_failure_backs_off_not_busy_loops(monkeypatch):
+    """immediate=True + a failing first fetch must engage backoff on the next
+    cycle (not re-skip the wait via the first-cycle flag) — no busy-loop."""
+    events, _real_sleep = _event_recorder(monkeypatch)
+    w = SimpleAsyncWidget()
+
+    async def _always_fail():
+        events.append(("update", None))
+        raise ValueError("API down")
+
+    w.update = _always_fail
+
+    task = asyncio.create_task(
+        run_monitor_loop(w, interval=999, splay=False, immediate=True),
+    )
+    for _ in range(12):
+        await _real_sleep(0)
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    # First cycle: immediate update (no wait). Then every failing cycle backs
+    # off — exactly one sleep per update, so it never spins.
+    assert events[0] == ("update", None)
+    sleeps = [e for e in events if e[0] == "sleep"]
+    updates = [e for e in events if e[0] == "update"]
+    assert sleeps and sleeps[0][1] == _MIN_BACKOFF  # first wait is a backoff, not 999
+    assert abs(len(updates) - len(sleeps)) <= 1  # one wait per cycle — no busy-loop
+
+
 async def test_backoff_caps_at_max(monkeypatch):
     """Backoff should never exceed _MAX_BACKOFF."""
     _real_sleep = asyncio.sleep

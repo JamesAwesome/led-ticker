@@ -1,6 +1,6 @@
 ---
 title: Value tokens
-description: "Embed live clock, date, and static text in any widget's message using the :id: token syntax — no plugin required."
+description: "Embed live clock, date, weather, and other values in any widget's text using the :id: token syntax. Built-in and plugin-contributed sources supported."
 ---
 
 import TomlExample from "../../../components/TomlExample.astro";
@@ -134,9 +134,27 @@ If a `:slug:` matches an emoji in the [emoji registry](/assets/emoji/), it rende
 
 An `:unknown:` slug that matches neither an emoji nor a declared source renders as literal text (`:unknown:`). This is intentional — a missing or misspelled source name stays visible so you can spot it at a glance.
 
-## What's in v1
+## Live (polled) sources
 
-The `clock`, `date`, and `static` source types ship built-in — no plugin required. The plugin API (`api.source`) is available for authors who want to add custom sources; polled async sources (live weather, prices) are the natural next step for a plugin and are not part of the built-in set.
+The `clock`, `date`, and `static` sources compute their value locally and instantly — they need no network and never fail. Some source types work differently: they fetch data in the background on a repeating `interval` (in seconds) and push the result into the token when the fetch completes.
+
+These **polled sources** are contributed by plugins. A plugin registers a source type via `api.source` by subclassing `PolledDataSource` and implementing an `async def update()` method that calls `self._set_value(...)` with a new string. The engine spawns a supervised background task that calls `update()` every `interval` seconds for as long as the display is running.
+
+A polled `[[source]]` block looks the same as a built-in one — the plugin type name and any type-specific fields sit alongside `id` and `interval`:
+
+```toml
+[[source]]
+id       = "my.token"
+type     = "some.plugin.type"   # contributed by a plugin
+interval = 300                  # fetch every 5 minutes
+# ...type-specific fields...
+```
+
+**Before the first fetch completes**, the token shows a short placeholder (e.g. `…`) so your layout is never blank. Once the first value arrives, it replaces the placeholder and the token updates live on the same reflow path as clock and date — any widget that references it rebuilds its display string and recalculates layout automatically.
+
+If a fetch fails, the previous value is kept and the task retries on the next `interval`. A crashed fetch task is supervised and restarted, so a transient network error doesn't freeze the token permanently.
+
+The [weather plugin](/plugins/available/#weather) (`type = "weather.current"`) is a concrete polled source — it fetches current conditions on a configurable interval and formats them into a token string.
 
 ## Tips
 

@@ -36,6 +36,11 @@ the same values as a widget `font_color`, including `"rainbow"`. (This is the
 scroll _transition's_ separator and is distinct from the ticker-mode section
 `separator_color`, which colors the loop separator between ticker widgets.)
 
+To use a character instead of a dot, set `separator`:
+`transition = { type = "scroll", separator = "·" }`.
+Include surrounding spaces for padding (e.g. `separator = ' · '`); set
+`separator_font` / `separator_font_size` only for a non-default font.
+
 ## Variants
 
 <OptionsTable source="transitions/special" />

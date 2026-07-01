@@ -28,11 +28,11 @@ def _as_provider(color: Any) -> ColorProvider:
 
 @attrs.define
 class SeparatorSpec:
-    kind: str  # "dot" | "circle"  (Phase 2 adds "glyph")
+    kind: str  # "dot" | "circle" | "glyph"
     color: Any = RGB_WHITE  # ColorTuple or ColorProvider; normalized on read
     size: int = 2  # dot: square side; circle: disk diameter (logical px)
-    glyph: str = ""  # Phase 2
-    font: Any = None  # Phase 2
+    glyph: str = ""  # kind == "glyph": the character(s) to render
+    font: Any = None  # kind == "glyph": resolved BDF/hires font
 
 
 # Per-site defaults reproducing today's appearance exactly.
@@ -90,8 +90,22 @@ def _render_circle(canvas: ScaledCanvas, x: int, rgb: ColorTuple, size: int) -> 
     return size
 
 
+def _render_glyph(canvas: Canvas, x: int, frame: int, spec: SeparatorSpec) -> int:
+    from led_ticker.colors import make_color
+    from led_ticker.drawing import compute_baseline, get_text_width
+    from led_ticker.text_render import draw_text
+
+    c = _as_provider(spec.color).color_for(frame, 0, 1)
+    color = c if hasattr(c, "red") else make_color(*c)
+    baseline_y = compute_baseline(spec.font, canvas, "center")
+    draw_text(canvas, spec.font, x, baseline_y, color, spec.glyph)
+    return get_text_width(spec.font, spec.glyph, padding=0, canvas=canvas)
+
+
 def render_separator(canvas: Canvas, x: int, frame: int, spec: SeparatorSpec) -> int:
     """Paint the separator mark at logical x; return its logical width (no pad)."""
+    if spec.kind == "glyph":
+        return _render_glyph(canvas, x, frame, spec)
     rgb = _resolve_rgb(spec.color, frame)
     if spec.kind == "circle" and is_scaled(canvas):
         return _render_circle(canvas, x, rgb, spec.size)
@@ -102,6 +116,10 @@ def render_separator(canvas: Canvas, x: int, frame: int, spec: SeparatorSpec) ->
 
 def separator_width(spec: SeparatorSpec) -> int:
     """The mark's own logical width (no padding)."""
+    if spec.kind == "glyph":
+        from led_ticker.drawing import get_text_width
+
+        return get_text_width(spec.font, spec.glyph, padding=0)
     return spec.size
 
 

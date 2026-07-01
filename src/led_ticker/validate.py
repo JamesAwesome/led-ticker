@@ -462,6 +462,10 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     fix=(
                         "Remove separator / separator_font / separator_font_size"
                         " / separator_color, or change mode to 'ticker'."
+                        " If you meant the scroll TRANSITION's separator,"
+                        " put these fields inside the transition instead,"
+                        " e.g. `widget_transition = { type = 'scroll',"
+                        " separator = '...' }`."
                     ),
                 )
             )
@@ -802,12 +806,13 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
 
 
 def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue]:
-    """Rule 57: separator_color is only honored by the scroll transition.
+    """Rule 57: separator / separator_color / separator_font fields are only
+    honored by the scroll transition.
 
     Any transition home (per-section transition / entry_transition /
-    widget_transition, plus the global between_sections) that carries a
-    separator_color but whose type is not 'scroll' will silently ignore the
-    color at runtime.  Reject it early so the misconfiguration surfaces.
+    widget_transition, plus the global between_sections) that carries any of
+    the separator_* fields but whose type is not 'scroll' will silently ignore
+    them at runtime.  Reject it early so the misconfiguration surfaces.
     """
     from led_ticker.config import TransitionConfig
 
@@ -816,7 +821,14 @@ def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue
     def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
         if trans_cfg is None:
             return
-        if getattr(trans_cfg, "separator_color", None) is None:
+        _SEP_FIELDS = (
+            "separator",
+            "separator_color",
+            "separator_font",
+            "separator_font_size",
+        )
+        sep_set = any(getattr(trans_cfg, f, None) is not None for f in _SEP_FIELDS)
+        if not sep_set:
             return
         if trans_cfg.type == "scroll":
             return
@@ -826,10 +838,12 @@ def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue
                 location=location,
                 severity="error",
                 message=(
-                    f"separator_color is only honored by the scroll transition; "
-                    f"{location}.type={trans_cfg.type!r} ignores it."
+                    "separator / separator_color / separator_font"
+                    " / separator_font_size fields are "
+                    f"only honored by the scroll transition; type="
+                    f"{trans_cfg.type!r} ignores them."
                 ),
-                fix="Use separator_color only with type='scroll', or remove it.",
+                fix="Use the separator fields only with type='scroll', or remove them.",
             )
         )
 
@@ -844,6 +858,153 @@ def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue
             _check(section.widget_transition, f"section[{i}].widget_transition")
 
     return issues
+
+
+def _check_scroll_separator_font(
+    config: AppConfig,
+) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
+    """Resolve `separator_font` on scroll transitions across all four homes.
+
+    Mirrors `_check_separator_fonts` (section-level separator_font) but for
+    TransitionConfig homes:
+      - UnknownFontError  → rule 24 warning (font may live on the deploy target)
+      - ValueError containing "requires a size" → rule 5 error
+
+    When `separator_font_size` is omitted, `resolve_font` raises a generic
+    ValueError ("requires a size") before it can confirm the name is known.
+    In that case we re-probe with a dummy size (24) so unknown-font cases
+    still surface as rule-24 warnings rather than opaque "requires size" errors.
+
+    Only fires for type='scroll' transitions; non-scroll homes are already
+    rejected by rule 57 (``_check_separator_color_transition``).
+    """
+    from led_ticker.config import TransitionConfig
+    from led_ticker.fonts import UnknownFontError, resolve_font
+    from led_ticker.fonts.hires_loader import HiresFont
+
+    _UNKNOWN_FONT_FIX = (
+        "Drop the font file into config/fonts/ on the deploy"
+        " target, or pick one of the bundled fonts listed"
+        " above (BDF: 5x8 / 6x10 / 6x12 / 7x13; hires:"
+        " Inter-Bold / Inter-Regular)."
+    )
+    _MISSING_SIZE_FIX = (
+        "Add separator_font_size = <pixels> next to"
+        " separator_font (e.g. separator_font_size = 24)."
+    )
+
+    errors: list[ValidationIssue] = []
+    warnings: list[ValidationIssue] = []
+
+    def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
+        if trans_cfg is None:
+            return
+        if trans_cfg.type != "scroll":
+            return
+        # Rule 58: separator_font_size without separator_font is silently
+        # ignored (resolver falls to FONT_DEFAULT). Warn early.
+        if (
+            trans_cfg.separator_font is None
+            and trans_cfg.separator_font_size is not None
+        ):
+            warnings.append(
+                ValidationIssue(
+                    rule=58,
+                    location=f"{location}.separator_font_size",
+                    severity="warning",
+                    message=(
+                        "separator_font_size has no effect without separator_font"
+                    ),
+                    fix=(
+                        "Set separator_font (a BDF alias or hires font name),"
+                        " or remove separator_font_size."
+                    ),
+                )
+            )
+        if trans_cfg.separator_font is None:
+            return  # direct (not getattr) so pyright narrows to str below
+        try:
+            font = resolve_font(
+                trans_cfg.separator_font, size=trans_cfg.separator_font_size
+            )
+            # Rule 59: hires font on a scale-1 (smallsign) sign paints at
+            # physical scale 1 — separator_width's SCALE_FALLBACK=4 reserves
+            # too much horizontal space → mid-scroll overlap.
+            if isinstance(font, HiresFont) and config.display.default_scale == 1:
+                warnings.append(
+                    ValidationIssue(
+                        rule=59,
+                        location=f"{location}.separator_font",
+                        severity="warning",
+                        message=(
+                            "a hires separator_font on a scale-1 (smallsign)"
+                            " sign may misalign the scroll; use a BDF font"
+                            " (e.g. 6x12) at scale 1"
+                        ),
+                        fix=(
+                            "Use a BDF separator_font at default_scale=1,"
+                            " or run at default_scale=4 (bigsign)."
+                        ),
+                    )
+                )
+        except UnknownFontError as exc:
+            warnings.append(
+                ValidationIssue(
+                    rule=24,
+                    location=f"{location}.separator_font",
+                    severity="warning",
+                    message=str(exc),
+                    fix=_UNKNOWN_FONT_FIX,
+                )
+            )
+        except ValueError as exc:
+            msg = str(exc)
+            # When separator_font_size is absent, resolve_font raises
+            # "requires a size" before confirming whether the font name is
+            # valid.  Re-probe with a dummy size so that an unknown-font
+            # name still surfaces as a rule-24 warning rather than an
+            # opaque "requires size" error.
+            if trans_cfg.separator_font_size is None:
+                try:
+                    resolve_font(trans_cfg.separator_font, size=24)
+                except UnknownFontError as probe_exc:
+                    warnings.append(
+                        ValidationIssue(
+                            rule=24,
+                            location=f"{location}.separator_font",
+                            severity="warning",
+                            message=str(probe_exc),
+                            fix=_UNKNOWN_FONT_FIX,
+                        )
+                    )
+                    return
+                except ValueError:
+                    pass  # fall through to the error path below
+            # resolve_font's missing-size message is "requires a size"
+            # (fonts/__init__.py) — NOT "requires font_size". Match the real
+            # text so a hires font with no size classifies as rule 5.
+            rule = 5 if "requires a size" in msg else None
+            errors.append(
+                ValidationIssue(
+                    rule=rule,
+                    location=f"{location}.separator_font",
+                    severity="error",
+                    message=msg,
+                    fix=_MISSING_SIZE_FIX,
+                )
+            )
+
+    if config.between_sections_specified:
+        _check(config.between_sections, "transitions.between_sections")
+    for i, section in enumerate(config.sections):
+        if section.transition_specified:
+            _check(section.transition, f"section[{i}].transition")
+        if section.entry_transition is not None:
+            _check(section.entry_transition, f"section[{i}].entry_transition")
+        if section.widget_transition is not None:
+            _check(section.widget_transition, f"section[{i}].widget_transition")
+
+    return errors, warnings
 
 
 # Rule 53: plugin transition config kwargs (unknown/missing keys).
@@ -2111,8 +2272,13 @@ async def validate_config(
     # fails at startup and has no deploy-target excuse.
     errors.extend(_check_transition_names(config))
 
-    # Phase 1b (cont.): Rule 57 — separator_color on non-scroll transitions.
+    # Phase 1b (cont.): Rule 57 — separator / separator_color / separator_font
+    # fields on non-scroll transitions; also resolve separator_font on scroll
+    # transition homes (rule-24 warning for unknown, rule-5 error for missing size).
     errors.extend(_check_separator_color_transition(config))
+    _scroll_sep_errors, _scroll_sep_warnings = _check_scroll_separator_font(config)
+    errors.extend(_scroll_sep_errors)
+    warnings.extend(_scroll_sep_warnings)
 
     # Phase 1b (cont.): Plugin transition kwargs check.
     # For dotted-type (plugin) transitions, attempt to build the transition

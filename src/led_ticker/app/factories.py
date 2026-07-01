@@ -43,6 +43,7 @@ from led_ticker.sources import (
     ClockSource,
     DataSource,
     DateSource,
+    PolledDataSource,
     StaticSource,
 )
 from led_ticker.transitions import Transition, get_transition_class
@@ -1363,14 +1364,29 @@ def get_source_class(source_type: str) -> type[DataSource]:
     return cls
 
 
-def build_source(cfg: SourceConfig) -> DataSource:
+def build_source(cfg: SourceConfig, session: Any = None) -> DataSource:
     """Instantiate a DataSource from a parsed SourceConfig.
 
     Maps TOML config keys to constructor kwargs:
     - clock / date: format → fmt, timezone → tz
     - static: value → value
+    - PolledDataSource subclasses (plugin sources): id + injected session/interval
+      + remaining cfg.raw keys as generic kwargs (location, format, placeholder, …).
     """
     cls = get_source_class(cfg.type)
+    if issubclass(cls, PolledDataSource):
+        # Generic kwarg passthrough for plugin polled sources: id + injected
+        # session/interval + the remaining [[source]] kwargs (location, format,
+        # placeholder, …). Drop reserved keys so they don't collide.
+        kwargs = {
+            k: v for k, v in cfg.raw.items() if k not in ("id", "type", "interval")
+        }
+        return cls(
+            id=cfg.id,
+            session=session,
+            interval=cfg.raw.get("interval", 1800),
+            **kwargs,
+        )
     if cls in (ClockSource, DateSource):
         return cls(
             id=cfg.id,

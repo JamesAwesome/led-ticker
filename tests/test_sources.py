@@ -271,6 +271,45 @@ def test_sync_refresh_still_works():
     assert s.refresh() is False and s.version == 1
 
 
+def test_build_source_injects_session_and_interval_for_polled(monkeypatch):
+    import attrs
+
+    from led_ticker.app.factories import build_source
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+
+    @attrs.define(eq=False)
+    class _Fake(PolledDataSource):
+        location: str = ""
+
+        async def update(self) -> None: ...
+
+    _PLUGIN_SOURCE_TYPES["acme.live"] = _Fake
+    try:
+        cfg = SourceConfig(
+            id="x",
+            type="acme.live",
+            raw={"id": "x", "type": "acme.live", "location": "NYC", "interval": 60},
+        )
+        src = build_source(cfg, session="SESS")
+        assert isinstance(src, _Fake)
+        assert src.session == "SESS" and src.interval == 60 and src.location == "NYC"
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.live", None)
+
+
+def test_build_source_sync_unchanged():
+    from led_ticker.app.factories import build_source
+    from led_ticker.config import SourceConfig
+    from led_ticker.sources import ClockSource
+
+    cfg = SourceConfig(
+        id="c", type="clock", raw={"id": "c", "type": "clock", "format": "%H"}
+    )
+    src = build_source(cfg)  # no session
+    assert isinstance(src, ClockSource) and src.fmt == "%H"
+
+
 def test_resolve_reresolves_when_registry_object_changes():
     # Hot-reload installs a FRESH DataRegistry; sources start at version=1
     # after their first refresh. A surviving TokenizedField must NOT use its

@@ -2359,6 +2359,26 @@ async def validate_config(
             )
         )
 
+    # Phase 1b: an empty playlist displays nothing — almost always a mistake
+    # (e.g. sections written as [[sections]] instead of [[playlist.section]],
+    # which parses to zero sections). Flag it as an error so `led-ticker
+    # validate` catches it and a hot-reload to an empty playlist is rejected
+    # (keeping the old config) rather than blanking the panel.
+    if not config.sections:
+        errors.append(
+            ValidationIssue(
+                rule=None,
+                location="playlist",
+                severity="error",
+                message="playlist has no sections — nothing would display.",
+                fix=(
+                    "Add at least one [[playlist.section]] with a "
+                    "[[playlist.section.widget]] (the schema is "
+                    "[[playlist.section]], not [[sections]])."
+                ),
+            )
+        )
+
     # Phase 1b: Static dict checks (rules enforced in widget constructors)
     errors.extend(_check_static(config))
 

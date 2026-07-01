@@ -191,6 +191,30 @@ async def _build_title_guarded(
         return None
 
 
+async def _idle_on_empty_playlist(sections: list, warned: bool) -> tuple[bool, bool]:
+    """Guard the render loop against a section-less playlist.
+
+    A config with no `[[playlist.section]]` blocks (e.g. the common typo of
+    `[[sections]]`, which parses to zero sections) would otherwise busy-spin the
+    outer loop at 100% CPU with nothing to draw. When ``sections`` is empty this
+    logs a clear warning (once per empty streak, tracked via ``warned``) and
+    idles 1s — still slow enough for the loop's hot-reload check to land a valid
+    config — and returns ``(idled=True, warned=True)`` so the caller `continue`s.
+    With sections present it returns ``(False, False)`` (no idle, resets the
+    warned flag so a later empty state warns again).
+    """
+    if sections:
+        return False, False
+    if not warned:
+        logging.warning(
+            "playlist has no sections — nothing to display; waiting for a valid "
+            "config (a hot-reload will pick one up). Check that your sections are "
+            "written as [[playlist.section]] with [[playlist.section.widget]]."
+        )
+    await asyncio.sleep(1.0)
+    return True, True
+
+
 async def _build_widget_guarded(
     widget_cfg: Any,
     *,
@@ -806,6 +830,7 @@ async def run(config_path: Path) -> None:
             )
 
             try:
+                _empty_playlist_warned = False
                 while True:
                     # Belt-and-suspenders outer-loop check (once per full
                     # playlist cycle). The per-section check below and the
@@ -836,6 +861,14 @@ async def run(config_path: Path) -> None:
                         default_section_trans = _reload_res.default_section_trans
                         schedule_task = _reload_res.schedule_task
                         source_refresh_task = _reload_res.source_refresh_task
+                    # A section-less playlist has nothing to draw — idle + warn
+                    # (checked AFTER the reload above, so adding sections recovers)
+                    # instead of busy-spinning this loop at 100% CPU.
+                    _idled, _empty_playlist_warned = await _idle_on_empty_playlist(
+                        config.sections, _empty_playlist_warned
+                    )
+                    if _idled:
+                        continue
                     for section_index, section in enumerate(config.sections):
                         # Per-section reload check: caps reload latency at one
                         # section instead of one full playlist cycle, so a save

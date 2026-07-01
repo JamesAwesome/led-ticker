@@ -1122,6 +1122,27 @@ async def test_rule26_separator_on_ticker_is_allowed(conf):
     assert all(e.rule != 26 for e in result.errors)
 
 
+async def test_separator_size_on_non_ticker_section_errors(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        separator_size = 4
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 26 for e in result.errors)
+
+
 async def test_rule26_separator_font_alone_on_swap_errors(conf):
     """Rule 26 fires on ANY of the four fields, not just `separator`."""
     cfg = """\
@@ -3746,6 +3767,27 @@ async def test_rule57_separator_color_on_between_sections_errors(conf):
     errs = [e for e in result.errors if e.rule == 57]
     assert errs, "rule 57 should fire on a non-scroll between_sections"
     assert "between_sections" in errs[0].location
+
+
+async def test_separator_size_on_non_scroll_transition_errors(conf):
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        widget_transition = { type = "dissolve", separator_size = 4 }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not result.valid
+    assert any(e.rule == 57 for e in result.errors)
 
 
 async def test_rule57_separator_glyph_on_non_scroll_errors(conf):

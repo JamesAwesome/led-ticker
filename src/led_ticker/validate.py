@@ -447,6 +447,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
             or section.separator_font is not None
             or section.separator_font_size is not None
             or section.separator_color is not None
+            or section.separator_size is not None
         )
         if separator_set and section.mode != "ticker":
             issues.append(
@@ -826,6 +827,7 @@ def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue
             "separator_color",
             "separator_font",
             "separator_font_size",
+            "separator_size",
         )
         sep_set = any(getattr(trans_cfg, f, None) is not None for f in _SEP_FIELDS)
         if not sep_set:

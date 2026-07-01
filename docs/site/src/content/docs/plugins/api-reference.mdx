@@ -145,6 +145,7 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 | `BorderEffect`      | The [border](/concepts/borders/) protocol (`paint`)                                                                                               |
 | `BorderEffectBase`  | Base that enforces the `frame_invariant` class attr                                                                                               |
 | `DataSource`        | Base class for an inline value source — subclass, implement `compute() -> str`, register with `api.source(name)`                                  |
+| `PolledDataSource`  | Base class for async (network-backed) sources — subclass, implement `async def update()`, call `self._set_value(...)` inside it                   |
 | `SegmentMessage`    | Re-exported single-line message widget (compose stories from it)                                                                                  |
 | `TwoRowMessage`     | Re-exported two-row widget                                                                                                                        |
 | `TickerMessage`     | Re-exported single-region scrolling message widget (compose/subclass for rich stories)                                                            |

@@ -73,7 +73,7 @@ from led_ticker.scaled_canvas import (
     paint_hires,
     unwrap_to_real,
 )
-from led_ticker.sources import DataSource
+from led_ticker.sources import DataSource, PolledDataSource
 from led_ticker.text_render import draw_text_per_char
 from led_ticker.transitions import Transition
 from led_ticker.transitions._hires_loader import (
@@ -109,6 +109,7 @@ __all__ = [
     "ColorTuple",
     "Container",
     "DataSource",
+    "PolledDataSource",
     "DrawResult",
     "EMOJI_ROW_CAP",
     "ColorProvider",

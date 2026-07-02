@@ -127,7 +127,9 @@ takes a few minutes on a Pi — later boots are seconds). Watch progress with
 `make logs`; `docker compose ps` should show the service running. Panels
 still dark after the image is built? Check `gpio_slowdown` and start with
 the [Sharp edges](/hardware/building-your-own/#sharp-edges) section on the
-building-your-own page.
+building-your-own page. Once the web UI is enabled (step 5), its
+[Status tab](/concepts/web-status-ui/) gives you a richer first-boot view —
+a live panel preview plus per-source health at a glance.
 
 **4. Panel bring-up** — after wiring, run
 [`make panel-test`](/tools/panel-test/) to rule out any wiring, driver,
@@ -163,11 +165,17 @@ skim [Sections and modes](/concepts/sections-and-modes/) and the
 [message widget](/widgets/message/) page — the two most-used building
 blocks.
 
+Validate any config before deploying. On a deployed sign, the easiest way
+is the web UI's **Config tab** (step 5 above) — it validates before saving.
+On a dev machine:
+
 ```bash
-# Validate any config before deploying (requires make dev once on a dev machine,
-# or use the web UI's Config tab which validates before saving)
 make validate CONFIG=config/config.toml
 ```
+
+(`make validate` needs the dev dependencies — install
+[uv](https://docs.astral.sh/uv/) and run `make dev` once first; `make dev`
+checks for uv and prints the install command if it's missing.)
 
 Private media (GIFs, images, fonts) goes in `config/local/` (gitignored)
 and is referenced as `path = "local/<file>"` in your TOML.

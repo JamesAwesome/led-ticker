@@ -1497,6 +1497,66 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
     return warnings
 
 
+def _check_typewriter_hold(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 61: typewriter typing duration exceeds the effective hold.
+
+    The engine's settle-to-rest extension caps at ~1 s, so a reveal
+    longer than the hold gets chopped mid-type — the viewer never sees
+    the full message. Effective hold mirrors the ENGINE's math:
+    max(section.hold_time, widget hold_time or 0.0) — there is no
+    display-level hold tier, and a widget hold SMALLER than the
+    section's is ignored (max wins), so it must not fire the rule.
+    Duration comes from Typewriter.typing_duration_seconds — the single
+    home of the formula (never re-implement it here).
+    """
+    from led_ticker.animations import Typewriter  # noqa: PLC0415
+    from led_ticker.app.coercion import _coerce_animation  # noqa: PLC0415
+
+    warnings: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        for j, widget_cfg in enumerate(section.widgets):
+            anim_raw = widget_cfg.get("animation")
+            if anim_raw is None:
+                continue
+            try:
+                anim = _coerce_animation(anim_raw)
+            except ValueError, TypeError:
+                continue  # invalid animation — other rules own that
+            if not isinstance(anim, Typewriter):
+                continue
+            text = str(widget_cfg.get("text", "") or "")
+            if not text:
+                continue
+            duration = anim.typing_duration_seconds(len(text))
+            widget_hold = widget_cfg.get("hold_time")
+            if not isinstance(widget_hold, (int, float)) or isinstance(
+                widget_hold, bool
+            ):
+                widget_hold = 0.0
+            effective_hold = max(float(section.hold_time), float(widget_hold))
+            if duration <= effective_hold:
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=61,
+                    location=f"section[{i}].widget[{j}]",
+                    severity="warning",
+                    message=(
+                        f"text takes ~{duration:.1f}s to type but the "
+                        f"effective hold_time is {effective_hold:.1f}s — "
+                        f"the message will be cut mid-type"
+                    ),
+                    fix=(
+                        f"Raise hold_time to at least {duration:.1f}, or "
+                        "shorten the text. (After typing completes, the "
+                        "widget holds fully-typed for the remainder of "
+                        "the hold.)"
+                    ),
+                )
+            )
+    return warnings
+
+
 def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
     """Catch fonts that don't fit a multi-row widget's per-row band.
 
@@ -2521,6 +2581,7 @@ async def validate_config(
     # Phase 2: Soft rule warnings (only run when no hard errors)
     if not errors:
         warnings.extend(_check_soft(config))
+        warnings.extend(_check_typewriter_hold(config))
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
         warnings.extend(_check_plugin_validation_warnings(config, effective_config_dir))

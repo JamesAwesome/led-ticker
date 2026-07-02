@@ -234,7 +234,16 @@ Plugin authors register a backend with **`api.backend(name)`** from inside their
 - **`visible_text: str`** — the slice of the message text to render this tick (used by typewriter).
 - **`rotation: float`** — a clockwise rotation in degrees to apply to the rendered text this tick. The default is `0.0`, which takes the normal draw path with no rotation. When non-zero, the message widget renders the text into an offscreen surface, rotates that surface around the text block's center, and composites it back to the canvas.
 
-An animation that emits non-zero rotations must also set `emits_rotation = True` as a class attribute. This opt-in marker tells the validator to run rule 63: a widget that pairs a rotation-emitting animation with a hi-res font raises a configuration warning, because hi-res text renders at native-pixel resolution and the offscreen rotate path operates at logical resolution — the two interact badly. For BDF fonts the rotate path is fully supported.
+An animation that emits non-zero rotations must also set `emits_rotation = True` as a class attribute. This opt-in marker tells the validator to run rule 63.
+
+**Scale-1 displays (smallsign):** pairing a rotation-emitting animation with a hi-res font raises a configuration warning. Hi-res text renders at native-pixel resolution and the offscreen rotate path operates at logical resolution — they interact badly. Rule 63 applies only when `scale == 1`; on scaled displays the snapshot architecture described below handles the mismatch. For BDF fonts the rotate path is fully supported at any scale.
+
+**Scaled displays (bigsign, `default_scale > 1`):** the rotate path uses a snapshot-artifact architecture. Before the spin begins, the widget renders the full text — including hi-res fonts and hi-res emoji at their correct physical size — into a full-resolution offscreen buffer, then downsamples it to half-physical resolution. That half-resolution artifact is what rotates each tick, so the rotation itself runs at half detail. When the spin settles (`rotation == 0.0`), the widget reverts to the normal full-detail draw path automatically, so the resting state is always sharp.
+
+Two behavior notes for plugin animation authors:
+
+- **Mid-spin detail:** the artifact renders at half physical resolution during the spin, then sharpens on settle. This is expected and intentional — not a rendering error.
+- **Animated `font_color` providers freeze during the spin.** The artifact is rendered once and reused for every tick of the spin — so a rainbow or color_cycle sweep that was moving before the spin appears frozen mid-rotation. The provider's live phase is tracked separately throughout; on settle the widget returns to the live path and colors resume exactly where the phase clock left them. For most spin durations (under two seconds) this is imperceptible; for longer spins, consider a constant color (`font_color = [r, g, b]`) — every animated provider (rainbow, color_cycle, shimmer) freezes the same way.
 
 ```python
 from led_ticker.plugin import Animation, AnimationFrame

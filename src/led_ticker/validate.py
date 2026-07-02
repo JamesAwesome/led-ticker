@@ -1623,11 +1623,22 @@ def _check_animation_duration_hold(config: AppConfig) -> list[ValidationIssue]:
 
 
 def _check_rotation_hires_font(config: AppConfig) -> list[ValidationIssue]:
-    """Rule 63: a rotation-emitting animation on a hires font — the spin
-    silently won't apply (the widget's load-bearing guard draws the text
-    unrotated). Duck-typed on the animation's `emits_rotation` class
-    attribute; hires detection is the name-only check the factories
-    already use. Best-effort like rule 62 (see its docstring).
+    """Rule 63: a rotation-emitting animation on a hires font in a scale-1
+    section — the spin silently won't apply (the widget's load-bearing guard
+    draws the text unrotated on a non-scaled canvas).
+
+    Gate is per-section: hires fonts rotate correctly on ScaledCanvas sections
+    (Tasks 1–3 of the physical-resolution rotation feature added the necessary
+    ScaledCanvas code path), so the warning is only relevant when
+    ``section.scale == 1``.  Sections with scale > 1 are skipped regardless of
+    the animation or font (antagonist plan-review finding 5: the scale gate
+    must be per-section, not display-level, to handle the case where a single
+    section overrides the display default back to scale-1 under a scaled
+    display).
+
+    Duck-typed on the animation's ``emits_rotation`` class attribute; hires
+    detection is the name-only check the factories already use.  Best-effort
+    like rule 62 (see its docstring).
     """
     from led_ticker.app.coercion import (  # noqa: PLC0415
         _coerce_animation,
@@ -1636,6 +1647,10 @@ def _check_rotation_hires_font(config: AppConfig) -> list[ValidationIssue]:
 
     warnings: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
+        # Hires fonts rotate correctly on ScaledCanvas sections; only warn for
+        # scale-1 sections where physical-resolution rotation is not available.
+        if getattr(section, "scale", 1) != 1:
+            continue
         for j, widget_cfg in enumerate(section.widgets):
             anim_raw = widget_cfg.get("animation")
             if anim_raw is None:
@@ -1656,8 +1671,8 @@ def _check_rotation_hires_font(config: AppConfig) -> list[ValidationIssue]:
                     severity="warning",
                     message=(
                         f"rotation animation will not spin the hires font "
-                        f"{font_name!r} until physical-resolution rotation "
-                        "ships; the text will display normally (unrotated)"
+                        f"{font_name!r} on a scale-1 section; the text will "
+                        "display normally (unrotated)"
                     ),
                     fix=(
                         "Switch this widget to a BDF font to get the spin "

@@ -238,3 +238,143 @@ async def test_rule63_no_fire_typewriter_plus_hires(conf) -> None:
     assert issues == [], (
         f"Rule 63 must not fire for Typewriter (no emits_rotation): {issues}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Helpers for scale-aware rule-63 tests
+# ---------------------------------------------------------------------------
+
+
+def _toml_scaled(
+    section_hold: float,
+    widget_extra: str,
+    font_line: str = "",
+    font_size_line: str = "",
+    display_scale: int = 1,
+    section_scale: int | None = None,
+) -> str:
+    """TOML builder that accepts display-level and section-level scale overrides.
+
+    ``section_scale`` inserts a ``scale = N`` key on the section block so
+    we can test the per-section gate (config.py ~514 reads ``"scale"`` from
+    the section table, defaulting to ``display.default_scale``).
+
+    Panel rows is sized to ``content_height * display_scale`` (= 16 * scale)
+    so that rule 1 (content_height × scale ≤ panel_h) never fires — that
+    hard-error would suppress the phase-2 soft rules before rule 63 can run.
+    """
+    font_part = f"\n        {font_line}" if font_line else ""
+    size_part = f"\n        {font_size_line}" if font_size_line else ""
+    sec_scale_part = f"\nscale = {section_scale}" if section_scale is not None else ""
+    # content_height defaults to 16; rows must be >= content_height * display_scale
+    rows = 16 * display_scale
+    return textwrap.dedent(f"""\
+        [display]
+        rows = {rows}
+        cols = 64
+        chain_length = 8
+        default_scale = {display_scale}
+
+        [[playlist.section]]
+        mode = "slideshow"
+        hold_time = {section_hold}{sec_scale_part}
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "{_LONG_TEXT}"{font_part}{size_part}
+        {widget_extra}
+    """)
+
+
+# ===========================================================================
+# Rule 63: per-section scale gate
+# ===========================================================================
+
+
+async def test_rule63_no_fire_on_scaled_section(
+    conf, stub_propeller_registered
+) -> None:
+    """default_scale=4 display + rotation stub + hires font → rule 63 silent.
+
+    Hires fonts now rotate correctly on ScaledCanvas sections (Tasks 1–3),
+    so the warning must be suppressed when section.scale != 1.
+    """
+    from led_ticker.fonts import list_available_hires_fonts
+
+    hires_fonts = list_available_hires_fonts()
+    if not hires_fonts:
+        pytest.skip("No bundled hires fonts available in this environment")
+
+    hires_name = hires_fonts[0]
+    toml = _toml_scaled(
+        5.0,
+        'animation = {style = "teststub.propeller", spin_seconds = 1.0}',
+        font_line=f'font = "{hires_name}"',
+        font_size_line="font_size = 12",
+        display_scale=4,
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 63]
+    assert issues == [], (
+        f"Rule 63 must not fire when section.scale=4 (hires fonts rotate on "
+        f"ScaledCanvas); got: {issues}"
+    )
+
+
+async def test_rule63_fires_on_scale1_default(conf, stub_propeller_registered) -> None:
+    """Scale-1 (default) + rotation stub + hires font → rule-63 fires.
+
+    Pins the existing scale-1 behaviour explicitly alongside the new
+    per-section-scale tests so a regression is immediately visible.
+    """
+    from led_ticker.fonts import list_available_hires_fonts
+
+    hires_fonts = list_available_hires_fonts()
+    if not hires_fonts:
+        pytest.skip("No bundled hires fonts available in this environment")
+
+    hires_name = hires_fonts[0]
+    toml = _toml_scaled(
+        5.0,
+        'animation = {style = "teststub.propeller", spin_seconds = 1.0}',
+        font_line=f'font = "{hires_name}"',
+        font_size_line="font_size = 12",
+        display_scale=1,  # explicit: default_scale = 1
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 63]
+    assert len(issues) == 1, (
+        f"Expected rule-63 warning on scale-1 section, got: {result.warnings}"
+    )
+
+
+async def test_rule63_fires_for_section_scale1_override_under_scaled_display(
+    conf, stub_propeller_registered
+) -> None:
+    """Section-level scale=1 override under a default_scale=4 display → rule 63 fires.
+
+    Even if the display default is 4, a section that explicitly sets ``scale = 1``
+    gets a scale-1 ScaledCanvas; the hires font won't rotate there, so the
+    warning must fire for that specific section.
+    """
+    from led_ticker.fonts import list_available_hires_fonts
+
+    hires_fonts = list_available_hires_fonts()
+    if not hires_fonts:
+        pytest.skip("No bundled hires fonts available in this environment")
+
+    hires_name = hires_fonts[0]
+    toml = _toml_scaled(
+        5.0,
+        'animation = {style = "teststub.propeller", spin_seconds = 1.0}',
+        font_line=f'font = "{hires_name}"',
+        font_size_line="font_size = 12",
+        display_scale=4,
+        section_scale=1,  # explicit per-section override back to scale-1
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 63]
+    assert len(issues) == 1, (
+        f"Expected rule-63 warning for scale-1 section override under scale-4 display; "
+        f"got: {result.warnings}"
+    )

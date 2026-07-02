@@ -16,7 +16,8 @@ from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
-from led_ticker.rotate import PixelBuffer, rotate_blit
+from led_ticker.rotate import make_rotation_surface
+from led_ticker.scaled_canvas import is_scaled
 from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
@@ -80,6 +81,10 @@ class TickerMessage(FrameAwareBase):
     # so the log doesn't flood on every tick. Set True after the first
     # warning; subsequent draws skip the log call.
     _warned_hires_rotation: bool = attrs.field(init=False, default=False)
+    # Cached RotationSurface (construct-once per widget; rebuilt when
+    # scale/dims/content_height change via .matches()). None until the
+    # first rotating draw.
+    _rotation_surface: Any = attrs.field(init=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         # `_has_emoji` is computed on the RAW text — emoji slugs survive
@@ -140,6 +145,13 @@ class TickerMessage(FrameAwareBase):
         # visit's reveal re-resolves from the current value.
         super().reset_frame()
         self._anim_resolution_lock = False
+        # Invalidate the snapshot so the next spin re-draws the artifact.
+        # This is the ONLY invalidation site (spec R3 lifecycle H3): the
+        # artifact is NOT invalidated by rotation==0 mid-spin so a passing
+        # zero-angle frame can't discard an artifact that will be needed
+        # on the very next frame.
+        if self._rotation_surface is not None:
+            self._rotation_surface.invalidate()
 
     def draw(
         self,
@@ -236,91 +248,126 @@ class TickerMessage(FrameAwareBase):
             self.border.paint(canvas, self.frame_for("border"))
 
         # Rotation seam (propeller spec): non-zero rotation redirects the
-        # text branches into an owned PixelBuffer, then rotate_blits around
-        # the text block's center. The border above stays unrotated on
-        # purpose (it frames the panel, not the text).
-        # LOAD-BEARING guard: a HiresFont renders real-pixel-sized glyphs
-        # — routed into a logical buffer it produces garbage, so hires
-        # fonts draw unrotated (validate rule 63 surfaces this at config
-        # time; the log line covers hand-built widgets).
-        rotate_target = None
+        # text branches into a cached RotationSurface, then blits at
+        # physical resolution. The border above stays unrotated on purpose
+        # (it frames the panel, not the text).
+        # Guard (rule 59/63): scale-1 + HiresFont can't rotate — a bare
+        # PixelBuffer can't host real-pixel glyphs and produces garbage.
+        # On scaled canvases hires fonts flow through the surface like BDF.
+        #
+        # Snapshot-once lifecycle (spec R2.4 + R3, resolution H3):
+        #   - First rotating frame this visit: surface.clear() + draw
+        #     branches + surface.snapshot().
+        #   - Subsequent rotating frames: skip the branches entirely;
+        #     blit the cached artifact.
+        #   - rotation == 0 frames (including exact-0 mid-spin): live
+        #     draw to canvas; artifact NOT invalidated (H3 fix — the
+        #     post-mod angle can pass through 0 each revolution).
+        #   - Invalidation: reset_frame() only (visit boundary).
+        rotate_surface = None
+        _snapshot_needed = False
         if rotation % 360 != 0:
-            if isinstance(self.font, HiresFont):
+            if not is_scaled(canvas) and isinstance(self.font, HiresFont):
+                # scale-1 + hires: the bare buffer can't host real-pixel
+                # glyphs (rule 59 territory); draw unrotated + warn once.
                 if not self._warned_hires_rotation:
                     logging.warning(
-                        "%s: rotation animation ignored — hires fonts "
-                        "cannot rotate until physical-resolution rotation "
-                        "ships; switch to a BDF font to spin this widget",
+                        "%s: rotation animation ignored — hires fonts don't "
+                        "rotate on scale-1 displays (see validate rules 59 "
+                        "and 63); switch to a BDF font to spin this widget",
                         type(self).__name__,
                     )
                     self._warned_hires_rotation = True
             else:
-                rotate_target = PixelBuffer(canvas.width, canvas.height)
+                if self._rotation_surface is None or not self._rotation_surface.matches(
+                    canvas
+                ):
+                    # A mismatched surface has no valid snapshot — the new
+                    # surface starts with has_snapshot=False, so the branch
+                    # draw will happen this frame.
+                    self._rotation_surface = make_rotation_surface(canvas)
+                rotate_surface = self._rotation_surface
+                if not rotate_surface.has_snapshot:
+                    # First rotating frame this spin: prepare for branch draw.
+                    rotate_surface.clear()
+                    _snapshot_needed = True
+                # else: artifact is valid; branches are skipped this frame.
 
-        draw_canvas: Any = rotate_target if rotate_target is not None else canvas
+        draw_canvas: Any = (
+            rotate_surface.target if rotate_surface is not None else canvas
+        )
 
-        if self._has_emoji:
-            from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji
+        # Run the text paint branches only when we are either on a live
+        # (non-rotating) draw or on the FIRST rotating frame of a spin
+        # (_snapshot_needed). On subsequent rotating frames (_snapshot_needed
+        # is False) the artifact is already in the surface; skip the branches.
+        _run_branches = rotate_surface is None or _snapshot_needed
+        if _run_branches:
+            if self._has_emoji:
+                from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji
 
-            # Per-char providers (rainbow/gradient) survive emoji
-            # segments: draw_with_emoji takes the provider directly,
-            # renders sprites for emoji slugs, and runs the per-char
-            # path on text segments — char_index advances continuously
-            # across segments so the rainbow sweep doesn't reset at
-            # each :slug:. `total_chars` is anchored to the FULL
-            # message's text-char count (excluding emoji slugs) so
-            # typewriter mid-cycle doesn't shift each char's hue as
-            # more chars reveal — char N's hue at frame=t is the same
-            # hue char N will have when typewriter completes. Mirrors
-            # the image-widget contract in `_BaseImageWidget._draw_text`.
-            cursor_pos += draw_with_emoji(
-                draw_canvas,
-                self.font,
-                cursor_pos,
-                baseline_y,
-                provider,
-                visible_text,
-                y_offset=y_offset,
-                frame=self.frame_for("font_color"),
-                total_chars=count_text_chars(full_text),
-            )
-        elif provider.per_char:
-            # Per-char rendering: iterate visible_text, draw each char
-            # with its own color (rainbow / gradient). The shared
-            # `draw_text_per_char` helper handles the HiresFont
-            # real-pixel cursor tracking that avoids the per-char
-            # ceil-divide drift. `total_chars=len(self.text)`
-            # anchors each char's hue to its position in the FULL
-            # text — typewriter mid-cycle reveals char N at the
-            # hue char N will have at completion, not a hue
-            # compressed to the visible slice. Mirrors the image-
-            # widget contract in `_BaseImageWidget._draw_text`.
-            cursor_pos += draw_text_per_char(
-                draw_canvas,
-                self.font,
-                cursor_pos,
-                baseline_y + y_offset,
-                visible_text,
-                lambda idx, total: provider.color_for(
-                    self.frame_for("font_color"), idx, total
-                ),
-                total_chars=len(full_text),
-            )
-        else:
-            color = provider.color_for(
-                self.frame_for("font_color"), 0, len(visible_text)
-            )
-            cursor_pos += draw_text(
-                draw_canvas,
-                self.font,
-                cursor_pos,
-                baseline_y + y_offset,
-                color,
-                visible_text,
-            )
+                # Per-char providers (rainbow/gradient) survive emoji
+                # segments: draw_with_emoji takes the provider directly,
+                # renders sprites for emoji slugs, and runs the per-char
+                # path on text segments — char_index advances continuously
+                # across segments so the rainbow sweep doesn't reset at
+                # each :slug:. `total_chars` is anchored to the FULL
+                # message's text-char count (excluding emoji slugs) so
+                # typewriter mid-cycle doesn't shift each char's hue as
+                # more chars reveal — char N's hue at frame=t is the same
+                # hue char N will have when typewriter completes. Mirrors
+                # the image-widget contract in `_BaseImageWidget._draw_text`.
+                cursor_pos += draw_with_emoji(
+                    draw_canvas,
+                    self.font,
+                    cursor_pos,
+                    baseline_y,
+                    provider,
+                    visible_text,
+                    y_offset=y_offset,
+                    frame=self.frame_for("font_color"),
+                    total_chars=count_text_chars(full_text),
+                )
+            elif provider.per_char:
+                # Per-char rendering: iterate visible_text, draw each char
+                # with its own color (rainbow / gradient). The shared
+                # `draw_text_per_char` helper handles the HiresFont
+                # real-pixel cursor tracking that avoids the per-char
+                # ceil-divide drift. `total_chars=len(self.text)`
+                # anchors each char's hue to its position in the FULL
+                # text — typewriter mid-cycle reveals char N at the
+                # hue char N will have at completion, not a hue
+                # compressed to the visible slice. Mirrors the image-
+                # widget contract in `_BaseImageWidget._draw_text`.
+                cursor_pos += draw_text_per_char(
+                    draw_canvas,
+                    self.font,
+                    cursor_pos,
+                    baseline_y + y_offset,
+                    visible_text,
+                    lambda idx, total: provider.color_for(
+                        self.frame_for("font_color"), idx, total
+                    ),
+                    total_chars=len(full_text),
+                )
+            else:
+                color = provider.color_for(
+                    self.frame_for("font_color"), 0, len(visible_text)
+                )
+                cursor_pos += draw_text(
+                    draw_canvas,
+                    self.font,
+                    cursor_pos,
+                    baseline_y + y_offset,
+                    color,
+                    visible_text,
+                )
         cursor_pos += end_padding
 
-        if rotate_target is not None:
+        if rotate_surface is not None:
+            if _snapshot_needed:
+                # Freeze the artifact: one-time per spin after branch draw.
+                rotate_surface.snapshot()
             # Pivot on the VISIBLE text extent, not the nominal content
             # center. The buffer holds only the clipped on-canvas window,
             # so for overflowing text (content_width > canvas.width) the
@@ -333,9 +380,7 @@ class TickerMessage(FrameAwareBase):
             visible_right = min(
                 float(canvas.width), float(start_pos) + float(content_width)
             )
-            cx = (visible_left + visible_right) / 2
-            cy = canvas.height / 2
-            rotate_blit(canvas, rotate_target, rotation, cx, cy)
+            rotate_surface.blit(canvas, rotation, (visible_left + visible_right) / 2)
 
         # When an animation is sliced (typewriter at frame=0 shows just
         # "R"), the engine in `_swap_and_scroll` checks

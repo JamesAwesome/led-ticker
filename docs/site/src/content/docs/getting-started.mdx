@@ -12,16 +12,16 @@ hardware, then deploy the same image to a Pi when your panels arrive.
 
 Not sure led-ticker is the right fit? → [Why led-ticker?](/why-led-ticker/)
 
-:::tip[Want a step-by-step walkthrough?]
-This page is the 5-minute orientation. For a guided build-a-config tutorial
-(brand font, logo, hi-res emoji, transitions), see the
-[Tutorial](/tutorial/01-setup/) — it walks the same arc at a slower pace.
-:::
+| You want…                                                       | Go to                               |
+| --------------------------------------------------------------- | ----------------------------------- |
+| Try it on your laptop, no hardware (2 min)                      | Quickstart A below                  |
+| Deploy to a Pi with panels (~20 min)                            | Quickstart B below                  |
+| A guided config-building walkthrough (no hardware needed, ~1 h) | the [Tutorial](/tutorial/01-setup/) |
 
 **What you'll need:**
 
 - A laptop (macOS, Linux, or Windows) for the laptop quickstart
-- A Raspberry Pi + HUB75 panels + Adafruit HAT/Bonnet for the Pi deploy
+- A Raspberry Pi + [HUB75 panels + Adafruit HAT/Bonnet](/hardware/building-your-own/) for the Pi deploy (HUB75 is the standard connector on hobbyist RGB LED matrix panels — the Amazon/AliExpress "RGB LED matrix" panels are HUB75.)
 - [Docker](https://docs.docker.com/get-docker/) — the single tool that covers both
 
 ## Step 1 — Install Docker
@@ -43,7 +43,7 @@ sudo usermod -aG docker $USER
 
 **~2 minutes, Docker only.** You'll see a browser tab showing your sign rendering live in a simulated panel — no hardware needed.
 
-Open a terminal (Terminal on macOS; PowerShell or WSL on Windows), then:
+Open a terminal (Terminal on macOS; WSL or a package manager like Chocolatey/Scoop provides `make` on Windows), then:
 
 ```bash
 # Check Docker is installed first:
@@ -67,7 +67,7 @@ Browse the [plugin catalog](/plugins/available/) for weather, sports scores,
 crypto, calendars, and more. To try a different plugin, add its package to
 `config/requirements-plugins.try.txt`, reference its widget or transition in
 `config/config.try.example.toml`, then re-run `make try`. (On a real deploy
-it's simpler still — `led-ticker plugin add <name>` + `docker compose restart`,
+it's simpler still — edit `config/requirements-plugins.txt` and `docker compose restart`,
 no rebuild.)
 
 To stop: press `Ctrl-C`, then run:
@@ -78,20 +78,20 @@ make try-down
 
 ## Quickstart B — Deploy to your Pi
 
-**~20 minutes, hardware required.** On your Raspberry Pi, once it is wired up with a HUB75 panel and Adafruit HAT or Bonnet:
+**~20 minutes, hardware required.**
 
-**1. Clone and run setup:**
+:::note[Before you start]
+Your Pi should be running Raspberry Pi OS (Bookworm, 64-bit) with SSH enabled and you logged in — flash it with Raspberry Pi Imager if you haven't. All commands below run on the Pi.
+
+`make setup` seeds the smallsign starter config and won't overwrite an existing `config/config.toml` — if you're building a bigsign (or your own layout), copy your config example first (step 2) so the stack boots with the right one.
+:::
+
+**1. Clone the repo:**
 
 ```bash
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
-make setup
 ```
-
-`make setup` checks Docker, seeds `config/config.toml` from the smallsign
-example, seeds a `.env` stub, and brings the stack up. The example config
-works out of the box — bring the stack up first and confirm the sign is
-running; you can edit `config.toml` later once it is.
 
 **2. Copy the right example config:**
 
@@ -106,14 +106,28 @@ cp config/config.bigsign.example.toml config/config.toml
 Not sure which fits? See
 [Choosing a sign size](/hardware/building-your-own/#choosing-a-sign-size).
 
-**3. Bring up the stack:**
+**3. Run setup:**
 
 ```bash
 make setup
 ```
 
-`restart: unless-stopped` in `compose.yaml` brings the ticker back up
-automatically on power loss or crash.
+`make setup` checks Docker, seeds `.env`, builds the image, and brings
+the stack up. Run it once.
+
+Most config changes (sections, widgets, schedule) take effect automatically
+within one playlist cycle — no restart needed. Hardware-level fields
+(`chain_length`, `gpio_slowdown`, `default_scale`) need `make restart`.
+`restart: unless-stopped` in `compose.yaml` brings the ticker back up on
+its own after power loss.
+
+**Check it worked:** you should see the starter messages scrolling on the
+panels within about a minute (the first boot builds the Docker image, which
+takes a few minutes on a Pi — later boots are seconds). Watch progress with
+`make logs`; `docker compose ps` should show the service running. Panels
+still dark after the image is built? Check `gpio_slowdown` and start with
+the [Sharp edges](/hardware/building-your-own/#sharp-edges) section on the
+building-your-own page.
 
 **4. Panel bring-up** — after wiring, run
 [`make panel-test`](/tools/panel-test/) to rule out any wiring, driver,
@@ -123,16 +137,25 @@ has the correct `[display]` values for `chain_length`, `rows`, and `cols` —
 [`panel-map`](/tools/panel-map/) workflow to derive the
 `pixel_mapper_config` Remap string for your panel layout.
 
-**5. Optional: web UI** — add a `[web]` block to `config.toml`, then:
+**5. Optional: web UI** — add a `[web]` block to `config.toml`:
+
+```toml
+[web]
+# defaults are fine; see the web-status-ui docs for options
+```
+
+Then start with the `webui` profile:
 
 ```bash
 COMPOSE_PROFILES=webui docker compose up -d
 ```
 
-Open `http://<pi-hostname>.local:8080` for a live dashboard, config
+Both parts are needed — the `[web]` block makes the display process publish,
+the profile starts the sidecar. See [Web status UI](/concepts/web-status-ui/#enabling-it)
+for the full options. Open `http://<pi-hostname>.local:8080` for a live dashboard, config
 editor, and plugin Store.
 
-## Configure
+## Edit your config
 
 A config is a list of **sections**, each containing **widgets** and a
 **mode** (`ticker`, `slideshow`, or `one_at_a_time`). Before editing,
@@ -141,14 +164,15 @@ skim [Sections and modes](/concepts/sections-and-modes/) and the
 blocks.
 
 ```bash
-# Validate any config before deploying
-led-ticker validate config/config.toml
+# Validate any config before deploying (requires make dev once on a dev machine,
+# or use the web UI's Config tab which validates before saving)
+make validate CONFIG=config/config.toml
 ```
 
 Private media (GIFs, images, fonts) goes in `config/local/` (gitignored)
 and is referenced as `path = "local/<file>"` in your TOML.
 
-## Develop without hardware
+## Run without a Pi
 
 For a live browser preview, use Quickstart A above. The
 [`render-demo`](/tools/render-demo/) tool is for iterating on configs at

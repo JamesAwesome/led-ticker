@@ -11,7 +11,7 @@ led-ticker has one animation right now: **typewriter** — a character-by-charac
 
 Animations are a separate axis from color providers. A widget can carry both simultaneously — for example `animation = "typewriter"` and `font_color = "rainbow"` — and each effect tracks its own frame counter. The characters type out in rainbow with no interference between the two systems.
 
-Animations may also emit a per-frame `rotation` (degrees, clockwise) that the message widget renders through an offscreen rotate around the text block's center — the first consumer is the flair plugin's propeller effect, coming separately.
+Animations may also emit a per-frame `rotation` (degrees, clockwise) that the message widget renders through an offscreen rotate around the text block's center — the flair plugin's `propeller` effect uses this seam. On scaled displays (bigsign), the spin runs at half physical resolution from a pre-rendered snapshot that captures hires fonts and emoji at their correct size; the resting frame always renders at full detail. Animated `font_color` providers (rainbow, color_cycle, shimmer) pause for the duration of the spin and resume at settle — the color phase keeps advancing in the background, so on settle the sweep continues exactly where it left off.
 
 <DemoGif
   src="/demos/concepts-animations.gif"

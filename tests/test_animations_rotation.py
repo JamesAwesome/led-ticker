@@ -1,0 +1,29 @@
+"""AnimationFrame.rotation seam + ENGINE_TICK_MS plugin export
+(propeller spec §1/§2)."""
+
+from led_ticker.animations import AnimationFrame, Typewriter
+
+
+def test_rotation_defaults_to_zero() -> None:
+    frame = AnimationFrame(visible_text="HI")
+    assert frame.rotation == 0.0
+
+
+def test_rotation_keyword_settable() -> None:
+    frame = AnimationFrame(visible_text="HI", rotation=90.0)
+    assert frame.rotation == 90.0
+
+
+def test_typewriter_emits_zero_rotation() -> None:
+    """Back-compat: Typewriter's frames carry the default rotation."""
+    tw = Typewriter()
+    assert tw.frame_for(5, "HELLO", 160, 40).rotation == 0.0
+
+
+def test_engine_tick_ms_on_plugin_surface() -> None:
+    """Acceptance criterion (spec §2): flair imports ENGINE_TICK_MS from
+    led_ticker.plugin — its import-purity test forbids any other path."""
+    from led_ticker import constants, plugin
+
+    assert plugin.ENGINE_TICK_MS is constants.ENGINE_TICK_MS
+    assert "ENGINE_TICK_MS" in plugin.__all__

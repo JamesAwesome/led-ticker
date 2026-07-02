@@ -345,7 +345,7 @@ class TestPerBranchRedirect:
         """
         calls: list = []
 
-        def _noop_blit(dst, src, angle, cx, cy):  # noqa: N803 - matches sig
+        def _noop_blit(dst, src, angle, cx, cy, **_kwargs):  # noqa: N803 - matches sig
             calls.append((dst, src, angle, cx, cy))
 
         import led_ticker.rotate as rotate_mod

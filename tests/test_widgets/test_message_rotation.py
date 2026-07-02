@@ -320,3 +320,150 @@ class TestEmojiRotatesWithText:
             f"mapped pixels found in lit_180 (ratio={ratio:.2f}). "
             f"Expected >= 0.70. Emoji may not be routed through the buffer."
         )
+
+
+class TestPerBranchRedirect:
+    """Each of the three draw branches (whole-string, per-char, emoji) must
+    direct text into the PixelBuffer when rotation != 0.
+
+    Strategy: monkeypatch rotate_blit with a spy that records its call args
+    and does NOTHING (no blit).  After draw():
+      (1) spy was called exactly once;
+      (2) the `src` PixelBuffer has at least one lit pixel;
+      (3) the real canvas has ZERO pixels (the blit was no-op'd, so any
+          canvas pixels would prove the branch bypassed the buffer).
+    No border is set in these tests, so canvas MUST be empty.
+    """
+
+    def _spy_setup(self, monkeypatch):
+        """Return (spy_calls list, patched module restore).
+        Monkeypatches led_ticker.widgets.message.rotate_blit to a no-op spy.
+        """
+        calls: list = []
+
+        def _noop_blit(dst, src, angle, cx, cy):  # noqa: N803 - matches sig
+            calls.append((dst, src, angle, cx, cy))
+
+        import led_ticker.widgets.message as msg_mod
+
+        monkeypatch.setattr(msg_mod, "rotate_blit", _noop_blit)
+        return calls
+
+    def test_whole_string_branch_redirects_to_buffer(self, monkeypatch):
+        """Whole-string branch (constant font_color, no emoji): draw_text
+        must write to the PixelBuffer, not the real canvas."""
+        calls = self._spy_setup(monkeypatch)
+
+        widget = TickerMessage(
+            text="HELLO",
+            font=FONT_DEFAULT,
+            font_color=RGB_WHITE,  # constant → whole-string branch
+            animation=_StubSpin(90.0),
+            center=False,
+        )
+        c = _canvas()
+        widget.draw(c)
+
+        # (1) spy called exactly once
+        assert len(calls) == 1, f"rotate_blit called {len(calls)} times; expected 1"
+        dst, src, angle, cx, cy = calls[0]
+
+        # (2) src is a PixelBuffer with lit pixels
+        from led_ticker.rotate import PixelBuffer
+
+        assert isinstance(src, PixelBuffer), (
+            f"rotate_blit src is {type(src).__name__}; expected PixelBuffer"
+        )
+        assert angle == 90.0, f"rotate_blit angle={angle!r}; expected 90.0"
+        lit = any(
+            src.get(x, y) is not None
+            for y in range(src.height)
+            for x in range(src.width)
+        )
+        assert lit, "PixelBuffer (src) has no lit pixels — text was not written to it"
+
+        # (3) real canvas has zero pixels (blit was no-op'd)
+        assert c._pixels == {}, (
+            f"Canvas has {len(c._pixels)} pixel(s) after no-op blit — "
+            f"whole-string branch wrote directly to canvas, bypassing buffer"
+        )
+
+    def test_per_char_branch_redirects_to_buffer(self, monkeypatch):
+        """Per-char branch (Rainbow provider, no emoji): draw_text_per_char
+        must write to the PixelBuffer, not the real canvas."""
+        calls = self._spy_setup(monkeypatch)
+
+        from led_ticker.color_providers import Rainbow
+
+        widget = TickerMessage(
+            text="HELLO",
+            font=FONT_DEFAULT,
+            font_color=Rainbow(),  # per_char=True → per-char branch
+            animation=_StubSpin(90.0),
+            center=False,
+        )
+        c = _canvas()
+        widget.draw(c)
+
+        # (1) spy called exactly once
+        assert len(calls) == 1, f"rotate_blit called {len(calls)} times; expected 1"
+        dst, src, angle, cx, cy = calls[0]
+
+        # (2) src is a PixelBuffer with lit pixels
+        from led_ticker.rotate import PixelBuffer
+
+        assert isinstance(src, PixelBuffer), (
+            f"rotate_blit src is {type(src).__name__}; expected PixelBuffer"
+        )
+        assert angle == 90.0, f"rotate_blit angle={angle!r}; expected 90.0"
+        lit = any(
+            src.get(x, y) is not None
+            for y in range(src.height)
+            for x in range(src.width)
+        )
+        assert lit, "PixelBuffer (src) has no lit pixels — text was not written to it"
+
+        # (3) real canvas has zero pixels (blit was no-op'd)
+        assert c._pixels == {}, (
+            f"Canvas has {len(c._pixels)} pixel(s) after no-op blit — "
+            f"per-char branch wrote directly to canvas, bypassing buffer"
+        )
+
+    def test_emoji_branch_redirects_to_buffer(self, monkeypatch):
+        """Emoji branch (text with :sun: slug): draw_with_emoji must write
+        to the PixelBuffer, not the real canvas."""
+        calls = self._spy_setup(monkeypatch)
+
+        widget = TickerMessage(
+            text=":sun:",  # forces _has_emoji=True → emoji branch
+            font=FONT_DEFAULT,
+            font_color=RGB_WHITE,
+            animation=_StubSpin(90.0),
+            center=False,
+        )
+        c = _canvas()
+        widget.draw(c)
+
+        # (1) spy called exactly once
+        assert len(calls) == 1, f"rotate_blit called {len(calls)} times; expected 1"
+        dst, src, angle, cx, cy = calls[0]
+
+        # (2) src is a PixelBuffer with lit pixels
+        from led_ticker.rotate import PixelBuffer
+
+        assert isinstance(src, PixelBuffer), (
+            f"rotate_blit src is {type(src).__name__}; expected PixelBuffer"
+        )
+        assert angle == 90.0, f"rotate_blit angle={angle!r}; expected 90.0"
+        lit = any(
+            src.get(x, y) is not None
+            for y in range(src.height)
+            for x in range(src.width)
+        )
+        assert lit, "PixelBuffer (src) has no lit pixels — emoji was not written to it"
+
+        # (3) real canvas has zero pixels (blit was no-op'd)
+        assert c._pixels == {}, (
+            f"Canvas has {len(c._pixels)} pixel(s) after no-op blit — "
+            f"emoji branch wrote directly to canvas, bypassing buffer"
+        )

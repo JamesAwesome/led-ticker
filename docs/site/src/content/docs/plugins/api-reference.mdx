@@ -243,7 +243,7 @@ An animation that emits non-zero rotations must also set `emits_rotation = True`
 Two behavior notes for plugin animation authors:
 
 - **Mid-spin detail:** the artifact renders at half physical resolution during the spin, then sharpens on settle. This is expected and intentional — not a rendering error.
-- **Animated `font_color` providers freeze during the spin.** The artifact is rendered once and reused for every tick of the spin — so a rainbow or color_cycle sweep that was moving before the spin appears frozen mid-rotation. The provider's live phase is tracked separately throughout; on settle the widget returns to the live path and colors resume exactly where the phase clock left them. For most spin durations (under two seconds) this is imperceptible; for longer spins, consider pairing with a non-animated color (`font_color = [r, g, b]` or `"shimmer"`).
+- **Animated `font_color` providers freeze during the spin.** The artifact is rendered once and reused for every tick of the spin — so a rainbow or color_cycle sweep that was moving before the spin appears frozen mid-rotation. The provider's live phase is tracked separately throughout; on settle the widget returns to the live path and colors resume exactly where the phase clock left them. For most spin durations (under two seconds) this is imperceptible; for longer spins, consider a constant color (`font_color = [r, g, b]`) — every animated provider (rainbow, color_cycle, shimmer) freezes the same way.
 
 ```python
 from led_ticker.plugin import Animation, AnimationFrame

@@ -372,12 +372,7 @@ class RotationSurface:
         if self._scale > 1:
             assert self._half_buffer is not None
             half = self._half_buffer
-            # Reset the half buffer before writing.
-            half._pixels = [None] * (half.width * half.height)
-            half._ex0 = None
-            half._ey0 = None
-            half._ex1 = None
-            half._ey1 = None
+            half.clear()
 
             src = self._buffer
             extent = src.lit_extent

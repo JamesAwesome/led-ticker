@@ -10,8 +10,11 @@ Color providers are orthogonal — animations control position and
 visibility, providers control color. The two compose freely.
 """
 
+import math
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
+
+from led_ticker.constants import ENGINE_TICK_MS
 
 
 @dataclass
@@ -39,6 +42,11 @@ class Animation(Protocol):
     in ``visible_text`` for a typewriter effect, or return ``full_text``
     unchanged and control something else (e.g. cursor position via a
     future field on ``AnimationFrame``).
+
+    Animations MAY also define ``frames_to_rest(frame, total_chars) -> int``
+    (0 = at rest / no rest concept): the engine consults it at the
+    hold→transition handoff and can extend the hold up to ~1 s so a
+    transition doesn't chop the animation mid-flight.
 
     See ``Typewriter`` for the canonical implementation.
     """
@@ -73,6 +81,30 @@ class Typewriter:
         progress = (frame // self.frames_per_char) + 1
         chars_visible = min(len(full_text), progress * self.chars_per_frame)
         return AnimationFrame(visible_text=full_text[:chars_visible])
+
+    def frames_to_rest(self, frame: int, total_chars: int) -> int:
+        """Frames until the reveal completes (one-shot rest: 0 forever
+        once fully typed).
+
+        total_chars MUST be the raw ``len(full_text)`` — the same length
+        ``frame_for`` slices against — INCLUDING any ``:slug:`` emoji
+        characters. The emoji-excluded ``count_text_chars`` is a color-
+        provider quantity; feeding it here under-counts and reports done
+        mid-type.
+        """
+        if total_chars <= 0:
+            return 0
+        done_frame = self.frames_per_char * (
+            math.ceil(total_chars / self.chars_per_frame) - 1
+        )
+        return max(0, done_frame - frame)
+
+    def typing_duration_seconds(self, total_chars: int) -> float:
+        """Wall-clock seconds to fully reveal ``total_chars`` raw
+        characters at engine cadence. The ONLY home of the typing-
+        duration formula — validate rule 61 imports and calls this;
+        it must never re-implement the math."""
+        return self.frames_to_rest(0, total_chars) * ENGINE_TICK_MS / 1000.0
 
 
 _ANIMATION_REGISTRY: dict[str, type] = {

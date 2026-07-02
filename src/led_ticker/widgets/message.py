@@ -16,7 +16,8 @@ from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
-from led_ticker.rotate import PixelBuffer, rotate_blit
+from led_ticker.rotate import make_rotation_surface
+from led_ticker.scaled_canvas import is_scaled
 from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
@@ -80,6 +81,10 @@ class TickerMessage(FrameAwareBase):
     # so the log doesn't flood on every tick. Set True after the first
     # warning; subsequent draws skip the log call.
     _warned_hires_rotation: bool = attrs.field(init=False, default=False)
+    # Cached RotationSurface (construct-once per widget; rebuilt when
+    # scale/dims/content_height change via .matches()). None until the
+    # first rotating draw.
+    _rotation_surface: Any = attrs.field(init=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         # `_has_emoji` is computed on the RAW text — emoji slugs survive
@@ -236,28 +241,36 @@ class TickerMessage(FrameAwareBase):
             self.border.paint(canvas, self.frame_for("border"))
 
         # Rotation seam (propeller spec): non-zero rotation redirects the
-        # text branches into an owned PixelBuffer, then rotate_blits around
-        # the text block's center. The border above stays unrotated on
-        # purpose (it frames the panel, not the text).
-        # LOAD-BEARING guard: a HiresFont renders real-pixel-sized glyphs
-        # — routed into a logical buffer it produces garbage, so hires
-        # fonts draw unrotated (validate rule 63 surfaces this at config
-        # time; the log line covers hand-built widgets).
-        rotate_target = None
+        # text branches into a cached RotationSurface, then blits at
+        # physical resolution. The border above stays unrotated on purpose
+        # (it frames the panel, not the text).
+        # Guard (rule 59/63): scale-1 + HiresFont can't rotate — a bare
+        # PixelBuffer can't host real-pixel glyphs and produces garbage.
+        # On scaled canvases hires fonts flow through the surface like BDF.
+        rotate_surface = None
         if rotation % 360 != 0:
-            if isinstance(self.font, HiresFont):
+            if not is_scaled(canvas) and isinstance(self.font, HiresFont):
+                # scale-1 + hires: the bare buffer can't host real-pixel
+                # glyphs (rule 59 territory); draw unrotated + warn once.
                 if not self._warned_hires_rotation:
                     logging.warning(
-                        "%s: rotation animation ignored — hires fonts "
-                        "cannot rotate until physical-resolution rotation "
-                        "ships; switch to a BDF font to spin this widget",
+                        "%s: rotation animation ignored — hires fonts don't "
+                        "rotate on scale-1 displays (see validate rules 59 "
+                        "and 63); switch to a BDF font to spin this widget",
                         type(self).__name__,
                     )
                     self._warned_hires_rotation = True
             else:
-                rotate_target = PixelBuffer(canvas.width, canvas.height)
+                if self._rotation_surface is None or not self._rotation_surface.matches(
+                    canvas
+                ):
+                    self._rotation_surface = make_rotation_surface(canvas)
+                self._rotation_surface.clear()
+                rotate_surface = self._rotation_surface
 
-        draw_canvas: Any = rotate_target if rotate_target is not None else canvas
+        draw_canvas: Any = (
+            rotate_surface.target if rotate_surface is not None else canvas
+        )
 
         if self._has_emoji:
             from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji
@@ -320,7 +333,7 @@ class TickerMessage(FrameAwareBase):
             )
         cursor_pos += end_padding
 
-        if rotate_target is not None:
+        if rotate_surface is not None:
             # Pivot on the VISIBLE text extent, not the nominal content
             # center. The buffer holds only the clipped on-canvas window,
             # so for overflowing text (content_width > canvas.width) the
@@ -333,9 +346,7 @@ class TickerMessage(FrameAwareBase):
             visible_right = min(
                 float(canvas.width), float(start_pos) + float(content_width)
             )
-            cx = (visible_left + visible_right) / 2
-            cy = canvas.height / 2
-            rotate_blit(canvas, rotate_target, rotation, cx, cy)
+            rotate_surface.blit(canvas, rotation, (visible_left + visible_right) / 2)
 
         # When an animation is sliced (typewriter at frame=0 shows just
         # "R"), the engine in `_swap_and_scroll` checks

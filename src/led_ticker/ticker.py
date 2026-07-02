@@ -13,6 +13,7 @@ import attrs
 from led_ticker import status_board
 from led_ticker._types import Canvas
 from led_ticker.colors import RGB_WHITE
+from led_ticker.constants import ENGINE_TICK_MS
 from led_ticker.drawing import get_widget_padding
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
@@ -1216,9 +1217,6 @@ async def _build_then_enqueue(
         ticker_objects, title=title, loop_count=loop_count or 0, breaker=breaker
     )
     await _enqueue_ticker_objects(ticker_iter, notif_queue)
-
-
-ENGINE_TICK_MS: int = 50  # 20 fps for held-text frame animation
 
 
 def _draw_scroll_frame(

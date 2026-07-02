@@ -2306,8 +2306,8 @@ def test_index_html_restart_disabled_tooltip():
     assert "allow_restart = true" in html, (
         "Disabled tooltip must tell users to set allow_restart = true"
     )
-    assert "systemd Restart=" in html, (
-        "Disabled tooltip must mention systemd Restart= for non-Docker users"
+    assert "restart: unless-stopped" in html, (
+        "Disabled tooltip must mention Docker's restart: unless-stopped policy"
     )
 
 

@@ -122,8 +122,8 @@ within one playlist cycle — no restart needed. Hardware-level fields
 its own after power loss.
 
 **Check it worked:** you should see the starter messages scrolling on the
-panels within about a minute (the first boot builds the Docker image, which
-takes a few minutes on a Pi — later boots are seconds). Watch progress with
+panels within about a minute (the first boot builds the Docker image —
+typically 10–20 minutes on a Pi 4; later boots are seconds). Watch progress with
 `make logs`; `docker compose ps` should show the service running. Panels
 still dark after the image is built? Check `gpio_slowdown` and start with
 the [Sharp edges](/hardware/building-your-own/#sharp-edges) section on the
@@ -135,7 +135,9 @@ a live panel preview plus per-source health at a glance.
 [`make panel-test`](/tools/panel-test/) to rule out any wiring, driver,
 or RGB-order problems. Before running `panel-test`, make sure `config.toml`
 has the correct `[display]` values for `chain_length`, `rows`, and `cols` —
-`panel-test` reads them. Then use the
+`panel-test` reads them. If your panels are a single horizontal chain (like
+the smallsign), `panel-test` is all you need. For a multi-row layout (like
+the bigsign or a custom grid), also run the
 [`panel-map`](/tools/panel-map/) workflow to derive the
 `pixel_mapper_config` Remap string for your panel layout.
 

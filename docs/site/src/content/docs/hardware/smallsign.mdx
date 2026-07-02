@@ -33,15 +33,15 @@ signals. Any panel advertised as "HUB75-compatible" works with the
 Adafruit bonnet / HAT and the rgbmatrix library this project uses.
 :::
 
-| Component                    | Quantity | Notes                                                                                                                                                                   |
-| ---------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Raspberry Pi 4 Model B       | 1        | 2 GB is plenty. A microSD card and a USB-C power supply for the Pi itself.                                                                                              |
-| 32x16 RGB matrix panel       | 5        | HUB75 panels with the standard 16-pin IDC connector. Matched panels render most consistently.                                                                           |
-| Adafruit RGB matrix bonnet   | 1        | Sets `hardware_mapping = "adafruit-hat"` in the config. The HAT works equivalently.                                                                                     |
-| 5V power supply              | 1        | Size for the chain — five 32x16 panels at full white draw several amps. A 5V / 10A brick is a comfortable headroom pick. Do NOT power the panels off the Pi's USB rail. |
-| 16-pin IDC ribbon cables     | 4        | One between each pair of panels. Most panels ship with one short cable; you may need extras to reach all four gaps.                                                     |
-| Power pigtails / barrel jack | 1+       | Whatever your panels expect. Each panel has its own 2-pin power input.                                                                                                  |
-| Shroud / case (optional)     | 1        | Acrylic diffuser + a 3D-printed frame is the typical finish. Not required to run.                                                                                       |
+| Component                    | Quantity | Notes                                                                                                                                                                                                                          |
+| ---------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Raspberry Pi 4 Model B       | 1        | 2 GB is plenty. A microSD card and a USB-C power supply for the Pi itself.                                                                                                                                                     |
+| 32x16 RGB matrix panel       | 5        | HUB75 panels with the standard 16-pin IDC connector. Matched panels render most consistently.                                                                                                                                  |
+| Adafruit RGB matrix bonnet   | 1        | Sets `hardware_mapping = "adafruit-hat"` in the config. Bonnet and HAT are Adafruit's two names for boards that do the same job — plug onto the Pi's GPIO header and drive HUB75 panels; the bonnet is the low-profile option. |
+| 5V power supply              | 1        | Size for the chain — five 32x16 panels at full white draw several amps. A 5V / 10A brick is a comfortable headroom pick. Do NOT power the panels off the Pi's USB rail.                                                        |
+| 16-pin IDC ribbon cables     | 4        | Flat ribbon cable with HUB75 plugs — carries data panel-to-panel. One between each pair of panels. Most panels ship with one short cable; you may need extras to reach all four gaps.                                          |
+| Power pigtails / barrel jack | 1+       | Whatever your panels expect. Each panel has its own 2-pin power input.                                                                                                                                                         |
+| Shroud / case (optional)     | 1        | Acrylic diffuser + a 3D-printed frame is the typical finish. Not required to run.                                                                                                                                              |
 
 **Total cost (rough):** ~$150–200 USD depending on panel sourcing
 and shipping. The Pi 4 is the largest single line item; the
@@ -59,20 +59,31 @@ fork led-ticker ships) for alternatives.
 
 ## Wiring
 
+Before wiring, finish Adafruit's own assembly steps for the bonnet —
+solder the GPIO header if yours shipped unsoldered (see
+[Adafruit's bonnet guide](https://learn.adafruit.com/adafruit-rgb-matrix-bonnet-for-raspberry-pi/assembly)).
+That product prep is Adafruit's territory; everything after it is
+covered here.
+
 Chain the five panels left-to-right with the IDC ribbon cables. **Chain
 order matters**: the first panel in the chain (where the bonnet's data
 output plugs in) is the LEFTMOST panel on screen, and the last panel in
 the chain is the RIGHTMOST. If your text shows up mirrored or split
 across the wrong panels, you've got the chain reversed.
 
-Each panel also needs its own 5V power lead — the data ribbon does not
-carry panel power. Run a short pigtail from each panel's 2-pin power
-input back to the same 5V supply (most chains share a common busbar or
-splitter on the back).
+Each panel has two HUB75 connectors, labeled IN and OUT on the
+silkscreen — data flows bonnet → panel 1 IN, then panel 1 OUT →
+panel 2 IN, and so on down the chain.
 
-The Pi's bonnet plugs onto the GPIO header in the standard orientation
-and the bonnet's HUB75 output plugs into the first panel's data input.
-The `chain_length` field in the config (next section) tells led-ticker how
+Each panel also needs its own 5V power lead — the data ribbon does not
+carry panel power. Most builds share one splitter or busbar from the 5V
+supply, with a short 2-pin lead to each panel's power connector.
+
+Seat the bonnet so its 40-pin socket covers all 40 pins of the Pi's
+GPIO header — it only fits flush one way, with the bonnet's board
+overhanging the Pi's USB-port end when seated correctly. The bonnet's
+HUB75 output plugs into the first panel's data input. The
+`chain_length` field in the config (next section) tells led-ticker how
 many panels are linked.
 
 ## Config snippet

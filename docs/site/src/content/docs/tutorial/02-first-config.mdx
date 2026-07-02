@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 2: Your first config"
-description: Write a minimal config.toml from scratch and render a scrolling message on the laptop preview.
+description: Write a minimal config.toml from scratch and see a scrolling message render live in the browser preview.
 prev: false
 next: false
 ---
@@ -14,19 +14,19 @@ import RelatedPages from "../../../components/RelatedPages.astro";
   caption="What you'll have by the end of this chapter — a single message scrolling across the sign in pink."
 />
 
-You've cloned the repo and rendered the destination config. Now you'll write your
-own `config/config.toml` from scratch. By the end of this chapter you'll have a
-working one-section config and understand the structure every led-ticker config
-follows.
+You've cloned the repo and seen the bundled preview in your browser. Now you'll
+write your own `config/config.toml` from scratch. By the end of this chapter
+you'll have a working one-section config and understand the structure every
+led-ticker config follows.
 
 **~10 min · no hardware needed**
 
-Picks up from [Chapter 1](/tutorial/01-setup/) — you'll need the repo cloned and `make dev` run. No new prerequisites.
+Picks up from [Chapter 1](/tutorial/01-setup/) — you'll need the repo cloned and
+`make try` running (or ready to run). No new prerequisites.
 
 ## Starting point
 
-Delete any existing `config/config.toml` (if you followed along in Chapter 1, you
-may have one from the example). Start fresh:
+Delete any existing `config/config.toml` and start fresh:
 
 ```bash
 rm -f config/config.toml
@@ -36,7 +36,7 @@ rm -f config/config.toml
 <summary>Reset block — start of Chapter 2</summary>
 
 If you ever want to reset to exactly the starting point for this chapter, create
-`config/config.toml` with just the `[display]` block and no widgets yet:
+`config/config.toml` with just the `[display]` and `[web]` blocks and no widgets yet:
 
 ```toml
 [display]
@@ -45,13 +45,17 @@ cols = 256
 chain_length = 1
 default_scale = 4
 brightness = 60
+
+[web]
+# lets make try show your sign live in the browser; harmless on the Pi deploy
 ```
 
 </details>
 
 ## The `[display]` block
 
-Open a new `config/config.toml` in your editor and add the display block:
+Open a new `config/config.toml` in your editor. Add the display block first,
+then a `[web]` block on the line below it:
 
 ```toml
 [display]
@@ -60,6 +64,9 @@ cols = 256
 chain_length = 1
 default_scale = 4
 brightness = 60
+
+[web]
+# lets make try show your sign live in the browser; harmless on the Pi deploy
 ```
 
 What each field does:
@@ -76,16 +83,20 @@ What each field does:
   crisp at display size.
 - **`brightness = 60`** — panel brightness, 0–100. 60 is a comfortable starting
   point.
+- **`[web]`** — publishes the display engine's state so the browser preview can
+  show your sign live. An empty block is enough; the defaults are fine for
+  laptop use. The same block enables the web dashboard on a real Pi deploy —
+  it's harmless to leave it in your production config.
 
 There are several Pi-specific hardware knobs you'll see in the example configs —
 `pixel_mapper_config`, `gpio_slowdown`, `hardware_mapping`, `pwm_bits`, `rp1_pio`. These
 control low-level GPIO timing and panel chaining. They have no effect on the
-laptop renderer and are safe to omit until you're deploying to real hardware.
+laptop preview and are safe to omit until you're deploying to real hardware.
 See [Hardware → Bigsign](/hardware/bigsign/) for details on those.
 
 ## Add the first widget
 
-Below the `[display]` block, add a section with one message widget:
+Below the `[web]` block, add a section with one message widget:
 
 ```toml
 [[playlist.section]]
@@ -121,7 +132,7 @@ Instagram magenta (`[225, 48, 108]`) the social handle uses.
 
 ## Validate
 
-Before rendering, run the config validator:
+Before previewing, run the config validator:
 
 ```bash
 uv run led-ticker validate config/config.toml
@@ -148,37 +159,51 @@ Validating config/config.toml...
 ```
 
 The validator catches type errors, unknown fields, and missing required values
-before you ever render. Get in the habit of running it after every edit. Revert
+before you ever preview. Get in the habit of running it after every edit. Revert
 the typo before continuing.
 
-## Render
+:::tip[Validate from the web UI]
+On a deployed sign, the web UI's **Config tab** validates before saving — no
+terminal needed. The `uv run led-ticker validate` command above works on any
+machine with the dev dependencies installed (`make dev` once).
+:::
+
+## Preview
+
+With your config saved and the validator passing, run `make try`:
 
 ```bash
-make render-demo CONFIG=config/config.toml OUT=preview.gif
-open preview.gif        # macOS
-xdg-open preview.gif    # Linux
+make try
 ```
 
-You should see "Welcome to Firebird Yoga" scrolling in pink across a black
-background — identical to the demo at the top of this page:
+Open **http://localhost:8080** and click the **live preview** tab. You should
+see "Welcome to Firebird Yoga" scrolling in pink across a black background —
+identical to the demo at the top of this page:
 
 <DemoGif
   src="/demos-long/tutorial-02-first-config.gif"
-  caption="preview.gif — rendered from your config/config.toml"
+  caption="The browser preview — rendered live from your config/config.toml"
 />
 
-The GIF renderer runs the same display engine as the real hardware, so what you
-see here is an accurate preview of what will appear on the panel.
+If `make try` is already running from Chapter 1, you don't need to restart it.
+Save your `config/config.toml` and the browser preview updates within one
+playlist cycle automatically.
 
-## The edit-validate-render loop
+:::note[Capture a GIF instead]
+To save a shareable GIF rather than watch the live preview, run
+`make render-demo CONFIG=config/config.toml OUT=preview.gif`. This needs
+`make dev` first (Python 3.14 + [uv](https://docs.astral.sh/uv/)).
+:::
 
-Most led-ticker development follows a tight loop: edit the TOML, validate, render,
-check the GIF, repeat. Try a few concrete changes to get comfortable with it:
+## The edit-validate-preview loop
 
-**Change the text.** Edit `text = "Welcome to Firebird Yoga"` to something longer,
-then re-render. A longer string takes more frames to scroll fully through. The
-`make render-demo` target doesn't forward a duration, so to give it more time
-call the renderer directly with `--duration`:
+Most led-ticker development follows a tight loop: edit the TOML, validate, save,
+and check the browser preview. Try a few concrete changes to get comfortable with it:
+
+**Change the text.** Edit `text = "Welcome to Firebird Yoga"` to something
+longer, then save. The browser preview updates within one playlist cycle. If
+you want to capture the result as a GIF with a longer duration, call the
+renderer directly:
 
 ```bash
 uv run python tools/render_demo/render.py config/config.toml -o preview.gif --duration 20
@@ -186,7 +211,7 @@ uv run python tools/render_demo/render.py config/config.toml -o preview.gif --du
 
 **Change the color.** Try a different `[r, g, b]` triple — for example
 `[124, 173, 232]` (sky blue) or `[255, 92, 38]` (flame orange). Validate and
-re-render after each change.
+save after each change, then check the preview.
 
 **Add a second widget.** Append another `[[playlist.section.widget]]` block
 immediately after the first (still under the same `[[playlist.section]]`):
@@ -198,13 +223,20 @@ text = "Open Tuesday – Sunday  *  10am – 8pm"
 font_color = [255, 240, 200]
 ```
 
-Re-render. In `ticker` mode both messages appear back-to-back in a
-single continuous stream, separated by a small gap. The `*` character renders
-as a mid-dot separator — a common convention in ticker text.
+Save. In `ticker` mode both messages appear back-to-back in a single continuous
+stream, separated by a small gap. The `*` character renders as a mid-dot
+separator — a common convention in ticker text.
 
-Each edit-validate-render cycle takes under ten seconds on a laptop. Keep the
+Each edit-validate-preview cycle takes under ten seconds on a laptop. Keep the
 loop tight and build confidence before moving on to the more complex sections in
 Chapter 3.
+
+:::note[Display-level changes need a restart]
+Edits to widget text, colors, and section settings hot-reload within one
+playlist cycle while `make try` is running. Changes to `[display]` fields
+(`rows`, `cols`, `default_scale`) require a container restart: press Ctrl-C,
+then `make try` again.
+:::
 
 ## What's next
 

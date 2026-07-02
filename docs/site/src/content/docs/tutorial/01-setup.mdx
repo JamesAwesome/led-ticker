@@ -1,6 +1,6 @@
 ---
 title: "Tutorial 1: Setup"
-description: Clone led-ticker, install dev deps, and render the bundled Firebird Yoga showcase to see what you're building toward.
+description: Clone led-ticker and preview the Firebird Yoga showcase live in your browser — see what you're building toward in under 2 minutes.
 prev: false
 next: false
 ---
@@ -20,7 +20,7 @@ through a rainbow welcome card, a brand card (the @firebirdyoga.demo handle next
 to the hi-res Instagram sprite over a phoenix image with scrolling promo copy),
 and a held info section (Summer Camps, Open daily, All levels).
 
-This chapter covers getting the code running on your laptop. No hardware needed.
+This chapter gets the code running on your laptop. No hardware needed.
 
 :::note[Following along on a smaller sign?]
 This tutorial uses the bigsign as its worked example, but the config steps —
@@ -29,56 +29,63 @@ the cheaper [smallsign](/hardware/smallsign/), the obvious first build. You
 don't need the 8-panel rig to follow along; only the panel knobs differ.
 :::
 
-**~10 min · no hardware needed**
+**~2 min · no hardware needed**
 
 **What you'll need:**
 
 - A laptop (macOS, Linux, or Windows)
-- [Docker](https://docs.docker.com/get-docker/) — for `make try` (optional but the fastest path to a live preview)
-- Or: the repository cloned and `make dev` run for the GIF-renderer path (both covered below)
-- No LED panel or Raspberry Pi — everything previews in Docker or via `make render-demo`
-
-## Prerequisites
-
-:::note[Why not just `make try`?]
-`make try` gives you a live browser preview with Docker alone — no Python
-toolchain — but it always runs the bundled example config. This tutorial
-builds _your own_ `config/config.toml` chapter by chapter, and the renderer
-that previews your file is `make render-demo`, which needs Python 3.14 +
-[uv](https://docs.astral.sh/uv/) installed (below). (`make setup` is
-different again — that's the Pi deploy command you'll run at the very end.)
-:::
-
-You'll need the following installed before you start:
-
-- **Git** — to clone the repository
-- **Python 3.14+** — led-ticker targets the latest stable CPython
-- **[uv](https://docs.astral.sh/uv/)** — the package manager used throughout the project (`pip install uv` or `brew install uv`)
+- [Git](https://git-scm.com/) — to clone the repository
+- [Docker](https://docs.docker.com/get-docker/) — the only tool needed for the live preview
 - **make** — standard on macOS and Linux; on Windows use WSL or Git Bash
 
-## Clone and install
+:::tip[Prefer a GIF file?]
+`make render-demo` renders any config to a shareable GIF — useful for capturing
+a preview to share. It requires Python 3.14 and [uv](https://docs.astral.sh/uv/);
+run `make dev` once to install. No GIF capture is needed to follow this tutorial:
+the browser preview in `make try` shows the same result live.
+:::
+
+## Clone and start
 
 ```bash
 git clone https://github.com/JamesAwesome/led-ticker.git
 cd led-ticker
-make dev
+make try
 ```
 
 What each command does:
 
 - **`git clone`** — downloads the repository, including all bundled fonts, example
-  configs, and the laptop renderer.
+  configs, and the try image.
 - **`cd led-ticker`** — enters the project root. All `make` targets and file paths
   in this tutorial assume you're running from here.
-- **`make dev`** — runs `uv sync --extra dev` to install the Python package and all
-  dev dependencies into a local virtual environment, then installs the pre-commit
-  hooks. This does **not** require the `rgbmatrix` C library — that's only needed on
-  a real Raspberry Pi. Laptop development works entirely through a built-in stub.
+- **`make try`** — builds the try Docker image and starts a headless display engine
+  plus the web UI sidecar. No LED panel, no Raspberry Pi needed.
 
-## Render the destination config
+Once `make try` is running, open **http://localhost:8080** and click the
+**live preview** tab. You'll see the bundled example — scrolling Hacker News
+headlines and a Nyan Cat sprite-trail transition — rendering live in your browser.
 
-Before writing a single line of your own TOML, render the tutorial destination
-config so you can see what "done" looks like:
+## Preview the destination config
+
+The GIF at the top of this page shows the Firebird Yoga config you'll build in
+chapters 2–5. You can preview it live right now: copy the destination config and
+restart `make try`:
+
+```bash
+cp config/config.bigsign.firebird.example.toml config/config.toml
+make try
+```
+
+The browser preview switches to the Firebird Yoga sign. When you're done
+exploring, delete the copy so you start fresh in Chapter 2:
+
+```bash
+rm config/config.toml
+```
+
+:::note[Reproduce the GIF instead]
+To render the destination config to a file rather than the browser, run:
 
 ```bash
 make render-demo CONFIG=config/config.bigsign.firebird.example.toml OUT=preview.gif
@@ -86,28 +93,31 @@ open preview.gif          # macOS
 xdg-open preview.gif      # Linux
 ```
 
-`make render-demo` runs the same display engine that drives the real panels, but
-writes each frame to a GIF instead of pushing it to hardware. The output is at
-native panel resolution (256×64 logical pixels, scaled up 4× by the renderer for
-readability).
-
-You should see a looping GIF that cycles through three sections — a rainbow
-welcome card, a brand card with the Instagram sprite + phoenix image + scrolling
-promo, and a held info section (Summer Camps, Open daily, All levels):
-
-<DemoGif
-  src="/demos-long/tutorial-01-setup.gif"
-  caption="preview.gif — rendered from config/config.bigsign.firebird.example.toml"
-/>
+`make render-demo` needs `make dev` first (Python 3.14 + [uv](https://docs.astral.sh/uv/)).
+:::
 
 Open `config/config.bigsign.firebird.example.toml` in your editor and skim it.
-You'll recognize each section in the GIF. The comments explain the Pi-specific
-knobs (`pixel_mapper_config`, `gpio_slowdown`, `pwm_bits`) — those are safe
-to ignore for now; the laptop renderer skips them silently.
+You'll recognise each section in the preview. The comments explain the Pi-specific
+knobs (`pixel_mapper_config`, `gpio_slowdown`, `pwm_bits`) — safe to ignore for
+now; `make try` skips them via the headless backend.
+
+## The live preview loop
+
+From Chapter 2 onward you'll create your own `config/config.toml`. When that
+file exists, `make try` previews YOUR config instead of the bundled example —
+hot-reloading as you edit.
+
+Save a change to `config/config.toml` while `make try` is running and the
+browser preview updates within one playlist cycle. `[display]`-level changes
+(rows, cols, scale) need a container restart: press Ctrl-C, then `make try`
+again.
+
+The live preview requires a `[web]` block in your config. Chapter 2 includes it
+in the first config you create.
 
 ## What this chapter doesn't cover
 
-This tutorial stays on the laptop renderer throughout — but it builds toward
+This tutorial stays on the laptop preview throughout — but it builds toward
 hardware: by the end of chapter 5 you'll have a complete config ready to put
 on a real sign. [Building your own](/hardware/building-your-own/) covers the
 wiring and panel bring-up, and
@@ -117,9 +127,9 @@ deploy path. Keep those tabs open for when you're done.
 ## What's next
 
 In Chapter 2 you'll build a config from scratch, adding your first `[display]`
-block and a single message widget. By the end of that chapter you'll have a
-working one-section config and understand the basic structure every led-ticker
-config follows.
+block, a `[web]` block, and a single message widget. By the end of that chapter
+you'll have a working one-section config and understand the basic structure every
+led-ticker config follows.
 
 <TutorialNav
   next={{ href: "/tutorial/02-first-config/", title: "Tutorial 2: Your first config" }}

@@ -1074,8 +1074,19 @@ RUN_MODES: dict[str, str] = {
 }
 
 
-def build_frame_from_config(display) -> LedFrame:
-    """Build an LedFrame from a DisplayConfig."""
+def build_frame_from_config(display, backend_override: str | None = None) -> LedFrame:
+    """Build an LedFrame from a DisplayConfig.
+
+    Args:
+        display: A DisplayConfig instance.
+        backend_override: Optional backend name to use instead of the config
+            field (e.g. ``"headless"`` for the try-preview Docker flow).
+            Resolved through the existing ``get_backend_class`` registry, so
+            an unknown name raises the registry's standard error.
+            When *None* (default), the config's ``backend`` field (or the
+            ``"rgbmatrix"`` default) is used — zero behaviour change for all
+            existing callers.
+    """
     logging.info(
         "Display: %dx%d rows × %dx%d cols (chain_length=%d parallel=%d) "
         "mapper=%r brightness=%d gpio_slowdown=%d pwm_bits=%d "
@@ -1112,7 +1123,7 @@ def build_frame_from_config(display) -> LedFrame:
     from led_ticker.backends import get_backend_class  # noqa: PLC0415
     from led_ticker.backends.rgbmatrix import RgbMatrixBackend  # noqa: PLC0415
 
-    backend_name = getattr(display, "backend", "rgbmatrix")
+    backend_name = backend_override or getattr(display, "backend", "rgbmatrix")
     backend_cls = get_backend_class(backend_name)
     if backend_cls is RgbMatrixBackend:
         backend = RgbMatrixBackend(

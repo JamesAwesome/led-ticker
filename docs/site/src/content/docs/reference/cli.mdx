@@ -18,15 +18,17 @@ Runs the display loop against a TOML config. With no subcommand, the
 CLI loads the config, builds the playlist, opens the panel, and starts
 rendering until interrupted.
 
-| Flag              | Default       | Notes                                                                      |
-| ----------------- | ------------- | -------------------------------------------------------------------------- |
-| `--config` / `-c` | `config.toml` | Path to the TOML configuration file. Resolved relative to the working dir. |
+| Flag              | Default       | Notes                                                                                                                                                                                                                                                       |
+| ----------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--config` / `-c` | `config.toml` | Path to the TOML configuration file. Resolved relative to the working dir.                                                                                                                                                                                  |
+| `--backend`       | _(config)_    | Override the display backend (e.g. `headless`). Takes precedence over `[display] backend` in the config. Unknown names fail with a clear registry error. Primarily used by the `make try` Docker flow to run headless without modifying your deploy config. |
 
 If the config path doesn't exist, the CLI prints a hint pointing at
 `config.example.toml` and exits with status `1`.
 
 ```bash
 led-ticker --config config/config.toml
+led-ticker --config config/config.toml --backend headless
 ```
 
 ## `led-ticker validate`
@@ -256,7 +258,13 @@ up automatically on boot and after a crash.
 
 ### `--led-*` flags belong to the `rgbmatrix` library, not `led-ticker`
 
-The `led-ticker` CLI itself only accepts `--config` / `-c` (and the `validate` subcommand's `path`, `--json`, `--strict`, `--fix`, and `--list-fields`). Hardware tuning — panel geometry, GPIO mapping, brightness, RP1 mode — is configured through the `[display]` block in your TOML, not via command-line flags. The `rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]` maps onto them internally) but you don't pass them to `led-ticker`. See [Reference: Config options](/reference/config-options/) for the `[display]` field list.
+The `led-ticker` CLI accepts `--config` / `-c`, `--backend`, and the `validate`
+subcommand's `path`, `--json`, `--strict`, `--fix`, and `--list-fields`. Hardware
+tuning — panel geometry, GPIO mapping, brightness, RP1 mode — is configured
+through the `[display]` block in your TOML, not via command-line flags. The
+`rgbmatrix` library's own `--led-*` CLI flags exist (and `[display]` maps onto
+them internally) but you don't pass them to `led-ticker`. See
+[Reference: Config options](/reference/config-options/) for the `[display]` field list.
 
 ### The test suite runs without a real Pi
 

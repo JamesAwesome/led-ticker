@@ -7,8 +7,9 @@
 #   docker compose -f compose.try.yaml -p led-ticker-try up --build
 #   docker compose -f compose.try.yaml -p led-ticker-try down
 #
-# Uses the committed config/config.try.example.toml (a fresh clone has no
-# config/config.toml — it's gitignored), so this works on any clone with no setup.
+# Config selection: scripts/setup.sh exports TRY_CONFIG=/code/config/config.toml
+# when config/config.toml exists on the host, otherwise the bundled example is
+# used. A fresh clone (no config.toml) behaves exactly as before.
 services:
   # Headless display engine — no GPIO/hardware. Writes status.json + preview.bin
   # to the shared try-status volume for the webui to serve.
@@ -19,7 +20,7 @@ services:
       dockerfile: Dockerfile.try
     container_name: led-ticker-try-engine
     restart: unless-stopped
-    command: ["led-ticker", "--config", "/code/config/config.try.example.toml"]
+    command: ["led-ticker", "--config", "${TRY_CONFIG:-/code/config/config.try.example.toml}", "--backend", "headless"]
     volumes:
       - ./config:/code/config:ro
       - try-status:/run/led-ticker
@@ -36,7 +37,7 @@ services:
       dockerfile: Dockerfile.try
     container_name: led-ticker-try-webui
     restart: unless-stopped
-    command: ["led-ticker", "webui", "--config", "/code/config/config.try.example.toml"]
+    command: ["led-ticker", "webui", "--config", "${TRY_CONFIG:-/code/config/config.try.example.toml}"]
     ports:
       - "8080:8080"
     volumes:

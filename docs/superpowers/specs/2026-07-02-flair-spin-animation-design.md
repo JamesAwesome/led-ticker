@@ -107,8 +107,13 @@ When `anim_frame.rotation % 360 != 0`:
    whole-string path) against the buffer instead of the canvas — all three
    thread the canvas param and paint via SetPixel (engineer-verified
    redirectable without refactoring).
-3. `rotate_blit(canvas, buffer, rotation, cx, cy)` with
-   `cx = start_pos + content_width / 2`, `cy = canvas.height / 2` — the
+3. `rotate_blit(canvas, buffer, rotation, cx, cy)` pivoting on the
+   **visible text extent** (found in gif validation — the earlier
+   `start_pos + content_width / 2` formula lands off-canvas for
+   overflowing text, since the buffer holds only the clipped window;
+   rotating about an off-canvas pivot blacks out the panel mid-spin):
+   `cx = (max(0, start_pos) + min(canvas.width, start_pos + content_width)) / 2`,
+   `cy = canvas.height / 2`. For fitting text this reduces exactly to the
    text block's own center. `compute_cursor` already folds `center=True` /
    left-align / overflow into `start_pos`, so one formula covers all
    alignments. (No `text_x_offset` interaction — that knob doesn't exist on

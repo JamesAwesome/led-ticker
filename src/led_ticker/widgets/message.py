@@ -321,7 +321,19 @@ class TickerMessage(FrameAwareBase):
         cursor_pos += end_padding
 
         if rotate_target is not None:
-            cx = start_pos + content_width / 2
+            # Pivot on the VISIBLE text extent, not the nominal content
+            # center. The buffer holds only the clipped on-canvas window,
+            # so for overflowing text (content_width > canvas.width) the
+            # naive `start_pos + content_width / 2` lands off-canvas and
+            # the rotation swings everything off-screen — the panel goes
+            # black for most of the spin (caught in gif validation). For
+            # fitting text the clamp is a no-op: visible extent == text
+            # extent, pivot == text center.
+            visible_left = max(0.0, float(start_pos))
+            visible_right = min(
+                float(canvas.width), float(start_pos) + float(content_width)
+            )
+            cx = (visible_left + visible_right) / 2
             cy = canvas.height / 2
             rotate_blit(canvas, rotate_target, rotation, cx, cy)
 

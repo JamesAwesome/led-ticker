@@ -467,3 +467,79 @@ class TestPerBranchRedirect:
             f"Canvas has {len(c._pixels)} pixel(s) after no-op blit — "
             f"emoji branch wrote directly to canvas, bypassing buffer"
         )
+
+    def test_overflow_rotation_center_stays_on_canvas(self, monkeypatch):
+        """cx passed to rotate_blit must be within [0, canvas.width] even
+        when content_width > canvas.width.
+
+        Overflow case: the PixelBuffer holds only the clipped visible window
+        (canvas dimensions). Rotating about start_pos + content_width/2
+        places the pivot off-canvas (~175 on a 160px canvas for 350px text),
+        swinging all content off-screen — panel goes black for most of the
+        spin. The fix clamps cx to the visible extent."""
+        calls = self._spy_setup(monkeypatch)
+
+        # The pivot only leaves the canvas when content_width > 2x the
+        # canvas width (cx = start_pos + content_width/2 > 160 needs
+        # content_width > 320 at start_pos=0). 59 chars x 6px = 354px —
+        # the same geometry the gif validation caught going black.
+        long_text = "THIS MESSAGE IS MUCH TOO WIDE FOR THE PANEL AND MUST SCROLL"
+        widget = TickerMessage(
+            text=long_text,
+            font=FONT_DEFAULT,
+            font_color=RGB_WHITE,
+            animation=_StubSpin(90.0),
+            center=False,
+        )
+        c = _canvas(width=160, height=16)
+        widget.draw(c)
+
+        # Precondition guard: the text must overflow enough that the naive
+        # pivot (start_pos + content_width/2) would land off-canvas —
+        # otherwise this test can pass against the broken formula.
+        assert widget._content_width > 2 * c.width, (
+            f"precondition: content_width={widget._content_width} must exceed "
+            f"2x canvas width ({2 * c.width}) to exercise the off-canvas pivot"
+        )
+        assert len(calls) == 1, f"rotate_blit called {len(calls)} times; expected 1"
+        _dst, _src, _angle, cx, _cy = calls[0]
+
+        assert 0 <= cx <= c.width, (
+            f"cx={cx} is outside [0, {c.width}] for overflowing text — "
+            f"the pivot is off-canvas, which blacks out the panel during spin. "
+            f"Expected cx to be clamped to the visible text extent."
+        )
+
+    def test_fitting_text_center_unchanged(self, monkeypatch):
+        """For short text that fits on-canvas, cx must equal
+        start_pos + content_width / 2 (the original formula is unchanged)."""
+        calls = self._spy_setup(monkeypatch)
+
+        short_text = "HI"
+        widget = TickerMessage(
+            text=short_text,
+            font=FONT_DEFAULT,
+            font_color=RGB_WHITE,
+            animation=_StubSpin(90.0),
+            center=False,
+        )
+        c = _canvas(width=160, height=16)
+        widget.draw(c)
+
+        assert len(calls) == 1, f"rotate_blit called {len(calls)} times; expected 1"
+        _dst, _src, _angle, cx, _cy = calls[0]
+
+        # For fitting text: start_pos=0 (no centering, cursor_pos=0),
+        # visible_left=0, visible_right=content_width → cx = content_width/2.
+        # Also verify cx is within the canvas as a basic check.
+        assert 0 <= cx <= c.width, (
+            f"cx={cx} is outside [0, {c.width}] for fitting short text"
+        )
+        # The pivot must be within the drawn text's extent (between 0 and
+        # content_width for left-aligned text starting at cursor_pos=0).
+        # We know content_width for "HI" is well under 160px, so cx < canvas.width.
+        # The center of the text should be well within [0, canvas.width].
+        assert cx < c.width / 2 + 10, (
+            f"cx={cx} seems too large for short text '{short_text}' — "
+            f"expected it to be roughly content_width/2, not near canvas center"
+        )

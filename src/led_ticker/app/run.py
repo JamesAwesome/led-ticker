@@ -489,7 +489,11 @@ async def _start_busy_light(cfg: Any, led_frame: Any) -> Any:
         spawn_tracked(_ttl_ticker(busy))
     else:
         await busy.update()  # fast initial read so the dot is correct on frame 1
-        spawn_tracked(run_monitor_loop(busy, cfg.poll_interval, splay=False))
+        spawn_tracked(
+            run_monitor_loop(
+                busy, cfg.poll_interval, splay=False, register_monitor=False
+            )
+        )
     return busy
 
 

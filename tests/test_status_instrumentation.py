@@ -10,7 +10,7 @@ import pytest
 
 from led_ticker import status_board
 from led_ticker.status_board import StatusBoard
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import Container, run_monitor_loop
 
 
 class _OneShotMonitor:
@@ -35,6 +35,9 @@ async def test_run_monitor_loop_records_update(tmp_path):
     board = StatusBoard(path=tmp_path / "status.json")
     status_board.set_active_board(board)
     monitor = _OneShotMonitor()
+    assert isinstance(monitor, Container), (
+        "_OneShotMonitor must satisfy the Container protocol"
+    )
     task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
     try:
         await asyncio.wait_for(monitor.updated.wait(), timeout=2)
@@ -61,6 +64,9 @@ async def test_run_monitor_loop_falls_back_to_class_name(tmp_path):
             self.updated.set()
 
     monitor = Nameless()
+    assert isinstance(monitor, Container), (
+        "Nameless must satisfy the Container protocol"
+    )
     task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
     try:
         await asyncio.wait_for(monitor.updated.wait(), timeout=2)
@@ -86,9 +92,13 @@ async def test_register_on_entry_and_error_with_retry(tmp_path):
         async def update(self):
             raise ValueError("boom")
 
+    _fw = _FailingWidget()
+    assert isinstance(_fw, Container), (
+        "_FailingWidget must satisfy the Container protocol"
+    )
     try:
         task = asyncio.create_task(
-            run_monitor_loop(_FailingWidget(), 0.01, splay=False, immediate=True)
+            run_monitor_loop(_fw, 0.01, splay=False, immediate=True)
         )
         for _ in range(30):
             await asyncio.sleep(0)
@@ -107,20 +117,33 @@ async def test_register_on_entry_and_error_with_retry(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_busy_light_like_not_registered(tmp_path):
+async def test_register_monitor_false_excludes(tmp_path):
+    """register_monitor=False → the rider never appears in board.monitors.
+
+    This is the explicit opt-out for riders that are not data monitors.
+    The sole current consumer is busy_light — a visual-overlay helper, not a
+    data monitor. Exclusion is now kwarg-driven, NOT shape-based: a bare object
+    with only update() would be registered by default (see
+    test_unknown_shape_registers_by_default). The shape of _BusyLike below is
+    irrelevant to the outcome; what matters is register_monitor=False.
+    """
     import led_ticker.status_board as sb
 
     board = sb.StatusBoard(path=tmp_path / "s.json")
     sb.set_active_board(board)
 
-    class _BusyLike:  # no .draw, no .feed_stories, no .polled -> not a monitor
+    class _BusyLike:
+        # busy_light shape: no .draw, no .feed_stories, no .polled.
+        # Excluded by register_monitor=False, NOT by shape.
         name = "busy"
 
         async def update(self): ...
 
     try:
         task = asyncio.create_task(
-            run_monitor_loop(_BusyLike(), 0.01, splay=False, immediate=True)
+            run_monitor_loop(
+                _BusyLike(), 0.01, splay=False, immediate=True, register_monitor=False
+            )
         )
         for _ in range(10):
             await asyncio.sleep(0)
@@ -152,6 +175,9 @@ async def test_container_widget_registers(tmp_path):
             self.updated.set()
 
     monitor = _Container()
+    assert isinstance(monitor, Container), (
+        "_Container must satisfy the Container protocol"
+    )
     try:
         task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
         await asyncio.wait_for(monitor.updated.wait(), timeout=2)
@@ -187,9 +213,11 @@ async def test_status_error_never_escapes_loop(tmp_path, monkeypatch):
         async def update(self):
             raise ValueError("nope")
 
+    _flaky = _Flaky()
+    assert isinstance(_flaky, Container), "_Flaky must satisfy the Container protocol"
     try:
         task = asyncio.create_task(
-            run_monitor_loop(_Flaky(), 0.01, splay=False, immediate=True)
+            run_monitor_loop(_flaky, 0.01, splay=False, immediate=True)
         )
         for _ in range(10):
             await asyncio.sleep(0)
@@ -941,6 +969,9 @@ async def test_raising_monitor_value_does_not_count_as_update_failure(
     monkeypatch.setattr(sb, "_monitor_value", _exploding_value)
 
     monitor = _GoodWidget()
+    assert isinstance(monitor, Container), (
+        "_GoodWidget must satisfy the Container protocol"
+    )
     try:
         task = asyncio.create_task(
             run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
@@ -984,6 +1015,9 @@ async def test_run_monitor_loop_records_value_for_container(tmp_path):
     board = StatusBoard(path=tmp_path / "status.json")
     status_board.set_active_board(board)
     monitor = _FakeContainer()
+    assert isinstance(monitor, Container), (
+        "_FakeContainer must satisfy the Container protocol"
+    )
     try:
         task = asyncio.create_task(
             run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
@@ -1000,3 +1034,90 @@ async def test_run_monitor_loop_records_value_for_container(tmp_path):
             await task
     finally:
         status_board.clear_active_board()
+
+
+# --- Monitor-registration hardening (2026-07-01) ------------------------------
+
+
+@pytest.mark.asyncio
+async def test_unknown_shape_registers_by_default(tmp_path):
+    """A bare Updatable with ONLY update() — no polled/draw/feed_stories —
+    must be registered with kind == 'widget' by default.
+
+    This is the primary tripwire for the no-allow-list invariant: any future
+    shape check that would skip this object fails this test. The old code
+    silently skipped objects that didn't match the shape allow-list (polled /
+    draw / feed_stories); the new code registers everything by default.
+    """
+    import led_ticker.status_board as sb
+
+    class _BareUpdatable:
+        """No .polled, no .draw, no .feed_stories — just update()."""
+
+        name = "bare_thing"
+
+        def __init__(self):
+            self.updated = asyncio.Event()
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    board = sb.StatusBoard(path=tmp_path / "status.json")
+    sb.set_active_board(board)
+    monitor = _BareUpdatable()
+    try:
+        task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)
+        entry = board.monitors.get("bare_thing")
+        assert entry is not None, (
+            "A bare Updatable (no draw/feed_stories/polled) must be registered "
+            "by default — no allow-list should gate registration."
+        )
+        assert entry["kind"] == "widget"
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        sb.set_active_board(None)
+
+
+def test_busy_light_run_monitor_loop_passes_register_monitor_false():
+    """AST tripwire: the busy-light spawn of run_monitor_loop in
+    _start_busy_light must pass register_monitor=False.
+
+    Pins the explicit opt-out against accidental removal — a merge that drops
+    the kwarg would silently register busy_light as a 'widget' monitor, adding
+    a spurious row to the status board. Precedent: test_engine_redraw_contract.py.
+    """
+    import ast
+
+    from led_ticker.app.run import _start_busy_light
+
+    src = inspect.getsource(_start_busy_light)
+    tree = ast.parse(src)
+
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "run_monitor_loop"
+        ):
+            for kw in node.keywords:
+                if kw.arg == "register_monitor":
+                    assert (
+                        isinstance(kw.value, ast.Constant) and kw.value.value is False
+                    ), (
+                        "run_monitor_loop in _start_busy_light must pass "
+                        "register_monitor=False — busy_light is not a data monitor"
+                    )
+                    return
+            pytest.fail(
+                "run_monitor_loop in _start_busy_light does not pass "
+                "register_monitor=False — the busy_light opt-out is missing"
+            )
+
+    pytest.fail(
+        "run_monitor_loop call not found in _start_busy_light source — "
+        "tripwire cannot verify the register_monitor=False opt-out"
+    )

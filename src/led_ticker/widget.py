@@ -132,6 +132,8 @@ async def run_monitor_loop(
     interval: float,
     splay: bool = True,
     immediate: bool = False,
+    *,
+    register_monitor: bool = True,
 ) -> None:
     """Generic monitor loop with exponential backoff on errors.
 
@@ -145,25 +147,39 @@ async def run_monitor_loop(
     Data widgets leave it False: they eager-fetch in ``start()`` before spawning
     the loop, so an immediate first cycle here would double-fetch. Only the first
     cycle is affected; the error-backoff path is unchanged.
+
+    ``register_monitor`` (default True) controls whether this rider appears in
+    the status-board monitor roster. Set to False only for riders that are NOT
+    data monitors (e.g. busy_light — a visual-overlay helper). When False, no
+    registration or update/error recording occurs; a DEBUG log marks the opt-out.
+    There is no shape allow-list: any Updatable is registered by default.
+    No import of ``sources`` (circular).
     """
-    # Register in the monitor roster (best-effort). Sources duck-type via .polled;
-    # data widgets via .draw OR .feed_stories (Container monitors such as rss.feed,
-    # crypto.coingecko, baseball.*, calendar.events — they carry feed_stories + update()
-    # but NO .draw; the drawable child stories are never passed to run_monitor_loop).
-    # Anything that is NONE of the above (e.g. busy_light which has .update()/.paint()
-    # but no .draw/.feed_stories/.polled) is not a data monitor and is skipped.
-    # No import of `sources` (circular).
+    # Register in the monitor roster (best-effort). Registration is UNCONDITIONAL
+    # when register_monitor=True — no shape check gates it. Kind is derived from
+    # the explicit .polled marker (DataSource sets it) vs a plain widget tag.
+    # The only opt-out is register_monitor=False (busy_light); that emits a DEBUG
+    # log and skips registration entirely (_mon_name stays None).
     _mon_name = None
-    with contextlib.suppress(Exception):
-        _name = status_board._monitor_name(widget)
-        _mtype = status_board._monitor_type(widget)
-        if getattr(widget, "polled", False):
-            _mon_name = status_board.register_monitor(
-                _name, "source", interval, mtype=_mtype
+    if not register_monitor:
+        with contextlib.suppress(Exception):
+            logger.debug(
+                "monitor loop started (unregistered): %s",
+                type(widget).__name__,
             )
-        elif hasattr(widget, "draw") or hasattr(widget, "feed_stories"):
+    else:
+        with contextlib.suppress(Exception):
+            _name = status_board._monitor_name(widget)
+            _mtype = status_board._monitor_type(widget)
+            kind = "source" if getattr(widget, "polled", False) else "widget"
             _mon_name = status_board.register_monitor(
-                _name, "widget", interval, mtype=_mtype
+                _name, kind, interval, mtype=_mtype
+            )
+            logger.info(
+                "monitor loop started: %s (%s, every %gs)",
+                _name,
+                kind,
+                interval,
             )
 
     if splay:

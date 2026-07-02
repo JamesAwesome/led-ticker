@@ -12,7 +12,19 @@ The **weather.current** widget is provided by the **[weather](https://github.com
   caption="Weather showing condition icon, label, and temperature in their real deployed colors."
 />
 
-- **To add it to your sign:** add `led-ticker-weather` to `config/requirements-plugins.txt` and restart (`docker compose restart`) — see [Plugins](/plugins/) for the full flow. You'll also need a free `WEATHERAPI_KEY` set in your `.env`.
-- **Full documentation** — options, config examples, and a demo gif — lives in the [weather package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/weather/README.md).
+Install the plugin and set your API key, then add a widget block to your config:
 
-See the [plugin system](/plugins/) for how plugin widgets work.
+```toml
+[[playlist.section]]
+mode = "slideshow"
+
+[[playlist.section.widget]]
+type = "weather.current"
+text = "NYC"
+location = "New York"
+units = "imperial"
+```
+
+You need the plugin installed (see [Plugins](/plugins/)) and `WEATHERAPI_KEY` in your `.env` — free key at [weatherapi.com](https://www.weatherapi.com/).
+
+**Full documentation** — all options, config examples, and a demo gif — lives in the [weather package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/weather/README.md).

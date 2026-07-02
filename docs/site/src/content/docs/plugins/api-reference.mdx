@@ -227,6 +227,30 @@ Plugin authors register a backend with **`api.backend(name)`** from inside their
 
 `FrameAwareBase` also provides `frames_to_transition_ready()`. The engine calls it at the hold→transition handoff and may extend the hold by up to roughly one second so animated effects can finish at a natural rest point — for example, letting a shimmer sweep reach its pause window before the scene changes, or waiting for a typewriter reveal to finish its last few characters. The method aggregates `frames_to_rest(frame, total_chars)` across the widget's effects (color providers, animations) and never raises. Widgets with per-region text (such as a two-row layout with different text in each band) override `_effect_total_chars(attr_name)` to supply each effect with the character count it actually renders with; the default uses the widget's `text` attribute.
 
+### `AnimationFrame.rotation` and `emits_rotation`
+
+`AnimationFrame` — the return value of `Animation.frame_for` — carries two fields:
+
+- **`visible_text: str`** — the slice of the message text to render this tick (used by typewriter).
+- **`rotation: float`** — a clockwise rotation in degrees to apply to the rendered text this tick. The default is `0.0`, which takes the normal draw path with no rotation. When non-zero, the message widget renders the text into an offscreen surface, rotates that surface around the text block's center, and composites it back to the canvas.
+
+An animation that emits non-zero rotations must also set `emits_rotation = True` as a class attribute. This opt-in marker tells the validator to run rule 63: a widget that pairs a rotation-emitting animation with a hi-res font raises a configuration warning, because hi-res text renders at native-pixel resolution and the offscreen rotate path operates at logical resolution — the two interact badly. For BDF fonts the rotate path is fully supported.
+
+```python
+from led_ticker.plugin import Animation, AnimationFrame
+
+
+@api.animation("spin")
+class SpinAnimation:
+    emits_rotation = True
+
+    def frame_for(self, frame: int, full_text: str, canvas_width: int, text_width: int) -> AnimationFrame:
+        degrees = (frame * 6) % 360  # one full revolution every 60 ticks (3 s at 20 fps)
+        return AnimationFrame(visible_text=full_text, rotation=float(degrees))
+```
+
+For time-based math in animation classes, `ENGINE_TICK_MS` (importable from `led_ticker.plugin`, listed in the [Helpers table](#helpers)) gives the engine's render cadence — 50 ms per tick — so you can convert a desired rotation speed in degrees/second to a per-tick increment without hardcoding the cadence.
+
 <Aside type="note" title="Configuring a plugin backend">
   Plugin backends can't read custom `[display]` fields yet — `DisplayConfig` has a fixed field set,
   so any unrecognized key is ignored. Pass backend config (host, port, …) via **environment

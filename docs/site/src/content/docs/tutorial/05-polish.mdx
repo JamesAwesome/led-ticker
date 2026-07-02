@@ -26,8 +26,12 @@ Picks up from [Chapter 4](/tutorial/04-custom-branding/) — continue with the c
 <details>
 <summary>Reset block — start of Chapter 5</summary>
 
-If you need to reset to the starting point for this chapter, create
-`config/config.toml` with the state from the end of Chapter 4:
+If you followed chapters 2–4 step by step, your config will have MORE
+sections than this (the ticker from chapter 2, the standalone `two_row`,
+and so on) — that's expected. This reset block is a deliberately
+consolidated starting point for the polish work, not a literal copy of
+your chapter-4 end state. Either continue with your own config or start
+from this cleaner baseline:
 
 ```toml
 [display]
@@ -53,7 +57,7 @@ font_color = [225, 48, 108]
 
 [[playlist.section.widget]]
 type = "image"
-path = "config/assets/phoenix_transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 8.0
@@ -214,7 +218,7 @@ hold_time = 5.0
 
 [[playlist.section.widget]]
 type = "image"
-path = "config/assets/phoenix_transparent.png"
+path = "assets/phoenix_transparent.png"
 fit = "pillarbox"
 image_align = "center"
 hold_time = 4.0

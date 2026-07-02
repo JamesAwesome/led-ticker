@@ -209,7 +209,7 @@ and check the browser preview. Try a few concrete changes to get comfortable wit
 **Change the text.** Edit `text = "Welcome to Firebird Yoga"` to something
 longer, then save. The browser preview updates within one playlist cycle. If
 you want to capture the result as a GIF with a longer duration, call the
-renderer directly:
+renderer directly (needs `make dev` once — see the aside above):
 
 ```bash
 uv run python tools/render_demo/render.py config/config.toml -o preview.gif --duration 20

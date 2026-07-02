@@ -280,7 +280,7 @@ let lastAllowRestart = false;
 function renderRestartBtn(wrapId, statusId, allowRestart, onDone) {
   const wrap = $(wrapId);
   if (!wrap) return;
-  const DISABLED_TOOLTIP = "Browser restart is off — set [web] allow_restart = true (and ensure your service auto-restarts: Docker, or systemd Restart=)";
+  const DISABLED_TOOLTIP = "Browser restart is off — set [web] allow_restart = true (Docker's restart: unless-stopped policy relaunches the service)";
   let btn;
   if (!allowRestart) {
     btn = document.createElement("button");

@@ -11,6 +11,13 @@ is first in the cable chain, where each one lands on the canvas, and how each is
 rotated. Hand-deriving it is the usual pain: edit → photograph random scrolling
 text → guess → repeat.
 
+:::note[Do you need this?]
+Only multi-row layouts (e.g. the bigsign's 2×4 serpentine) need a
+`pixel_mapper_config`. If your panels are a single horizontal chain — like
+the smallsign — skip this page; [`panel-test`](/tools/panel-test/) is all
+you need.
+:::
+
 `panel-map` replaces that loop with a four-step workflow: **reveal** your layout
 on the panels → **transcribe** the grid you see → **derive** the string →
 **verify** it on the real canvas. It is implemented at

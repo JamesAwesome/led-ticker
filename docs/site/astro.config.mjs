@@ -98,6 +98,41 @@ export default defineConfig({
           ],
         },
         {
+          label: "Hardware",
+          items: [
+            // Build pages and embedded reference configs alternate by sign
+            // type so a reader scanning the sidebar can pair each build
+            // walkthrough with the working config it produces. Reference
+            // configs link to the #reference-config anchor on the build
+            // page so a click lands directly on the embedded TOML.
+            { label: "Hardware: Bigsign reference build", link: "/hardware/bigsign/" },
+            {
+              label: 'Bigsign config - "Showroom"',
+              link: "/hardware/bigsign/#reference-config",
+            },
+            {
+              label: "Hardware: Smallsign reference build",
+              link: "/hardware/smallsign/",
+            },
+            {
+              label: 'Smallsign config - "Office Ticker"',
+              link: "/hardware/smallsign/#reference-config",
+            },
+            {
+              label: "Hardware: Longboi reference build",
+              link: "/hardware/longboi/",
+            },
+            {
+              label: 'Longboi config - "Meeting Backdrop"',
+              link: "/hardware/longboi/#config-snippet",
+            },
+            {
+              label: "Hardware: Building your own",
+              link: "/hardware/building-your-own/",
+            },
+          ],
+        },
+        {
           label: "Widgets",
           items: [
             // Overview index first (matches the sibling Transitions
@@ -211,41 +246,6 @@ export default defineConfig({
         {
           label: "Reference",
           items: [{ autogenerate: { directory: "reference" } }],
-        },
-        {
-          label: "Hardware",
-          items: [
-            // Build pages and embedded reference configs alternate by sign
-            // type so a reader scanning the sidebar can pair each build
-            // walkthrough with the working config it produces. Reference
-            // configs link to the #reference-config anchor on the build
-            // page so a click lands directly on the embedded TOML.
-            { label: "Hardware: Bigsign reference build", link: "/hardware/bigsign/" },
-            {
-              label: 'Bigsign config - "Showroom"',
-              link: "/hardware/bigsign/#reference-config",
-            },
-            {
-              label: "Hardware: Smallsign reference build",
-              link: "/hardware/smallsign/",
-            },
-            {
-              label: 'Smallsign config - "Office Ticker"',
-              link: "/hardware/smallsign/#reference-config",
-            },
-            {
-              label: "Hardware: Longboi reference build",
-              link: "/hardware/longboi/",
-            },
-            {
-              label: 'Longboi config - "Meeting Backdrop"',
-              link: "/hardware/longboi/#config-snippet",
-            },
-            {
-              label: "Hardware: Building your own",
-              link: "/hardware/building-your-own/",
-            },
-          ],
         },
         // Inspiration / browsing — last, because reaching it from
         // anywhere else is a sign you've already learned what you came for.

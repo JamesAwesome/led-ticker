@@ -8,7 +8,7 @@ import RelatedPages from "../../../components/RelatedPages.astro";
 led-ticker exposes one console script (`led-ticker`) with a default
 "run the display" mode and `validate`, `plugin`, and `webui` subcommands. Day-to-day
 development is wrapped in `make` targets that drive `uv`, `pytest`,
-`ruff`, and the docs site. This page covers all of them. The console
+`ruff`, and the docs site. The console
 script is registered in `pyproject.toml` as
 `led-ticker = "led_ticker.app:main"`.
 
@@ -238,7 +238,7 @@ are fail-soft: a single broken TOML doesn't block the rest from
 rendering — failures get listed at the end and the target exits non-
 zero.
 
-## Docker
+## Running with Docker Compose
 
 The production deployment uses `docker compose`. With the repo cloned
 on a Pi and a `config/config.toml` in place, the standard invocation is:
@@ -252,7 +252,7 @@ you edit the TOML on the host and the container picks it up on
 restart. Its `restart: unless-stopped` policy brings the ticker back
 up automatically on boot and after a crash.
 
-## Tips
+## Sharp edges
 
 ### `--led-*` flags belong to the `rgbmatrix` library, not `led-ticker`
 

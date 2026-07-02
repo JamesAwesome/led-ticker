@@ -141,9 +141,10 @@ if [ "$MODE" = "deploy" ]; then
     cat <<'EOF'
 
   Next steps:
-    • View live logs:       make logs
-    • Open the web UI:      http://localhost:8080
-                            (requires COMPOSE_PROFILES=webui — see below)
+    • Watch startup:        make logs    (panels scroll within ~1 min of first boot)
+    • Open the web UI:      http://<pi-hostname>.local:8080
+                            (http://localhost:8080 if this machine is local;
+                             requires COMPOSE_PROFILES=webui — see below)
     • Stop:                 make down
 
   Web UI (optional sidecar):

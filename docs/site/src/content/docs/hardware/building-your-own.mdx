@@ -6,16 +6,11 @@ description: Build your own scrolling RGB LED matrix sign — Raspberry Pi + HUB
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-If you're starting from scratch and want to build a led-ticker rig of
-your own, this page covers the cross-cutting decisions: pick a size,
-budget the power, develop the config locally without buying anything,
-then deploy. led-ticker ships with two **reference builds** that the
-maintainer runs day-to-day and that the documentation, demos, and
-example configs are written against — the
-[smallsign](/hardware/smallsign/) (Pi 4 + 5x 32x16 panels) and the
-[bigsign](/hardware/bigsign/) (Pi 5 + 8x P3 32x64 panels). They're
-bookends, not requirements: anything in between is a viable build, and
-the engine is the same.
+led-ticker ships two **reference builds**: the
+[smallsign](/hardware/smallsign/) (Pi 4 + 5× 32×16 panels) and the
+[bigsign](/hardware/bigsign/) (Pi 5 + 8× P3 32×64 panels). They're
+starting points, not requirements — anything in between (or beyond)
+is a viable build, and the engine is the same.
 
 ## Choosing a sign size
 
@@ -60,8 +55,6 @@ practical draw is roughly 30-40% of the theoretical max.
 | Smallsign       | 5V × ~150A      | 5V × **10A**   |
 | Bigsign         | 5V × ~980A      | 5V × **60A**   |
 
-The theoretical max assumes every LED is full-white at the same instant — that never happens in practice. Text, emoji, and animations light only a fraction of the panel at any moment, so the practical supply has ample headroom.
-
 A 5V / 10A brick covers the smallsign with comfortable headroom; the
 bigsign wants a 5V / 30-60A supply with thick busbars (split across
 multiple injection points if your panels have multiple power inputs).
@@ -104,9 +97,7 @@ Run the test suite — no hardware, no Docker:
 make test
 ```
 
-`make test` automatically sets `PYTHONPATH=tests/stubs` so the stub
-canvas stands in for the real one. The full suite is ~1450 tests and
-finishes in ~2 minutes.
+`make test` runs the full suite — pyproject's `[tool.pytest.ini_options] pythonpath = ["tests/stubs"]` puts the stub canvas on the path automatically, so no env var is needed. ~1450 tests, finishes in ~2 minutes.
 
 Render any config to a gif at panel resolution:
 
@@ -180,7 +171,7 @@ yours to customize per sign). Private media — images, GIFs, custom fonts —
 goes in `config/local/` (also gitignored) and is referenced in TOML as
 `path = "local/<file>"`.
 
-## Tips
+## Sharp edges
 
 ### The rgbmatrix library is hardcoded to a fork in the Dockerfile
 

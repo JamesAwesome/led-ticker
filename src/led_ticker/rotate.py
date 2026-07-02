@@ -171,7 +171,14 @@ def rotate_blit(
     (cos_t, -sin_t) per x-step. ``int(sx + 0.5)`` folds the round() into a
     single truncation (``+0.5`` is hoisted into the row-start terms).
     src._pixels is indexed directly (no per-sample method call overhead).
-    Output is byte-identical to the round()-based reference implementation.
+    Output matches the round()-based reference implementation at every
+    sample EXCEPT exact half-integer inverse coordinates: int(x + 0.5)
+    rounds half-UP while round() is banker's half-to-even, so a source
+    coordinate landing exactly on .5 can pick the adjacent slot (~5% of
+    angles produce at least one lit-pixel tie on typical content). Spec
+    R3 cleared the divergence as visually irrelevant on an LED (a one-
+    slot nearest-neighbor tiebreak); do NOT "fix" it back to round() —
+    the two round() calls were the single largest per-sample cost.
     """
     theta = math.radians(angle_deg)
     cos_t = math.cos(theta)
@@ -385,14 +392,11 @@ class RotationSurface:
                 src_w = src.width
                 half_pixels = half._pixels
                 half_w = half.width
-                half_h = half.height
                 for hy in range(hy0, hy1):
                     sy = hy * 2
                     hrow = hy * half_w
                     sy1 = min(sy + 1, src.height - 1)
                     for hx in range(hx0, hx1):
-                        if hx >= half_w or hy >= half_h:
-                            continue
                         sx = hx * 2
                         sx1 = min(sx + 1, src.width - 1)
                         # Any-lit: pick the first lit pixel in the 2×2 block.

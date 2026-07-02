@@ -3,7 +3,8 @@ nearest-neighbor rotation; unset pixels are transparent.
 
 Also covers Task-5A additions:
 - PixelBuffer.lit_extent tracking (SetPixel/SubFill update; clear() resets)
-- rotate_blit optimized inner loop with src_extent param (byte-identical output)
+- rotate_blit optimized inner loop with src_extent param (identical output
+  except at exact .5-tie inverse coords — see TestBlitIdentity's note)
 - RotationSurface snapshot/invalidate lifecycle + half-space pivot
 """
 
@@ -24,7 +25,14 @@ def _rotate_blit_reference(
     dst: object, src: PixelBuffer, angle_deg: float, cx: float, cy: float
 ) -> None:
     """Original rotate_blit inner loop — preserved as the correctness oracle.
-    The optimized implementation in src must produce byte-identical output."""
+    The optimized implementation in src must produce identical output at
+    the angles below. NOTE (review-adjudicated): identity does NOT hold at
+    every angle — int(x+0.5) half-up vs round()'s half-to-even diverge when
+    an inverse coordinate lands exactly on .5 (about 5% of angles produce a
+    lit-pixel tie; e.g. 2.0 and 48.0 on the standard pattern, or 45.0 on a
+    33x17 buffer). The angles chosen here are tie-free by construction; if
+    you add an angle and this fails with single-slot displacements, you have
+    hit a tie, not a bug — spec R3 cleared ties as visually irrelevant."""
     theta = math.radians(angle_deg)
     cos_t = math.cos(theta)
     sin_t = math.sin(theta)
@@ -419,7 +427,8 @@ def _make_test_pattern(w: int = 32, h: int = 16) -> PixelBuffer:
 
 
 class TestRotateBlitOptimized:
-    """The optimized rotate_blit must produce byte-identical output to the
+    """The optimized rotate_blit must produce identical output to the
+    (tie-free angles only — see the class docstring note) —
     reference implementation across arbitrary angles, with and without extent."""
 
     @pytest.mark.parametrize("angle", [7.3, 45.0, 61.7, 137.0, 289.0])

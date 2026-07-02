@@ -24,6 +24,33 @@ class PixelBuffer:
         if 0 <= x < self.width and 0 <= y < self.height:
             self._pixels[y * self.width + x] = (r, g, b)
 
+    def SubFill(  # noqa: N802 - canvas API
+        self, x: int, y: int, w: int, h: int, r: int, g: int, b: int
+    ) -> None:
+        """Fill the (clamped) w×h block at (x, y). Out-of-bounds portions
+        are silently ignored — same semantics as SetPixel. Required by
+        ScaledCanvas, whose SetPixel/SubFill write through real.SubFill."""
+        x0 = max(0, x)
+        y0 = max(0, y)
+        x1 = min(self.width, x + w)
+        y1 = min(self.height, y + h)
+        pixel = (r, g, b)
+        for yy in range(y0, y1):
+            row = yy * self.width
+            for xx in range(x0, x1):
+                self._pixels[row + xx] = pixel
+
+    def clear(self) -> None:
+        """Reset every slot to None (transparent). The per-frame reset for
+        construct-once rotation surfaces.
+
+        Rebind-not-loop, adjudicated by the antagonist plan review: one
+        C-level list construction per frame beats 16K interpreted stores;
+        nothing else holds the list (the wrapper holds the BUFFER object;
+        rotate_blit reads via get()). The Task-5 benchmark times clear()
+        as part of the frame unit and re-adjudicates if it ever matters."""
+        self._pixels = [None] * (self.width * self.height)
+
     def get(self, x: int, y: int) -> tuple[int, int, int] | None:
         """The pixel at (x, y), or None when unset (= transparent)."""
         if 0 <= x < self.width and 0 <= y < self.height:

@@ -90,3 +90,47 @@ class TestRotateBlit:
         for angle in (17.0, 45.0, 90.0, 245.0):
             rotate_blit(dst, src, angle, 8.0, 8.0)
         assert all(0 <= x < 16 and 0 <= y < 16 for (x, y) in dst.pixels)
+
+
+class TestPixelBufferSubFill:
+    def test_subfill_fills_exact_block(self) -> None:
+        buf = PixelBuffer(8, 8)
+        buf.SubFill(2, 3, 2, 2, 9, 8, 7)
+        filled = {(x, y) for x in range(8) for y in range(8) if buf.get(x, y)}
+        assert filled == {(2, 3), (3, 3), (2, 4), (3, 4)}
+        assert buf.get(2, 3) == (9, 8, 7)
+
+    def test_subfill_clamps_out_of_bounds(self) -> None:
+        buf = PixelBuffer(4, 4)
+        buf.SubFill(3, 3, 4, 4, 1, 1, 1)  # spills past both edges
+        filled = {(x, y) for x in range(4) for y in range(4) if buf.get(x, y)}
+        assert filled == {(3, 3)}
+        buf2 = PixelBuffer(4, 4)
+        buf2.SubFill(-2, -2, 3, 3, 1, 1, 1)  # negative origin clamps
+        filled2 = {(x, y) for x in range(4) for y in range(4) if buf2.get(x, y)}
+        assert filled2 == {(0, 0)}
+
+    def test_clear_resets_all_slots(self) -> None:
+        buf = PixelBuffer(4, 4)
+        buf.SubFill(0, 0, 4, 4, 5, 5, 5)
+        buf.clear()
+        assert all(buf.get(x, y) is None for x in range(4) for y in range(4))
+
+
+class TestWrappedBufferDraw:
+    def test_scaled_canvas_over_buffer_draws_bdf_text(self) -> None:
+        """Regression pin for spec §1b: ScaledCanvas writes route through
+        real.SubFill — a bare PixelBuffer AttributeError'd here before
+        this task. BDF text through the wrapper must land as scale-sized
+        blocks in the buffer."""
+        from led_ticker.fonts import FONT_DEFAULT, get_bdf_for
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        buf = PixelBuffer(64 * 4, 16 * 4)  # panel-shaped, scale 4
+        wrapper = ScaledCanvas(buf, scale=4, content_height=16)
+        bdf = get_bdf_for(FONT_DEFAULT)
+        wrapper.draw_bdf_text(bdf, 0, 12, (255, 255, 255), "HI")
+        lit = [
+            (x, y) for x in range(buf.width) for y in range(buf.height) if buf.get(x, y)
+        ]
+        assert lit, "wrapped BDF draw painted nothing"

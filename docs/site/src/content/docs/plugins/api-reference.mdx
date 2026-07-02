@@ -220,6 +220,12 @@ Plugin authors register a backend with **`api.backend(name)`** from inside their
 
 {/* <!-- api-exports:end --> */}
 
+### Using `FrameAwareBase` for animated effects
+
+`FrameAwareBase` is the base class for any widget whose color or animation state changes frame-to-frame. Inherit from it (with `@attrs.define`) and call `self.frame_for(name)` to read per-effect counters that the engine drives; the counters advance automatically so your `draw()` doesn't need to track time itself.
+
+`FrameAwareBase` also provides `frames_to_transition_ready()`. The engine calls it at the hold→transition handoff and may extend the hold by up to roughly one second so animated effects can finish at a natural rest point — for example, letting a shimmer sweep reach its pause window before the scene changes, or waiting for a typewriter reveal to finish its last few characters. The method aggregates `frames_to_rest(frame, total_chars)` across the widget's effects (color providers, animations) and never raises. Widgets with per-region text (such as a two-row layout with different text in each band) override `_effect_total_chars(attr_name)` to supply each effect with the character count it actually renders with; the default uses the widget's `text` attribute.
+
 <Aside type="note" title="Configuring a plugin backend">
   Plugin backends can't read custom `[display]` fields yet — `DisplayConfig` has a fixed field set,
   so any unrecognized key is ignored. Pass backend config (host, port, …) via **environment

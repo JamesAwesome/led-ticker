@@ -11,6 +11,8 @@ led-ticker has one animation right now: **typewriter** — a character-by-charac
 
 Animations are a separate axis from color providers. A widget can carry both simultaneously — for example `animation = "typewriter"` and `font_color = "rainbow"` — and each effect tracks its own frame counter. The characters type out in rainbow with no interference between the two systems.
 
+Animations may also emit a per-frame `rotation` (degrees, clockwise) that the message widget renders through an offscreen rotate around the text block's center — the first consumer is the flair plugin's propeller effect, coming separately.
+
 <DemoGif
   src="/demos/concepts-animations.gif"
   caption="`message` with animation = typewriter and font_color = rainbow"

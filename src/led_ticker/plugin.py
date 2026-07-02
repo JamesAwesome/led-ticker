@@ -45,6 +45,7 @@ from led_ticker.color_providers import (
     ColorProviderBase,
     as_color_provider,
 )
+from led_ticker.constants import ENGINE_TICK_MS
 from led_ticker.drawing import (
     compute_baseline,
     compute_baseline_for_band,
@@ -112,6 +113,7 @@ __all__ = [
     "PolledDataSource",
     "DrawResult",
     "EMOJI_ROW_CAP",
+    "ENGINE_TICK_MS",
     "ColorProvider",
     "ColorProviderBase",
     "as_color_provider",

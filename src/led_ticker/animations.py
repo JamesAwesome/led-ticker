@@ -23,9 +23,16 @@ class AnimationFrame:
 
     visible_text: The slice (or full text) to draw. Typewriter returns
                   growing prefixes.
+    rotation:     In-plane rotation of the rendered text in degrees,
+                  clockwise-positive. 0.0 (the default) means no rotation
+                  and takes the widget's normal draw path. Non-zero routes
+                  the text through an offscreen buffer + rotate_blit
+                  (see led_ticker.rotate). Emitted by rotation-capable
+                  animations (e.g. the flair plugin's propeller).
     """
 
     visible_text: str
+    rotation: float = 0.0
 
 
 @runtime_checkable
@@ -49,6 +56,13 @@ class Animation(Protocol):
     transition doesn't chop the animation mid-flight.
 
     See ``Typewriter`` for the canonical implementation.
+
+    Rotation-capable animations set ``rotation`` (degrees, clockwise-
+    positive) on the frames they return, and declare the class attribute
+    ``emits_rotation = True`` — a duck-typed marker validate rule 63
+    reads to warn about hires-font widgets (whose text cannot rotate
+    until physical-resolution rotation ships). Animations without the
+    attribute never rotate.
     """
 
     def frame_for(

@@ -60,6 +60,19 @@ class ColorProviderBase:
                 "False if it varies per frame (rainbow, color_cycle)."
             )
 
+    def frames_to_rest(self, frame: int, total_chars: int) -> int:
+        """Frames until this effect reaches a natural rest point.
+
+        0 = at rest now, or no rest concept (never defers a transition).
+        The engine consults this at the hold→transition handoff and may
+        extend the hold by up to ~1 s (MAX_SETTLE_TICKS) so the
+        transition lands on a visually flat state instead of mid-sweep.
+        Continuously-cycling providers (Rainbow, ColorCycle) keep this
+        default — they have no rest point and must never stall the
+        rotation.
+        """
+        return 0
+
 
 class ColorProvider(Protocol):
     """Returns a Color given a frame counter and (for per-char
@@ -241,14 +254,37 @@ class Shimmer(ColorProviderBase):
         self.width = width
         self.pause = pause
 
+    def _cycle_geometry(self, total_chars: int) -> tuple[float, float]:
+        """(sweep_frames, cycle_frames) — the single source of cycle math
+        for BOTH color_for and frames_to_rest, so the two can't drift."""
+        chars = max(total_chars, 1)
+        sweep_frames = chars / self.speed * _SHIMMER_FPS
+        cycle_frames = sweep_frames + self.pause * _SHIMMER_FPS
+        return sweep_frames, cycle_frames
+
+    def frames_to_rest(self, frame: int, total_chars: int) -> int:
+        """Frames until the sweep reaches its pause window.
+
+        A sub-frame pause (pause_frames < 1, including pause=0) has no
+        landable rest tick — advancing by ceil(sweep - t) would land in
+        [sweep, sweep+1), which only sits inside the pause when the pause
+        is at least one frame wide. Return 0 in that case (never defer).
+        """
+        sweep_frames, cycle_frames = self._cycle_geometry(total_chars)
+        pause_frames = cycle_frames - sweep_frames
+        if pause_frames < 1:
+            return 0
+        t = float(frame) % cycle_frames
+        if t >= sweep_frames:
+            return 0
+        return math.ceil(sweep_frames - t)
+
     def color_for(self, frame: int, char_index: int, total_chars: int) -> Color:
-        from led_ticker._compat import require_graphics
+        from led_ticker._compat import require_graphics  # noqa: PLC0415
 
         graphics = require_graphics()
         chars = max(total_chars, 1)
-        sweep_frames = chars / self.speed * _SHIMMER_FPS
-        pause_frames = self.pause * _SHIMMER_FPS
-        cycle_frames = sweep_frames + pause_frames
+        sweep_frames, cycle_frames = self._cycle_geometry(total_chars)
 
         t = float(frame) % cycle_frames
 

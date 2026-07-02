@@ -1,6 +1,7 @@
 """Engine instrumentation: monitor updates and widget visits reach the board."""
 
 import asyncio
+import contextlib
 import inspect
 import logging
 import types
@@ -9,13 +10,18 @@ import pytest
 
 from led_ticker import status_board
 from led_ticker.status_board import StatusBoard
-from led_ticker.widget import run_monitor_loop
+from led_ticker.widget import Container, run_monitor_loop
 
 
 class _OneShotMonitor:
-    """Updatable that succeeds once then cancels its own loop."""
+    """Updatable that succeeds once then cancels its own loop.
+
+    Mirrors a real Container: has ``feed_stories`` + ``update()`` but NO
+    ``.draw`` — verifying the container-shape registration path (Finding 1).
+    """
 
     name = "RSS BBC"
+    feed_stories: list = []
 
     def __init__(self):
         self.updated = asyncio.Event()
@@ -29,11 +35,15 @@ async def test_run_monitor_loop_records_update(tmp_path):
     board = StatusBoard(path=tmp_path / "status.json")
     status_board.set_active_board(board)
     monitor = _OneShotMonitor()
+    assert isinstance(monitor, Container), (
+        "_OneShotMonitor must satisfy the Container protocol"
+    )
     task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
     try:
         await asyncio.wait_for(monitor.updated.wait(), timeout=2)
         await asyncio.sleep(0.05)  # let the post-update record run
-        assert "RSS BBC" in board.monitor_updates
+        # schema 9: monitor data lives in board.monitors, not board.monitor_updates
+        assert "RSS BBC" in board.monitors
     finally:
         task.cancel()
         status_board.clear_active_board()
@@ -45,6 +55,8 @@ async def test_run_monitor_loop_falls_back_to_class_name(tmp_path):
     status_board.set_active_board(board)
 
     class Nameless:
+        feed_stories: list = []
+
         def __init__(self):
             self.updated = asyncio.Event()
 
@@ -52,14 +64,169 @@ async def test_run_monitor_loop_falls_back_to_class_name(tmp_path):
             self.updated.set()
 
     monitor = Nameless()
+    assert isinstance(monitor, Container), (
+        "Nameless must satisfy the Container protocol"
+    )
     task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
     try:
         await asyncio.wait_for(monitor.updated.wait(), timeout=2)
         await asyncio.sleep(0.05)
-        assert "Nameless" in board.monitor_updates
+        # schema 9: monitor data lives in board.monitors, not board.monitor_updates
+        assert "Nameless" in board.monitors
     finally:
         task.cancel()
         status_board.clear_active_board()
+
+
+@pytest.mark.asyncio
+async def test_register_on_entry_and_error_with_retry(tmp_path):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+
+    class _FailingWidget:
+        name = "flaky"
+        feed_stories: list = []
+
+        async def update(self):
+            raise ValueError("boom")
+
+    _fw = _FailingWidget()
+    assert isinstance(_fw, Container), (
+        "_FailingWidget must satisfy the Container protocol"
+    )
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(_fw, 0.01, splay=False, immediate=True)
+        )
+        for _ in range(30):
+            await asyncio.sleep(0)
+            if board.monitors.get("flaky", {}).get("error"):
+                break
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        m = board.monitors["flaky"]
+        assert m["kind"] == "widget"
+        err = m["error"]
+        assert err and "boom" in err["message"] and err["consecutive"] >= 1
+        assert err["retry_in"] > 0  # the backoff hint
+    finally:
+        sb.set_active_board(None)
+
+
+@pytest.mark.asyncio
+async def test_register_monitor_false_excludes(tmp_path):
+    """register_monitor=False → the rider never appears in board.monitors.
+
+    This is the explicit opt-out for riders that are not data monitors.
+    The sole current consumer is busy_light — a visual-overlay helper, not a
+    data monitor. Exclusion is now kwarg-driven, NOT shape-based: a bare object
+    with only update() would be registered by default (see
+    test_unknown_shape_registers_by_default). The shape of _BusyLike below is
+    irrelevant to the outcome; what matters is register_monitor=False.
+    """
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+
+    class _BusyLike:
+        # busy_light shape: no .draw, no .feed_stories, no .polled.
+        # Excluded by register_monitor=False, NOT by shape.
+        name = "busy"
+
+        async def update(self): ...
+
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(
+                _BusyLike(), 0.01, splay=False, immediate=True, register_monitor=False
+            )
+        )
+        for _ in range(10):
+            await asyncio.sleep(0)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        assert "busy" not in board.monitors
+    finally:
+        sb.set_active_board(None)
+
+
+@pytest.mark.asyncio
+async def test_container_widget_registers(tmp_path):
+    """Container monitors (feed_stories + update, NO .draw) must appear in
+    board.monitors — verifies Finding 1 fix in run_monitor_loop."""
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+
+    class _Container:  # mirrors rss.feed / calendar.events shape
+        name = "RSS BBC"
+        feed_stories: list = []
+
+        def __init__(self):
+            self.updated = asyncio.Event()
+
+        async def update(self):
+            self.updated.set()
+
+    monitor = _Container()
+    assert isinstance(monitor, Container), (
+        "_Container must satisfy the Container protocol"
+    )
+    try:
+        task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)  # let the post-update record run
+        entry = board.monitors.get("RSS BBC")
+        assert entry is not None, (
+            "Container widget (feed_stories + update, no .draw) must be "
+            "registered in board.monitors"
+        )
+        assert entry["kind"] == "widget"
+    finally:
+        task.cancel()
+        sb.set_active_board(None)
+
+
+@pytest.mark.asyncio
+async def test_status_error_never_escapes_loop(tmp_path, monkeypatch):
+    import led_ticker.status_board as sb
+
+    board = sb.StatusBoard(path=tmp_path / "s.json")
+    sb.set_active_board(board)
+
+    def _boom(*a, **k):
+        raise RuntimeError("board down")
+
+    # If the raising recorder reached the loop unwrapped it would kill it.
+    monkeypatch.setattr(sb, "record_monitor_error", _boom)
+
+    class _Flaky:
+        name = "x"
+        feed_stories: list = []
+
+        async def update(self):
+            raise ValueError("nope")
+
+    _flaky = _Flaky()
+    assert isinstance(_flaky, Container), "_Flaky must satisfy the Container protocol"
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(_flaky, 0.01, splay=False, immediate=True)
+        )
+        for _ in range(10):
+            await asyncio.sleep(0)
+        assert not task.done()  # loop survived a raising recorder
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        sb.set_active_board(None)
 
 
 def test_show_one_calls_record_widget_visit():
@@ -674,3 +841,283 @@ class TestConsumeRestartMarker:
             "_restart_requested must consume (delete) the marker via "
             "_consume_restart_marker before returning True"
         )
+
+
+# --- Task 3: type + value propagation through run_monitor_loop ---------------
+
+
+@pytest.mark.asyncio
+async def test_run_monitor_loop_records_type_for_polled_source(tmp_path):
+    """A polled source registered in _PLUGIN_SOURCE_TYPES appears with its
+    type name in the monitor entry after a successful update."""
+    import asyncio
+
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+    from led_ticker.status_board import StatusBoard
+
+    class _FakeWeather(PolledDataSource):
+        polled = True
+        id = "fake_weather_src"
+
+        def __init__(self):
+            super().__init__(id="fake_weather_src", interval=60)
+            self.updated = asyncio.Event()
+            self._current = "72°F Sunny"
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    _PLUGIN_SOURCE_TYPES["acme.weather"] = _FakeWeather
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    monitor = _FakeWeather()
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
+        )
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)
+        entry = board.monitors.get(monitor.id)
+        assert entry is not None, "polled source must be in monitors"
+        assert entry["type"] == "acme.weather", (
+            f"type should be 'acme.weather', got {entry['type']!r}"
+        )
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.weather", None)
+        status_board.clear_active_board()
+
+
+@pytest.mark.asyncio
+async def test_run_monitor_loop_records_value_for_source_with_current(tmp_path):
+    """After a successful update, record_monitor_update is called with the
+    source's .current value, so the monitor entry carries it."""
+    import asyncio
+
+    from led_ticker.sources import _PLUGIN_SOURCE_TYPES, PolledDataSource
+    from led_ticker.status_board import StatusBoard
+
+    class _FakeWeather(PolledDataSource):
+        polled = True
+
+        def __init__(self):
+            super().__init__(id="fake_weather_val", interval=60)
+            self.updated = asyncio.Event()
+            self.current = "72°F Sunny"
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    _PLUGIN_SOURCE_TYPES["acme.weather2"] = _FakeWeather
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    monitor = _FakeWeather()
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
+        )
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)
+        entry = board.monitors.get(monitor.id)
+        assert entry is not None
+        assert entry["value"] == "72°F Sunny", (
+            f"value should be '72°F Sunny', got {entry['value']!r}"
+        )
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        _PLUGIN_SOURCE_TYPES.pop("acme.weather2", None)
+        status_board.clear_active_board()
+
+
+@pytest.mark.asyncio
+async def test_raising_monitor_value_does_not_count_as_update_failure(
+    tmp_path, monkeypatch
+):
+    """A raise in _monitor_value on a SUCCESSFUL update must NOT bump
+    consecutive_errors or record a monitor error.
+
+    Before the else-clause fix, _monitor_value and record_monitor_update sat
+    inside the same try that wrapped update() — a raise there would hit the
+    except branch, increment consecutive_errors, and log "Error updating" even
+    though update() itself succeeded.
+    """
+    import asyncio
+
+    import led_ticker.status_board as sb
+    from led_ticker.status_board import StatusBoard
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    sb.set_active_board(board)
+
+    class _GoodWidget:
+        name = "good_widget"
+        feed_stories: list = []
+
+        def __init__(self):
+            self.updated = asyncio.Event()
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    def _exploding_value(obj: object) -> str:
+        raise RuntimeError("value compute exploded")
+
+    monkeypatch.setattr(sb, "_monitor_value", _exploding_value)
+
+    monitor = _GoodWidget()
+    assert isinstance(monitor, Container), (
+        "_GoodWidget must satisfy the Container protocol"
+    )
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
+        )
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)  # let the post-update else branch run
+
+        entry = board.monitors.get("good_widget")
+        assert entry is not None, "monitor must be registered"
+        assert entry.get("error") is None, (
+            "a raise in _monitor_value must NOT record a monitor error "
+            "(the update itself succeeded)"
+        )
+        # The loop must still be running — it did not crash.
+        assert not task.done(), "loop must survive a raising _monitor_value"
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        sb.set_active_board(None)
+
+
+@pytest.mark.asyncio
+async def test_run_monitor_loop_records_value_for_container(tmp_path):
+    """After a successful Container update, value reflects 'N items'."""
+    import asyncio
+
+    from led_ticker.status_board import StatusBoard
+
+    class _FakeContainer:
+        name = "RSS Fake"
+        feed_stories: list = []
+
+        def __init__(self):
+            self.updated = asyncio.Event()
+            self.feed_stories = ["story1", "story2"]
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    board = StatusBoard(path=tmp_path / "status.json")
+    status_board.set_active_board(board)
+    monitor = _FakeContainer()
+    assert isinstance(monitor, Container), (
+        "_FakeContainer must satisfy the Container protocol"
+    )
+    try:
+        task = asyncio.create_task(
+            run_monitor_loop(monitor, 0.01, splay=False, immediate=True)
+        )
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)
+        entry = board.monitors.get("RSS Fake")
+        assert entry is not None
+        assert entry["value"] == "2 items", (
+            f"value should be '2 items', got {entry['value']!r}"
+        )
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        status_board.clear_active_board()
+
+
+# --- Monitor-registration hardening (2026-07-01) ------------------------------
+
+
+@pytest.mark.asyncio
+async def test_unknown_shape_registers_by_default(tmp_path):
+    """A bare Updatable with ONLY update() — no polled/draw/feed_stories —
+    must be registered with kind == 'widget' by default.
+
+    This is the primary tripwire for the no-allow-list invariant: any future
+    shape check that would skip this object fails this test. The old code
+    silently skipped objects that didn't match the shape allow-list (polled /
+    draw / feed_stories); the new code registers everything by default.
+    """
+    import led_ticker.status_board as sb
+
+    class _BareUpdatable:
+        """No .polled, no .draw, no .feed_stories — just update()."""
+
+        name = "bare_thing"
+
+        def __init__(self):
+            self.updated = asyncio.Event()
+
+        async def update(self) -> None:
+            self.updated.set()
+
+    board = sb.StatusBoard(path=tmp_path / "status.json")
+    sb.set_active_board(board)
+    monitor = _BareUpdatable()
+    try:
+        task = asyncio.create_task(run_monitor_loop(monitor, 0.01, splay=False))
+        await asyncio.wait_for(monitor.updated.wait(), timeout=2)
+        await asyncio.sleep(0.05)
+        entry = board.monitors.get("bare_thing")
+        assert entry is not None, (
+            "A bare Updatable (no draw/feed_stories/polled) must be registered "
+            "by default — no allow-list should gate registration."
+        )
+        assert entry["kind"] == "widget"
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+    finally:
+        sb.clear_active_board()
+
+
+def test_busy_light_run_monitor_loop_passes_register_monitor_false():
+    """AST tripwire: the busy-light spawn of run_monitor_loop in
+    _start_busy_light must pass register_monitor=False.
+
+    Pins the explicit opt-out against accidental removal — a merge that drops
+    the kwarg would silently register busy_light as a 'widget' monitor, adding
+    a spurious row to the status board. Precedent: test_engine_redraw_contract.py.
+    """
+    import ast
+
+    from led_ticker.app.run import _start_busy_light
+
+    src = inspect.getsource(_start_busy_light)
+    tree = ast.parse(src)
+
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "run_monitor_loop"
+        ):
+            for kw in node.keywords:
+                if kw.arg == "register_monitor":
+                    assert (
+                        isinstance(kw.value, ast.Constant) and kw.value.value is False
+                    ), (
+                        "run_monitor_loop in _start_busy_light must pass "
+                        "register_monitor=False — busy_light is not a data monitor"
+                    )
+                    return
+            pytest.fail(
+                "run_monitor_loop in _start_busy_light does not pass "
+                "register_monitor=False — the busy_light opt-out is missing"
+            )
+
+    pytest.fail(
+        "run_monitor_loop call not found in _start_busy_light source — "
+        "tripwire cannot verify the register_monitor=False opt-out"
+    )

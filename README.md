@@ -7,6 +7,8 @@
 
 **led-ticker** is an open-source Python toolkit that drives RGB LED matrix panels — storefront marquees, gym and class schedules, sports scores, transit times, scrolling messages — from a Raspberry Pi, all from a single TOML config. Try it on your laptop with **no hardware** in about two minutes, then deploy the same Docker image to a Pi when your panels arrive.
 
+A capability that sets led-ticker apart: **inline [value tokens](https://docs.ledticker.dev/concepts/value-tokens/)** — drop a `:weather.nyc:` or `:clock.now:` token into any widget's text and it resolves to a live, self-updating value. A single scrolling message can read `NYC: 72°F Sunny · 9:01 AM`, each piece refreshing on its own — live data composes into ordinary text instead of being locked to dedicated widgets.
+
 Two reference builds share one codebase and one image:
 
 - **Smallsign** — Pi 4 + 5× chained 16×32 panels = 160×16 logical canvas
@@ -37,7 +39,7 @@ cd led-ticker
 make try
 ```
 
-`make try` builds the image and starts a headless display engine plus the web UI — no panel, no Pi. Open **<http://localhost:8080>** and click the **live preview** tab to watch the bundled example (a few demo widgets) scroll in your browser. Edit `config/config.try.example.toml` and refresh to see your changes live. To stop: press `Ctrl-C`, then run `make try-down`.
+`make try` builds the image and starts a headless display engine plus the web UI — no panel, no Pi. Open **<http://localhost:8080>** and click the **live preview** tab to watch the sign rendering in your browser. By default it runs the bundled demo (`config/config.try.example.toml`); create `config/config.toml` and `make try` previews your own config instead, hot-reloading as you edit. To stop: press `Ctrl-C`, then run `make try-down`.
 
 **Ready for hardware?** The [Getting started guide](https://docs.ledticker.dev/getting-started/) walks the full Raspberry Pi deploy end to end (`make setup` → `docker compose up -d`), and [building your own](https://docs.ledticker.dev/hardware/building-your-own/) covers the physical build — BOM, wiring, and panel tuning.
 

@@ -1497,6 +1497,177 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
     return warnings
 
 
+def _check_typewriter_hold(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 61: typewriter typing duration exceeds the effective hold.
+
+    The engine's settle-to-rest extension caps at ~1 s, so a reveal
+    longer than the hold gets chopped mid-type — the viewer never sees
+    the full message. Effective hold mirrors the ENGINE's math:
+    max(section.hold_time, widget hold_time or 0.0) — there is no
+    display-level hold tier, and a widget hold SMALLER than the
+    section's is ignored (max wins), so it must not fire the rule.
+    Duration comes from Typewriter.typing_duration_seconds — the single
+    home of the formula (never re-implement it here).
+    """
+    from led_ticker.animations import Typewriter  # noqa: PLC0415
+    from led_ticker.app.coercion import _coerce_animation  # noqa: PLC0415
+
+    warnings: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        for j, widget_cfg in enumerate(section.widgets):
+            anim_raw = widget_cfg.get("animation")
+            if anim_raw is None:
+                continue
+            try:
+                anim = _coerce_animation(anim_raw)
+            except ValueError, TypeError:
+                continue  # invalid animation — other rules own that
+            if not isinstance(anim, Typewriter):
+                continue
+            text = str(widget_cfg.get("text", "") or "")
+            if not text:
+                continue
+            duration = anim.typing_duration_seconds(len(text))
+            widget_hold = widget_cfg.get("hold_time")
+            if not isinstance(widget_hold, (int, float)) or isinstance(
+                widget_hold, bool
+            ):
+                widget_hold = 0.0
+            effective_hold = max(float(section.hold_time), float(widget_hold))
+            if duration <= effective_hold:
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=61,
+                    location=f"section[{i}].widget[{j}]",
+                    severity="warning",
+                    message=(
+                        f"text takes ~{duration:.1f}s to type but the "
+                        f"effective hold_time is {effective_hold:.1f}s — "
+                        f"the message will be cut mid-type"
+                    ),
+                    fix=(
+                        f"Raise hold_time to at least {duration:.1f}, or "
+                        "shorten the text. (After typing completes, the "
+                        "widget holds fully-typed for the remainder of "
+                        "the hold.)"
+                    ),
+                )
+            )
+    return warnings
+
+
+def _check_animation_duration_hold(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 62: a non-Typewriter animation's run time exceeds the
+    effective hold — it will be cut mid-animation.
+
+    Generalizes rule 61's mechanism via duck-typed frames_to_rest
+    (duration = frames_to_rest(0, len(text)) x ENGINE_TICK_MS). Rule 61
+    keeps Typewriter (its wording is typing-specific). Best-effort: the
+    animation must coerce, so this fires only when the providing plugin
+    is installed — a failed coercion is skipped (the unknown-style error
+    owns that messaging), mirroring the plugin-transition rules.
+    """
+    from led_ticker.animations import Typewriter  # noqa: PLC0415
+    from led_ticker.app.coercion import _coerce_animation  # noqa: PLC0415
+    from led_ticker.constants import ENGINE_TICK_MS  # noqa: PLC0415
+
+    warnings: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        for j, widget_cfg in enumerate(section.widgets):
+            anim_raw = widget_cfg.get("animation")
+            if anim_raw is None:
+                continue
+            try:
+                anim = _coerce_animation(anim_raw)
+            except ValueError, TypeError:
+                continue  # unknown/invalid animation — other rules own that
+            if anim is None or isinstance(anim, Typewriter):
+                continue  # rule 61 owns Typewriter
+            rest_fn = getattr(anim, "frames_to_rest", None)
+            if rest_fn is None:
+                continue
+            text = str(widget_cfg.get("text", "") or "")
+            if not text:
+                continue
+            try:
+                duration = rest_fn(0, len(text)) * ENGINE_TICK_MS / 1000.0
+            except Exception:
+                continue  # a readiness probe must never break validate
+            widget_hold = widget_cfg.get("hold_time")
+            if not isinstance(widget_hold, (int, float)) or isinstance(
+                widget_hold, bool
+            ):
+                widget_hold = 0.0
+            effective_hold = max(float(section.hold_time), float(widget_hold))
+            if duration <= effective_hold:
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=62,
+                    location=f"section[{i}].widget[{j}]",
+                    severity="warning",
+                    message=(
+                        f"animation runs ~{duration:.1f}s but the "
+                        f"effective hold_time is {effective_hold:.1f}s — "
+                        f"it will be cut mid-animation"
+                    ),
+                    fix=(
+                        f"Raise hold_time to at least {duration:.1f}, or "
+                        "shorten the animation (fewer revolutions / lower "
+                        "spin_seconds for flair.propeller)."
+                    ),
+                )
+            )
+    return warnings
+
+
+def _check_rotation_hires_font(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 63: a rotation-emitting animation on a hires font — the spin
+    silently won't apply (the widget's load-bearing guard draws the text
+    unrotated). Duck-typed on the animation's `emits_rotation` class
+    attribute; hires detection is the name-only check the factories
+    already use. Best-effort like rule 62 (see its docstring).
+    """
+    from led_ticker.app.coercion import (  # noqa: PLC0415
+        _coerce_animation,
+        _is_hires_font_name,
+    )
+
+    warnings: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        for j, widget_cfg in enumerate(section.widgets):
+            anim_raw = widget_cfg.get("animation")
+            if anim_raw is None:
+                continue
+            try:
+                anim = _coerce_animation(anim_raw)
+            except ValueError, TypeError:
+                continue
+            if anim is None or not getattr(anim, "emits_rotation", False):
+                continue
+            font_name = widget_cfg.get("font")
+            if not isinstance(font_name, str) or not _is_hires_font_name(font_name):
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=63,
+                    location=f"section[{i}].widget[{j}]",
+                    severity="warning",
+                    message=(
+                        f"rotation animation will not spin the hires font "
+                        f"{font_name!r} until physical-resolution rotation "
+                        "ships; the text will display normally (unrotated)"
+                    ),
+                    fix=(
+                        "Switch this widget to a BDF font to get the spin "
+                        "effect now, or drop the animation."
+                    ),
+                )
+            )
+    return warnings
+
+
 def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
     """Catch fonts that don't fit a multi-row widget's per-row band.
 
@@ -2521,6 +2692,9 @@ async def validate_config(
     # Phase 2: Soft rule warnings (only run when no hard errors)
     if not errors:
         warnings.extend(_check_soft(config))
+        warnings.extend(_check_typewriter_hold(config))
+        warnings.extend(_check_animation_duration_hold(config))
+        warnings.extend(_check_rotation_hires_font(config))
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
         warnings.extend(_check_plugin_validation_warnings(config, effective_config_dir))

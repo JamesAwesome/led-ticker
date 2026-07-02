@@ -241,6 +241,39 @@ def test_config_hash_missing_file_is_none(tmp_path):
     assert config_hash(tmp_path / "nope.toml") is None
 
 
+async def test_apply_reload_clears_monitors(monkeypatch, tmp_path):
+    """_apply_reload must call status_board.clear_monitors() so the monitor
+    roster is pruned before respawned source/widget loops re-register."""
+    import led_ticker.status_board as sb
+
+    called = {"monitors": False}
+    monkeypatch.setattr(
+        sb,
+        "clear_monitors",
+        lambda: called.__setitem__("monitors", True),
+    )
+
+    _SECTION = '[[playlist.section]]\nmode = "slideshow"\n'
+    a = load_config(_write(tmp_path / "a.toml", _DISPLAY + _SECTION))
+    b = load_config(_write(tmp_path / "b.toml", _DISPLAY + _SECTION))
+
+    async def fake_respawn(old_task, cfg):
+        return None
+
+    await rl._apply_reload(
+        b,
+        old_config=a,
+        widget_cache={},
+        widget_tasks={},
+        render_breaker=RenderBreaker(),
+        schedule_task=None,
+        respawn_schedule=fake_respawn,
+        source_refresh_task=None,
+    )
+
+    assert called["monitors"], "clear_monitors must be called during _apply_reload"
+
+
 async def test_apply_reload_reports_restart_required(tmp_path):
     a = load_config(
         _write(

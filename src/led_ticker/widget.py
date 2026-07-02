@@ -1,6 +1,7 @@
 """Widget protocols and shared lifecycle helpers."""
 
 import asyncio
+import contextlib
 import contextvars
 import logging
 from typing import Any, Protocol, runtime_checkable
@@ -131,6 +132,8 @@ async def run_monitor_loop(
     interval: float,
     splay: bool = True,
     immediate: bool = False,
+    *,
+    register_monitor: bool = True,
 ) -> None:
     """Generic monitor loop with exponential backoff on errors.
 
@@ -144,7 +147,41 @@ async def run_monitor_loop(
     Data widgets leave it False: they eager-fetch in ``start()`` before spawning
     the loop, so an immediate first cycle here would double-fetch. Only the first
     cycle is affected; the error-backoff path is unchanged.
+
+    ``register_monitor`` (default True) controls whether this rider appears in
+    the status-board monitor roster. Set to False only for riders that are NOT
+    data monitors (e.g. busy_light — a visual-overlay helper). When False, no
+    registration or update/error recording occurs; a DEBUG log marks the opt-out.
+    There is no shape allow-list: any Updatable is registered by default.
+    No import of ``sources`` (circular).
     """
+    # Register in the monitor roster (best-effort). Registration is UNCONDITIONAL
+    # when register_monitor=True — no shape check gates it. Kind is derived from
+    # the explicit .polled marker (DataSource sets it) vs a plain widget tag.
+    # The only opt-out is register_monitor=False (busy_light); that emits a DEBUG
+    # log and skips registration entirely (_mon_name stays None).
+    _mon_name = None
+    if not register_monitor:
+        with contextlib.suppress(Exception):
+            logger.debug(
+                "monitor loop started (unregistered): %s",
+                type(widget).__name__,
+            )
+    else:
+        with contextlib.suppress(Exception):
+            _name = status_board._monitor_name(widget)
+            _mtype = status_board._monitor_type(widget)
+            kind = "source" if getattr(widget, "polled", False) else "widget"
+            _mon_name = status_board.register_monitor(
+                _name, kind, interval, mtype=_mtype
+            )
+            logger.info(
+                "monitor loop started: %s (%s, every %gs)",
+                _mon_name,
+                kind,
+                interval,
+            )
+
     if splay:
         from random import randint
 
@@ -172,16 +209,33 @@ async def run_monitor_loop(
 
         try:
             await widget.update()
-            consecutive_errors = 0
-            status_board.record_monitor_update(
-                getattr(widget, "name", None) or type(widget).__name__
-            )
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
             consecutive_errors += 1
+            if _mon_name is not None:
+                retry_in = min(
+                    _MAX_BACKOFF, _MIN_BACKOFF * (2 ** (consecutive_errors - 1))
+                )
+                # Belt-and-suspenders: recorder is internally guarded, but wrap
+                # the call site too — instrumentation must never reach the loop.
+                with contextlib.suppress(Exception):
+                    status_board.record_monitor_error(
+                        _mon_name, str(exc)[:200], consecutive_errors, retry_in
+                    )
             logger.exception(
                 "Error updating %s (attempt %d), will back off",
                 type(widget).__name__,
                 consecutive_errors,
             )
+        else:
+            # `else` runs only when update() did NOT raise — so a raise in
+            # _monitor_value / record_monitor_update cannot be miscounted as
+            # an update failure (would have bumped consecutive_errors and
+            # logged "Error updating" for a SUCCESSFUL update).
+            consecutive_errors = 0
+            if _mon_name is not None:
+                with contextlib.suppress(Exception):
+                    status_board.record_monitor_update(
+                        _mon_name, status_board._monitor_value(widget)
+                    )

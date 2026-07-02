@@ -76,6 +76,17 @@ def main() -> None:
         default=Path("config.toml"),
         help="Path to TOML configuration file (default: config.toml)",
     )
+    parser.add_argument(
+        "--backend",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Override the display backend (e.g. headless). "
+            "Overrides [display] backend in the config; resolved through "
+            "the backend registry so an unknown name fails with a clear error. "
+            "Primarily used by the try-preview Docker flow."
+        ),
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -477,7 +488,7 @@ def main() -> None:
         )
         sys.exit(1)
 
-    asyncio.run(run(args.config))
+    asyncio.run(run(args.config, backend_override=args.backend))
 
 
 if __name__ == "__main__":

@@ -156,6 +156,7 @@ async def _apply_reload(
 
     render_breaker.reset()
     status_board.clear_disabled_widgets()
+    status_board.clear_monitors()  # respawned source/widget loops re-register
     schedule_task = await respawn_schedule(schedule_task, new_config)
 
     # Atomic registry swap: build the new registry fully before installing it,

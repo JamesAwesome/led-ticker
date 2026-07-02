@@ -141,9 +141,10 @@ if [ "$MODE" = "deploy" ]; then
     cat <<'EOF'
 
   Next steps:
-    • View live logs:       make logs
-    • Open the web UI:      http://localhost:8080
-                            (requires COMPOSE_PROFILES=webui — see below)
+    • Watch startup:        make logs    (panels scroll within ~1 min of first boot)
+    • Open the web UI:      http://<pi-hostname>.local:8080
+                            (http://localhost:8080 if this machine is local;
+                             requires COMPOSE_PROFILES=webui — see below)
     • Stop:                 make down
 
   Web UI (optional sidecar):
@@ -160,6 +161,19 @@ fi
 
 if [ "$MODE" = "try" ]; then
     say "Mode: try (headless engine + webui preview — no hardware needed)"
+
+    if [ -f config/config.toml ]; then
+        export TRY_CONFIG=/code/config/config.toml
+        ok "Previewing YOUR config/config.toml (hot-reload: edit and watch the browser update)"
+        # tolerate leading whitespace (valid TOML) before the section header
+        if ! grep -q '^[[:space:]]*\[web\]' config/config.toml; then
+            err "Warning: config/config.toml has no [web] block — the live preview needs one."
+            say "  Add [web] (one line) to config/config.toml, then re-run make try."
+        fi
+    else
+        ok "Using the bundled example — create config/config.toml to preview your own sign, then re-run make try"
+    fi
+
     say "Building + starting... first build takes a minute."
     say "Stop with Ctrl-C, then:  docker compose -f compose.try.yaml -p led-ticker-try down"
     echo ""

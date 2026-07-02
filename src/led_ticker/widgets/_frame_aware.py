@@ -173,3 +173,54 @@ class FrameAwareBase:
         a test sets `_frame_count` directly without going through
         `advance_frame`."""
         return self._effect_frames.get(attr_name, self._frame_count)
+
+    def frames_to_transition_ready(self) -> int:
+        """Max frames-to-rest across this widget's animated effects.
+
+        The engine consults this at the hold→transition handoff and may
+        extend the hold by up to ~1 s (all-or-nothing) so a transition
+        lands on a visually flat state (shimmer pause, typewriter done)
+        instead of chopping mid-animation. 0 = ready now.
+
+        Contract (mirrors ``should_display``): this method must NEVER
+        raise — a readiness check may never stall or crash the render
+        loop. Any exception inside → 0 (ready).
+
+        Effects are duck-typed: anything in ``_EFFECT_ATTRS`` exposing
+        ``frames_to_rest(frame, total_chars)`` participates; effects
+        without it (e.g. border effects) contribute 0. Char counts come
+        from ``_effect_total_chars`` — per effect KIND, see that hook.
+        """
+        try:
+            extra = 0
+            for attr, effect in self._iter_effects():
+                fn = getattr(effect, "frames_to_rest", None)
+                if fn is None:
+                    continue
+                chars = max(1, int(self._effect_total_chars(attr)))
+                extra = max(extra, int(fn(self.frame_for(attr), chars)))
+            return extra
+        except Exception:
+            return 0
+
+    def _effect_total_chars(self, attr_name: str) -> int:
+        """Char count fed to ``frames_to_rest`` for the named effect.
+
+        Widgets override this to match what each effect actually
+        consumes — the counts differ BY EFFECT KIND and must mirror the
+        widget's own draw path:
+
+        - color-provider attrs (``font_color``, ``top_color``, …): the
+          same anchor the draw path passes to ``color_for`` —
+          ``count_text_chars(full_text)`` when the text contains emoji,
+          else ``len(full_text)``.
+        - ``"animation"``: RAW ``len(full_text)`` (emoji ``:slug:``
+          characters INCLUDED) — Typewriter slices against the raw
+          string.
+
+        Default: length of a ``text`` attribute if present (floor 1) —
+        safe for simple single-text widgets; wrong counts only make the
+        settle window slightly off, never unsafe.
+        """
+        text = getattr(self, "text", "") or ""
+        return max(1, len(str(text)))

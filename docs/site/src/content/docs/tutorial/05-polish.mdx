@@ -299,7 +299,9 @@ a Pi.
 
 ## Deploying to a Pi
 
-Three steps:
+If your Pi and panels aren't set up yet, follow [Building your own](/hardware/building-your-own/) first, then deploy with [Quickstart B](/getting-started/#quickstart-b--deploy-to-your-pi).
+
+Once the stack is running, copy your config onto the Pi and restart:
 
 1. **Copy your config directory to the Pi.** The `config/` folder (containing
    `config.toml`, `fonts/`, and `assets/`) can live anywhere; `~/led-ticker/config/`
@@ -310,9 +312,7 @@ Three steps:
    your config on startup and begins the playlist loop.
 
 The hardware pages below have the full bill of materials, wiring diagrams, and
-Pi-specific tuning for `gpio_slowdown`, `rp1_pio`, and `pixel_mapper_config`. If you are
-building from scratch rather than deploying to an existing panel, start with
-**Building your own**.
+Pi-specific tuning for `gpio_slowdown`, `rp1_pio`, and `pixel_mapper_config`.
 
 <RelatedPages slugs={["hardware/bigsign", "hardware/smallsign", "hardware/building-your-own"]} />
 

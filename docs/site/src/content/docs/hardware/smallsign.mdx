@@ -95,7 +95,7 @@ widget on the smallsign draws to that canvas at native pixel
 resolution — no `ScaledCanvas` wrapper, no logical-to-physical block
 expansion.
 
-## Tips
+## Sharp edges
 
 ### `gpio_slowdown` is mandatory on the Pi 4
 
@@ -325,7 +325,6 @@ image_align = "center"
 # and toggle the file on the host:
 #   file_path = "/code/config/.busy"   # in-container path (./config:/code/config:ro)
 #   touch config/.busy   # ON     rm config/.busy   # OFF
-# Bare-metal (no Docker): file_path = "~/.busy"; toggle ~/.busy directly.
 #
 # [busy_light]
 # enabled = true

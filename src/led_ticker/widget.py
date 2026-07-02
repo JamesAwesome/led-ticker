@@ -177,7 +177,7 @@ async def run_monitor_loop(
             )
             logger.info(
                 "monitor loop started: %s (%s, every %gs)",
-                _name,
+                _mon_name,
                 kind,
                 interval,
             )

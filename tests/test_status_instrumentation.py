@@ -1079,7 +1079,7 @@ async def test_unknown_shape_registers_by_default(tmp_path):
         with contextlib.suppress(asyncio.CancelledError):
             await task
     finally:
-        sb.set_active_board(None)
+        sb.clear_active_board()
 
 
 def test_busy_light_run_monitor_loop_passes_register_monitor_false():

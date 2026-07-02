@@ -37,6 +37,12 @@ text = "Slow type"
 animation = {style = "typewriter", frames_per_char = 6}   # ~300ms per char`}
 />
 
+### Keeping the reveal inside `hold_time`
+
+Typing takes `frames_per_char × 50 ms` per character — so a 20-character message at the default `frames_per_char = 3` takes roughly 3 seconds to finish. If `hold_time` is shorter than the typing duration, the transition fires mid-reveal and the message never fully appears. `led-ticker validate` catches this (rule 61) and prints the computed typing duration alongside the effective hold time, so you can raise `hold_time` to cover the full reveal — or shorten the text.
+
+When a reveal is nearly done at transition time, the engine waits up to roughly one second for the final characters to land before switching scenes, so a message that's one or two characters short doesn't cut away abruptly.
+
 ## Composing with font_color
 
 `animation` and `font_color` are independent axes on the same widget. Both can be set at the same time, and each effect tracks its own counter. The result is that characters type out AND each character's color comes from the provider — a rainbow sweeps across the text as it appears, rather than the whole message flashing in at once.

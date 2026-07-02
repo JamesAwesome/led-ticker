@@ -1,14 +1,26 @@
 """Pixel-space rotation engine for rotation-emitting animations.
 
-Resolution-agnostic BY CONTRACT: nothing here knows about logical vs
-physical pixels or ScaledCanvas — the physical-resolution follow-up
-(propeller spec) reuses this module unchanged at real-pixel dims.
+Resolution-agnostic BY CONTRACT at the ``rotate_blit`` level — the
+function knows nothing about logical vs physical pixels or ScaledCanvas.
 
-PixelBuffer is an OWNED raster: reading it back is fine (hardware
+``RotationSurface`` IS scale-aware: it encapsulates all scale policy
+(buffer dims, ScaledCanvas wrapping, continuous-coordinate pivot
+mapping) in one construct-once object.  Consumers draw into
+``surface.target`` using LOGICAL coordinates, call ``surface.clear()``
+at the top of each frame, and call ``surface.blit(canvas, angle,
+cx_logical)`` after drawing.  The live ``canvas`` is passed to ``blit``
+per call — the surface captures ONLY dims/scale policy, not a canvas
+reference, because ``canvas.real`` is rebound after every
+``SwapOnVSync`` (hardware constraint #9).
+
+``PixelBuffer`` is an OWNED raster: reading it back is fine (hardware
 constraint #3 forbids GetPixel on real canvases, not on our objects).
 """
 
 import math
+from typing import Any
+
+from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
 
 
 class PixelBuffer:
@@ -107,3 +119,95 @@ def rotate_blit(
             pixel = src.get(round(sx), round(sy))
             if pixel is not None:
                 dst.SetPixel(x, y, *pixel)  # type: ignore[attr-defined]
+
+
+class RotationSurface:
+    """Construct-once offscreen rotation surface (spec §1).
+
+    Draw into ``target`` using LOGICAL coordinates (on scaled displays the
+    target is a panel-shaped ScaledCanvas wrapper, so hires fonts/emoji
+    paint physical pixels through their existing gates). Call ``clear()``
+    at the top of each frame and ``blit(canvas, angle, cx_logical)`` after
+    drawing. Construct once per consumer and reuse — per-frame
+    construction is allocator/GC waste (antagonist finding 4).
+
+    Mechanism/policy split: rotate_blit stays the pure transform; ALL
+    scale policy (buffer dims, wrapper, pivot mapping) lives here.
+    """
+
+    target: Any  # draw here, LOGICAL coordinates
+    logical_width: int
+    logical_height: int
+    _scale: int
+    _content_height: int | None
+    _buffer: PixelBuffer
+
+    def __init__(self, canvas: Any) -> None:
+        if is_scaled(canvas):
+            real = unwrap_to_real(canvas)
+            self._scale = canvas.scale
+            self._content_height = canvas.content_height
+            self._buffer = PixelBuffer(real.width, real.height)
+            self.target = ScaledCanvas(
+                self._buffer,
+                scale=canvas.scale,
+                content_height=canvas.content_height,
+            )
+            self.logical_width = canvas.width
+            self.logical_height = canvas.height
+        else:
+            self._scale = 1
+            self._content_height = None
+            self._buffer = PixelBuffer(canvas.width, canvas.height)
+            self.target = self._buffer
+            self.logical_width = canvas.width
+            self.logical_height = canvas.height
+
+    def matches(self, canvas: Any) -> bool:
+        """Cache validity: same scale, dims, AND content_height.
+
+        content_height is REQUIRED (antagonist plan-review finding 1):
+        widget instances are cached by config dict and shared across
+        sections (app/factories._cache_key), while content_height is a
+        SECTION-level field — a shared widget drawn under two valid
+        content_heights (e.g. 16 then 8 at scale 4) must rebuild, or it
+        reuses a wrapper whose y_offset_real centers the wrong band.
+        """
+        if is_scaled(canvas):
+            real = unwrap_to_real(canvas)
+            return (
+                self._scale == canvas.scale
+                and self._content_height == canvas.content_height
+                and self._buffer.width == real.width
+                and self._buffer.height == real.height
+            )
+        return (
+            self._scale == 1
+            and self._buffer.width == canvas.width
+            and self._buffer.height == canvas.height
+        )
+
+    def clear(self) -> None:
+        self._buffer.clear()
+
+    def blit(self, canvas: Any, angle_deg: float, cx_logical: float) -> None:
+        """Inverse-rotate the buffer onto the canvas. Continuous-coordinate
+        pivot: logical x maps to physical x*scale (NO half-block offset —
+        the midpoint formula already carries half-pixel semantics, spec §1)."""
+        if self._scale == 1:
+            rotate_blit(canvas, self._buffer, angle_deg, cx_logical, canvas.height / 2)
+        else:
+            real = unwrap_to_real(canvas)
+            rotate_blit(
+                real,
+                self._buffer,
+                angle_deg,
+                cx_logical * self._scale,
+                self._buffer.height / 2,
+            )
+
+
+def make_rotation_surface(canvas: Any) -> RotationSurface:
+    """Factory for a construct-once rotation surface bound to the canvas's
+    scale policy (not to the canvas object — blit takes the live canvas)."""
+    return RotationSurface(canvas)

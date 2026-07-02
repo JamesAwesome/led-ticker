@@ -867,3 +867,276 @@ class TestScaledRotation:
             f"The surface should center text in the correct band "
             f"(y_offset_real=16)."
         )
+
+
+class TestSnapshotOnceLifecycle:
+    """Task 5B: snapshot-once lifecycle — branches once per spin, blit per frame.
+
+    Spec R2.4 + R3 (resolution H3): the text branches run ONCE at spin
+    entry (when ``has_snapshot`` is False); subsequent rotating frames blit
+    the artifact without re-drawing. Invalidation is visit-boundary only
+    (``reset_frame()``) so a mid-spin rotation=0 frame cannot discard the
+    artifact.
+    """
+
+    # --- helper: a spy that wraps draw_text counting real calls ----------
+
+    @staticmethod
+    def _branch_call_spy(monkeypatch):
+        """Return a (draw_text_calls, blit_calls) pair of lists.
+
+        Patches ``led_ticker.widgets.message.draw_text`` with a transparent
+        spy (forwards the call), and ``led_ticker.rotate.rotate_blit`` with
+        a transparent spy (also forwards). Both lists accumulate call counts.
+        """
+        import led_ticker.rotate as rotate_mod
+        import led_ticker.widgets.message as msg_mod
+        from led_ticker.text_render import draw_text as _real_draw_text
+
+        draw_text_calls: list[int] = []
+        blit_calls: list[int] = []
+
+        real_rotate_blit = rotate_mod.rotate_blit
+
+        def _spy_draw_text(canvas, font, x, y, color, text):
+            draw_text_calls.append(1)
+            return _real_draw_text(canvas, font, x, y, color, text)
+
+        def _spy_rotate_blit(dst, src, angle, cx, cy, src_extent=None):
+            blit_calls.append(1)
+            return real_rotate_blit(dst, src, angle, cx, cy, src_extent=src_extent)
+
+        monkeypatch.setattr(msg_mod, "draw_text", _spy_draw_text)
+        monkeypatch.setattr(rotate_mod, "rotate_blit", _spy_rotate_blit)
+        return draw_text_calls, blit_calls
+
+    # --- 1. branches once, blit N times -----------------------------------
+
+    def test_branches_once_blit_n_times(self, monkeypatch):
+        """Across N rotating draws the text branches run exactly once
+        (at spin entry) and blit is called exactly N times."""
+        draw_text_calls, blit_calls = self._branch_call_spy(monkeypatch)
+
+        widget = TickerMessage(
+            text="HELLO",
+            font=FONT_DEFAULT,
+            font_color=RGB_WHITE,
+            animation=_StubSpin(45.0),
+            center=False,
+        )
+        c = _canvas()
+        n = 5
+        for _ in range(n):
+            widget.draw(c)
+            widget.advance_frame()
+
+        assert len(draw_text_calls) == 1, (
+            f"draw_text called {len(draw_text_calls)} times across {n} rotating "
+            f"draws; expected 1 (snapshot-once — branches run only at spin entry)."
+        )
+        assert len(blit_calls) == n, (
+            f"rotate_blit called {len(blit_calls)} times; expected {n} "
+            f"(blit fires every rotating frame)."
+        )
+
+    # --- 2. artifact survives a mid-spin rotation=0 frame -----------------
+
+    def test_artifact_survives_mid_spin_zero_angle(self, monkeypatch):
+        """A rotation=0 frame mid-spin is a live draw; it must NOT invalidate
+        the artifact.  Subsequent rotating frames blit without re-snapshotting.
+        """
+        draw_text_calls, blit_calls = self._branch_call_spy(monkeypatch)
+
+        class _SpinWithZeroSlot:
+            """Emit rotation=90 on all calls except i==1 (the second call),
+            where it emits 0.0 to simulate a mid-spin zero-angle frame.
+            Sequence: 90, 0, 90, 90, ...
+            """
+
+            restart_on_visit = True
+
+            def __init__(self):
+                self.call_count = 0
+
+            def frame_for(self, frame, full_text, canvas_width, text_width):
+                i = self.call_count
+                self.call_count += 1
+                rotation = 0.0 if i == 1 else 90.0
+                return AnimationFrame(visible_text=full_text, rotation=rotation)
+
+        widget = TickerMessage(
+            text="HI",
+            font=FONT_DEFAULT,
+            font_color=RGB_WHITE,
+            animation=_SpinWithZeroSlot(),
+            center=False,
+        )
+        c = _canvas()
+
+        # Draw #1 (rotation=90, i=0): snapshot built, draw_text fires once.
+        widget.draw(c)
+        widget.advance_frame()
+        assert len(draw_text_calls) == 1, (
+            f"After draw #1 (rotation=90): expected 1 branch call, "
+            f"got {len(draw_text_calls)}"
+        )
+        assert len(blit_calls) == 1
+
+        # Draw #2 (rotation=0, i=1): live draw to canvas; artifact NOT invalidated.
+        widget.draw(c)
+        widget.advance_frame()
+        # draw_text fires for the live rotation=0 draw (total = 2 now).
+        # The surface must still hold the snapshot.
+        assert widget._rotation_surface is not None
+        assert widget._rotation_surface.has_snapshot, (
+            "rotation=0 mid-spin must NOT invalidate the artifact "
+            "(spec R3 H3 — invalidation is visit-boundary only)."
+        )
+
+        # Draw #3 (rotation=90, i=2): artifact still valid; branches must NOT
+        # fire again (draw_text count must not increase beyond the draw#2 total).
+        prev_draw_count = len(draw_text_calls)  # 2 (snapshot draw + live draw)
+        widget.draw(c)
+        widget.advance_frame()
+        assert len(draw_text_calls) == prev_draw_count, (
+            f"After mid-spin rotation=0 then rotation=90: draw_text fired again "
+            f"({len(draw_text_calls)} total vs prev {prev_draw_count}) — "
+            "artifact should still be valid; only reset_frame() re-snapshots."
+        )
+        assert (
+            len(blit_calls) == 2
+        )  # draws #1 and #3 were non-zero; draw #2 (rotation=0) had no blit
+
+    # --- 3. reset_frame triggers re-snapshot on next spin -----------------
+
+    def test_reset_frame_triggers_re_snapshot(self, monkeypatch):
+        """reset_frame() invalidates the artifact so the next spin re-draws."""
+        draw_text_calls, blit_calls = self._branch_call_spy(monkeypatch)
+
+        widget = TickerMessage(
+            text="HELLO",
+            font=FONT_DEFAULT,
+            font_color=RGB_WHITE,
+            animation=_StubSpin(90.0),
+            center=False,
+        )
+        c = _canvas()
+
+        # First spin: snapshot is built.
+        widget.draw(c)
+        widget.advance_frame()
+        widget.draw(c)
+        widget.advance_frame()
+        assert len(draw_text_calls) == 1, (
+            f"First spin: expected 1 branch call, got {len(draw_text_calls)}"
+        )
+        assert len(blit_calls) == 2
+
+        # Visit reset: invalidate artifact.
+        widget.reset_frame()
+        assert widget._rotation_surface is not None
+        assert not widget._rotation_surface.has_snapshot, (
+            "reset_frame() must invalidate the artifact (has_snapshot=False)."
+        )
+
+        # Next rotating draw: must re-snapshot (branches fire again).
+        widget.draw(c)
+        widget.advance_frame()
+        assert len(draw_text_calls) == 2, (
+            f"After reset_frame(), next rotating draw must re-run branches "
+            f"(draw_text called {len(draw_text_calls)} times total; expected 2)."
+        )
+        assert len(blit_calls) == 3
+
+    # --- 4. animated provider frozen mid-spin -----------------------------
+
+    def test_animated_provider_frozen_mid_spin(self):
+        """Rainbow font_color: pixel output is IDENTICAL across two rotating draws
+        even though frame_for advances (the artifact is frozen mid-spin).
+        """
+        from led_ticker.color_providers import Rainbow
+
+        widget = TickerMessage(
+            text="HELLO",
+            font=FONT_DEFAULT,
+            font_color=Rainbow(),
+            animation=_StubSpin(45.0),
+            center=False,
+        )
+
+        # Draw #1: snapshot built with frame_for=0 colors.
+        c1 = _canvas()
+        widget.draw(c1)
+        pixels_frame1 = dict(c1._pixels)
+
+        # Advance the frame counter so the rainbow provider would produce
+        # DIFFERENT colors on a live draw.
+        widget.advance_frame()
+        widget.advance_frame()
+        widget.advance_frame()
+
+        # Draw #2: artifact should be served — same pixel pattern.
+        c2 = _canvas()
+        widget.draw(c2)
+        pixels_frame2 = dict(c2._pixels)
+
+        diff_count = sum(
+            1
+            for k in set(pixels_frame1) | set(pixels_frame2)
+            if pixels_frame1.get(k) != pixels_frame2.get(k)
+        )
+        assert pixels_frame1 == pixels_frame2, (
+            f"Rotating draw #2 produced different pixels from draw #1 — "
+            f"the artifact should freeze animated colors mid-spin (spec R2.3). "
+            f"Differing pixel count: {diff_count}"
+        )
+
+    # --- 5. settle resumes live colors ------------------------------------
+
+    def test_settle_resumes_live_colors(self):
+        """After the artifact is built with one set of rainbow hues, a
+        rotation=0 (settled) draw must produce DIFFERENT output because the
+        live provider has advanced.
+
+        This verifies that rotation=0 draws are live (not artifact-driven)
+        so animated colors resume at settle.
+        """
+        from led_ticker.color_providers import Rainbow
+
+        # Use a concrete per-char provider so frame differences are visible.
+        provider = Rainbow()
+
+        widget = TickerMessage(
+            text="HELLO",
+            font=FONT_DEFAULT,
+            font_color=provider,
+            animation=_StubSpin(45.0),
+            center=False,
+        )
+
+        # Draw #1 rotating: build artifact at frame=0 colors.
+        c_spin = _canvas()
+        widget.draw(c_spin)
+        pixels_spin = dict(c_spin._pixels)
+
+        # Advance enough frames so the rainbow hue changes noticeably.
+        for _ in range(30):
+            widget.advance_frame()
+
+        # Draw #2 with rotation=0 (settled): live draw with advanced provider.
+        # Switch the animation to emit rotation=0.
+        widget.animation = _StubSpin(0.0)
+        c_settle = _canvas()
+        widget.draw(c_settle)
+        pixels_settle = dict(c_settle._pixels)
+
+        # The output MUST differ — live rainbow at frame=30 vs frozen artifact.
+        # Both must have some lit pixels as a precondition.
+        assert pixels_spin, "Rotating draw produced no lit pixels"
+        assert pixels_settle, "Settled draw produced no lit pixels"
+
+        assert pixels_spin != pixels_settle, (
+            "Settled draw (rotation=0, frame=30) produced identical pixels to "
+            "the frozen artifact (frame=0 colors). rotation=0 must be a live "
+            "draw so animated colors resume at settle (spec R2.3 + R2.4)."
+        )

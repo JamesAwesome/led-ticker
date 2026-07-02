@@ -10,6 +10,11 @@
 # Config selection: scripts/setup.sh exports TRY_CONFIG=/code/config/config.toml
 # when config/config.toml exists on the host, otherwise the bundled example is
 # used. A fresh clone (no config.toml) behaves exactly as before.
+#
+# The headless override rides the LED_TICKER_BACKEND env var (not a --backend
+# CLI flag) on purpose: images built from a core release that predates the
+# override simply ignore the unknown env var, so fresh-clone `make try` keeps
+# working on the current PyPI image; a --backend flag would fail argparse there.
 services:
   # Headless display engine — no GPIO/hardware. Writes status.json + preview.bin
   # to the shared try-status volume for the webui to serve.
@@ -20,7 +25,9 @@ services:
       dockerfile: Dockerfile.try
     container_name: led-ticker-try-engine
     restart: unless-stopped
-    command: ["led-ticker", "--config", "${TRY_CONFIG:-/code/config/config.try.example.toml}", "--backend", "headless"]
+    command: ["led-ticker", "--config", "${TRY_CONFIG:-/code/config/config.try.example.toml}"]
+    environment:
+      LED_TICKER_BACKEND: headless
     volumes:
       - ./config:/code/config:ro
       - try-status:/run/led-ticker

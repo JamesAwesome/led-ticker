@@ -23,6 +23,10 @@ rendering until interrupted.
 | `--config` / `-c` | `config.toml` | Path to the TOML configuration file. Resolved relative to the working dir.                                                                                                                                                                                  |
 | `--backend`       | _(config)_    | Override the display backend (e.g. `headless`). Takes precedence over `[display] backend` in the config. Unknown names fail with a clear registry error. Primarily used by the `make try` Docker flow to run headless without modifying your deploy config. |
 
+The `LED_TICKER_BACKEND` environment variable is the env equivalent of
+`--backend` (the flag wins when both are set) — it's how `compose.try.yaml`
+selects the headless backend.
+
 If the config path doesn't exist, the CLI prints a hint pointing at
 `config.example.toml` and exits with status `1`.
 

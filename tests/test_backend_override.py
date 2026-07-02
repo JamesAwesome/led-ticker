@@ -1,5 +1,5 @@
 """
-tests/test_backend_override.py — TDD tests for the --backend CLI override.
+tests/test_backend_override.py — TDD tests for the backend override surface.
 
 Covers:
   1. build_frame_from_config(display, backend_override=...) honours the override
@@ -7,6 +7,9 @@ Covers:
   2. Unknown backend name → the existing get_backend_class registry error.
   3. CLI parses --backend <name> and passes it to run().
   4. run(config_path, backend_override=...) signature is backward-compatible.
+  5. LED_TICKER_BACKEND env var: env > config field; CLI --backend > env.
+     (Env exists so compose.try.yaml can select headless via `environment:` —
+     old PyPI images ignore an unknown env var but choke on an unknown flag.)
 """
 
 import unittest.mock as mock
@@ -71,6 +74,63 @@ class TestBuildFrameBackendOverride:
         display = DisplayConfig(rows=16, cols=32, chain_length=5)
         with pytest.raises((KeyError, ValueError)):
             build_frame_from_config(display, backend_override="does_not_exist_xyz")
+
+
+# ---------------------------------------------------------------------------
+# LED_TICKER_BACKEND env-var override
+# ---------------------------------------------------------------------------
+
+
+class TestBackendEnvVarOverride:
+    """LED_TICKER_BACKEND env var — the compose-friendly override channel.
+
+    Precedence: CLI --backend (backend_override arg) > LED_TICKER_BACKEND env
+    > [display] backend config field.
+    """
+
+    def test_env_var_beats_config_field(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """LED_TICKER_BACKEND=headless must win over the config's rgbmatrix
+        default (the compose.try.yaml path)."""
+        from led_ticker.backends.headless import HeadlessBackend
+
+        monkeypatch.setenv("LED_TICKER_BACKEND", "headless")
+        display = DisplayConfig(rows=16, cols=32, chain_length=5)
+        frame = build_frame_from_config(display)
+        assert isinstance(frame.backend, HeadlessBackend), (
+            f"expected HeadlessBackend via LED_TICKER_BACKEND env; "
+            f"got {type(frame.backend).__name__}"
+        )
+
+    def test_cli_override_beats_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Explicit backend_override (the CLI flag) must win over the env var."""
+        from led_ticker.backends.rgbmatrix import RgbMatrixBackend
+
+        monkeypatch.setenv("LED_TICKER_BACKEND", "headless")
+        display = DisplayConfig(rows=16, cols=32, chain_length=5)
+        frame = build_frame_from_config(display, backend_override="rgbmatrix")
+        assert isinstance(frame.backend, RgbMatrixBackend), (
+            "backend_override='rgbmatrix' must beat LED_TICKER_BACKEND=headless"
+        )
+
+    def test_no_env_no_override_uses_config_field(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """With neither the flag nor the env var, the config field governs."""
+        from led_ticker.backends.rgbmatrix import RgbMatrixBackend
+
+        monkeypatch.delenv("LED_TICKER_BACKEND", raising=False)
+        display = DisplayConfig(rows=16, cols=32, chain_length=5)
+        frame = build_frame_from_config(display)
+        assert isinstance(frame.backend, RgbMatrixBackend)
+
+    def test_unknown_env_backend_raises_registry_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An unknown env-var backend name raises the registry error too."""
+        monkeypatch.setenv("LED_TICKER_BACKEND", "does_not_exist_xyz")
+        display = DisplayConfig(rows=16, cols=32, chain_length=5)
+        with pytest.raises((KeyError, ValueError)):
+            build_frame_from_config(display)
 
 
 # ---------------------------------------------------------------------------

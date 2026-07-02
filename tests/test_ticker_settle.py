@@ -190,3 +190,51 @@ class TestSettleToRest:
         assert MAX_SETTLE_TICKS == 1000 // ENGINE_TICK_MS
         # At ENGINE_TICK_MS=50 that's 20 ticks
         assert MAX_SETTLE_TICKS > 0
+
+    async def test_settle_captures_swap_return(self, swapping_frame, no_sleep):
+        """Constraint #1 regression: the settle block must capture the canvas
+        returned by _hold_ticks (``canvas, _ = await self._hold_ticks(...)``).
+
+        _hold_ticks performs N swaps internally and returns the last
+        back-buffer.  If the settle block drops that return value the canvas
+        variable in _swap_and_scroll is stale — it still points at the canvas
+        that was current before the settle phase began.  _swap_and_scroll then
+        returns that stale canvas to _show_one, which hands it to the
+        transition as the outgoing back-buffer.  The transition draws the next
+        section's content onto the displayed front-buffer: tearing / corruption
+        (constraint #1).
+
+        swapping_frame alternates between canvas_a (start) and canvas_b.  With
+        `_N_HOLD` base ticks + `remaining` settle ticks the last swap inside
+        _hold_ticks leaves one of {canvas_a, canvas_b} as the new back-buffer
+        (whichever id is *not* the last one displayed).  If the capture is
+        dropped, _swap_and_scroll returns the pre-settle canvas_a regardless of
+        how many settle ticks ran.  We verify that the returned canvas is NOT
+        always canvas_a.
+        """
+        widget = _SettleWidget(remaining=3)
+        canvas = swapping_frame.get_clean_canvas()  # canvas_a
+        ticker = Ticker(monitors=[], frame=swapping_frame)
+        returned_canvas, _, _ = await ticker._swap_and_scroll(
+            canvas, widget, hold_time=_HOLD_TIME
+        )
+
+        # Swap sequence with _HOLD_TIME=0.2 s and remaining=3:
+        #   initial draw+swap (#1):   a -> b  (outer canvas = b)
+        #   base _hold_ticks (4 ticks, swaps #2-5):
+        #     #2 b->a, #3 a->b, #4 b->a, #5 a->b  => return canvas_b
+        #     outer canvas = b (captured at line 684)
+        #   settle _hold_ticks (3 ticks, swaps #6-8):
+        #     #6 b->a, #7 a->b, #8 b->a  => return canvas_a
+        #     WITH capture:   outer canvas = a  <- correct
+        #     WITHOUT capture: outer canvas stays b <- mutation bug
+        #
+        # So the correctly-captured path returns canvas_a; the dropped-capture
+        # mutation returns canvas_b.
+        canvas_a = swapping_frame._canvas_a
+        assert returned_canvas is canvas_a, (
+            f"_swap_and_scroll returned {returned_canvas!r} instead of canvas_a.  "
+            "After 1 initial + 4 base + 3 settle swaps the back-buffer must be "
+            "canvas_a.  Getting canvas_b means the settle block dropped the "
+            "_hold_ticks return value (constraint #1)."
+        )

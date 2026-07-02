@@ -356,6 +356,22 @@ class TwoRowMessage(FrameAwareBase):
             return self.top_font if self.top_font is not None else self.font
         return self.bottom_font if self.bottom_font is not None else self.font
 
+    def _effect_total_chars(self, attr_name: str) -> int:
+        """Per-row counts: top_color sees the top row's text, bottom_color
+        the bottom row's. Emoji rows use count_text_chars (matching the
+        draw_with_emoji anchor in _draw_row_text_at); plain rows use len."""
+        if attr_name == "top_color":
+            text = self._resolved_top
+        elif attr_name == "bottom_color":
+            text = self._resolved_bottom
+        else:
+            return super()._effect_total_chars(attr_name)
+        if EMOJI_PATTERN.search(text):
+            from led_ticker.pixel_emoji import count_text_chars  # noqa: PLC0415
+
+            return max(1, count_text_chars(text))
+        return max(1, len(text))
+
     def _resolved_separator_text(self) -> str:
         """Mirror of `_BaseImageWidget._resolved_separator_text` for the
         bottom-row separator.

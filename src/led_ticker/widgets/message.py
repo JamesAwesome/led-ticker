@@ -114,6 +114,20 @@ class TickerMessage(FrameAwareBase):
         self._resolved_text = resolved
         self._content_width = -1
 
+    def _effect_total_chars(self, attr_name: str) -> int:
+        """Per-effect-kind counts mirroring TickerMessage.draw's anchors:
+        animation → raw len (frame_for slices the raw string); color
+        providers → count_text_chars on the emoji path (matching the
+        draw_with_emoji total_chars anchor), else len."""
+        full_text = self._resolve_into_full_text()
+        if attr_name == "animation":
+            return max(1, len(full_text))
+        if self._has_emoji:
+            from led_ticker.pixel_emoji import count_text_chars  # noqa: PLC0415
+
+            return max(1, count_text_chars(full_text))
+        return max(1, len(full_text))
+
     def reset_frame(self) -> None:
         # Visit entry: drop any typewriter resolution lock so the next
         # visit's reveal re-resolves from the current value.

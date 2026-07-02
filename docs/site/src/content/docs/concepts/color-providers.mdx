@@ -148,6 +148,8 @@ font_color = {style = "shimmer", base = [40, 40, 60], shimmer = "gold", speed = 
 
 Shimmer is a continuous-phase provider — it does not reset between `loop_count` repetitions, so the sweep keeps flowing across playlist loops rather than snapping back to the start.
 
+When a section transition fires while a shimmer sweep is mid-glide, the engine waits up to roughly one second for the spot to reach its pause window before switching scenes, so the bright spot isn't teleported by the cut. Sweeps that need longer than a second to reach their pause — or a `pause` shorter than a single frame — transition immediately, as before.
+
 **Shimmer with a dark base color:** The base defaults to a dark blue-gray (`[60, 60, 80]`). If you want truly black resting characters, set `base = [0, 0, 0]`. High-contrast setups (dark base, bright shimmer) look best; a light base with a slightly-brighter shimmer produces a subtle, professional feel.
 
 ### Common patterns

@@ -33,9 +33,10 @@ distinct non-black hashes accumulate (≈frame 47, still well within 15 s).
 == Status board note ==
 
 run() only activates a StatusBoard when ``[web]`` is configured in the TOML.
-None of the fixture configs include ``[web]``, so ``get_active_board()`` returns
-None and the ``swap_count`` assertion is skipped.  This is correct behaviour:
-the headless integration path intentionally avoids the web-UI sidecar dependency.
+None of the fixture configs include ``[web]`` (adding it would bind an HTTP
+port in CI — a flake risk), so there is deliberately NO ``swap_count``
+assertion here: the pixel-level assertions above are the real signal, and the
+board's swap counting has its own unit coverage in ``tests/test_status_*``.
 
 == Runtime ==
 
@@ -244,7 +245,7 @@ async def _run_and_collect_frames(
             await asyncio.sleep(0.05)
     finally:
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
+        with contextlib.suppress(asyncio.CancelledError):
             await task
         # Cancel background tasks spawned via spawn_tracked (monitor loops,
         # schedule ticker, source-refresh heartbeat).  Snapshot before
@@ -298,10 +299,6 @@ async def test_boot_smallsign(tmp_path: pathlib.Path, monkeypatch: Any) -> None:
     _assert_render(frames, label="smallsign")
 
     # run() only activates a StatusBoard when [web] is configured.
-    # Fixture has no [web] block → board is None.  Assert tolerantly.
-    board = sb.get_active_board()
-    if board is not None:
-        assert board.swap_count > 0, "smallsign: status board swap_count == 0"
 
 
 @pytest.mark.asyncio
@@ -316,10 +313,6 @@ async def test_boot_bigsign_shaped(tmp_path: pathlib.Path, monkeypatch: Any) -> 
 
     frames = await _run_and_collect_frames(monkeypatch, cfg)
     _assert_render(frames, label="bigsign-shaped")
-
-    board = sb.get_active_board()
-    if board is not None:
-        assert board.swap_count > 0, "bigsign-shaped: status board swap_count == 0"
 
 
 @pytest.mark.asyncio
@@ -360,7 +353,3 @@ async def test_boot_example_config(tmp_path: pathlib.Path, monkeypatch: Any) -> 
 
     frames = await _run_and_collect_frames(monkeypatch, cfg)
     _assert_render(frames, label="config.example.toml")
-
-    board = sb.get_active_board()
-    if board is not None:
-        assert board.swap_count > 0, "example: status board swap_count == 0"

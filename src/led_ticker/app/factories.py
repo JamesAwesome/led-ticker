@@ -10,6 +10,7 @@ import difflib
 import inspect
 import itertools
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -1074,8 +1075,26 @@ RUN_MODES: dict[str, str] = {
 }
 
 
-def build_frame_from_config(display) -> LedFrame:
-    """Build an LedFrame from a DisplayConfig."""
+def build_frame_from_config(display, backend_override: str | None = None) -> LedFrame:
+    """Build an LedFrame from a DisplayConfig.
+
+    Args:
+        display: A DisplayConfig instance.
+        backend_override: Optional backend name to use instead of the config
+            field (e.g. ``"headless"`` for the try-preview Docker flow).
+            Resolved through the existing ``get_backend_class`` registry, so
+            an unknown name raises the registry's standard error.
+            When *None* (default), the ``LED_TICKER_BACKEND`` environment
+            variable is consulted next, then the config's ``backend`` field
+            (or the ``"rgbmatrix"`` default) — zero behaviour change for all
+            existing callers with neither set.
+
+    Precedence: CLI ``--backend`` (this arg) > ``LED_TICKER_BACKEND`` env >
+    ``[display] backend`` config field. The env var exists so the try compose
+    file can select headless via ``environment:`` — old images that predate
+    this feature simply ignore the unknown env var instead of failing argparse
+    on an unknown ``--backend`` flag.
+    """
     logging.info(
         "Display: %dx%d rows × %dx%d cols (chain_length=%d parallel=%d) "
         "mapper=%r brightness=%d gpio_slowdown=%d pwm_bits=%d "
@@ -1112,7 +1131,14 @@ def build_frame_from_config(display) -> LedFrame:
     from led_ticker.backends import get_backend_class  # noqa: PLC0415
     from led_ticker.backends.rgbmatrix import RgbMatrixBackend  # noqa: PLC0415
 
-    backend_name = getattr(display, "backend", "rgbmatrix")
+    # Read the env INSIDE the function (not at module import) so tests can
+    # monkeypatch os.environ and so a compose `environment:` block is honoured
+    # regardless of import order.
+    backend_name = (
+        backend_override
+        or os.environ.get("LED_TICKER_BACKEND")
+        or getattr(display, "backend", "rgbmatrix")
+    )
     backend_cls = get_backend_class(backend_name)
     if backend_cls is RgbMatrixBackend:
         backend = RgbMatrixBackend(

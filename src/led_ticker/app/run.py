@@ -643,8 +643,17 @@ def _setup_status_board(
     return board, handler
 
 
-async def run(config_path: Path) -> None:
-    """Main application loop."""
+async def run(config_path: Path, backend_override: str | None = None) -> None:
+    """Main application loop.
+
+    Args:
+        config_path: Path to the TOML configuration file.
+        backend_override: Optional backend name (e.g. ``"headless"``) that
+            takes precedence over the ``[display] backend`` config field.
+            Passed through to :func:`build_frame_from_config`.  When *None*
+            (default), the config field governs — zero behaviour change for
+            all existing ``run(path)`` callers.
+    """
     # Reconcile installed plugins against the manifest (requirements-plugins.txt)
     # BEFORE plugin load so reconciled packages are importable during entry-point
     # discovery. Also runs before build_frame_from_config, which drops root
@@ -736,7 +745,9 @@ async def run(config_path: Path) -> None:
         # load, so installed-plugin types resolve and only genuinely-unknown
         # names flag.
         await _run_startup_validation(config_path)
-        led_frame = build_frame_from_config(config.display)
+        led_frame = build_frame_from_config(
+            config.display, backend_override=backend_override
+        )
         # Privilege-drop boundary (constraint #13): the rgbmatrix backend
         # constructs RGBMatrix here, dropping root -> daemon. All pre-drop work
         # (plugin reconcile, prepare_dir, validation) has already run above;

@@ -164,7 +164,7 @@ logs:  ## Follow the sign's logs (Ctrl-C to stop)
 
 try:  ## Try led-ticker with NO hardware: headless engine + webui preview at http://localhost:8080
 	@echo "building + starting (first build takes a minute)... then open http://localhost:8080 and click the live preview  (stop: Ctrl-C, then make try-down)"
-	docker compose -f compose.try.yaml -p led-ticker-try up --build
+	bash scripts/setup.sh try
 
 try-down:  ## Stop + remove the try-it containers (and its tmpfs volume)
 	docker compose -f compose.try.yaml -p led-ticker-try down -v

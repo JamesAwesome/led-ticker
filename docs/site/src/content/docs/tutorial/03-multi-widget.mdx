@@ -115,8 +115,9 @@ A few new fields:
 - **`hold_time = 2.5`** — how long to hold each widget in `slideshow` mode before
   moving to the next.
 
-Validate and render. You'll see the two messages scroll side-by-side in section 1,
-then the sign switches to the two held cards in section 2:
+Validate, then save. The browser preview updates within one playlist cycle — you'll
+see the two messages scroll side-by-side in section 1, then the sign switches to
+the two held cards in section 2:
 
 <DemoGif
   src="/demos-long/tutorial-03a-sections.gif"
@@ -360,8 +361,8 @@ What changed:
 - **`bottom_text_loops = 3`** is the minimum number of full cycles before the
   section can transition. Only meaningful with `bottom_text_wrap = true` —
   setting `bottom_text_loops` on a non-wrap section is a validation error
-  (rule 28) because there's no cycle to count when the bottom only scrolls
-  once.
+  — the validator will tell you — because there's no cycle to count when
+  the bottom only scrolls once.
 
 A note on the field name: `bottom_text_loops` follows the `bottom_*` prefix
 convention used by all per-row knobs on `two_row` (`bottom_text_wrap`,
@@ -370,14 +371,14 @@ row can have cycles. If you've used the marquee loop count on a `gif` or
 `image` widget, the equivalent field there is called `text_loops` (no
 prefix), since those widgets are single-row by default and only optionally
 become two-row when `bottom_text` is set. Same concept, different name —
-the validator's rule 29 catches the common `text_loops` typo on `two_row`
+the validator catches the common `text_loops` typo on `two_row`
 and points you at `bottom_text_loops`.
 
 A note on `hold_time`: if you set BOTH `hold_time` and `bottom_text_loops`,
 the engine uses whichever produces more ticks — `max(hold_time × 1000 /
-scroll_step_ms, bottom_text_loops × cycle_width)`. The validator emits
-rule 30 as a warning when both are explicitly set, because the dominant
-value silently overrides the other depending on text length. The
+scroll_step_ms, bottom_text_loops × cycle_width)`. The validator warns
+when both are explicitly set, because the dominant value silently
+overrides the other depending on text length. The
 "exact-N-loops" pattern in this tutorial drops `hold_time` to avoid the
 ambiguity.
 

@@ -1,9 +1,12 @@
-# Try-it config — headless, no hardware; open the webui preview.
+# Try-it config — the default bundled example for `make try`.
 #
-# Use this with Dockerfile.try (or `make try`) to run led-ticker on any computer
-# without a Raspberry Pi or LED panels. The engine renders frames in memory via
-# the headless backend; the webui preview at http://localhost:8080 lets you watch
-# the sign live in a browser.
+# `make try` uses this config when you haven't created config/config.toml yet.
+# Once you create config/config.toml, `make try` previews YOUR file instead.
+#
+# This config runs led-ticker on any computer without a Raspberry Pi or LED
+# panels. The engine renders frames in memory via the headless backend; the
+# webui preview at http://localhost:8080 lets you watch the sign live in a
+# browser.
 #
 # This config showcases two baked-in plugins (no API keys needed):
 #   - rss.feed  (led-ticker-rss)   — scrolling headlines from a public RSS feed

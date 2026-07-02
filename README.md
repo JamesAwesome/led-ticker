@@ -39,7 +39,7 @@ cd led-ticker
 make try
 ```
 
-`make try` builds the image and starts a headless display engine plus the web UI — no panel, no Pi. Open **<http://localhost:8080>** and click the **live preview** tab to watch the bundled example (a few demo widgets) scroll in your browser. Edit `config/config.try.example.toml` and refresh to see your changes live. To stop: press `Ctrl-C`, then run `make try-down`.
+`make try` builds the image and starts a headless display engine plus the web UI — no panel, no Pi. Open **<http://localhost:8080>** and click the **live preview** tab to watch the sign rendering in your browser. By default it runs the bundled demo (`config/config.try.example.toml`); create `config/config.toml` and `make try` previews your own config instead, hot-reloading as you edit. To stop: press `Ctrl-C`, then run `make try-down`.
 
 **Ready for hardware?** The [Getting started guide](https://docs.ledticker.dev/getting-started/) walks the full Raspberry Pi deploy end to end (`make setup` → `docker compose up -d`), and [building your own](https://docs.ledticker.dev/hardware/building-your-own/) covers the physical build — BOM, wiring, and panel tuning.
 

@@ -57,7 +57,8 @@ make try   # make is a standard task runner, pre-installed on macOS/Linux
 
 `make try` builds the image and starts a headless display engine plus the
 web UI — no panel, no Pi. Open **http://localhost:8080** and click the
-**live preview** tab to see the sign rendering in your browser.
+**live preview** tab to see the sign rendering in your browser. Already have a
+`config/config.toml`? `make try` previews it instead of the bundled example.
 
 Both of those are **plugins** baked into the try image: the scrolling
 [Hacker News](https://news.ycombinator.com/) headlines come from the `rss.feed`

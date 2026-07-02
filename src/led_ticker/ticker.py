@@ -91,6 +91,13 @@ DEFAULT_BUFFER_MSG: TickerMessage = _CircleBufferMsg(
     text=" \u2022 ", center=False, font_color=RGB_WHITE
 )
 
+# Settle-to-rest bound (#305): at the hold->transition handoff the engine
+# may extend the hold so animated effects (shimmer sweep, typewriter
+# reveal) land at a rest point. All-or-nothing: a remainder above this
+# cap gets NO extension (never pay latency without a clean landing).
+# ~1 s keeps the slip inside the rotation's existing jitter budget.
+MAX_SETTLE_TICKS: int = 1000 // ENGINE_TICK_MS
+
 
 def _has_index(index: int, items: list[Any]) -> bool:
     """Check if a list has an index."""
@@ -349,6 +356,20 @@ class Ticker:
         fn = getattr(widget, "resolve_tokens_now", None)
         if callable(fn):
             fn()
+
+    @staticmethod
+    def _frames_to_settle(widget: Any) -> int:
+        """Duck-typed frames_to_transition_ready; any error -> 0.
+
+        Defensive on top of the widget-side never-raise contract -- a
+        readiness check must never stall or crash the render loop."""
+        fn = getattr(widget, "frames_to_transition_ready", None)
+        if fn is None:
+            return 0
+        try:
+            return int(fn())
+        except Exception:
+            return 0
 
     @staticmethod
     def _lock_resolution_if_supported(widget: Any, locked: bool) -> None:
@@ -663,6 +684,20 @@ class Ticker:
             canvas, _ = await self._hold_ticks(
                 canvas, ticker_obj, n_ticks, pos, bg_color
             )
+
+        # Settle-to-rest (#305): give animated effects up to
+        # MAX_SETTLE_TICKS extra hold so the upcoming transition lands
+        # at a rest point (shimmer pause / typewriter done) instead of
+        # chopping mid-animation. All-or-nothing; reuses _hold_ticks so
+        # constraints #1/#12 (swap capture, advance-per-tick) are
+        # inherited. Skipped for breaker-tripped widgets -- a disabled
+        # widget must not buy extra blank-draw time.
+        if not continuous and not self.breaker.is_disabled(ticker_obj):
+            extra = self._frames_to_settle(ticker_obj)
+            if 0 < extra <= MAX_SETTLE_TICKS:
+                canvas, _ = await self._hold_ticks(
+                    canvas, ticker_obj, extra, pos, bg_color
+                )
 
         return canvas, cursor_pos, pos
 

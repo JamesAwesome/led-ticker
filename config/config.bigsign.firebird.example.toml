@@ -33,6 +33,10 @@ pwm_bits = 8
 [title]
 delay = 0
 
+# Publish status + the live preview (the web UI sidecar and `make try` read
+# this). Defaults are fine; see the web-status-ui docs for options.
+[web]
+
 [transitions]
 default = "wipe_left"
 duration = 0.5

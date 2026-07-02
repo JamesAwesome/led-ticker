@@ -243,3 +243,33 @@ class TestTryModeWithConfigTomlNoWeb:
             f"Script aborted on missing [web] block — must warn only, not abort.\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
+
+
+class TestMakeTryWiring:
+    """Tripwire: `make try` must route through scripts/setup.sh try.
+
+    The TRY_CONFIG selection (previewing the user's config/config.toml) lives
+    in setup.sh's try mode. A `make try` recipe that calls `docker compose`
+    directly silently disables the whole your-config feature on the exact
+    path the tutorial teaches — a persona walk caught precisely this gap.
+    """
+
+    def test_make_try_recipe_invokes_setup_sh_try(self) -> None:
+        makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+        recipe_lines: list[str] = []
+        in_try = False
+        for line in makefile.splitlines():
+            if line.startswith("try:"):
+                in_try = True
+                continue
+            if in_try:
+                if line.startswith("\t"):
+                    recipe_lines.append(line)
+                else:
+                    break
+        recipe = "\n".join(recipe_lines)
+        assert "scripts/setup.sh try" in recipe, (
+            "`make try` must invoke `scripts/setup.sh try` (which selects "
+            "TRY_CONFIG for a user config/config.toml) — not call docker "
+            f"compose directly.\nRecipe was:\n{recipe}"
+        )

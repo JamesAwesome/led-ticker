@@ -165,7 +165,8 @@ if [ "$MODE" = "try" ]; then
     if [ -f config/config.toml ]; then
         export TRY_CONFIG=/code/config/config.toml
         ok "Previewing YOUR config/config.toml (hot-reload: edit and watch the browser update)"
-        if ! grep -q '^\[web\]' config/config.toml; then
+        # tolerate leading whitespace (valid TOML) before the section header
+        if ! grep -q '^[[:space:]]*\[web\]' config/config.toml; then
             err "Warning: config/config.toml has no [web] block — the live preview needs one."
             say "  Add [web] (one line) to config/config.toml, then re-run make try."
         fi

@@ -132,11 +132,15 @@ Instagram magenta (`[225, 48, 108]`) the social handle uses.
 
 ## Validate
 
-Before previewing, run the config validator:
+Before previewing, run the config validator. With `make try` running, use the
+try container itself (a second terminal — no Python install needed):
 
 ```bash
-uv run led-ticker validate config/config.toml
+docker exec led-ticker-try-engine led-ticker validate /code/config/config.toml
 ```
+
+On a machine with the dev toolchain (`make dev` once), the direct form works
+too: `uv run led-ticker validate config/config.toml`.
 
 If everything is correct you'll see:
 
@@ -164,8 +168,7 @@ the typo before continuing.
 
 :::tip[Validate from the web UI]
 On a deployed sign, the web UI's **Config tab** validates before saving — no
-terminal needed. The `uv run led-ticker validate` command above works on any
-machine with the dev dependencies installed (`make dev` once).
+terminal needed.
 :::
 
 ## Preview
@@ -185,9 +188,12 @@ identical to the demo at the top of this page:
   caption="The browser preview — rendered live from your config/config.toml"
 />
 
-If `make try` is already running from Chapter 1, you don't need to restart it.
-Save your `config/config.toml` and the browser preview updates within one
-playlist cycle automatically.
+If `make try` is still running from Chapter 1, stop it first (`Ctrl-C`) and
+run `make try` again — the Chapter 1 session started on the bundled example
+before your `config/config.toml` existed, and the config choice happens at
+startup. From now on you won't need to restart: saved edits to your config
+hot-reload into the preview within one playlist cycle. (The exception is
+`[display]`-level fields, which always need a `Ctrl-C` + `make try`.)
 
 :::note[Capture a GIF instead]
 To save a shareable GIF rather than watch the live preview, run

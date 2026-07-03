@@ -773,3 +773,74 @@ class TestTwoCycleNoBleedSnapshot:
         assert not reds, (
             f"Cycle 1 red pixel bled into cycle 2 output: red pixels at {reds}"
         )
+
+
+class TestScanRegionCompleteness:
+    """rotate_blit is inverse-mapped: it iterates a DESTINATION scan region
+    and samples the source. The region must cover everywhere the rotated
+    source can land — an under-covering bound (rounding at rotated corners,
+    a future "optimize the loop bounds" edit) silently clips content at
+    some angles with no error. Property: every INTERIOR pixel of a solid
+    rect forward-maps to a lit dst pixel, across an angle sweep, on both
+    the full-rect scan and the src_extent-optimized scan.
+
+    Interior-only because a boundary pixel's rounded forward position can
+    legitimately inverse-sample just outside the rect (nearest-neighbor
+    half-pixel rounding) — that is transparency, not clipping.
+    """
+
+    ANGLES = [
+        3.7,
+        17.0,
+        30.0,
+        45.0,
+        60.0,
+        88.5,
+        90.0,
+        133.0,
+        179.0,
+        212.4,
+        270.0,
+        301.0,
+        359.0,
+    ]
+    RECT = (24, 28, 41, 37)  # x0, y0, x1_exclusive, y1_exclusive — solid
+    CX = CY = 32.0
+
+    def _solid_src(self) -> PixelBuffer:
+        src = PixelBuffer(64, 64)
+        x0, y0, x1, y1 = self.RECT
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                src.SetPixel(x, y, 255, 255, 255)
+        return src
+
+    def _assert_interior_covered(self, angle: float, src_extent) -> None:
+        src = self._solid_src()
+        dst = PixelBuffer(64, 64)
+        rotate_blit(dst, src, angle, self.CX, self.CY, src_extent=src_extent)
+        rad = math.radians(angle)
+        cos_t, sin_t = math.cos(rad), math.sin(rad)
+        x0, y0, x1, y1 = self.RECT
+        missing = []
+        for y in range(y0 + 1, y1 - 1):
+            for x in range(x0 + 1, x1 - 1):
+                dx, dy = x - self.CX, y - self.CY
+                fx = self.CX + dx * cos_t - dy * sin_t
+                fy = self.CY + dx * sin_t + dy * cos_t
+                if dst.get(int(fx + 0.5), int(fy + 0.5)) is None:
+                    missing.append((x, y, angle))
+        assert not missing, (
+            f"scan region under-covers at angle={angle}: {len(missing)} interior "
+            f"pixels forward-map to unlit dst pixels, first: {missing[:3]}"
+        )
+
+    def test_full_rect_scan_covers_interior_at_every_angle(self) -> None:
+        for angle in self.ANGLES:
+            self._assert_interior_covered(angle, src_extent=None)
+
+    def test_extent_scoped_scan_covers_interior_at_every_angle(self) -> None:
+        # The extent-derived AABB is the riskier surface: it computes the
+        # scan region from the ROTATED extent corners.
+        for angle in self.ANGLES:
+            self._assert_interior_covered(angle, src_extent=self.RECT)

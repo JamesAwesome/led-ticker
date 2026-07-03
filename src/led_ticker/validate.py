@@ -81,17 +81,14 @@ _ERROR_PATTERNS: list[tuple[str, int | None, str]] = [
     (
         "animation is only valid on",
         12,
-        (
-            "Remove animation from this widget type;"
-            " valid on message, countdown, gif, image"
-        ),
+        ("Remove animation from this widget type; valid on message, gif, image"),
     ),
     (
         "border is only valid on",
         15,
         (
             "Remove border from this widget type;"
-            " valid on message, countdown, two_row, gif, image"
+            " valid on message, countdown, countup, two_row, gif, image"
         ),
     ),
     (

@@ -262,7 +262,7 @@ class SpinAnimation:
 
 For time-based math in animation classes, `ENGINE_TICK_MS` (importable from `led_ticker.plugin`, listed in the [Helpers table](#helpers)) gives the engine's render cadence — 50 ms per tick — so you can convert a desired rotation speed in degrees/second to a per-tick increment without hardcoding the cadence.
 
-**Transition authors** can reuse the same rotation machinery via `make_rotation_surface` and `RotationSurface` (both in the [Data & types table](#data--types) and [Helpers table](#helpers)): construct a surface once per transition instance, snapshot the outgoing into it on the first frame (`t < _last_t` detects a new firing and triggers `surface.invalidate()` so the snapshot is rebuilt fresh), then call `surface.blit(canvas, angle, canvas.width / 2)` on every subsequent frame — the snapshot is drawn exactly once per firing, and the per-frame blit operates on the cheaper half-resolution artifact.
+**Transition authors** can reuse the same rotation machinery via `make_rotation_surface` and `RotationSurface` (both in the [Data & types table](#data--types) and [Helpers table](#helpers)): construct a surface once per transition instance, snapshot the outgoing into it on the first frame (`t < _last_t` detects a new firing and triggers `surface.invalidate()` so the snapshot is rebuilt fresh), then call `surface.blit(canvas, angle, canvas.width / 2)` on every subsequent frame — the snapshot is drawn exactly once per firing, and the per-frame blit operates on the cheaper half-resolution artifact on scaled displays (at scale 1 it blits the full buffer directly).
 
 <Aside type="note" title="Configuring a plugin backend">
   Plugin backends can't read custom `[display]` fields yet — `DisplayConfig` has a fixed field set,

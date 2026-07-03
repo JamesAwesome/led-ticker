@@ -68,6 +68,7 @@ from led_ticker.pixel_emoji import (
     measure_emoji_at,
     measure_width,
 )
+from led_ticker.rotate import RotationSurface, make_rotation_surface
 from led_ticker.scaled_canvas import (
     ScaledCanvas,
     is_scaled,
@@ -129,6 +130,7 @@ __all__ = [
     "HiresFont",
     "HiresSpec",
     "PixelData",
+    "RotationSurface",
     "SNAP_THRESHOLD",
     "ScaledCanvas",
     "SegmentMessage",
@@ -152,6 +154,7 @@ __all__ = [
     "get_text_width",
     "is_scaled",
     "make_color",
+    "make_rotation_surface",
     "measure_emoji_at",
     "measure_width",
     "paint_hires",

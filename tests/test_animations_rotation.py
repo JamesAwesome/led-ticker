@@ -27,3 +27,13 @@ def test_engine_tick_ms_on_plugin_surface() -> None:
 
     assert plugin.ENGINE_TICK_MS is constants.ENGINE_TICK_MS
     assert "ENGINE_TICK_MS" in plugin.__all__
+
+
+def test_rotation_surface_on_plugin_surface() -> None:
+    """flair.spinout imports the seam through the public surface only."""
+    from led_ticker import plugin, rotate
+
+    assert plugin.make_rotation_surface is rotate.make_rotation_surface
+    assert plugin.RotationSurface is rotate.RotationSurface
+    assert "make_rotation_surface" in plugin.__all__
+    assert "RotationSurface" in plugin.__all__

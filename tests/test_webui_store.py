@@ -516,16 +516,23 @@ def test_build_store_removed_plugin_shows_pending_banner(tmp_path):
 # Pack indicator (led-ticker-flair: nyancat/pokeball/pacman/sailor_moon)
 # ---------------------------------------------------------------------------
 
-_FLAIR_NAMESPACES_FULL = ("nyancat", "pokeball", "pacman", "sailor_moon")
+_FLAIR_NAMESPACES_FULL = (
+    "flair",
+    "nyancat",
+    "pokeball",
+    "pacman",
+    "sailor_moon",
+)
 
 
 def test_build_store_pack_fields_flair_members(tmp_path):
-    """Flair pack members each have pack=='flair' and pack_members lists all four
-    sorted namespaces; a solo plugin (e.g. rss) has pack=='' and pack_members==[]."""
+    """Flair pack members each have pack=='flair' and pack_members lists all five
+    sorted namespaces (the four sprite families + the flair text-effects entry);
+    a solo plugin (e.g. rss) has pack=='' and pack_members==[]."""
     cat = load_catalog()
     flair_ns = {e.namespace for e in cat.entries} & set(_FLAIR_NAMESPACES_FULL)
     assert flair_ns == set(_FLAIR_NAMESPACES_FULL), (
-        "catalog must carry all four flair entries"
+        "catalog must carry all five flair-pack entries"
     )
 
     man = tmp_path / "requirements-plugins.txt"

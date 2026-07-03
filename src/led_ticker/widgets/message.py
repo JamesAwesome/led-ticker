@@ -65,6 +65,11 @@ class TickerMessage(FrameAwareBase):
     _content_width: int = attrs.field(init=False, default=-1)
     _has_emoji: bool = attrs.field(init=False, default=False)
     _baseline_y: int = attrs.field(init=False, default=-1)
+    # Geometry the cached baseline was computed against (logical height,
+    # scale). compute_baseline depends on both; keying the cache means an
+    # in-place canvas change on a live widget recomputes instead of
+    # reusing a stale baseline. Same guard shape as RotationSurface.matches().
+    _baseline_key: tuple[int, int] | None = attrs.field(init=False, default=None)
     # Inline-value-token state. `_token` scans `self.text` once at
     # construction for `:source.id:` tokens (emoji slugs are skipped by
     # TokenizedField). `_resolved_text` caches the substituted string
@@ -233,8 +238,10 @@ class TickerMessage(FrameAwareBase):
         # `visible_text` shorter than the full message.
         start_pos = cursor_pos
 
-        if self._baseline_y < 0:
+        baseline_key = (canvas.height, getattr(canvas, "scale", 1))
+        if self._baseline_key != baseline_key:
             self._baseline_y = compute_baseline(self.font, canvas, valign="center")
+            self._baseline_key = baseline_key
         baseline_y = self._baseline_y
 
         # Paint border BEFORE text so text overlaps the border on

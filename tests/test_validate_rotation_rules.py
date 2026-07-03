@@ -138,6 +138,37 @@ async def test_rule62_no_fire_when_duration_le_hold(
     assert issues == [], f"Unexpected rule-62 warnings: {issues}"
 
 
+async def test_rule62_widget_hold_rescues_short_section_hold(
+    conf, stub_propeller_registered
+) -> None:
+    """effective hold is max(section, widget): a 5 s spin on a 2 s section
+    does NOT fire when the widget's own hold_time is 8 s. Pins the max()
+    at the rule-62 site directly — a min()/section-only mutation fails here."""
+    toml = _toml(
+        2.0,
+        'animation = {style = "teststub.propeller", spin_seconds = 5.0}\n'
+        "hold_time = 8.0",
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 62]
+    assert issues == [], f"Unexpected rule-62 warnings: {issues}"
+
+
+async def test_rule62_small_widget_hold_does_not_shrink_section_hold(
+    conf, stub_propeller_registered
+) -> None:
+    """The mirror pin: a 5 s spin on an 8 s section does NOT fire even when
+    the widget carries a smaller hold_time (1 s) — max(8, 1) = 8 governs."""
+    toml = _toml(
+        8.0,
+        'animation = {style = "teststub.propeller", spin_seconds = 5.0}\n'
+        "hold_time = 1.0",
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 62]
+    assert issues == [], f"Unexpected rule-62 warnings: {issues}"
+
+
 async def test_rule62_excludes_typewriter(conf) -> None:
     """Typewriter is owned by rule 61 — rule 62 must not fire a duplicate.
 

@@ -68,7 +68,7 @@ Typewriter has `restart_on_visit = true` — the reveal counter resets every tim
 | Widget type                   | `animation = "typewriter"`?            | `animation = "flair.propeller"`?                  |
 | ----------------------------- | -------------------------------------- | ------------------------------------------------- |
 | `message`                     | yes                                    | yes                                               |
-| `countdown`                   | yes                                    | no                                                |
+| `countdown`                   | no                                     | no                                                |
 | `gif`                         | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] |
 | `image`                       | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] |
 | `two_row`                     | no                                     | no                                                |
@@ -142,7 +142,7 @@ animation = {style = "flair.propeller", revolutions = 3, spin_seconds = 1.5, dir
 
 ### How the spin interacts with `hold_time`
 
-`led-ticker validate` rule 62 warns when `spin_seconds` is longer than the section's `hold_time` — a spin that outlasts the hold cuts away before the text settles, so the message never reads cleanly. Raise `hold_time` to cover `spin_seconds` plus at least a moment of readable hold. The engine waits for the spin to settle before firing any transition, so the transition itself is never disrupted mid-spin.
+`led-ticker validate` rule 62 warns when `spin_seconds` is longer than the section's `hold_time` — a spin that outlasts the hold cuts away before the text settles, so the message never reads cleanly. Raise `hold_time` to cover `spin_seconds` plus at least a moment of readable hold. The engine waits up to about a second for the spin to settle before firing a transition; a spin that outlasts the hold by more than that cuts away mid-spin (the rule 62 warning covers this).
 
 ### Composing with `font_color` and `border`
 
@@ -154,7 +154,7 @@ On signs with `default_scale > 1`, the mid-spin frames render from a pre-rendere
 
 ### Pairing with `flair.spinout`
 
-`flair.propeller` and `flair.spinout` are designed to pair: the widget spins in at entry and spins out at exit. See [the full-cycle demo](#full-cycle-propeller--spinout) below for the combined config.
+`flair.propeller` and `flair.spinout` are designed to pair: the widget spins in at entry and spins out at exit. See [the full-cycle demo](#pairing-with-flairspinout) below for the combined config.
 
 <DemoGif
   src="/demos-pinned/flair-full-cycle.gif"

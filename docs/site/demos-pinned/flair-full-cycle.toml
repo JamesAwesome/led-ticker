@@ -1,0 +1,33 @@
+# render-duration: 10
+# requires-plugins: led-ticker-flair (>= 0.3.0; render locally with the plugin installed)
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "flair.spinout"
+duration = 1.0
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "FULL CYCLE"
+center = true
+font_color = [255, 200, 0]
+animation = "flair.propeller"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "REPEAT"
+center = true
+font_color = [255, 100, 255]

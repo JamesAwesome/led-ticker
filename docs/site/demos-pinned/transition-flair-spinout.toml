@@ -1,0 +1,32 @@
+# render-duration: 9
+# requires-plugins: led-ticker-flair (>= 0.3.0; render locally with the plugin installed)
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "flair.spinout"
+duration = 1.0
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "SPIN OUT"
+center = true
+font_color = [0, 220, 255]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "AND CUT"
+center = true
+font_color = [80, 255, 80]

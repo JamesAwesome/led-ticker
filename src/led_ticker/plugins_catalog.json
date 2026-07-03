@@ -115,6 +115,19 @@
       ]
     },
     {
+      "name": "flair",
+      "namespace": "flair",
+      "summary": "Flair text-effect pack — flair.propeller animation (spinning in-plane reveal on message widgets) and flair.spinout transition (outgoing widget spins out before cut to incoming). Part of the led-ticker-flair pack.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
+      "provides": {
+        "animations": ["flair.propeller"],
+        "transitions": ["flair.spinout"]
+      },
+      "sources": [
+        { "type": "pypi", "package": "led-ticker-flair" }
+      ]
+    },
+    {
       "name": "telnet",
       "namespace": "telnet",
       "summary": "Telnet (ANSI terminal) rendering backend for led-ticker — watch your sign in a terminal.",

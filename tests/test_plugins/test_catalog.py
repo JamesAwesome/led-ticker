@@ -38,6 +38,7 @@ def test_bundled_catalog_has_the_first_party_plugins():
         "pokeball",
         "pacman",
         "sailor_moon",
+        "flair",
         "telnet",
     }
     # the split is done — no monolithic feeds/arcade entries remain

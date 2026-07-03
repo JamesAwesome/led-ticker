@@ -1,13 +1,14 @@
 ---
-title: Sprite transitions
-description: "Pixel-art characters cross the panel — Nyan Cat, Pokeball, Sailor Moon, Pac-Man."
+title: Sprite and flair transitions
+description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites and the flair.spinout text-spin transition."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import TomlExample from "../../../components/TomlExample.astro";
 
-Sprite transitions run a pixel-art character across the panel, erasing the outgoing widget and revealing the incoming one. Reference them by their namespaced slug, e.g. `transition = "pokeball.forward"`.
+The flair pack (`led-ticker-flair`) ships two categories of transition: **homage sprite-trails** — pixel-art characters that cross the panel — and **text-effect transitions** that manipulate the outgoing content itself. Both are referenced by their namespaced slug, e.g. `transition = "pokeball.forward"` or `transition = "flair.spinout"`.
 
 ## Homage transitions (flair pack)
 
@@ -111,4 +112,78 @@ The `sailor_moon` and `pacman` families keep their 8-bit look at all scales — 
 
 The rolling-**baseball** family (`baseball.roll`, `baseball.roll_reverse`, `baseball.roll_alternating`) ships with the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo, alongside that package's MLB widgets and `:baseball.ball:` emoji. Install it via `config/requirements-plugins.txt` (see [Plugins](/plugins/)) to use it.
 
-<RelatedPages slugs={["transitions/push", "transitions/wipe"]} />
+---
+
+## Text-effect transitions (flair pack)
+
+### `flair.spinout` (flair >= 0.3.0, core >= 4.6)
+
+`flair.spinout` spins the outgoing widget's content out of view — starting at rest, then accelerating — before cutting to the incoming widget. Unlike a sprite trail, nothing crosses the panel; the content itself rotates and disappears. Transition duration follows `[transitions] duration` (default 0.5 s; sprite-style durations of 1.0–1.5 s look best for a full revolution or two).
+
+<DemoGif
+  src="/demos-pinned/transition-flair-spinout.gif"
+  caption="`flair.spinout` — outgoing text accelerates and spins out before the incoming widget appears"
+/>
+
+#### Install
+
+`flair.spinout` is part of the same `led-ticker-flair` package as the homage sprite-trails:
+
+```text
+led-ticker-flair
+```
+
+One install registers all flair transitions and animations. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Minimal"
+  code={`[transitions]
+default = "flair.spinout"
+duration = 1.0
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "SPIN OUT"
+center = true
+font_color = [0, 220, 255]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "AND CUT"
+center = true
+font_color = [80, 255, 80]`}
+/>
+
+#### Knobs
+
+| Knob          | Default | Notes                                                   |
+| ------------- | ------- | ------------------------------------------------------- |
+| `revolutions` | `2`     | Integer >= 1. Full turns before the content disappears. |
+| `direction`   | `"cw"`  | `"cw"` (clockwise) or `"ccw"` (counter-clockwise).      |
+
+Set knobs via an inline table on `[transitions] default` or on the section's `transition` field:
+
+```toml
+[transitions]
+default = {type = "flair.spinout", revolutions = 1, direction = "ccw"}
+duration = 1.0
+```
+
+#### Behavior notes
+
+- **Background color holds.** The outgoing section's `bg_color` fills the panel for the entire spin duration — the background never flashes or drops to black mid-transition.
+- **Scrolled text spins from its parked position.** If the outgoing widget had been scrolling, `flair.spinout` picks up at the position where the text stopped (the same `outgoing_scroll_pos` continuity used by the push family).
+- **Colors freeze during the spin.** Animated `font_color` providers (`rainbow`, `color_cycle`, `shimmer`) are paused for the outgoing widget while it spins, consistent with how transitions pause frame-aware effects in general.
+- **Pairs with `flair.propeller`.** Use `flair.spinout` as the inter-widget or between-sections transition alongside `animation = "flair.propeller"` on `message` widgets for a full spin-in / spin-out cycle. See [flair.propeller → Pairing with flair.spinout](/concepts/animations/#pairing-with-flairspinout).
+
+<RelatedPages slugs={["transitions/push", "transitions/wipe", "concepts/animations"]} />

@@ -1,6 +1,6 @@
 ---
 title: Animations
-description: typewriter — character-by-character reveal, composes with any font_color.
+description: Animate text on your sign — typewriter reveals and flair.propeller spinning entry, both composing with any font_color.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -65,14 +65,16 @@ Typewriter has `restart_on_visit = true` — the reveal counter resets every tim
 
 ## Where it works
 
-| Widget type                   | `animation = "typewriter"`?            |
-| ----------------------------- | -------------------------------------- |
-| `message`                     | yes                                    |
-| `countdown`                   | yes                                    |
-| `gif`                         | yes — single-row only (see note below) |
-| `image`                       | yes — single-row only (see note below) |
-| `two_row`                     | no                                     |
-| `weather.current`, `rss.feed` | no                                     |
+| Widget type                   | `animation = "typewriter"`?            | `animation = "flair.propeller"`?                  |
+| ----------------------------- | -------------------------------------- | ------------------------------------------------- |
+| `message`                     | yes                                    | yes                                               |
+| `countdown`                   | no                                     | no                                                |
+| `gif`                         | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] |
+| `image`                       | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] |
+| `two_row`                     | no                                     | no                                                |
+| `weather.current`, `rss.feed` | no                                     | no                                                |
+
+[^propeller-gif]: `flair.propeller` is accepted on `gif` and `image` at config-load so a section can carry both a spinning `message` and an image widget without a validation error, but the rotation has no visible effect — only `message` widgets render the spin.
 
 On `gif` and `image` widgets, typewriter is restricted to single-row text overlays. It will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty.
 
@@ -86,4 +88,112 @@ Other widget types (`two_row`, the crypto and feeds widgets) have their own draw
 
 On top of the widget-type check above, typewriter on `gif` / `image` rejects three combinations: `bottom_text` set, `text_align = "scroll"` / `"scroll_over"`, or empty `text`. Typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
-<RelatedPages slugs={["concepts/color-providers", "reference/frame-counters", "widgets/message"]} />
+---
+
+## `flair.propeller` (flair pack)
+
+`flair.propeller` is a plugin animation from the [flair pack](/plugins/available/#flair-text-effects-flair-pack) (`led-ticker-flair >= 0.2.0`, core >= 4.3). The `message` widget's text spins in-plane like a propeller the moment the widget appears — easing out over the configured number of revolutions and settling exactly flat — then holds readable for the rest of `hold_time`. Transitions wait for the spin to finish before firing.
+
+<DemoGif
+  src="/demos-pinned/animation-flair-propeller.gif"
+  caption="`message` with `animation = flair.propeller` — text spins in and settles flat"
+/>
+
+### Install
+
+Add one line to `config/requirements-plugins.txt`:
+
+```text
+led-ticker-flair
+```
+
+See [Plugins](/plugins/) for the install flow.
+
+### Minimal config
+
+<TomlExample
+  title="Minimal"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "PROPELLER"
+center = true
+font_color = [255, 200, 0]
+animation = "flair.propeller"`}
+/>
+
+### Tuning the spin
+
+Switch to an inline table to control speed and direction:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "PROPELLER"
+center = true
+font_color = [255, 200, 0]
+animation = {style = "flair.propeller", revolutions = 3, spin_seconds = 1.5, direction = "ccw"}`}
+/>
+
+| Knob           | Default | Notes                                                                                   |
+| -------------- | ------- | --------------------------------------------------------------------------------------- |
+| `revolutions`  | `2`     | Integer >= 1. Number of full 360° turns before settling.                                |
+| `spin_seconds` | `1.0`   | Seconds for the full spin (ease-out). Shorter feels snappy; 2–3 s reads as deliberate.  |
+| `direction`    | `"cw"`  | `"cw"` (clockwise) or `"ccw"` (counter-clockwise) — viewed from the front of the panel. |
+
+### How the spin interacts with `hold_time`
+
+`led-ticker validate` rule 62 warns when `spin_seconds` is longer than the section's `hold_time` — a spin that outlasts the hold cuts away before the text settles, so the message never reads cleanly. Raise `hold_time` to cover `spin_seconds` plus at least a moment of readable hold. The engine waits up to about a second for the spin to settle before firing a transition; a spin that outlasts the hold by more than that cuts away mid-spin (the rule 62 warning covers this).
+
+### Composing with `font_color` and `border`
+
+`flair.propeller` composes with `font_color` providers and `border` effects using the same independent-axes model as typewriter. Animated color providers (`rainbow`, `color_cycle`, `shimmer`) **freeze** for the duration of the spin and resume at settle — the color phase keeps advancing in the background, so the sweep continues exactly where it left off the moment the text lands flat. This means a propeller + rainbow combo reads as: spin in (colors frozen), land flat, rainbow resumes sweeping.
+
+### On scaled signs (bigsign)
+
+On signs with `default_scale > 1`, the mid-spin frames render from a pre-rendered snapshot at half physical resolution — this captures hires fonts and emoji at their correct size but at reduced detail. The resting (settled) frame always renders at full detail. `led-ticker-flair >= 0.2.0` and core >= 4.5 are required for physical-resolution hires spin frames; on core 4.3–4.4 the spin runs but hires fonts draw unrotated (validate rule 63 warns when this condition is detected).
+
+### Pairing with `flair.spinout`
+
+`flair.propeller` and `flair.spinout` are designed to pair: the widget spins in at entry and spins out at exit. See [the full-cycle demo](#pairing-with-flairspinout) below for the combined config.
+
+<DemoGif
+  src="/demos-pinned/flair-full-cycle.gif"
+  caption="Full cycle — `flair.propeller` entry spin followed by `flair.spinout` transition"
+/>
+
+<TomlExample
+  title="Full cycle (propeller in + spinout)"
+  code={`[transitions]
+default = "flair.spinout"
+duration = 1.0
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "FULL CYCLE"
+center = true
+font_color = [255, 200, 0]
+animation = "flair.propeller"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "REPEAT"
+center = true
+font_color = [255, 100, 255]`}
+/>
+
+<RelatedPages
+  slugs={[
+    "concepts/color-providers",
+    "reference/frame-counters",
+    "widgets/message",
+    "transitions/sprite",
+  ]}
+/>

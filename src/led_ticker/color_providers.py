@@ -34,6 +34,7 @@ from typing import Protocol
 
 from led_ticker._types import Color
 from led_ticker.color_lut import hue_color
+from led_ticker.constants import ENGINE_TICK_MS
 
 
 class ColorProviderBase:
@@ -219,7 +220,7 @@ class Gradient(ColorProviderBase):
         return graphics.Color(r, g, b)
 
 
-_SHIMMER_FPS = 30.0
+_SHIMMER_FPS = 1000.0 / ENGINE_TICK_MS  # 20.0 — one provider frame per engine tick
 
 
 class Shimmer(ColorProviderBase):
@@ -256,9 +257,17 @@ class Shimmer(ColorProviderBase):
 
     def _cycle_geometry(self, total_chars: int) -> tuple[float, float]:
         """(sweep_frames, cycle_frames) — the single source of cycle math
-        for BOTH color_for and frames_to_rest, so the two can't drift."""
+        for BOTH color_for and frames_to_rest, so the two can't drift.
+
+        travel = chars + width: the spot starts fully off-screen left
+        (center = -width/2) and exits fully off-screen right (center =
+        chars + width/2), covering the full text without a pop at either
+        end. sweep_frames is derived from true engine cadence (20 fps)
+        so configured seconds are real seconds.
+        """
         chars = max(total_chars, 1)
-        sweep_frames = chars / self.speed * _SHIMMER_FPS
+        travel = chars + self.width
+        sweep_frames = travel / self.speed * _SHIMMER_FPS
         cycle_frames = sweep_frames + self.pause * _SHIMMER_FPS
         return sweep_frames, cycle_frames
 
@@ -291,7 +300,10 @@ class Shimmer(ColorProviderBase):
         if t >= sweep_frames:
             return self._base
 
-        center = t / sweep_frames * chars
+        # Spot glides from center = -width/2 (fully off-screen left at t=0)
+        # to center = chars + width/2 (fully off-screen right at t=sweep_frames),
+        # so there is no pop at either end of the sweep.
+        center = -self.width / 2.0 + (t / sweep_frames) * (chars + self.width)
         d = abs(char_index - center)
         half_width = self.width / 2.0
 

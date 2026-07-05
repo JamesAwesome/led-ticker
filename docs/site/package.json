@@ -18,7 +18,7 @@
     "check:llms": "node scripts/check-llms.mjs"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.40.0",
+    "@astrojs/starlight": "^0.41.3",
     "astro": "^7.0.6",
     "marked": "^18.0.5",
     "remark-gfm": "^4.0.1",

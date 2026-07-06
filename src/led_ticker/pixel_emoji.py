@@ -2517,6 +2517,120 @@ def is_emoji_slug(slug: str) -> bool:
     return slug in _get_registry() or slug in HIRES_REGISTRY
 
 
+# --- Unicode emoji recognition (spec §1; antagonist-corrected ALLOWLIST) ----
+# Continuation codepoints absorbed into a base's run.
+_VS = "️︎"  # variation selectors (emoji / text presentation)
+_ZWJ = "‍"
+_SKIN = "\U0001f3fb-\U0001f3ff"  # skin-tone modifiers
+
+# Astral pictograph blocks — these ARE emoji bases wholesale.
+_EMOJI_ASTRAL = (
+    "\U0001f300-\U0001f5ff"  # Misc Symbols & Pictographs
+    "\U0001f600-\U0001f64f"  # Emoticons
+    "\U0001f680-\U0001f6ff"  # Transport & Map
+    "\U0001f900-\U0001f9ff"  # Supplemental Symbols & Pictographs
+    "\U0001fa70-\U0001faff"  # Symbols & Pictographs Extended-A
+)
+# ONLY the BMP codepoints the map targets are bases (F5 allowlist — a bare
+# ★/♥/⚡/➡ is therefore NEVER a base and stays plain text, structurally).
+_MAPPED_BMP = "❤⭐✨☀☁⛅❄⛈✉"
+# Broad BMP symbol span — used ONLY after a ZWJ (safe: inside a sequence) and
+# in the VS-required "ambiguous char + FE0F" branch (never a bare base).
+_BMP_SYM = "☀-⛿✀-➿⬀-⯿"  # U+2600-26FF, U+2700-27BF, U+2B00-2BFF
+
+# A single emoji run (alternation ORDER matters — flag/keycap/allowlist-base
+# before the VS-required ambiguous branch):
+_UEMOJI_RE = re.compile(
+    "(?:"
+    r"[\U0001F1E6-\U0001F1FF]{2}"  # regional flag PAIR
+    r"|[0-9#*]️?⃣"  # keycap (needs U+20E3)
+    r"|(?:[" + _EMOJI_ASTRAL + _MAPPED_BMP + r"]"  # ALLOWLIST base
+    r"[" + _VS + _SKIN + r"]*"
+    r"(?:" + _ZWJ + r"[" + _EMOJI_ASTRAL + _BMP_SYM + r"][" + _VS + _SKIN + r"]*)*)"
+    r"|[" + _BMP_SYM + r"]️"  # ambiguous char + REQUIRED VS
+    ")"
+)
+
+
+def _uemoji_runs(text: str):
+    """Yield (start, end, chars) for each Unicode-emoji run."""
+    for m in _UEMOJI_RE.finditer(text):
+        yield m.start(), m.end(), m.group(0)
+
+
+def _emoji_key(chars: str) -> str:
+    """Lookup key: strip ALL variation selectors + skin-tone modifiers;
+    keep ZWJ structure (flag keys need it). So '❤️' and '❤' share a key,
+    and '🏳️‍🌈' keys as its ZWJ form without VS."""
+    return "".join(
+        c for c in chars if c not in _VS and not ("\U0001f3fb" <= c <= "\U0001f3ff")
+    )
+
+
+# The map — keys stored already in _emoji_key() normal form.
+_UNICODE_EMOJI_MAP: dict[str, str] = {
+    _emoji_key("❤️"): "heart",
+    _emoji_key("🧡"): "heart_orange",
+    _emoji_key("💛"): "heart_yellow",
+    _emoji_key("💚"): "heart_green",
+    _emoji_key("💙"): "heart_blue",
+    _emoji_key("💜"): "heart_purple",
+    _emoji_key("💗"): "heart_pink",
+    _emoji_key("💖"): "heart_pink",
+    _emoji_key("🩷"): "heart_pink",
+    _emoji_key("⭐"): "star",
+    _emoji_key("🌟"): "star",
+    _emoji_key("✨"): "star",
+    _emoji_key("💫"): "star",
+    _emoji_key("☀️"): "sun",
+    _emoji_key("🌙"): "moon",
+    _emoji_key("🌛"): "moon",
+    _emoji_key("🌜"): "moon",
+    _emoji_key("☁️"): "cloud",
+    _emoji_key("⛅"): "partly_cloudy",
+    _emoji_key("🌤️"): "partly_cloudy",
+    _emoji_key("🌧️"): "rain",
+    _emoji_key("❄️"): "snow",
+    _emoji_key("🌨️"): "snow",
+    _emoji_key("🌫️"): "fog",
+    _emoji_key("⛈️"): "thunder",
+    _emoji_key("🌩️"): "thunder",
+    _emoji_key("💧"): "droplet",
+    _emoji_key("🐱"): "cat",
+    _emoji_key("🐈"): "cat",
+    _emoji_key("🐰"): "bunny",
+    _emoji_key("🐇"): "bunny",
+    _emoji_key("🌸"): "flower",
+    _emoji_key("🌺"): "flower",
+    _emoji_key("🌷"): "flower",
+    _emoji_key("🌹"): "flower",
+    _emoji_key("💐"): "flower",
+    _emoji_key("🌼"): "flower",
+    _emoji_key("🌮"): "taco",
+    _emoji_key("📧"): "email",
+    _emoji_key("✉️"): "email",
+    _emoji_key("📩"): "email",
+    _emoji_key("🏳️‍🌈"): "pride_rainbow",
+    _emoji_key("🏳️‍⚧️"): "pride_trans",
+}
+
+
+def _map_uemoji_to_slug(chars: str) -> str | None:
+    """Unicode-emoji → sprite-slug. Pure; no canvas. None = strip (today)."""
+    return _UNICODE_EMOJI_MAP.get(_emoji_key(chars))
+
+
+def has_renderable_emoji(text: str) -> bool:
+    """True if `text` contains a registry :slug: OR a Unicode-emoji run.
+    Replaces every inline EMOJI_PATTERN.search gate (spec §4)."""
+    for m in EMOJI_PATTERN.finditer(text):
+        if m.group(0)[1:-1] in _get_registry():
+            return True
+    for _ in _uemoji_runs(text):
+        return True
+    return False
+
+
 def _parse_segments(text: str) -> list[tuple[str, str]]:
     """Split text into segments of (type, value).
 

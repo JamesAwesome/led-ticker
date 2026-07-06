@@ -1824,6 +1824,18 @@ def test_draw_with_emoji_has_future_hires_hook():
     assert "FUTURE hi-res hook" in src
 
 
+def test_measure_width_has_future_hires_hook():
+    """Symmetric tripwire (review NIT): the measure-side hook must survive
+    too — a future hires renderer needs BOTH the draw and measure branches,
+    or width and paint would drift when it's added."""
+    import inspect
+
+    from led_ticker.pixel_emoji import measure_width
+
+    src = inspect.getsource(measure_width)
+    assert "FUTURE hi-res hook" in src
+
+
 def _fresh_real():
     """A plain scale-1 real stub canvas (256x64), matching bigsign_canvas."""
     opts = RGBMatrixOptions()

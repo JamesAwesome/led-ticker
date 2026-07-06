@@ -41,7 +41,7 @@ from led_ticker.fonts import (
     font_line_height_logical,
 )
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
-from led_ticker.pixel_emoji import EMOJI_PATTERN
+from led_ticker.pixel_emoji import has_renderable_emoji
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled
 from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
@@ -251,7 +251,7 @@ class _BaseImageWidget(FrameAwareBase):
     _logical_scale: int = attrs.field(init=False, default=1)
 
     # Cached at validation time (text is invariant for the widget's
-    # lifetime); avoids re-running EMOJI_PATTERN.search per tick.
+    # lifetime); avoids re-running has_renderable_emoji per tick.
     _has_emoji_cached: bool = attrs.field(init=False, default=False)
 
     # ------------------------------------------------------------------
@@ -581,7 +581,7 @@ class _BaseImageWidget(FrameAwareBase):
         # text — emoji slugs survive token substitution and must still
         # trigger the emoji render path.
         scan_text = self.text + self.top_text + self.bottom_text
-        self._has_emoji_cached = bool(EMOJI_PATTERN.search(scan_text))
+        self._has_emoji_cached = has_renderable_emoji(scan_text)
 
         # Build one TokenizedField per text field. Two-row mode scans
         # top_text and bottom_text independently. Single-row mode scans
@@ -874,7 +874,7 @@ class _BaseImageWidget(FrameAwareBase):
             return 0
         if font is None:
             font = self.font
-        if EMOJI_PATTERN.search(sep):
+        if has_renderable_emoji(sep):
             from led_ticker.pixel_emoji import measure_width
 
             return measure_width(font, sep, canvas=canvas)
@@ -934,7 +934,7 @@ class _BaseImageWidget(FrameAwareBase):
         else:
             color = provider
 
-        if EMOJI_PATTERN.search(sep):
+        if has_renderable_emoji(sep):
             from led_ticker.pixel_emoji import draw_with_emoji
 
             draw_with_emoji(
@@ -1042,7 +1042,7 @@ class _BaseImageWidget(FrameAwareBase):
         """
         font = self._row_font(row)
         text = self._row_text(row)
-        if self._has_emoji() and EMOJI_PATTERN.search(text):
+        if self._has_emoji() and has_renderable_emoji(text):
             from led_ticker.pixel_emoji import measure_width
 
             return measure_width(
@@ -1078,7 +1078,7 @@ class _BaseImageWidget(FrameAwareBase):
         counter. Passed explicitly because this helper doesn't know
         which row it's drawing for.
         """
-        if self._has_emoji() and EMOJI_PATTERN.search(text):
+        if self._has_emoji() and has_renderable_emoji(text):
             from led_ticker.pixel_emoji import draw_with_emoji
 
             draw_with_emoji(

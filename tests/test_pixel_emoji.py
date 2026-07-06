@@ -1698,3 +1698,150 @@ class TestDownsampleHires:
 
         star = HIRES_REGISTRY["star"]
         assert _downsample_hires(star, 0.5) is _downsample_hires(star, 0.5)
+
+
+# --- Unicode-emoji → sprite rendering (Task 3) -------------------------------
+
+
+def _lit_set(canvas):
+    """Set of lit (x, y) on a stub canvas (get_pixel != black)."""
+    return {
+        (x, y)
+        for x in range(canvas.width)
+        for y in range(canvas.height)
+        if canvas.get_pixel(x, y) != (0, 0, 0)
+    }
+
+
+def _render_lit(canvas, text):
+    draw_with_emoji(
+        canvas, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=text
+    )
+    return _lit_set(canvas)
+
+
+class TestUemojiRender:
+    """A MAPPED Unicode emoji renders as its sprite; an UNMAPPED one is
+    stripped (no pixels, no advance)."""
+
+    def test_uemoji_heart_identical_to_slug(self, bigsign_canvas):
+        # "❤️" and ":heart:" must produce byte-identical lit pixels at the
+        # same origin — the map routes to the same sprite path.
+        heart_uni = _render_lit(bigsign_canvas, "❤️")
+        slug = _render_lit(_fresh_real(), ":heart:")
+        assert heart_uni == slug
+        assert heart_uni  # non-empty
+
+    def test_heart_lights_between_x_and_y(self, bigsign_canvas):
+        from led_ticker.pixel_emoji import _HEART_LOWRES_CELLS, EMOJI_PADDING
+
+        real = bigsign_canvas
+        _render_lit(real, "x ❤️ y")
+        # Origin: width("x ") then the pre-pad before the sprite.
+        ox = measure_width(FONT_SMALL, "x ")
+        ix = ox + EMOJI_PADDING
+        iy = 0  # y(8) - 8
+        for cx, cy in _HEART_LOWRES_CELLS:
+            assert real.get_pixel(ix + cx, iy + cy) != (0, 0, 0), (
+                f"heart cell ({cx},{cy}) not lit at origin ({ix},{iy})"
+            )
+
+    def test_unmapped_bird_lights_nothing(self, bigsign_canvas):
+        # A stripped uemoji contributes 0 width and 0 pixels, so "x 🐦 y"
+        # renders IDENTICALLY to the two-space "x  y" (bird → nothing).
+        with_bird = _render_lit(bigsign_canvas, "x 🐦 y")
+        two_space = _render_lit(_fresh_real(), "x  y")
+        assert with_bird == two_space
+
+    def test_strip_adds_no_advance(self):
+        # measure_width mirrors the strip: unmapped emoji adds no width.
+        assert measure_width(FONT_SMALL, "a🐦b") == measure_width(FONT_SMALL, "ab")
+
+
+class TestUemojiParity:
+    """F6: draw_with_emoji's returned advance equals measure_width for the
+    same text, on scale-1 AND a scaled wrapper."""
+
+    TEXT = "A ❤️ B 🐦 C"
+
+    def test_parity_scale_1(self):
+        real = _fresh_real()
+        advance = draw_with_emoji(
+            real, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=self.TEXT
+        )
+        assert advance == measure_width(FONT_SMALL, self.TEXT, real)
+
+    def test_parity_scaled(self, bigsign_canvas):
+        sc = ScaledCanvas(bigsign_canvas, scale=4)
+        advance = draw_with_emoji(
+            sc, FONT_SMALL, cursor_pos=0, y=8, color=(255, 255, 255), text=self.TEXT
+        )
+        assert advance == measure_width(FONT_SMALL, self.TEXT, sc)
+
+
+class _RecordingProvider:
+    """Per-char color provider that records the (char_index, total_chars)
+    tuples it is asked for — reveals whether a sprite consumes a hue slot."""
+
+    per_char = True
+    frame_invariant = False
+
+    def __init__(self):
+        self.calls = []
+
+    def color_for(self, frame, char_index, total_chars):
+        self.calls.append((char_index, total_chars))
+        return (255, 255, 255)
+
+
+class TestUemojiRainbowContinuity:
+    """A mapped sprite does NOT consume a per-char hue slot; an unmapped
+    (stripped) emoji contributes nothing — the per-char sweep across text
+    is identical to the sprite-free double-space baseline."""
+
+    def _record(self, text):
+        prov = _RecordingProvider()
+        draw_with_emoji(
+            _fresh_real(), FONT_SMALL, cursor_pos=0, y=8, color=prov, text=text
+        )
+        return prov.calls
+
+    def test_mapped_sprite_does_not_consume_hue(self):
+        # 'C' (and every text char) gets the same (char_index, total) as it
+        # would with the emoji replaced by whitespace — sprite is hue-neutral.
+        assert self._record("AB ❤️ CD") == self._record("AB  CD")
+
+    def test_unmapped_emoji_consumes_no_hue(self):
+        assert self._record("AB 🐦 CD") == self._record("AB  CD")
+
+
+def test_draw_with_emoji_has_future_hires_hook():
+    """Tripwire: the seam comment must survive refactors so a future
+    standard-emoji renderer knows exactly where to hook in."""
+    import inspect
+
+    src = inspect.getsource(draw_with_emoji)
+    assert "FUTURE hi-res hook" in src
+
+
+def test_measure_width_has_future_hires_hook():
+    """Symmetric tripwire (review NIT): the measure-side hook must survive
+    too — a future hires renderer needs BOTH the draw and measure branches,
+    or width and paint would drift when it's added."""
+    import inspect
+
+    from led_ticker.pixel_emoji import measure_width
+
+    src = inspect.getsource(measure_width)
+    assert "FUTURE hi-res hook" in src
+
+
+def _fresh_real():
+    """A plain scale-1 real stub canvas (256x64), matching bigsign_canvas."""
+    opts = RGBMatrixOptions()
+    opts.cols = 64
+    opts.rows = 32
+    opts.chain_length = 8
+    opts.parallel = 1
+    opts.pixel_mapper_config = "U-mapper"
+    return RGBMatrix(options=opts).CreateFrameCanvas()

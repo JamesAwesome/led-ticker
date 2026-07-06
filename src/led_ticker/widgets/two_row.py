@@ -49,7 +49,7 @@ from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import get_text_width, safe_scale
 from led_ticker.fonts import FONT_SMALL, font_line_height_logical
-from led_ticker.pixel_emoji import EMOJI_PATTERN, draw_with_emoji, measure_width
+from led_ticker.pixel_emoji import draw_with_emoji, has_renderable_emoji, measure_width
 from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
@@ -366,7 +366,7 @@ class TwoRowMessage(FrameAwareBase):
             text = self._resolved_bottom
         else:
             return super()._effect_total_chars(attr_name)
-        if EMOJI_PATTERN.search(text):
+        if has_renderable_emoji(text):
             from led_ticker.pixel_emoji import count_text_chars  # noqa: PLC0415
 
             return max(1, count_text_chars(text))
@@ -390,7 +390,7 @@ class TwoRowMessage(FrameAwareBase):
         """Width of the resolved separator in logical px on `canvas`."""
         if not sep:
             return 0
-        if EMOJI_PATTERN.search(sep):
+        if has_renderable_emoji(sep):
             return measure_width(font, sep, canvas=canvas)
         return get_text_width(font, sep, padding=0, canvas=canvas)
 
@@ -414,7 +414,7 @@ class TwoRowMessage(FrameAwareBase):
         `draw_text_per_char`; whole-string providers materialize a single
         color per call."""
         frame_count = self.frame_for(frame_key)
-        if EMOJI_PATTERN.search(text):
+        if has_renderable_emoji(text):
             draw_with_emoji(
                 canvas,
                 font,
@@ -468,7 +468,7 @@ class TwoRowMessage(FrameAwareBase):
             color = provider.color_for(frame_count, 0, 1)
         else:
             color = provider
-        if EMOJI_PATTERN.search(sep):
+        if has_renderable_emoji(sep):
             draw_with_emoji(
                 canvas,
                 font,

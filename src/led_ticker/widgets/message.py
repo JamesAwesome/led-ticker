@@ -16,7 +16,7 @@ from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT, font_line_height_logical
 from led_ticker.fonts.hires_loader import HiresFont
-from led_ticker.pixel_emoji import EMOJI_PATTERN
+from led_ticker.pixel_emoji import has_renderable_emoji
 from led_ticker.rotate import (
     PixelBuffer,
     build_lens_maps,
@@ -114,7 +114,7 @@ class TickerMessage(FrameAwareBase):
     def __attrs_post_init__(self) -> None:
         # `_has_emoji` is computed on the RAW text — emoji slugs survive
         # token substitution, so the emoji render path must still fire.
-        self._has_emoji = bool(EMOJI_PATTERN.search(self.text))
+        self._has_emoji = has_renderable_emoji(self.text)
         self._token = TokenizedField(self.text)
         self._resolved_text = self.text
 

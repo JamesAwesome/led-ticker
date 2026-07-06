@@ -2517,10 +2517,141 @@ def is_emoji_slug(slug: str) -> bool:
     return slug in _get_registry() or slug in HIRES_REGISTRY
 
 
+# --- Unicode emoji recognition (spec §1; antagonist-corrected ALLOWLIST) ----
+# Continuation codepoints absorbed into a base's run.
+_VS = "️︎"  # variation selectors (emoji / text presentation)
+_ZWJ = "‍"
+_SKIN = "\U0001f3fb-\U0001f3ff"  # skin-tone modifiers
+
+# Astral pictograph blocks — these ARE emoji bases wholesale.
+_EMOJI_ASTRAL = (
+    "\U0001f300-\U0001f5ff"  # Misc Symbols & Pictographs
+    "\U0001f600-\U0001f64f"  # Emoticons
+    "\U0001f680-\U0001f6ff"  # Transport & Map
+    "\U0001f900-\U0001f9ff"  # Supplemental Symbols & Pictographs
+    "\U0001fa70-\U0001faff"  # Symbols & Pictographs Extended-A
+)
+# ONLY the BMP codepoints the map targets are bases (F5 allowlist — a bare
+# ★/♥/⚡/➡ is therefore NEVER a base and stays plain text, structurally).
+_MAPPED_BMP = "❤⭐✨☀☁⛅❄⛈✉"
+# Broad BMP symbol span — used ONLY after a ZWJ (safe: inside a sequence) and
+# in the VS-required "ambiguous char + FE0F" branch (never a bare base).
+_BMP_SYM = "☀-⛿✀-➿⬀-⯿"  # U+2600-26FF, U+2700-27BF, U+2B00-2BFF
+
+# A single emoji run (alternation ORDER matters — flag/keycap/allowlist-base
+# before the VS-required ambiguous branch):
+_UEMOJI_RE = re.compile(
+    "(?:"
+    r"[\U0001F1E6-\U0001F1FF]{2}"  # regional flag PAIR
+    r"|[0-9#*]️?⃣"  # keycap (needs U+20E3)
+    r"|(?:[" + _EMOJI_ASTRAL + _MAPPED_BMP + r"]"  # ALLOWLIST base
+    r"[" + _VS + _SKIN + r"]*"
+    r"(?:" + _ZWJ + r"[" + _EMOJI_ASTRAL + _BMP_SYM + r"][" + _VS + _SKIN + r"]*)*)"
+    r"|[" + _BMP_SYM + r"]️"  # ambiguous char + REQUIRED VS
+    ")"
+)
+
+
+def _uemoji_runs(text: str):
+    """Yield (start, end, chars) for each Unicode-emoji run."""
+    for m in _UEMOJI_RE.finditer(text):
+        yield m.start(), m.end(), m.group(0)
+
+
+def _emoji_key(chars: str) -> str:
+    """Lookup key: strip ALL variation selectors + skin-tone modifiers;
+    keep ZWJ structure (flag keys need it). So '❤️' and '❤' share a key,
+    and '🏳️‍🌈' keys as its ZWJ form without VS."""
+    return "".join(
+        c for c in chars if c not in _VS and not ("\U0001f3fb" <= c <= "\U0001f3ff")
+    )
+
+
+# The map — keys stored already in _emoji_key() normal form.
+_UNICODE_EMOJI_MAP: dict[str, str] = {
+    _emoji_key("❤️"): "heart",
+    _emoji_key("🧡"): "heart_orange",
+    _emoji_key("💛"): "heart_yellow",
+    _emoji_key("💚"): "heart_green",
+    _emoji_key("💙"): "heart_blue",
+    _emoji_key("💜"): "heart_purple",
+    _emoji_key("💗"): "heart_pink",
+    _emoji_key("💖"): "heart_pink",
+    _emoji_key("🩷"): "heart_pink",
+    _emoji_key("⭐"): "star",
+    _emoji_key("🌟"): "star",
+    _emoji_key("✨"): "star",
+    _emoji_key("💫"): "star",
+    _emoji_key("☀️"): "sun",
+    _emoji_key("🌙"): "moon",
+    _emoji_key("🌛"): "moon",
+    _emoji_key("🌜"): "moon",
+    _emoji_key("☁️"): "cloud",
+    _emoji_key("⛅"): "partly_cloudy",
+    _emoji_key("🌤️"): "partly_cloudy",
+    _emoji_key("🌧️"): "rain",
+    _emoji_key("❄️"): "snow",
+    _emoji_key("🌨️"): "snow",
+    _emoji_key("🌫️"): "fog",
+    _emoji_key("⛈️"): "thunder",
+    _emoji_key("🌩️"): "thunder",
+    _emoji_key("💧"): "droplet",
+    _emoji_key("🐱"): "cat",
+    _emoji_key("🐈"): "cat",
+    _emoji_key("🐰"): "bunny",
+    _emoji_key("🐇"): "bunny",
+    _emoji_key("🌸"): "flower",
+    _emoji_key("🌺"): "flower",
+    _emoji_key("🌷"): "flower",
+    _emoji_key("🌹"): "flower",
+    _emoji_key("💐"): "flower",
+    _emoji_key("🌼"): "flower",
+    _emoji_key("🌮"): "taco",
+    _emoji_key("📧"): "email",
+    _emoji_key("✉️"): "email",
+    _emoji_key("📩"): "email",
+    _emoji_key("🏳️‍🌈"): "pride_rainbow",
+    _emoji_key("🏳️‍⚧️"): "pride_trans",
+}
+
+
+def _map_uemoji_to_slug(chars: str) -> str | None:
+    """Unicode-emoji → sprite-slug. Pure; no canvas. None = strip (today)."""
+    return _UNICODE_EMOJI_MAP.get(_emoji_key(chars))
+
+
+def has_renderable_emoji(text: str) -> bool:
+    """True if `text` contains a registry :slug: OR a Unicode-emoji run.
+    Replaces every inline EMOJI_PATTERN.search gate (spec §4)."""
+    for m in EMOJI_PATTERN.finditer(text):
+        if m.group(0)[1:-1] in _get_registry():
+            return True
+    for _ in _uemoji_runs(text):
+        return True
+    return False
+
+
+def _split_uemoji(text: str, out: list[tuple[str, str]]) -> None:
+    """Append ("text", ...) / ("uemoji", chars) segments for a run with no :slug: tokens."""
+    pos = 0
+    for start, end, chars in _uemoji_runs(text):
+        if start > pos:
+            out.append(("text", text[pos:start]))
+        out.append(("uemoji", chars))
+        pos = end
+    if pos < len(text):
+        out.append(("text", text[pos:]))
+
+
 def _parse_segments(text: str) -> list[tuple[str, str]]:
     """Split text into segments of (type, value).
 
-    Returns list of ("text", "hello ") or ("emoji", "star").
+    Returns list of ("text", "hello "), ("emoji", "star"), or ("uemoji", "❤️").
+
+    :slug: tokens split first (unchanged); each remaining text run is then
+    scanned for Unicode-emoji runs (spec §1). uemoji carries the ORIGINAL
+    codepoints so the draw/measure loops (and a future hi-res renderer)
+    have them.
     """
     parts = re.split(f"({EMOJI_PATTERN.pattern})", text)
     segments: list[tuple[str, str]] = []
@@ -2532,9 +2663,9 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
             if slug in _get_registry():
                 segments.append(("emoji", slug))
             else:
-                segments.append(("text", part))
+                _split_uemoji(part, segments)
         else:
-            segments.append(("text", part))
+            _split_uemoji(part, segments)
     return segments
 
 
@@ -2578,6 +2709,29 @@ def measure_width(
                     measured = hires.logical_width(canvas.scale)
             if measured is None:
                 measured = _emoji_width(_get_registry()[value])
+            width += measured + EMOJI_PADDING
+            prev_was_text = False
+        elif seg_type == "uemoji":
+            # Mirror the draw branch: a mapped Unicode emoji contributes
+            # the SAME width as its `:slug:` twin (hi-res / max_emoji_height
+            # / padding logic identical); an UNMAPPED run is stripped and
+            # contributes no width — do NOT count it as text.
+            slug = _map_uemoji_to_slug(value)
+            if slug is None:
+                # FUTURE hi-res hook (measure side): a standard-emoji
+                # renderer would add _measure_standard_emoji(value, scale)
+                # here, mirroring the draw branch, so width stays in lockstep.
+                continue
+            if prev_was_text:
+                width += EMOJI_PADDING
+            measured = None
+            if use_hires and slug in HIRES_REGISTRY:
+                hires = HIRES_REGISTRY[slug]
+                logical_h = hires.physical_size // canvas.scale
+                if max_emoji_height is None or logical_h <= max_emoji_height:
+                    measured = hires.logical_width(canvas.scale)
+            if measured is None:
+                measured = _emoji_width(_get_registry()[slug])
             width += measured + EMOJI_PADDING
             prev_was_text = False
         else:
@@ -2638,6 +2792,74 @@ def _downsample_hires(hires: HiResEmoji, factor: float) -> HiResEmoji:
     return HiResEmoji(
         pixels=new_pixels, physical_size=new_size, physical_width=new_width
     )
+
+
+def _paint_inline_sprite(
+    canvas: Canvas,
+    slug: str,
+    ix: int,
+    *,
+    use_hires: bool,
+    max_emoji_height: int | None,
+    emoji_y: int | None,
+    y: int,
+    y_offset: int,
+    hires_downscale: float,
+) -> int:
+    """Paint one inline sprite for `slug` at logical x `ix`; return the
+    sprite advance (`sprite_width + EMOJI_PADDING`).
+
+    Shared by the `:slug:` (emoji) and Unicode-emoji (uemoji) branches of
+    `draw_with_emoji` so both paint IDENTICALLY. The pre-pad, the `ix`
+    computation, the `total` advance, and the `prev_was_text` reset stay
+    in the caller and are applied the same way by both branches — that
+    identical scaffolding is what keeps draw/measure advance in lockstep
+    (F6 parity) and makes a mapped Unicode emoji byte-identical to its
+    `:slug:` twin. The sprite carries its OWN colors, so callers must NOT
+    advance the per-char hue index for it.
+    """
+    hires: HiResEmoji | None = None
+    if use_hires and slug in HIRES_REGISTRY:
+        candidate = HIRES_REGISTRY[slug]
+        logical_h = candidate.physical_size // canvas.scale
+        if max_emoji_height is None or logical_h <= max_emoji_height:
+            hires = candidate
+
+    if hires is not None:
+        # `hires_downscale < 1.0` shrinks the sprite (a box-downsample)
+        # so it keeps its real-panel logical size on a REDUCED-resolution
+        # target. The downsampled sprite carries the scaled
+        # physical_size/physical_width, so both the draw and the
+        # logical_width advance below stay in sync.
+        draw_hires = (
+            _downsample_hires(hires, hires_downscale)
+            if hires_downscale < 1.0
+            else hires
+        )
+        # Default path bottom-anchors the sprite at the text baseline in
+        # REAL pixels (exact at any scale). An explicit emoji_y is a
+        # logical TOP position from a band-layout caller — preserve it.
+        if emoji_y is None:
+            _draw_hires_emoji(
+                canvas, draw_hires, ix, bottom_baseline_logical=(y + y_offset)
+            )
+        else:
+            _draw_hires_emoji(canvas, draw_hires, ix, top_logical=emoji_y)
+        return draw_hires.logical_width(canvas.scale) + EMOJI_PADDING
+
+    # Low-res 8×8 sprite paints through the wrapper (logical space), so a
+    # logical `baseline - 8` bottom-anchor is exact at any scale.
+    iy = (y + y_offset) - 8 if emoji_y is None else emoji_y
+    icon = _get_registry()[slug]
+    iw = _emoji_width(icon)
+    w = canvas.width
+    h = getattr(canvas, "height", 16)
+    for px, py, r, g, b in icon:
+        dx = ix + px
+        dy = iy + py
+        if 0 <= dx < w and 0 <= dy < h:
+            canvas.SetPixel(dx, dy, r, g, b)
+    return iw + EMOJI_PADDING
 
 
 def draw_with_emoji(
@@ -2735,59 +2957,58 @@ def draw_with_emoji(
 
     for seg_type, value in segments:
         if seg_type == "emoji":
+            # `:slug:` sprite. The sprite carries its own colors and does
+            # NOT advance the per-char hue index (`char_index`) — the
+            # rainbow/gradient sweep is continuous across it.
             if prev_was_text:
                 total += EMOJI_PADDING
             ix = int(cursor_pos + total)
-
-            # Hi-res only fires if (a) we're on a ScaledCanvas, (b) a hi-res
-            # variant exists, and (c) the sprite fits within the caller's
-            # max_emoji_height (if specified). Otherwise: low-res fallback.
-            hires: HiResEmoji | None = None
-            if use_hires and value in HIRES_REGISTRY:
-                candidate = HIRES_REGISTRY[value]
-                logical_h = candidate.physical_size // canvas.scale
-                if max_emoji_height is None or logical_h <= max_emoji_height:
-                    hires = candidate
-
-            if hires is not None:
-                # `hires_downscale < 1.0` shrinks the sprite (a box-downsample)
-                # so it keeps its real-panel logical size on a REDUCED-resolution
-                # target. The fisheye lens strip renders at render_scale (half
-                # the real scale), so an undownsampled `physical_size` sprite
-                # would be twice its correct logical height and fill the strip
-                # — leaving no headroom for the vertical magnification and
-                # clipping the top. The downsampled sprite carries the scaled
-                # physical_size/physical_width, so both the draw and the
-                # logical_width advance below stay in sync.
-                draw_hires = (
-                    _downsample_hires(hires, hires_downscale)
-                    if hires_downscale < 1.0
-                    else hires
-                )
-                # Default path bottom-anchors the sprite at the text baseline
-                # in REAL pixels (exact at any scale). An explicit emoji_y is a
-                # logical TOP position from a band-layout caller — preserve it.
-                if emoji_y is None:
-                    _draw_hires_emoji(
-                        canvas, draw_hires, ix, bottom_baseline_logical=(y + y_offset)
-                    )
-                else:
-                    _draw_hires_emoji(canvas, draw_hires, ix, top_logical=emoji_y)
-                total += draw_hires.logical_width(canvas.scale) + EMOJI_PADDING
-            else:
-                # Low-res 8×8 sprite paints through the wrapper (logical space),
-                # so a logical `baseline - 8` bottom-anchor is exact at any scale.
-                iy = (y + y_offset) - 8 if emoji_y is None else emoji_y
-                icon = _get_registry()[value]
-                iw = _emoji_width(icon)
-                w = canvas.width
-                h = getattr(canvas, "height", 16)
-                for px, py, r, g, b in icon:
-                    dx = ix + px
-                    dy = iy + py
-                    if 0 <= dx < w and 0 <= dy < h:
-                        canvas.SetPixel(dx, dy, r, g, b)
-                total += iw + EMOJI_PADDING
+            # FUTURE hi-res hook: a full-color standard-emoji renderer would
+            # paint here with the same available context — `ix`, the text
+            # baseline `y` / `y_offset`, `hires_downscale`, and
+            # `max_emoji_height` — mirroring `_paint_inline_sprite`.
+            total += _paint_inline_sprite(
+                canvas,
+                value,
+                ix,
+                use_hires=use_hires,
+                max_emoji_height=max_emoji_height,
+                emoji_y=emoji_y,
+                y=y,
+                y_offset=y_offset,
+                hires_downscale=hires_downscale,
+            )
+            prev_was_text = False
+        elif seg_type == "uemoji":
+            # Unicode-emoji run. Map to a sprite slug; a mapped emoji paints
+            # via the SAME helper + scaffolding as `:slug:` (F6 parity,
+            # byte-identical output). Like `:slug:`, a mapped sprite does
+            # NOT consume a per-char hue slot. An UNMAPPED run is stripped:
+            # no draw, no advance, no `char_index` advance — do NOT let it
+            # fall through the text `else` (which would shift the hue of
+            # every text char AFTER the emoji).
+            slug = _map_uemoji_to_slug(value)
+            if slug is None:
+                # FUTURE hi-res hook: a standard-emoji renderer would render
+                # `value` here instead of stripping, using the same context
+                # available to the mapped branch below — `ix` (after the
+                # pre-pad), the baseline `y` / `y_offset`, `hires_downscale`,
+                # and `max_emoji_height`.
+                continue
+            if prev_was_text:
+                total += EMOJI_PADDING
+            ix = int(cursor_pos + total)
+            total += _paint_inline_sprite(
+                canvas,
+                slug,
+                ix,
+                use_hires=use_hires,
+                max_emoji_height=max_emoji_height,
+                emoji_y=emoji_y,
+                y=y,
+                y_offset=y_offset,
+                hires_downscale=hires_downscale,
+            )
             prev_was_text = False
         else:
             seg_x = int(cursor_pos + total)

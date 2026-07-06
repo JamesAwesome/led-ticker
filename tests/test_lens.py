@@ -307,6 +307,78 @@ class TestLensBlitTransparency:
                 )
 
 
+class TestLensBlitAddressing:
+    """lens_blit actually SAMPLES the right src column and honors per-pixel
+    transparency — the uniform-color strips elsewhere can't catch a wrong
+    sampled column or a dropped mid-strip transparency guard (review finding).
+    """
+
+    def test_samples_correct_src_column_through_the_lens(self) -> None:
+        """A horizontally-striped src (each column a distinct color) at a
+        nonzero src_x0: every lit dst column's color must equal the src
+        column its midpoint sample resolves to. Breaking the midpoint
+        formula (or the src_x0 offset) repaints the wrong stripe.
+        """
+        w, h = 48, 8
+        spec = LensSpec(magnify=1.3, edge_squeeze=0.6)
+        maps = build_lens_maps(spec, w)
+        src_w = int(maps.total_src_span) + 20
+        src = PixelBuffer(src_w, h)
+        for x in range(src_w):
+            for y in range(h):
+                src.SetPixel(x, y, x % 256, 0, 0)  # column index in red
+
+        src_x0 = 5.0
+        dst = PixelBuffer(w, h)
+        lens_blit(dst, src, maps, src_x0=src_x0, cy=h / 2.0)
+
+        for x in range(w):
+            expected_col = int(src_x0 + (maps.x_lut[x] + maps.x_lut[x + 1]) * 0.5 + 0.5)
+            if not (0 <= expected_col < src_w):
+                continue
+            got = dst.get(x, h // 2)
+            assert got is not None, f"dst col {x} unlit"
+            assert got[0] == expected_col % 256, (
+                f"dst col {x} sampled the wrong src column: "
+                f"got red={got[0]}, expected {expected_col % 256}"
+            )
+
+    def test_interior_transparent_src_pixel_leaves_dst_dark(self) -> None:
+        """A partially-lit src (a transparent gap inside the lit band) at a
+        nonzero src_x0: dst columns whose sample lands in the gap must stay
+        dark. Dropping the per-pixel `is not None` guard paints them.
+        """
+        w, h = 32, 8
+        spec = LensSpec(magnify=1.2, edge_squeeze=0.8)
+        maps = build_lens_maps(spec, w)
+        src_w = int(maps.total_src_span) + 20
+        src = PixelBuffer(src_w, h)
+        hole0, hole1 = src_w // 2, src_w // 2 + 3  # transparent vertical gap
+        for x in range(src_w):
+            if hole0 <= x < hole1:
+                continue
+            for y in range(h):
+                src.SetPixel(x, y, 200, 150, 100)
+
+        src_x0 = 4.0
+        dst = PixelBuffer(w, h)
+        for y in range(h):
+            for x in range(w):
+                dst.SetPixel(x, y, 3, 3, 3)  # sentinel
+        lens_blit(dst, src, maps, src_x0=src_x0, cy=h / 2.0)
+
+        hit_hole = False
+        for x in range(w):
+            sampled = int(src_x0 + (maps.x_lut[x] + maps.x_lut[x + 1]) * 0.5 + 0.5)
+            if hole0 <= sampled < hole1:
+                hit_hole = True
+                assert dst.get(x, h // 2) == (3, 3, 3), (
+                    f"dst col {x} sampled the transparent gap (src {sampled}) "
+                    f"but was painted: {dst.get(x, h // 2)}"
+                )
+        assert hit_hole, "test ineffective: no dst column sampled the gap"
+
+
 class TestLensBlitCenterAlignment:
     """Center-column alignment: dst center samples src_x0 + total_src_span/2."""
 

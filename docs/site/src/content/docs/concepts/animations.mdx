@@ -218,7 +218,7 @@ See [Plugins](/plugins/) for the install flow.
   title="Minimal"
   code={`[[playlist.section.widget]]
 type = "message"
-text = "FISH EYE MARQUEE"
+text = "OPEN LATE TONIGHT"
 animation = "flair.fisheye"`}
 />
 
@@ -265,6 +265,15 @@ Held (non-scrolling) text gets a fixed emphasis: the center of the message swell
   caption="`center = true`, no scroll — `flair.fisheye` bulges the middle of a held message"
 />
 
+<TomlExample
+  title="Static bulge"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "GRAND OPENING TODAY"
+center = true
+animation = "flair.fisheye"`}
+/>
+
 ### Inline emoji through the lens
 
 `:slug:` emoji ride the lens with the text — an emoji swells as it crosses the center and compresses at the edges, just like the letters around it.
@@ -272,6 +281,14 @@ Held (non-scrolling) text gets a fixed emphasis: the center of the message swell
 <DemoGif
   src="/demos-pinned/animation-flair-fisheye-emoji.gif"
   caption="`NOW OPEN :star: WELCOME IN :star:` — the star bulges through the lens along with the words"
+/>
+
+<TomlExample
+  title="With inline emoji"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "NOW OPEN :star: WELCOME IN :star:"
+animation = "flair.fisheye"`}
 />
 
 ### Also works with borders and hi-res fonts
@@ -282,6 +299,35 @@ Held (non-scrolling) text gets a fixed emphasis: the center of the message swell
 ### On scaled signs (bigsign)
 
 The lens re-renders the scrolling text every frame at reduced resolution, so the whole scroll shows at half detail on the bigsign — the distortion masks it, and it matches the reduced detail you already see mid-spin with `flair.propeller`.
+
+### Pairing with `flair.spinout`
+
+A fisheye message scrolls in through the lens; `flair.spinout` — the flair pack's text-spin transition, documented on the [flair transitions page](/transitions/sprite/) — can spin that message out as the section changes. Set it as the transition (here as the global default) and the outgoing fisheye text spins away before the next section appears:
+
+<TomlExample
+  title="Fisheye scroll with a spinout exit"
+  code={`[transitions]
+default = "flair.spinout"
+duration = 1.0
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "GRAND OPENING TODAY"
+animation = "flair.fisheye"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "SEE YOU SOON"
+center = true`}
+/>
 
 <RelatedPages
   slugs={[

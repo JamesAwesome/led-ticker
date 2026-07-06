@@ -120,7 +120,7 @@
       "summary": "Flair text-effect pack — flair.propeller animation (spinning in-plane reveal on message widgets) and flair.spinout transition (outgoing widget spins out before cut to incoming). Part of the led-ticker-flair pack.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": {
-        "animations": ["flair.propeller"],
+        "animations": ["flair.propeller", "flair.fisheye"],
         "transitions": ["flair.spinout"]
       },
       "sources": [

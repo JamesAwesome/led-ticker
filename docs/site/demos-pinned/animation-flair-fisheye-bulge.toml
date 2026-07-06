@@ -1,0 +1,19 @@
+# render-duration: 4
+# requires-plugins: led-ticker-flair (>= 0.4.0; render locally with the plugin installed)
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "GRAND OPENING TODAY"
+center = true
+font_color = [255, 200, 0]
+animation = "flair.fisheye"

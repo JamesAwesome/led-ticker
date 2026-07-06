@@ -1,6 +1,6 @@
 ---
 title: Animations
-description: Animate text on your sign — typewriter reveals and flair.propeller spinning entry, both composing with any font_color.
+description: Animate text on your sign — typewriter reveals, flair.propeller spinning entry, and flair.fisheye lens-scrolling, all composing with any font_color.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -65,16 +65,18 @@ Typewriter has `restart_on_visit = true` — the reveal counter resets every tim
 
 ## Where it works
 
-| Widget type                   | `animation = "typewriter"`?            | `animation = "flair.propeller"`?                  |
-| ----------------------------- | -------------------------------------- | ------------------------------------------------- |
-| `message`                     | yes                                    | yes                                               |
-| `countdown`                   | no                                     | no                                                |
-| `gif`                         | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] |
-| `image`                       | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] |
-| `two_row`                     | no                                     | no                                                |
-| `weather.current`, `rss.feed` | no                                     | no                                                |
+| Widget type                   | `animation = "typewriter"`?            | `animation = "flair.propeller"`?                  | `animation = "flair.fisheye"`?                  |
+| ----------------------------- | -------------------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| `message`                     | yes                                    | yes                                               | yes                                             |
+| `countdown`                   | no                                     | no                                                | no                                              |
+| `gif`                         | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | accepted but the lens is ignored [^fisheye-gif] |
+| `image`                       | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | accepted but the lens is ignored [^fisheye-gif] |
+| `two_row`                     | no                                     | no                                                | no                                              |
+| `weather.current`, `rss.feed` | no                                     | no                                                | no                                              |
 
 [^propeller-gif]: `flair.propeller` is accepted on `gif` and `image` at config-load so a section can carry both a spinning `message` and an image widget without a validation error, but the rotation has no visible effect — only `message` widgets render the spin.
+
+[^fisheye-gif]: `flair.fisheye` is accepted on `gif` and `image` at config-load so a section can carry both a lens-scrolling `message` and an image widget without a validation error, but the lens has no visible effect — only `message` widgets warp.
 
 On `gif` and `image` widgets, typewriter is restricted to single-row text overlays. It will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty.
 
@@ -187,6 +189,144 @@ type = "message"
 text = "REPEAT"
 center = true
 font_color = [255, 100, 255]`}
+/>
+
+---
+
+## `flair.fisheye` (flair pack)
+
+`flair.fisheye` is a plugin animation from the [flair pack](/plugins/available/#flair-text-effects-flair-pack) (`led-ticker-flair >= 0.4.0`, core >= 4.7). A `message` widget's scrolling text passes through a stationary "fisheye lens" centered on the panel: letters enter compressed at the edges, swell as they cross the middle, and compress again on exit. The lens is fixed — the scroll provides all the motion, so the effect runs for the whole scroll and a section can cut away at any moment.
+
+<DemoGif
+  src="/demos-pinned/animation-flair-fisheye.gif"
+  caption="`message` with `animation = flair.fisheye` — text scrolls through a stationary squeeze-and-bulge lens"
+/>
+
+### Install
+
+Add one line to `config/requirements-plugins.txt`:
+
+```text
+led-ticker-flair
+```
+
+See [Plugins](/plugins/) for the install flow.
+
+### Minimal config
+
+<TomlExample
+  title="Minimal"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "OPEN LATE TONIGHT"
+animation = "flair.fisheye"`}
+/>
+
+### Tuning the lens
+
+<TomlExample
+  title="Stronger lens"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "FLASH SALE TODAY"
+animation = {style = "flair.fisheye", magnify = 1.33, edge_squeeze = 0.45}`}
+/>
+
+<DemoGif
+  src="/demos-pinned/animation-flair-fisheye-strong.gif"
+  caption="`magnify = 1.33, edge_squeeze = 0.45` — a stronger lens: the center swells more and the edges compress harder than the default"
+/>
+
+| Knob           | Default    | Meaning                                                                                                                                                                                                                                                                                                  |
+| -------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `magnify`      | `1.3`      | Center scale (both axes). There is a ceiling — `magnify × font line-height ≤ content_height` — above which the bulged text would run off the panel; a widget over the ceiling is skipped and the rest of the sign keeps running. For the default 6×12 font in a 16-row band the ceiling is about `1.33`. |
+| `edge_squeeze` | `0.6`      | Edge scale (`0 < edge_squeeze ≤ magnify`). Lower means more edge compression — a more dramatic lens.                                                                                                                                                                                                     |
+| `profile`      | `"cosine"` | The edge-to-center falloff curve. `"cosine"` is the only value today.                                                                                                                                                                                                                                    |
+
+### What the lens does to the scroll
+
+The lens is width-preserving: a message takes exactly as long to scroll across as it would without the lens. But because the edges are compressed, they show **more** text than a plain scroll would — roughly two extra characters per side at the default squeeze, more with a stronger one. That is the lens working as intended, not a glitch.
+
+### Live colors through the lens
+
+Unlike `flair.propeller` (whose colors freeze during the spin), `flair.fisheye` keeps `font_color` **live**: a `rainbow` or `color_cycle` provider keeps sweeping as the text scrolls through the lens.
+
+<DemoGif
+  src="/demos-pinned/animation-flair-fisheye-rainbow.gif"
+  caption="`font_color = rainbow` with `flair.fisheye` — colors keep sweeping through the lens"
+/>
+
+### Static center bulge
+
+Held (non-scrolling) text gets a fixed emphasis: the center of the message swells while the ends compress. Center a short message with `center = true` and skip the scroll — good for a shop sign or a headline.
+
+<DemoGif
+  src="/demos-pinned/animation-flair-fisheye-bulge.gif"
+  caption="`center = true`, no scroll — `flair.fisheye` bulges the middle of a held message"
+/>
+
+<TomlExample
+  title="Static bulge"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "GRAND OPENING TODAY"
+center = true
+animation = "flair.fisheye"`}
+/>
+
+### Inline emoji through the lens
+
+`:slug:` emoji ride the lens with the text — an emoji swells as it crosses the center and compresses at the edges, just like the letters around it.
+
+<DemoGif
+  src="/demos-pinned/animation-flair-fisheye-emoji.gif"
+  caption="`NOW OPEN :star: WELCOME IN :star:` — the star bulges through the lens along with the words"
+/>
+
+<TomlExample
+  title="With inline emoji"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "NOW OPEN :star: WELCOME IN :star:"
+animation = "flair.fisheye"`}
+/>
+
+### Also works with borders and hi-res fonts
+
+- **Borders**: the border frames the panel un-warped while the text warps inside it.
+- **Hi-res fonts**: on a scaled sign (bigsign) a hi-res font warps too, subject to the same `magnify × font line-height ≤ content_height` ceiling — a too-tall hi-res font is skipped (and the rest of the sign keeps running). On a smallsign (scale 1) a hi-res font renders normally (unwarped) and `led-ticker validate` emits a warning: the pixel-precise warp needs a scaled display.
+
+### On scaled signs (bigsign)
+
+The lens re-renders the scrolling text every frame at reduced resolution, so the whole scroll shows at half detail on the bigsign — the distortion masks it, and it matches the reduced detail you already see mid-spin with `flair.propeller`.
+
+### Pairing with `flair.spinout`
+
+A fisheye message scrolls in through the lens; `flair.spinout` — the flair pack's text-spin transition, documented on the [flair transitions page](/transitions/sprite/) — can spin that message out as the section changes. Set it as the transition (here as the global default) and the outgoing fisheye text spins away before the next section appears:
+
+<TomlExample
+  title="Fisheye scroll with a spinout exit"
+  code={`[transitions]
+default = "flair.spinout"
+duration = 1.0
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "GRAND OPENING TODAY"
+animation = "flair.fisheye"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "SEE YOU SOON"
+center = true`}
 />
 
 <RelatedPages

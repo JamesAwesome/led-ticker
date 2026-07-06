@@ -226,3 +226,24 @@ class TestParseSegmentsUemoji:
         result = _parse_segments(s)
         assert all(kind == "text" for kind, _ in result)
         assert "".join(v for _, v in result) == s
+
+
+class TestMeasureWidthUemoji:
+    """measure_width mirrors the draw loop: a mapped Unicode emoji adds the
+    same width as its :slug: twin; an unmapped run is stripped (0 width)."""
+
+    def test_unmapped_strip_adds_no_width(self):
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.pixel_emoji import measure_width
+
+        # 🐦 (bird) is unmapped → stripped → contributes no width.
+        assert measure_width(FONT_SMALL, "a🐦b") == measure_width(FONT_SMALL, "ab")
+
+    def test_mapped_uemoji_matches_slug_width(self):
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.pixel_emoji import measure_width
+
+        # ❤️ maps to :heart: — same measured width in the same context.
+        assert measure_width(FONT_SMALL, "x ❤️ y") == measure_width(
+            FONT_SMALL, "x :heart: y"
+        )

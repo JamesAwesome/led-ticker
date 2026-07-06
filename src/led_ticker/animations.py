@@ -10,11 +10,51 @@ Color providers are orthogonal — animations control position and
 visibility, providers control color. The two compose freely.
 """
 
+import dataclasses
 import math
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from led_ticker.constants import ENGINE_TICK_MS
+
+_LENS_PROFILES = ("cosine",)
+
+
+@dataclasses.dataclass(frozen=True)
+class LensSpec:
+    """Stationary fisheye-lens descriptor for scroll animations.
+
+    magnify:      Vertical + horizontal scale factor at the panel center
+                  (> 1 → bulge; == edge_squeeze → degenerate flat lens).
+    edge_squeeze: Scale factor at the panel edges. Must be > 0 and <=
+                  magnify (edge scale never exceeds center scale).
+    profile:      Falloff curve from center to edge. Currently "cosine"
+                  only; a "spherical" slot is reserved for a future phase.
+
+    Frozen + hashable: safe as a @functools.cache key in build_lens_maps.
+    """
+
+    magnify: float = 1.3
+    edge_squeeze: float = 0.6
+    profile: str = "cosine"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.magnify, (int, float)) or isinstance(self.magnify, bool):
+            raise ValueError(f"magnify must be a number; got {self.magnify!r}")
+        if not isinstance(self.edge_squeeze, (int, float)) or isinstance(
+            self.edge_squeeze, bool
+        ):
+            raise ValueError(
+                f"edge_squeeze must be a number; got {self.edge_squeeze!r}"
+            )
+        if self.edge_squeeze <= 0:
+            raise ValueError(f"edge_squeeze must be > 0; got {self.edge_squeeze}")
+        if self.magnify < self.edge_squeeze:
+            raise ValueError("magnify must be >= edge_squeeze")
+        if self.profile not in _LENS_PROFILES:
+            raise ValueError(
+                f"profile must be one of {_LENS_PROFILES}; got {self.profile!r}"
+            )
 
 
 @dataclass
@@ -29,10 +69,20 @@ class AnimationFrame:
                   the text through an offscreen buffer + rotate_blit
                   (see led_ticker.rotate). Emitted by rotation-capable
                   animations (e.g. the flair plugin's propeller).
+    lens:         A :class:`LensSpec` describing a stationary fisheye lens
+                  centered on the panel. ``None`` (the default) skips the
+                  lens branch entirely and preserves every existing draw path
+                  unchanged. When set, the text buffer is rendered fresh
+                  each tick (keeping colors live) and blitted through the
+                  lens maps via ``lens_blit`` (see led_ticker.rotate).
+                  Emitted by lens-capable animations (e.g. the flair plugin's
+                  fisheye). Duck-typed marker for validate rule 64:
+                  ``emits_lens = True`` on the animation class.
     """
 
     visible_text: str
     rotation: float = 0.0
+    lens: LensSpec | None = None
 
 
 @runtime_checkable
@@ -63,6 +113,13 @@ class Animation(Protocol):
     reads to warn about hires-font widgets (whose text cannot rotate
     until physical-resolution rotation ships). Animations without the
     attribute never rotate.
+
+    Lens-capable animations set ``lens`` on the frames they return (a
+    :class:`LensSpec` describing the stationary fisheye lens), and declare
+    the class attribute ``emits_lens = True`` — a duck-typed marker
+    validate rule 64 reads to warn about hires-font widgets at scale 1
+    (the unwarped fallback; same policy as rule 63). Animations without
+    the attribute never activate the lens branch.
     """
 
     def frame_for(

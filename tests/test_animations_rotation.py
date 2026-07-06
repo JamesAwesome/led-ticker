@@ -1,7 +1,11 @@
 """AnimationFrame.rotation seam + ENGINE_TICK_MS plugin export
-(propeller spec §1/§2)."""
+(propeller spec §1/§2).
 
-from led_ticker.animations import AnimationFrame, Typewriter
+Extended for the lens seam: AnimationFrame.lens defaults None and
+coexists with rotation (fisheye spec §1).
+"""
+
+from led_ticker.animations import AnimationFrame, LensSpec, Typewriter
 
 
 def test_rotation_defaults_to_zero() -> None:
@@ -37,3 +41,19 @@ def test_rotation_surface_on_plugin_surface() -> None:
     assert plugin.RotationSurface is rotate.RotationSurface
     assert "make_rotation_surface" in plugin.__all__
     assert "RotationSurface" in plugin.__all__
+
+
+def test_lens_defaults_to_none() -> None:
+    """AnimationFrame.lens field defaults to None — preserves all existing
+    draw paths untouched (fisheye spec §1)."""
+    frame = AnimationFrame(visible_text="HI")
+    assert frame.lens is None
+
+
+def test_lens_and_rotation_coexist_in_dataclass() -> None:
+    """Both fields are settable independently — widget integration may raise
+    if both are non-default, but the data type does not forbid it."""
+    spec = LensSpec()
+    frame = AnimationFrame(visible_text="X", rotation=45.0, lens=spec)
+    assert frame.rotation == 45.0
+    assert frame.lens is spec

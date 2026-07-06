@@ -160,6 +160,7 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 | `ColorTuple`      | Type alias `tuple[int, int, int]` for raw RGB                                                                                                                                                                     |
 | `DrawResult`      | The return shape of a widget `draw()`                                                                                                                                                                             |
 | `AnimationFrame`  | The return shape of `Animation.frame_for`                                                                                                                                                                         |
+| `LensSpec`        | Frozen fisheye-lens descriptor an animation returns on `AnimationFrame.lens` (`magnify`, `edge_squeeze`, `profile`); the engine owns the warp math, a plugin ships only the spec                                  |
 | `PixelData`       | `list[(x, y, r, g, b)]` — one tuple per lit pixel of a low-res emoji                                                                                                                                              |
 | `HiResEmoji`      | A hi-res emoji sprite — `pixels` ((x,y,r,g,b) in physical coords), `physical_size`, optional `physical_width`                                                                                                     |
 | `Font`            | A resolved font handle                                                                                                                                                                                            |
@@ -237,6 +238,8 @@ Plugin authors register a backend with **`api.backend(name)`** from inside their
 - **`rotation: float`** — a clockwise rotation in degrees to apply to the rendered text this tick. The default is `0.0`, which takes the normal draw path with no rotation. When non-zero, the message widget renders the text into an offscreen surface, rotates that surface around the text block's center, and composites it back to the canvas.
 
 An animation that emits non-zero rotations must also set `emits_rotation = True` as a class attribute. This opt-in marker tells the validator to run rule 63.
+
+An animation can instead return a **`LensSpec`** on `AnimationFrame.lens` (default `None`) to pass the scrolling text through a stationary fisheye lens — the engine owns all of the warp math, so a plugin ships only the declarative spec (`magnify`, `edge_squeeze`, `profile`) and sets `emits_lens = True` as a class attribute (the marker for validate rule 64, the lens twin of rule 63's hi-res-font-at-scale-1 warning).
 
 **Scale-1 displays (smallsign):** pairing a rotation-emitting animation with a hi-res font raises a configuration warning. Hi-res text renders at native-pixel resolution and the offscreen rotate path operates at logical resolution — they interact badly. Rule 63 applies only when `scale == 1`; on scaled displays the snapshot architecture described below handles the mismatch. For BDF fonts the rotate path is fully supported at any scale.
 

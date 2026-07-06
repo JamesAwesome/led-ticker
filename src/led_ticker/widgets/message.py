@@ -5,6 +5,7 @@ here for backwards compatibility.
 """
 
 import logging
+import math
 from typing import Any
 
 import attrs
@@ -13,11 +14,16 @@ from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
-from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.fonts import FONT_DEFAULT, font_line_height_logical
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.pixel_emoji import EMOJI_PATTERN
-from led_ticker.rotate import make_rotation_surface
-from led_ticker.scaled_canvas import is_scaled
+from led_ticker.rotate import (
+    PixelBuffer,
+    build_lens_maps,
+    lens_blit,
+    make_rotation_surface,
+)
+from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
 from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
@@ -90,6 +96,20 @@ class TickerMessage(FrameAwareBase):
     # scale/dims/content_height change via .matches()). None until the
     # first rotating draw.
     _rotation_surface: Any = attrs.field(init=False, default=None)
+    # Guard for the hires-font lens warning (scale-1 unwarped fallback):
+    # emitted once per instance so the log doesn't flood. Same shape as
+    # `_warned_hires_rotation`.
+    _warned_hires_lens: bool = attrs.field(init=False, default=False)
+    # Construct-once lens strip: a render-resolution PixelBuffer the text is
+    # drawn into fresh every tick (NO snapshot — colors stay live), plus its
+    # draw target (a ScaledCanvas wrapper at render_scale, or the bare buffer
+    # at render_scale==1). Keyed by (strip_w, strip_h, render_scale); rebuilt
+    # on mismatch. `_lens_blit_wrapper` is the construct-once dst wrapper for
+    # scaled displays (`.real` rebound per call, RotationSurface discipline).
+    _lens_strip_buffer: Any = attrs.field(init=False, default=None)
+    _lens_strip_target: Any = attrs.field(init=False, default=None)
+    _lens_strip_key: tuple[int, int, int] | None = attrs.field(init=False, default=None)
+    _lens_blit_wrapper: Any = attrs.field(init=False, default=None)
 
     def __attrs_post_init__(self) -> None:
         # `_has_emoji` is computed on the RAW text — emoji slugs survive
@@ -211,9 +231,11 @@ class TickerMessage(FrameAwareBase):
             )
             visible_text = anim_frame.visible_text
             rotation = getattr(anim_frame, "rotation", 0.0)
+            lens = getattr(anim_frame, "lens", None)
         else:
             visible_text = full_text
             rotation = 0.0
+            lens = None
 
         if self._content_width < 0:
             if self._has_emoji:
@@ -243,6 +265,40 @@ class TickerMessage(FrameAwareBase):
             self._baseline_y = compute_baseline(self.font, canvas, valign="center")
             self._baseline_key = baseline_key
         baseline_y = self._baseline_y
+
+        # Lens seam (fisheye spec §3): a stationary fisheye lens redirects the
+        # text through a render-resolution strip buffer + `lens_blit`, rendered
+        # FRESH every tick so colors stay live (no snapshot). Sibling of the
+        # rotation branch below. Precedence: rotation WINS when both are set
+        # (`rotation % 360 == 0` gate) — a spinning lens is undefined, so the
+        # rotation branch takes it. Guard (rule 64): scale-1 + HiresFont can't
+        # warp a bare buffer's real-pixel glyphs, so warn once and fall through
+        # to the normal unwarped draw path below.
+        if lens is not None and rotation % 360 == 0:
+            if not is_scaled(canvas) and isinstance(self.font, HiresFont):
+                if not self._warned_hires_lens:
+                    logging.warning(
+                        "%s: fisheye lens ignored — hires fonts don't warp on "
+                        "scale-1 displays (see validate rule 64); the text "
+                        "draws normally. Use a BDF font, or a scaled (bigsign) "
+                        "display.",
+                        type(self).__name__,
+                    )
+                    self._warned_hires_lens = True
+                # fall through to the normal unwarped draw path.
+            else:
+                return self._draw_lensed(
+                    canvas,
+                    lens,
+                    provider,
+                    visible_text,
+                    full_text,
+                    start_pos,
+                    content_width,
+                    baseline_y,
+                    end_padding,
+                    y_offset,
+                )
 
         # Paint border BEFORE text so text overlaps the border on
         # collision (border frames the panel; text floats inside).
@@ -402,6 +458,203 @@ class TickerMessage(FrameAwareBase):
             cursor_pos = start_pos + content_width + end_padding
 
         return canvas, cursor_pos
+
+    def _draw_lensed(
+        self,
+        canvas: Canvas,
+        lens: Any,
+        provider: ColorProvider,
+        visible_text: str,
+        full_text: str,
+        cursor_pos: int,
+        content_width: int,
+        baseline_y: int,
+        end_padding: int,
+        y_offset: int,
+    ) -> DrawResult:
+        """Render the text through a stationary fisheye lens (spec §2–§3).
+
+        The text is rasterized FRESH each tick into a render-resolution strip
+        buffer (no snapshot — colors stay live), then inverse-mapped onto the
+        canvas via ``lens_blit`` and the cached lens maps. The border paints
+        first, un-warped, directly to the canvas. Returns the UNWARPED
+        cursor_pos (full content width) so the engine's overflow gate is
+        unaffected — the lens never changes traversal arithmetic.
+
+        Resolution policy (spec §3, antagonist F2): the strip renders at
+        ``render_scale = max(1, scale // 2)`` and the lens blit expands by
+        ``blit_scale = scale // render_scale`` (DERIVED, never hardcoded).
+        Bigsign (scale 4) → render 2 / blit 2; scale 2 → render 1 / blit 2;
+        scale 3 → render 1 / blit 3; scale 1 (smallsign) → render 1 / blit 1
+        (direct logical blit).
+        """
+        scale = getattr(canvas, "scale", 1)
+        render_scale = max(1, scale // 2)
+        blit_scale = scale // render_scale
+        logical_h = canvas.height
+        panel_w_render = canvas.width * render_scale
+        panel_h_render = logical_h * render_scale
+
+        # Vertical-fit check (band-fit policy): a bulge taller than the content
+        # band would clip. Raise at first lensed draw, naming the widget.
+        line_h_logical = font_line_height_logical(self.font, scale)
+        if lens.magnify * line_h_logical > logical_h:
+            raise ValueError(
+                f"{type(self).__name__}: fisheye magnify={lens.magnify} × font "
+                f"line-height {line_h_logical} = "
+                f"{lens.magnify * line_h_logical:.1f} exceeds the content "
+                f"height {logical_h} — the bulged text would clip against the "
+                f"panel. Lower magnify, use a shorter font, or raise "
+                f"content_height."
+            )
+
+        maps = build_lens_maps(lens, panel_w_render)
+        span = maps.total_src_span
+
+        # src_x0 anchor (spec §2): center-anchored, ONE formula for held and
+        # scroll. In RENDER-resolution text columns (cursor_pos × render_scale).
+        # The strip is text-column-indexed; its column 0 = the largest
+        # render_scale-multiple text column ≤ src_x0, so the text can be drawn
+        # at an integer logical origin. The sub-render_scale remainder is
+        # folded into the fractional src_x0 passed to lens_blit.
+        src_x0_render = (panel_w_render / 2.0 - cursor_pos * render_scale) - span / 2.0
+        base_units = math.floor(src_x0_render / render_scale)
+        x_logical = -base_units
+        src_x0_frac = src_x0_render - base_units * render_scale
+
+        # Strip covers the [0, span] text window plus a render_scale margin for
+        # the fractional shift and nearest-neighbor rounding.
+        strip_w_render = int(math.ceil(span)) + 2 * render_scale + 2
+        strip_buffer, strip_target = self._lens_strip(
+            strip_w_render, panel_h_render, render_scale, logical_h
+        )
+        strip_buffer.clear()
+
+        strip_baseline = compute_baseline(self.font, strip_target, valign="center")
+        self._paint_strip(
+            strip_target,
+            x_logical,
+            strip_baseline,
+            y_offset,
+            provider,
+            visible_text,
+            full_text,
+        )
+
+        # Border paints FIRST, un-warped, directly to the canvas (it frames the
+        # panel, not the text) — border-before-text order preserved.
+        if self.border is not None:
+            self.border.paint(canvas, self.frame_for("border"))
+
+        dst = self._lens_blit_dst(canvas, blit_scale, panel_h_render)
+        lens_blit(dst, strip_buffer, maps, src_x0_frac, panel_h_render / 2.0)
+
+        return canvas, cursor_pos + content_width + end_padding
+
+    def _lens_strip(
+        self, width: int, height: int, render_scale: int, logical_h: int
+    ) -> tuple[Any, Any]:
+        """Return the (buffer, draw-target) pair, constructing once per dims.
+
+        The draw target is a ``ScaledCanvas`` at ``render_scale`` (so the text
+        helpers render into the buffer at reduced resolution) when
+        ``render_scale > 1``, else the bare buffer (logical resolution). Mirror
+        of ``RotationSurface``'s scale-1-vs-scaled target policy.
+        """
+        key = (width, height, render_scale)
+        if self._lens_strip_key != key:
+            buffer = PixelBuffer(width, height)
+            if render_scale > 1:
+                target: Any = ScaledCanvas(
+                    buffer, scale=render_scale, content_height=logical_h
+                )
+            else:
+                target = buffer
+            self._lens_strip_buffer = buffer
+            self._lens_strip_target = target
+            self._lens_strip_key = key
+        return self._lens_strip_buffer, self._lens_strip_target
+
+    def _lens_blit_dst(
+        self, canvas: Canvas, blit_scale: int, panel_h_render: int
+    ) -> Any:
+        """Return the lens_blit destination.
+
+        ``blit_scale == 1`` (smallsign): blit directly to the real canvas.
+        Otherwise blit through a construct-once ``ScaledCanvas`` at
+        ``blit_scale`` whose ``.real`` is rebound to the live back buffer each
+        call (one assignment — constraint #9 / RotationSurface discipline).
+        """
+        if blit_scale == 1:
+            return canvas
+        real = unwrap_to_real(canvas)
+        wrapper = self._lens_blit_wrapper
+        if (
+            wrapper is None
+            or wrapper.scale != blit_scale
+            or wrapper.content_height != panel_h_render
+        ):
+            wrapper = ScaledCanvas(
+                real, scale=blit_scale, content_height=panel_h_render
+            )
+            self._lens_blit_wrapper = wrapper
+        else:
+            wrapper.real = real
+        return wrapper
+
+    def _paint_strip(
+        self,
+        target: Any,
+        x_logical: int,
+        baseline: int,
+        y_offset: int,
+        provider: ColorProvider,
+        visible_text: str,
+        full_text: str,
+    ) -> None:
+        """Render ``visible_text`` into the lens strip at ``x_logical``.
+
+        The same three paint branches as the normal draw path (emoji /
+        per-char / whole-string), but targeting the strip and anchored at the
+        lens-shifted origin. The per-char / emoji totals anchor to
+        ``full_text``'s char count so a mid-reveal hue is stable (mirrors the
+        normal branch's ``total_chars`` contract)."""
+        if self._has_emoji:
+            from led_ticker.pixel_emoji import (  # noqa: PLC0415
+                count_text_chars,
+                draw_with_emoji,
+            )
+
+            draw_with_emoji(
+                target,
+                self.font,
+                x_logical,
+                baseline,
+                provider,
+                visible_text,
+                y_offset=y_offset,
+                frame=self.frame_for("font_color"),
+                total_chars=count_text_chars(full_text),
+            )
+        elif provider.per_char:
+            draw_text_per_char(
+                target,
+                self.font,
+                x_logical,
+                baseline + y_offset,
+                visible_text,
+                lambda idx, total: provider.color_for(
+                    self.frame_for("font_color"), idx, total
+                ),
+                total_chars=len(full_text),
+            )
+        else:
+            color = provider.color_for(
+                self.frame_for("font_color"), 0, len(visible_text)
+            )
+            draw_text(
+                target, self.font, x_logical, baseline + y_offset, color, visible_text
+            )
 
 
 class SegmentMessage:

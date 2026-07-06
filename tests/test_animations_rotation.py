@@ -43,6 +43,16 @@ def test_rotation_surface_on_plugin_surface() -> None:
     assert "RotationSurface" in plugin.__all__
 
 
+def test_lens_spec_on_plugin_surface() -> None:
+    """flair.fisheye imports LensSpec through the public surface only —
+    identity + __all__ membership (drift-guarded by
+    tests/test_docs_plugin_api_drift.py)."""
+    from led_ticker import animations, plugin
+
+    assert plugin.LensSpec is animations.LensSpec
+    assert "LensSpec" in plugin.__all__
+
+
 def test_lens_defaults_to_none() -> None:
     """AnimationFrame.lens field defaults to None — preserves all existing
     draw paths untouched (fisheye spec §1)."""

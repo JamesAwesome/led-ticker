@@ -51,6 +51,27 @@ def stub_propeller_registered():
     del _ANIMATION_REGISTRY["teststub.propeller"]
 
 
+class _StubFisheye:
+    """Stands in for flair's Fisheye: lens-emitting, stateless."""
+
+    restart_on_visit = False
+    emits_lens = True
+
+    def __init__(self, magnify: float = 1.3, edge_squeeze: float = 0.6) -> None:
+        self.magnify = magnify
+        self.edge_squeeze = edge_squeeze
+
+    def frame_for(self, frame, full_text, canvas_width, text_width):
+        return AnimationFrame(visible_text=full_text)
+
+
+@pytest.fixture
+def stub_fisheye_registered():
+    _ANIMATION_REGISTRY["teststub.fisheye"] = _StubFisheye
+    yield
+    del _ANIMATION_REGISTRY["teststub.fisheye"]
+
+
 # ---------------------------------------------------------------------------
 # TOML builder
 # ---------------------------------------------------------------------------
@@ -409,3 +430,141 @@ async def test_rule63_fires_for_section_scale1_override_under_scaled_display(
         f"Expected rule-63 warning for scale-1 section override under scale-4 display; "
         f"got: {result.warnings}"
     )
+
+
+# ===========================================================================
+# Rule 64: lens-emitting animation on a hires font (fisheye twin of rule 63)
+# ===========================================================================
+
+
+async def test_rule64_fires_for_lens_animation_on_hires_font(
+    conf, stub_fisheye_registered
+) -> None:
+    """emits_lens=True + hires font at scale 1 → rule-64 warning."""
+    from led_ticker.fonts import list_available_hires_fonts
+
+    hires_fonts = list_available_hires_fonts()
+    if not hires_fonts:
+        pytest.skip("No bundled hires fonts available in this environment")
+
+    hires_name = hires_fonts[0]
+    toml = _toml(
+        5.0,
+        'animation = {style = "teststub.fisheye", magnify = 1.3}',
+        font_line=f'font = "{hires_name}"',
+        font_size_line="font_size = 12",
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 64]
+    assert len(issues) == 1, f"Expected 1 rule-64 warning, got: {result.warnings}"
+    issue = issues[0]
+    assert issue.severity == "warning"
+    assert issue.location == "section[0].widget[0]"
+    assert hires_name in issue.message, (
+        f"Expected hires font name in message: {issue.message}"
+    )
+    assert "BDF" in issue.fix, f"Expected 'BDF' in fix: {issue.fix}"
+
+
+async def test_rule64_no_fire_bdf_font(conf, stub_fisheye_registered) -> None:
+    """emits_lens=True + default BDF font → no rule-64 warning."""
+    toml = _toml(5.0, 'animation = {style = "teststub.fisheye", magnify = 1.3}')
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 64]
+    assert issues == [], f"Unexpected rule-64 warnings: {issues}"
+
+
+async def test_rule64_no_fire_typewriter_plus_hires(conf) -> None:
+    """Typewriter has no emits_lens → rule 64 must not fire with a hires font."""
+    from led_ticker.fonts import list_available_hires_fonts
+
+    hires_fonts = list_available_hires_fonts()
+    if not hires_fonts:
+        pytest.skip("No bundled hires fonts available in this environment")
+
+    hires_name = hires_fonts[0]
+    toml = _toml(
+        10.0,
+        'animation = "typewriter"',
+        font_line=f'font = "{hires_name}"',
+        font_size_line="font_size = 12",
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 64]
+    assert issues == [], (
+        f"Rule 64 must not fire for Typewriter (no emits_lens): {issues}"
+    )
+
+
+async def test_rule64_no_fire_on_scaled_section(conf, stub_fisheye_registered) -> None:
+    """default_scale=4 + lens stub + hires font → rule 64 silent (the lens
+    warps hires fonts correctly on a ScaledCanvas section)."""
+    from led_ticker.fonts import list_available_hires_fonts
+
+    hires_fonts = list_available_hires_fonts()
+    if not hires_fonts:
+        pytest.skip("No bundled hires fonts available in this environment")
+
+    hires_name = hires_fonts[0]
+    toml = _toml_scaled(
+        5.0,
+        'animation = {style = "teststub.fisheye", magnify = 1.3}',
+        font_line=f'font = "{hires_name}"',
+        font_size_line="font_size = 12",
+        display_scale=4,
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 64]
+    assert issues == [], f"Rule 64 must not fire when section.scale=4; got: {issues}"
+
+
+async def test_rule64_fires_on_scale1_default(conf, stub_fisheye_registered) -> None:
+    """Scale-1 (default) + lens stub + hires font → rule-64 fires."""
+    from led_ticker.fonts import list_available_hires_fonts
+
+    hires_fonts = list_available_hires_fonts()
+    if not hires_fonts:
+        pytest.skip("No bundled hires fonts available in this environment")
+
+    hires_name = hires_fonts[0]
+    toml = _toml_scaled(
+        5.0,
+        'animation = {style = "teststub.fisheye", magnify = 1.3}',
+        font_line=f'font = "{hires_name}"',
+        font_size_line="font_size = 12",
+        display_scale=1,
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 64]
+    assert len(issues) == 1, (
+        f"Expected rule-64 warning on scale-1 section, got: {result.warnings}"
+    )
+
+
+async def test_rule64_best_effort_unknown_animation_does_not_crash(conf) -> None:
+    """Unknown animation 'flair.fisheye' (not registered) → rule 64 skips,
+    no crash."""
+    toml = _toml(5.0, 'animation = "flair.fisheye"')
+    result = await validate_config(conf(toml))  # must not raise
+    issues = [w for w in result.warnings if w.rule == 64]
+    assert issues == [], f"Rule 64 must not fire for unknown animation: {issues}"
+
+
+async def test_rule64_no_fire_without_animation(conf) -> None:
+    """A hires-font widget with no animation → no rule-64 warning."""
+    from led_ticker.fonts import list_available_hires_fonts
+
+    hires_fonts = list_available_hires_fonts()
+    if not hires_fonts:
+        pytest.skip("No bundled hires fonts available in this environment")
+
+    hires_name = hires_fonts[0]
+    toml = _toml(
+        5.0,
+        "",
+        font_line=f'font = "{hires_name}"',
+        font_size_line="font_size = 12",
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 64]
+    assert issues == [], f"Unexpected rule-64 warnings without animation: {issues}"

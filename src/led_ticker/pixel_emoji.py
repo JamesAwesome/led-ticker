@@ -2631,10 +2631,27 @@ def has_renderable_emoji(text: str) -> bool:
     return False
 
 
+def _split_uemoji(text: str, out: list[tuple[str, str]]) -> None:
+    """Append ("text", ...) / ("uemoji", chars) segments for a run with no :slug: tokens."""
+    pos = 0
+    for start, end, chars in _uemoji_runs(text):
+        if start > pos:
+            out.append(("text", text[pos:start]))
+        out.append(("uemoji", chars))
+        pos = end
+    if pos < len(text):
+        out.append(("text", text[pos:]))
+
+
 def _parse_segments(text: str) -> list[tuple[str, str]]:
     """Split text into segments of (type, value).
 
-    Returns list of ("text", "hello ") or ("emoji", "star").
+    Returns list of ("text", "hello "), ("emoji", "star"), or ("uemoji", "❤️").
+
+    :slug: tokens split first (unchanged); each remaining text run is then
+    scanned for Unicode-emoji runs (spec §1). uemoji carries the ORIGINAL
+    codepoints so the draw/measure loops (and a future hi-res renderer)
+    have them.
     """
     parts = re.split(f"({EMOJI_PATTERN.pattern})", text)
     segments: list[tuple[str, str]] = []
@@ -2646,9 +2663,9 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
             if slug in _get_registry():
                 segments.append(("emoji", slug))
             else:
-                segments.append(("text", part))
+                _split_uemoji(part, segments)
         else:
-            segments.append(("text", part))
+            _split_uemoji(part, segments)
     return segments
 
 

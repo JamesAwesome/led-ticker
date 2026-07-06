@@ -6,12 +6,16 @@ Covers Task 1 of the Unicode-emoji→sprite feature:
   - _UNICODE_EMOJI_MAP          (invariant: every value in _get_registry())
   - _map_uemoji_to_slug         (per-emoji mapping)
   - has_renderable_emoji        (shared gate)
+
+Covers Task 2 of the Unicode-emoji→sprite feature:
+  - _parse_segments             (uemoji segment emission)
 """
 
 from led_ticker.pixel_emoji import (
     _UNICODE_EMOJI_MAP,
     _get_registry,
     _map_uemoji_to_slug,
+    _parse_segments,
     _uemoji_runs,
     has_renderable_emoji,
 )
@@ -186,3 +190,39 @@ class TestHasRenderableEmoji:
     def test_unregistered_slug_is_false(self):
         # `:notaslug:` matches EMOJI_PATTERN but is not in the registry.
         assert has_renderable_emoji(":notaslug:") is False
+
+
+class TestParseSegmentsUemoji:
+    """_parse_segments now emits ("uemoji", chars) for Unicode-emoji runs."""
+
+    def test_pure_unicode_emoji_and_text(self):
+        # Task 2: two emoji runs with a text span in between.
+        assert _parse_segments("❤️ hi 🐦") == [
+            ("uemoji", "❤️"),
+            ("text", " hi "),
+            ("uemoji", "🐦"),
+        ]
+
+    def test_slug_and_unicode_emoji_coexist(self):
+        # :star: slug keeps ("emoji","star"); ⭐ emits ("uemoji","⭐").
+        assert _parse_segments(":star: ⭐ x") == [
+            ("emoji", "star"),
+            ("text", " "),
+            ("uemoji", "⭐"),
+            ("text", " x"),
+        ]
+
+    def test_plain_text_unchanged(self):
+        # No emoji of any kind — single text segment, unchanged from today.
+        assert _parse_segments("hello") == [("text", "hello")]
+
+    def test_f5_bare_bmp_stays_text(self):
+        # ✓ is a bare BMP symbol (no FE0F) — must stay as text (F5 passthrough).
+        assert _parse_segments("✓ ok") == [("text", "✓ ok")]
+
+    def test_ascii_round_trip(self):
+        # Pure ASCII: concatenated segment values must equal the input.
+        s = "Speed: 42 mph, Temp: 72F"
+        result = _parse_segments(s)
+        assert all(kind == "text" for kind, _ in result)
+        assert "".join(v for _, v in result) == s

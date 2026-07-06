@@ -92,14 +92,29 @@ class TestUemojiRuns:
         assert ch1 == "🐦"
 
     def test_zwj_sequence_is_one_run(self):
-        # 🐦 ZWJ ⬛  (black bird emoji — ZWJ sequence absorbs the black square)
+        # 🐦 ZWJ ⬛  (black bird emoji — ZWJ sequence absorbs the black square).
+        # Pin the exact span: ⬛ (U+2B1B) is a bare BMP symbol (not an allowlist
+        # base), so it can't match on its own — the whole sequence being one
+        # run PROVES the post-ZWJ _BMP_SYM class absorbs it. `len==1` alone
+        # would pass with just 🐦 matched (review teeth-gap).
         runs = list(_uemoji_runs("🐦‍⬛"))
         assert len(runs) == 1
+        assert runs[0][2] == "🐦‍⬛"
 
     def test_rainbow_flag_is_one_run(self):
         # 🏳️ ZWJ 🌈  (white flag + VS + ZWJ + rainbow)
         runs = list(_uemoji_runs("🏳️‍🌈"))
         assert len(runs) == 1
+        assert runs[0][2] == "🏳️‍🌈"
+
+    def test_unqualified_flag_maps_same_as_qualified(self):
+        # Feeds routinely emit the UNQUALIFIED flag (no internal U+FE0F). It
+        # must key identically to the qualified form → pride_rainbow. This is
+        # the real-world path AND the only test pinning that `_emoji_key`
+        # strips ALL variation selectors, not just a trailing one (review).
+        assert _map_uemoji_to_slug("🏳‍🌈") == "pride_rainbow"
+        assert _map_uemoji_to_slug("🏳‍🌈") == _map_uemoji_to_slug("🏳️‍🌈")
+        assert len(list(_uemoji_runs("🏳‍🌈"))) == 1
 
     def test_skin_tone_is_one_run(self):
         # 👍 + medium skin tone modifier

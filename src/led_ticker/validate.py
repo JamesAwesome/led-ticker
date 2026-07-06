@@ -1680,6 +1680,60 @@ def _check_rotation_hires_font(config: AppConfig) -> list[ValidationIssue]:
     return warnings
 
 
+def _check_lens_hires_font(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 64: a lens-emitting animation on a hires font in a scale-1
+    section — the fisheye lens silently won't apply (the widget's guard draws
+    the text unwarped on a non-scaled canvas, a bare buffer can't warp
+    real-pixel glyphs).
+
+    Structural twin of rule 63 (rotation on hires): per-section scale gate
+    (``section.scale == 1`` only — hires fonts warp fine on ScaledCanvas
+    sections), duck-typed on the animation's ``emits_lens`` class attribute
+    (NO ``frame_for`` probe), best-effort coercion (fires only when the
+    providing plugin is installed).
+    """
+    from led_ticker.app.coercion import (  # noqa: PLC0415
+        _coerce_animation,
+        _is_hires_font_name,
+    )
+
+    warnings: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        if getattr(section, "scale", 1) != 1:
+            continue
+        for j, widget_cfg in enumerate(section.widgets):
+            anim_raw = widget_cfg.get("animation")
+            if anim_raw is None:
+                continue
+            try:
+                anim = _coerce_animation(anim_raw)
+            except ValueError, TypeError:
+                continue
+            if anim is None or not getattr(anim, "emits_lens", False):
+                continue
+            font_name = widget_cfg.get("font")
+            if not isinstance(font_name, str) or not _is_hires_font_name(font_name):
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=64,
+                    location=f"section[{i}].widget[{j}]",
+                    severity="warning",
+                    message=(
+                        f"fisheye lens is skipped for hi-res fonts on "
+                        f"non-scaled displays; {font_name!r} on a scale-1 "
+                        "section will display normally (unwarped)"
+                    ),
+                    fix=(
+                        "Switch this widget to a BDF font to get the lens "
+                        "effect now, use a scaled (bigsign) display, or drop "
+                        "the animation."
+                    ),
+                )
+            )
+    return warnings
+
+
 def _check_band_layout(config: AppConfig) -> list[ValidationIssue]:
     """Catch fonts that don't fit a multi-row widget's per-row band.
 
@@ -2707,6 +2761,7 @@ async def validate_config(
         warnings.extend(_check_typewriter_hold(config))
         warnings.extend(_check_animation_duration_hold(config))
         warnings.extend(_check_rotation_hires_font(config))
+        warnings.extend(_check_lens_hires_font(config))
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
         warnings.extend(_check_plugin_validation_warnings(config, effective_config_dir))

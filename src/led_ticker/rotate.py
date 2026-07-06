@@ -35,9 +35,12 @@ constraint #3 forbids GetPixel on real canvases, not on our objects).
 the full buffer.
 """
 
+import dataclasses
+import functools
 import math
 from typing import Any
 
+from led_ticker.animations import LensSpec
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
 
 
@@ -257,6 +260,147 @@ def rotate_blit(
                     set_pixel(scan_x0 + _x, y, pixel[0], pixel[1], pixel[2])
             sx_f += cos_t
             sy_f -= sin_t
+
+
+@dataclasses.dataclass(frozen=True)
+class LensMaps:
+    """Precomputed horizontal and vertical scale tables for a stationary lens.
+
+    x_lut:          Cumulative edge integral of 1/s(x), length panel_w + 1.
+                    x_lut[0] == 0.0 and x_lut[panel_w] == total_src_span
+                    EXACTLY — the edge-convention that makes the width-
+                    preservation pin hold at the correct index.
+    vscale:         Per-column vertical scale factor s(x), length panel_w.
+    total_src_span: The total horizontal src span consumed by the lens
+                    (== x_lut[-1]). Cached as a field so callers read it
+                    without indexing the LUT tail.
+
+    Frozen + tuple fields — hashable, immutable, safe as a cache value.
+    """
+
+    x_lut: tuple[float, ...]
+    vscale: tuple[float, ...]
+    total_src_span: float
+
+
+@functools.cache
+def build_lens_maps(spec: LensSpec, panel_w: int) -> LensMaps:
+    """Edge-convention LUT pair for a stationary center lens.
+
+    x_lut has length panel_w + 1 (pixel-EDGE cumulative integral):
+    x_lut[0] == 0.0, x_lut[panel_w] == total_src_span EXACTLY.
+    vscale has length panel_w (per-column factor, s(x)).
+
+    Cached keyed on (frozen spec, panel_w) — LensSpec is a frozen
+    dataclass, hashable for free.
+
+    Profile "cosine": s(x) = edge_squeeze + (magnify - edge_squeeze) * p(x)
+    where p = 0.5 + 0.5 * cos(pi * d), d = distance from center normalized
+    to [0, 1]. p == 1 at center (d=0), p == 0 at panel edges (d=1).
+    """
+    xs: list[float] = [0.0]
+    vs: list[float] = []
+    for x in range(panel_w):
+        # Midpoint sampling: column x samples src at its center.
+        d = abs((x + 0.5) - panel_w / 2.0) / (panel_w / 2.0)  # 0 center → 1 edge
+        p = 0.5 + 0.5 * math.cos(math.pi * d) if spec.profile == "cosine" else 0.0
+        s = spec.edge_squeeze + (spec.magnify - spec.edge_squeeze) * p
+        vs.append(s)
+        xs.append(xs[-1] + 1.0 / s)
+    return LensMaps(x_lut=tuple(xs), vscale=tuple(vs), total_src_span=xs[-1])
+
+
+def lens_blit(
+    dst: object,
+    src: PixelBuffer,
+    maps: LensMaps,
+    src_x0: float,
+    cy: float,
+) -> None:
+    """Paint src through the lens maps onto dst (inverse-mapped, NN).
+
+    For dst pixel (x, y):
+        sx = src_x0 + (x_lut[x] + x_lut[x+1]) / 2   (midpoint of dst col x)
+        sy = cy + (y - cy) / vscale[x]               (per-column vertical map)
+
+    Unset src pixels are transparent (dst background survives).
+
+    Performance discipline — three techniques keep this inside the 5 ms
+    desktop budget (verified on bigsign physical dims at Task 0):
+
+    1. Per-column hoisting: sx and inv_v = 1.0 / vscale[x] are computed
+       ONCE per column (not per row) since they are x-only functions.
+
+    2. DDA forward differencing for sy: precompute the per-column start
+       term (sy at y == 0, with the +0.5 rounding bias folded in) and
+       advance by +inv_v per row.  ``int(...)`` truncation mirrors the
+       rotate_blit precedent.  The same half-integer caveat applies:
+       ``int(v + 0.5)`` rounds half-UP while ``round()`` is banker's
+       half-to-even; the one-pixel tiebreak at exact .5 inverse coords is
+       visually irrelevant on an LED — do NOT revert to round().
+
+    3. Extent-scoped per-column y-windows: the vertical scan range for
+       column x is derived from src.lit_extent (the AABB of lit pixels),
+       mapped through the lens to [y0_dst, y1_dst].  Unlit source regions
+       are skipped without per-pixel None checks.
+
+    ``dst`` is anything with SetPixel (real canvas, ScaledCanvas, PixelBuffer).
+    """
+    x_lut = maps.x_lut
+    vscale = maps.vscale
+    w = len(vscale)  # == panel_w (== len(x_lut) - 1)
+    dst_h: int = getattr(dst, "height", src.height)
+    src_w = src.width
+    src_h = src.height
+    pixels = src._pixels
+    set_pixel = dst.SetPixel  # type: ignore[attr-defined]
+
+    # Lit extent of the source (may be None if src is entirely empty).
+    lit = src.lit_extent
+    if lit is None:
+        return  # nothing to blit — src is transparent everywhere
+    _lex0, ley0, _lex1, ley1_exclusive = lit
+    src_y0 = ley0
+    src_y1 = ley1_exclusive - 1  # inclusive max lit y in src
+
+    for x in range(w):
+        sx_f = src_x0 + (x_lut[x] + x_lut[x + 1]) * 0.5
+        isx = int(sx_f + 0.5)
+        # Horizontal: skip columns whose src x is OOB.
+        if not (0 <= isx < src_w):
+            continue
+
+        s = vscale[x]
+        inv_v = 1.0 / s
+
+        # Per-column y-window from lit extent mapped through the lens:
+        #   dst_y from src_y: src_y = cy + (dst_y - cy) * inv_v
+        #   → dst_y = cy + (src_y - cy) * s
+        # Map the lit extent [src_y0, src_y1] to dst, then clamp to [0, dst_h).
+        y0_mapped = cy + (src_y0 - cy) * s
+        y1_mapped = cy + (src_y1 - cy) * s
+        # Ensure y0 <= y1 (could swap for vscale > 1 doesn't invert, but be safe).
+        if y0_mapped > y1_mapped:
+            y0_mapped, y1_mapped = y1_mapped, y0_mapped
+        # Expand by 1 to account for int()-truncation-toward-zero edge cases:
+        # a dst row whose forward-mapped sy lands in (-0.5, 0) truncates to 0
+        # (valid src index), but its dst y may be just outside the un-expanded
+        # window.  The extra row is a no-op unless truncation pulls it in.
+        y0_dst = max(0, int(math.floor(y0_mapped)) - 1)
+        y1_dst = min(dst_h - 1, int(math.ceil(y1_mapped)) + 1)
+
+        # DDA start: sy at y == y0_dst, with +0.5 bias folded in for truncation.
+        # sy = cy + (y - cy) * inv_v  →  sy + 0.5 at y = y0_dst:
+        sy_f = cy + (y0_dst - cy) * inv_v + 0.5
+
+        row_start = isx  # src x index is column-constant
+        for y in range(y0_dst, y1_dst + 1):
+            isy = int(sy_f)
+            if 0 <= isy < src_h:
+                pixel = pixels[isy * src_w + row_start]
+                if pixel is not None:
+                    set_pixel(x, y, pixel[0], pixel[1], pixel[2])
+            sy_f += inv_v
 
 
 class RotationSurface:

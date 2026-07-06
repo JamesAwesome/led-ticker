@@ -35,7 +35,7 @@ from typing import Any, TypeVar
 # Re-exports: the stable surface plugin authors subclass / annotate against.
 from led_ticker import colors
 from led_ticker._types import Canvas, Color, ColorTuple, DrawResult, Font, PixelData
-from led_ticker.animations import Animation, AnimationFrame
+from led_ticker.animations import Animation, AnimationFrame, LensSpec
 from led_ticker.backends import Backend, BackendNotReadyError, register_backend
 from led_ticker.backends.conformance import run_backend_conformance
 from led_ticker.backends.headless import HeadlessBackend, HeadlessCanvas
@@ -129,6 +129,7 @@ __all__ = [
     "HiResEmoji",
     "HiresFont",
     "HiresSpec",
+    "LensSpec",
     "PixelData",
     "RotationSurface",
     "SNAP_THRESHOLD",

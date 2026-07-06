@@ -232,15 +232,15 @@ text = "FISH EYE MARQUEE"
 animation = {style = "flair.fisheye", magnify = 1.33, edge_squeeze = 0.45}`}
 />
 
-| Knob           | Default    | Meaning                                                                                                                                                                                               |
-| -------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `magnify`      | `1.3`      | Center scale (both axes). Capped by the panel height: `magnify × font line-height ≤ content_height`, else config-load raises. For the default 6×12 font in a 16-row band the ceiling is about `1.33`. |
-| `edge_squeeze` | `0.6`      | Edge scale (`0 < edge_squeeze ≤ 1`). Lower means more edge compression — a more dramatic lens.                                                                                                        |
-| `profile`      | `"cosine"` | The falloff curve from edge to center.                                                                                                                                                                |
+| Knob           | Default    | Meaning                                                                                                                                                                                                                                                   |
+| -------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `magnify`      | `1.3`      | Center scale (both axes). Capped by the panel height: `magnify × font line-height ≤ content_height`, else the widget errors on its first draw and the render breaker disables it. For the default 6×12 font in a 16-row band the ceiling is about `1.33`. |
+| `edge_squeeze` | `0.6`      | Edge scale (`0 < edge_squeeze ≤ magnify`). Lower means more edge compression — a more dramatic lens.                                                                                                                                                      |
+| `profile`      | `"cosine"` | The falloff curve from edge to center.                                                                                                                                                                                                                    |
 
 ### What the lens does to the scroll
 
-The lens is width-preserving: a message takes exactly as long to scroll across as it would without the lens. But because the edges are compressed, they show **more** text than a plain scroll would — roughly 8–9 extra characters per side. That is the lens working as intended, not a glitch.
+The lens is width-preserving: a message takes exactly as long to scroll across as it would without the lens. But because the edges are compressed, they show **more** text than a plain scroll would — roughly two extra characters per side at the default squeeze, more with a stronger one. That is the lens working as intended, not a glitch.
 
 ### Live colors through the lens
 
@@ -257,7 +257,7 @@ Held (non-scrolling) text shows a static center bulge — a fixed emphasis on sh
 
 - **Borders**: the border frames the panel un-warped while the text warps inside it.
 - **Inline emoji**: `:slug:` emoji bulge through the lens along with the text.
-- **Hi-res fonts**: on a scaled sign (bigsign) a hi-res font warps too, subject to the same `magnify × font line-height ≤ content_height` ceiling — a too-tall hi-res font is rejected at config-load. On a smallsign (scale 1) a hi-res font renders normally (unwarped) and `led-ticker validate` emits a warning: the pixel-precise warp needs a scaled display.
+- **Hi-res fonts**: on a scaled sign (bigsign) a hi-res font warps too, subject to the same `magnify × font line-height ≤ content_height` ceiling — a too-tall hi-res font errors on its first draw (the render breaker then disables the widget). On a smallsign (scale 1) a hi-res font renders normally (unwarped) and `led-ticker validate` emits a warning: the pixel-precise warp needs a scaled display.
 
 ### On scaled signs (bigsign)
 

@@ -95,9 +95,14 @@ class TestTickerMessage:
     def test_emoji_pattern_rejects_uppercase(self):
         # Uppercase slugs must never match (`:Taco:` is not an emoji token).
         assert TickerMessage(text=":Taco: lunch")._has_emoji is False
-        # Digits after the leading letter ARE allowed so namespaced plugin slugs
-        # like `:acme2.heart:` can be registered; `:taco1:` therefore matches.
-        assert TickerMessage(text=":taco1: lunch")._has_emoji is True
+        # Digits after the leading letter ARE valid slug syntax (namespaced
+        # plugin slugs like `:acme2.heart:` can be registered). But
+        # `has_renderable_emoji` only returns True for REGISTERED slugs, so
+        # an unregistered slug like `:taco1:` (not in the core registry)
+        # returns False — same final rendered output as the old path
+        # (`:taco1:` appeared as literal text either way), but the emoji
+        # render path is no longer invoked unnecessarily.
+        assert TickerMessage(text=":taco1: lunch")._has_emoji is False
 
 
 class TestTickerCountdown:

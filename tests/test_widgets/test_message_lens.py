@@ -491,6 +491,62 @@ class TestVerticalFitRaise:
 # ---------------------------------------------------------------------------
 
 
+class TestHiresEmojiSizedForStrip:
+    """A hi-res emoji (`:star:` etc.) must occupy the SAME logical fraction
+    of the reduced-resolution lens strip as it does on the real panel — NOT
+    2× taller because the strip renders at render_scale (half the real scale).
+
+    Regression for the shipped-v0.4.0 clip: `:star:`/`:heart:` are hires-only
+    sprites drawn at native `physical_size` (32). The strip's ScaledCanvas is
+    at scale=render_scale=2, so `physical_size // scale = 16` = the WHOLE
+    16-row strip → the sprite fills it with zero magnification headroom, its
+    top pins to row 0, and the lens magnification pushes the top off-panel
+    (clipped, never recovered). The fix box-downsamples the sprite by
+    render_scale/real_scale so it occupies its correct ~8-of-16 logical rows.
+    """
+
+    def _capture_strip(self, monkeypatch):
+        import led_ticker.widgets.message as msg_mod
+
+        cap = {}
+        real_blit = msg_mod.lens_blit
+
+        def _spy(dst, src, maps, src_x0, cy):
+            # src is the strip buffer BEFORE the lens. Record the emoji's
+            # lit vertical extent (rows) once.
+            if "extent" not in cap:
+                cap["extent"] = src.lit_extent
+                cap["h"] = src.height
+            return real_blit(dst, src, maps, src_x0, cy)
+
+        monkeypatch.setattr(msg_mod, "lens_blit", _spy)
+        return cap
+
+    def test_hires_emoji_has_magnification_headroom_in_strip(self, monkeypatch):
+        """The emoji's top row in the strip must be > 0 (clear of the top edge)
+        so the lens can magnify it without clipping. On the buggy path the
+        oversized sprite pins to row 0."""
+        cap = self._capture_strip(monkeypatch)
+        canvas, _real = _scaled(scale=4, content_height=16)  # bigsign, render_scale 2
+        widget = _make_widget(text=":star:", center=True)
+        widget.draw(canvas, 0)
+
+        assert "extent" in cap and cap["extent"] is not None, "no emoji drawn"
+        x0, y0, x1, y1 = cap["extent"]
+        strip_h = cap["h"]
+        # The emoji must NOT fill the strip and must clear row 0 with headroom
+        # for a 1.3x magnify about the strip center (needs top >= ~0.1*strip_h).
+        assert y0 > 0, (
+            f"hires emoji top pins to strip row 0 (extent rows {y0}..{y1 - 1} of "
+            f"{strip_h}) — no magnification headroom, the lens will clip the top"
+        )
+        emoji_rows = y1 - y0
+        assert emoji_rows <= strip_h * 0.65, (
+            f"hires emoji occupies {emoji_rows}/{strip_h} strip rows — it is "
+            f"oversized (should be ~half the strip, its real-panel proportion)"
+        )
+
+
 class TestRotationLensPrecedence:
     def test_rotation_wins_when_both_set(self, monkeypatch):
         """A frame carrying BOTH a lens and non-zero rotation takes the

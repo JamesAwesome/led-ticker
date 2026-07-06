@@ -530,6 +530,13 @@ class TickerMessage(FrameAwareBase):
         )
         strip_buffer.clear()
 
+        # Hi-res emoji render at their native physical_size, which is sized for
+        # the REAL panel scale. The strip renders at render_scale (<= scale), so
+        # a native sprite would be scale/render_scale times too tall and fill
+        # the strip, leaving no headroom for the vertical magnification (the
+        # top clips and never recovers). Downscale hi-res sprites by
+        # render_scale/scale so they keep their real-panel logical size.
+        hires_downscale = render_scale / scale if scale > render_scale else 1.0
         strip_baseline = compute_baseline(self.font, strip_target, valign="center")
         self._paint_strip(
             strip_target,
@@ -539,6 +546,7 @@ class TickerMessage(FrameAwareBase):
             provider,
             visible_text,
             full_text,
+            hires_downscale,
         )
 
         # Border paints FIRST, un-warped, directly to the canvas (it frames the
@@ -611,6 +619,7 @@ class TickerMessage(FrameAwareBase):
         provider: ColorProvider,
         visible_text: str,
         full_text: str,
+        hires_downscale: float = 1.0,
     ) -> None:
         """Render ``visible_text`` into the lens strip at ``x_logical``.
 
@@ -635,6 +644,7 @@ class TickerMessage(FrameAwareBase):
                 y_offset=y_offset,
                 frame=self.frame_for("font_color"),
                 total_chars=count_text_chars(full_text),
+                hires_downscale=hires_downscale,
             )
         elif provider.per_char:
             draw_text_per_char(

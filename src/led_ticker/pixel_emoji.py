@@ -21,6 +21,7 @@ Two resolutions are supported:
    version if no `ScaledCanvas` is in use.
 """
 
+import functools
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -2600,6 +2601,45 @@ def count_text_chars(text: str) -> int:
     return sum(len(value) for seg_type, value in segments if seg_type == "text")
 
 
+@functools.cache
+def _downsample_hires(hires: HiResEmoji, factor: float) -> HiResEmoji:
+    """Box-downsample a hi-res sprite by ``factor`` (0 < factor <= 1).
+
+    Each source pixel maps to target cell ``(int(px*factor), int(py*factor))``;
+    colors landing in the same cell are averaged. ``physical_size`` and
+    ``physical_width`` scale by ``factor`` so ``logical_width`` and the
+    bottom-anchor math stay consistent with the shrunken sprite.
+
+    Cached on ``(hires, factor)`` — sprites are module-level frozen
+    constants (hashable) and the fisheye calls this once per (sprite, ratio),
+    so the per-tick strip re-render is a dict lookup.
+    """
+    acc: dict[tuple[int, int], list[int]] = {}
+    for px, py, r, g, b in hires.pixels:
+        key = (int(px * factor), int(py * factor))
+        cell = acc.get(key)
+        if cell is None:
+            acc[key] = [r, g, b, 1]
+        else:
+            cell[0] += r
+            cell[1] += g
+            cell[2] += b
+            cell[3] += 1
+    new_pixels = tuple(
+        (tx, ty, c[0] // c[3], c[1] // c[3], c[2] // c[3])
+        for (tx, ty), c in sorted(acc.items())
+    )
+    new_size = max(1, round(hires.physical_size * factor))
+    new_width = (
+        None
+        if hires.physical_width is None
+        else max(1, round(hires.physical_width * factor))
+    )
+    return HiResEmoji(
+        pixels=new_pixels, physical_size=new_size, physical_width=new_width
+    )
+
+
 def draw_with_emoji(
     canvas: Canvas,
     font: Font,
@@ -2612,6 +2652,7 @@ def draw_with_emoji(
     max_emoji_height: int | None = None,
     frame: int = 0,
     total_chars: int | None = None,
+    hires_downscale: float = 1.0,
 ) -> int:
     """Draw text with inline emoji. Returns pixels advanced.
 
@@ -2648,6 +2689,13 @@ def draw_with_emoji(
     widget) so a char's hue is anchored to its position in the FULL text,
     not the visible slice. Without this override, hues drift as the
     reveal grows.
+
+    `hires_downscale` (default 1.0 = no change) box-downsamples hi-res
+    sprites so they keep their real-panel logical size on a target that
+    renders at a REDUCED resolution. The fisheye lens strip is the only
+    caller that sets it (< 1.0): its strip is at render_scale, so a native
+    sprite would be scale/render_scale times too tall and clip against the
+    strip top. Lo-res sprites and BDF text are unaffected.
     """
     segments = _parse_segments(text)
     total: int = 0
@@ -2702,16 +2750,30 @@ def draw_with_emoji(
                     hires = candidate
 
             if hires is not None:
+                # `hires_downscale < 1.0` shrinks the sprite (a box-downsample)
+                # so it keeps its real-panel logical size on a REDUCED-resolution
+                # target. The fisheye lens strip renders at render_scale (half
+                # the real scale), so an undownsampled `physical_size` sprite
+                # would be twice its correct logical height and fill the strip
+                # — leaving no headroom for the vertical magnification and
+                # clipping the top. The downsampled sprite carries the scaled
+                # physical_size/physical_width, so both the draw and the
+                # logical_width advance below stay in sync.
+                draw_hires = (
+                    _downsample_hires(hires, hires_downscale)
+                    if hires_downscale < 1.0
+                    else hires
+                )
                 # Default path bottom-anchors the sprite at the text baseline
                 # in REAL pixels (exact at any scale). An explicit emoji_y is a
                 # logical TOP position from a band-layout caller — preserve it.
                 if emoji_y is None:
                     _draw_hires_emoji(
-                        canvas, hires, ix, bottom_baseline_logical=(y + y_offset)
+                        canvas, draw_hires, ix, bottom_baseline_logical=(y + y_offset)
                     )
                 else:
-                    _draw_hires_emoji(canvas, hires, ix, top_logical=emoji_y)
-                total += hires.logical_width(canvas.scale) + EMOJI_PADDING
+                    _draw_hires_emoji(canvas, draw_hires, ix, top_logical=emoji_y)
+                total += draw_hires.logical_width(canvas.scale) + EMOJI_PADDING
             else:
                 # Low-res 8×8 sprite paints through the wrapper (logical space),
                 # so a logical `baseline - 8` bottom-anchor is exact at any scale.

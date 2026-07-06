@@ -1654,3 +1654,47 @@ def test_is_emoji_slug_true_for_hires_only():
         )
     finally:
         del HIRES_REGISTRY[slug]
+
+
+class TestDownsampleHires:
+    """`_downsample_hires` box-averages a sprite to a smaller physical size so
+    hi-res emoji keep their real-panel logical size on the reduced-resolution
+    fisheye lens strip (v0.4.0 top-clip regression)."""
+
+    def test_halves_physical_size_and_width(self):
+        from led_ticker.pixel_emoji import HIRES_REGISTRY, _downsample_hires
+
+        star = HIRES_REGISTRY["star"]
+        small = _downsample_hires(star, 0.5)
+        assert small.physical_size == round(star.physical_size * 0.5)
+        assert small.physical_width == round(star.physical_width * 0.5)
+        # every downsampled pixel sits within the shrunken canvas
+        for px, py, *_ in small.pixels:
+            assert 0 <= px < small.physical_size
+            assert 0 <= py < small.physical_size
+
+    def test_box_averages_colliding_pixels(self):
+        from led_ticker.pixel_emoji import HiResEmoji, _downsample_hires
+
+        # A 2×2 block of distinct colors collapses to one averaged pixel.
+        sprite = HiResEmoji(
+            pixels=(
+                (0, 0, 100, 0, 0),
+                (1, 0, 0, 100, 0),
+                (0, 1, 0, 0, 100),
+                (1, 1, 60, 60, 60),
+            ),
+            physical_size=2,
+        )
+        small = _downsample_hires(sprite, 0.5)
+        assert small.physical_size == 1
+        assert len(small.pixels) == 1
+        tx, ty, r, g, b = small.pixels[0]
+        assert (tx, ty) == (0, 0)
+        assert (r, g, b) == (40, 40, 40)  # (100+0+0+60)/4 each channel
+
+    def test_cached_returns_identical_object(self):
+        from led_ticker.pixel_emoji import HIRES_REGISTRY, _downsample_hires
+
+        star = HIRES_REGISTRY["star"]
+        assert _downsample_hires(star, 0.5) is _downsample_hires(star, 0.5)

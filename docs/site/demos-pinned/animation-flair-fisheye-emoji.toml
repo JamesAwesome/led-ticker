@@ -13,6 +13,6 @@ hold_time = 1.0
 
 [[playlist.section.widget]]
 type = "message"
-text = "GRAND OPENING SEPTEMBER 15TH DOORS AT NOON"
-font_color = [0, 220, 255]
+text = "NOW OPEN :star: WELCOME IN :star: STOP BY TODAY"
+font_color = [255, 200, 0]
 animation = "flair.fisheye"

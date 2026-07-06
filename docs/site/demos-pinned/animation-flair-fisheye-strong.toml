@@ -13,6 +13,6 @@ hold_time = 1.0
 
 [[playlist.section.widget]]
 type = "message"
-text = "GRAND OPENING SEPTEMBER 15TH DOORS AT NOON"
-font_color = [0, 220, 255]
-animation = "flair.fisheye"
+text = "FLASH SALE TODAY ONLY FIFTY PERCENT OFF STOREWIDE"
+font_color = [255, 140, 0]
+animation = {style = "flair.fisheye", magnify = 1.33, edge_squeeze = 0.45}

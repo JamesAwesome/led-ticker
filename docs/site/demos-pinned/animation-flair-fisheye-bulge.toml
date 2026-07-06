@@ -1,4 +1,4 @@
-# render-duration: 11
+# render-duration: 4
 # requires-plugins: led-ticker-flair (>= 0.4.0; render locally with the plugin installed)
 [display]
 rows = 16
@@ -9,10 +9,11 @@ brightness = 60
 
 [[playlist.section]]
 mode = "slideshow"
-hold_time = 1.0
+hold_time = 4.0
 
 [[playlist.section.widget]]
 type = "message"
-text = "GRAND OPENING SEPTEMBER 15TH DOORS AT NOON"
-font_color = [0, 220, 255]
+text = "GRAND OPENING TODAY"
+center = true
+font_color = [255, 200, 0]
 animation = "flair.fisheye"

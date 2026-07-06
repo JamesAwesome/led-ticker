@@ -1,4 +1,4 @@
-# render-duration: 9
+# render-duration: 11
 # requires-plugins: led-ticker-flair (>= 0.4.0; render locally with the plugin installed)
 [display]
 rows = 16
@@ -13,6 +13,6 @@ hold_time = 1.0
 
 [[playlist.section.widget]]
 type = "message"
-text = "RAINBOW FISHEYE LIVE COLOR SWEEP"
+text = "LIVE MUSIC EVERY FRIDAY AND SATURDAY NIGHT"
 font_color = "rainbow"
 animation = "flair.fisheye"

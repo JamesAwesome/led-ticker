@@ -319,6 +319,65 @@ class TestResolutionPaths:
         ]
         assert lit, "scale-3 lens produced no physical pixels"
 
+    def test_scale4_center_alignment_at_nonzero_cursor(self, monkeypatch):
+        """Review teeth (M1): at render_scale > 1 the center dst column must
+        still sample text column W_logical/2 − cursor. Reconstruct the sampled
+        text column from the captured render-resolution x-origin + src_x0 and
+        assert it against the spec formula AT A NONZERO CURSOR — where dropping
+        the `cursor × render_scale` conversion (the exact unit-mix bug the
+        implementer fixed) shifts the result by cursor·(1 − 1/render_scale).
+        A scale-1-only test cannot catch it (render_scale == 1 → no-op).
+        """
+        cap = _Capture(monkeypatch)
+        cursor = 24  # nonzero: the render_scale multiply is load-bearing here
+        canvas, _real = _scaled(scale=4, content_height=16)  # 256×64 → logical 64
+        w_logical = canvas.width  # 64
+        render_scale = max(1, canvas.scale // 2)  # 2
+        panel_w_render = w_logical * render_scale  # 128
+
+        widget = _make_widget(text="ABCDEFGHIJ", center=False)
+        widget.draw(canvas, cursor)
+
+        maps = build_lens_maps(_SPEC, panel_w_render)
+        xc = panel_w_render // 2
+        mid = (maps.x_lut[xc] + maps.x_lut[xc + 1]) / 2.0
+        # Captured: x_origin (logical paint origin into the scale=render_scale
+        # strip wrapper) + src_x0 (fractional, render-res columns). Strip render
+        # column S = (x_origin + text_col) × render_scale, so the center dst
+        # column samples render column (src_x0_frac + mid):
+        #   text_col = (src_x0_frac + mid) / render_scale − x_origin
+        x_origin = cap.x_origin[0]
+        src_x0_frac = cap.src_x0[0]
+        sampled_text_col = (src_x0_frac + mid) / render_scale - x_origin
+        expected = w_logical / 2.0 - cursor
+        assert abs(sampled_text_col - expected) <= 0.6, (
+            f"scale-4 center samples text col {sampled_text_col:.3f}, expected "
+            f"{expected} (±0.6) — a factor-of-render_scale cursor error would "
+            f"land at {w_logical / 2.0 - cursor / render_scale:.1f}"
+        )
+
+    def test_scale3_blit_covers_full_physical_width(self):
+        """Review teeth (M3b): scale 3 → render_scale 1 / blit_scale 3, so the
+        64-col render panel blits ×3 across the full 192-wide real panel. A
+        hardcoded blit_scale=2 (the mutation) would cover only ~128 px, leaving
+        the right third dark. Assert lit pixels reach the far-right region.
+        """
+        canvas, real = _scaled(real_w=192, real_h=48, scale=3, content_height=16)
+        widget = _make_widget(text="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123", center=False)
+        widget.draw(canvas, 0)
+        lit_x = [
+            x
+            for x in range(real.width)
+            for y in range(real.height)
+            if real.get_pixel(x, y) != (0, 0, 0)
+        ]
+        assert lit_x, "scale-3 lens produced no physical pixels"
+        assert max(lit_x) >= 150, (
+            f"rightmost lit physical x is {max(lit_x)} — expected >= 150 for "
+            f"blit_scale=3 across a 192-wide panel; a hardcoded blit_scale=2 "
+            f"would cap near 128"
+        )
+
     def test_scale4_path_blits_with_sub_block_variation(self):
         """Bigsign scale 4 → render 2 / blit 2: the blit paints 2×2 blocks, so
         a 4×4 physical block is NOT uniformly lit (half-res, not full-res

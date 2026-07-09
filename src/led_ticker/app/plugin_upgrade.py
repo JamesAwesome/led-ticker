@@ -87,6 +87,8 @@ def _run_git(args: list[str]) -> str:
         raise UpgradeError("git is not installed on this host") from e
     except subprocess.TimeoutExpired as e:
         raise UpgradeError(f"git {args[0]} timed out after {_GIT_TIMEOUT_S}s") from e
+    except OSError as e:
+        raise UpgradeError(f"git {args[0]} failed to run: {e}") from e
     if proc.returncode != 0:
         raise UpgradeError(
             f"git {args[0]} failed: {(proc.stderr or '').strip() or proc.returncode}"
@@ -109,17 +111,26 @@ def _pypi_package_name(line: str) -> str:
 def _latest_pypi(line: str, fetch_json) -> str:
     package = _pypi_package_name(line)
     data = fetch_json(package)
+    if not isinstance(data, dict):
+        raise UpgradeError(f"unexpected PyPI response shape for {package!r}")
     releases = data.get("releases", {})
+    if not isinstance(releases, dict):
+        raise UpgradeError(f"unexpected PyPI response shape for {package!r}")
     best: tuple[int, ...] | None = None
     best_text: str | None = None
-    for version_text, files in releases.items():
-        parsed = _parse_version(version_text)
-        if parsed is None:
-            continue  # pre-release or unparseable
-        if not files or all(f.get("yanked") for f in files):
-            continue  # nothing installable
-        if best is None or parsed > best:
-            best, best_text = parsed, version_text
+    try:
+        for version_text, files in releases.items():
+            parsed = _parse_version(version_text)
+            if parsed is None:
+                continue  # pre-release or unparseable
+            if not isinstance(files, list):
+                raise UpgradeError(f"unexpected PyPI response shape for {package!r}")
+            if not files or all(f.get("yanked") for f in files):
+                continue  # nothing installable
+            if best is None or parsed > best:
+                best, best_text = parsed, version_text
+    except (TypeError, AttributeError) as e:
+        raise UpgradeError(f"unexpected PyPI response shape for {package!r}") from e
     if best_text is None:
         raise UpgradeError(f"no installable release of {package!r} found on PyPI")
     return f"{package}=={best_text}"

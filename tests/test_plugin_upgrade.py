@@ -122,6 +122,27 @@ def test_resolve_latest_pypi_fetch_failure_raises():
         up.resolve_latest("led-ticker-pool==0.1.0", fetch_json=boom)
 
 
+def test_resolve_latest_pypi_non_dict_response_raises():
+    def fetch(package):
+        return ["not", "a", "dict"]
+
+    with pytest.raises(up.UpgradeError):
+        up.resolve_latest("led-ticker-pool==0.1.0", fetch_json=fetch)
+
+
+def test_resolve_latest_pypi_malformed_release_files_raises():
+    def fetch(package):
+        return {
+            "releases": {
+                "0.1.0": [{"yanked": False}],
+                "0.2.0": "not-a-list",
+            }
+        }
+
+    with pytest.raises(up.UpgradeError):
+        up.resolve_latest("led-ticker-pool==0.1.0", fetch_json=fetch)
+
+
 # --- resolve_latest: git ------------------------------------------------------
 
 LS_REMOTE_TAGS = """\
@@ -195,3 +216,15 @@ def test_resolve_latest_rejects_editable_and_unknown_forms():
         up.resolve_latest("-e git+https://github.com/x/y@main")
     with pytest.raises(up.UpgradeError):
         up.resolve_latest("https://example.com/wheel.whl")
+
+
+# --- _run_git -------------------------------------------------------------
+
+
+def test_run_git_other_oserror_raises_upgrade_error(monkeypatch):
+    def raiser(*args, **kwargs):
+        raise PermissionError("not executable")
+
+    monkeypatch.setattr(up.subprocess, "run", raiser)
+    with pytest.raises(up.UpgradeError):
+        up._run_git(["ls-remote", "x"])

@@ -241,9 +241,12 @@ def _catalog_name_for_key(key: str, catalog: Catalog) -> str | None:
 
 def _upgrade_one_line(
     req_path: Path, old_line: str, catalog: Catalog, *, dry_run: bool
-) -> int:
-    """Resolve + rewrite ONE manifest line. Returns 0 (upgraded or up to date)
-    or 1 (resolver failure; manifest untouched, reason printed)."""
+) -> tuple[int, bool]:
+    """Resolve + rewrite ONE manifest line. Returns ``(exit_code, wrote)``:
+    exit_code 0 (upgraded or up to date), 1 (resolver failure; manifest
+    untouched, reason printed), or 2 (write failure). ``wrote`` is True only
+    when the manifest line was actually rewritten — never on dry-run or a
+    no-op "already up to date" resolution."""
     old_spec = _strip_comment(old_line)
     key = _requirement_key(old_spec)
     try:
@@ -252,24 +255,24 @@ def _upgrade_one_line(
         )
     except UpgradeError as e:
         print(f"{old_spec}: {e}", file=sys.stderr)
-        return 1
+        return 1, False
     if new_spec == old_spec:
         print(f"{old_spec} is already up to date.")
-        return 0
+        return 0, False
     if dry_run:
         print("Dry run — no changes made.")
         print(f"  would replace: {old_spec}")
         print(f"  with:          {new_spec}")
-        return 0
+        return 0, False
     today = datetime.date.today().isoformat()
     provenance = f"# upgraded {today}, was {old_spec}"
     try:
         _update_requirements(req_path, new_spec, comment=provenance)
     except OSError as e:
         print(f"could not write {req_path}: {e}", file=sys.stderr)
-        return 2
+        return 2, False
     print(f"Upgraded: {old_spec} -> {new_spec}")
-    return 0
+    return 0, True
 
 
 def cmd_upgrade(
@@ -303,9 +306,9 @@ def cmd_upgrade(
         worst = 0
         upgraded_any = False
         for line in lines:
-            code = _upgrade_one_line(req_path, line, catalog, dry_run=dry_run)
+            code, wrote = _upgrade_one_line(req_path, line, catalog, dry_run=dry_run)
             worst = max(worst, code)
-            upgraded_any = upgraded_any or code == 0
+            upgraded_any = upgraded_any or wrote
         if config_warning:
             print(config_warning, file=sys.stderr)
         if not dry_run and upgraded_any:
@@ -322,9 +325,9 @@ def cmd_upgrade(
             file=sys.stderr,
         )
         return 2
-    code = _upgrade_one_line(req_path, matches[-1], catalog, dry_run=dry_run)
+    code, wrote = _upgrade_one_line(req_path, matches[-1], catalog, dry_run=dry_run)
     if config_warning:
         print(config_warning, file=sys.stderr)
-    if code == 0 and not dry_run:
+    if wrote and not dry_run:
         print(_UPGRADE_HINT)
     return code

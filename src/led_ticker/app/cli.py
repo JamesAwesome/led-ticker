@@ -162,7 +162,9 @@ def main() -> None:
     # `plugin` subcommand — manage plugins (status/list/search/install)
     plugin_parser = subparsers.add_parser(
         "plugin",
-        help="Manage plugins: status/list/search, add/remove, install/uninstall",
+        help=(
+            "Manage plugins: status/list/search, add/remove, install/uninstall, upgrade"
+        ),
     )
     plugin_sub = plugin_parser.add_subparsers(dest="plugin_command")
 

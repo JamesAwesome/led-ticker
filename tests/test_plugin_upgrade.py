@@ -285,7 +285,24 @@ def test_cmd_upgrade_up_to_date_writes_nothing(tmp_path, monkeypatch, capsys):
     before = (tmp_path / "requirements-plugins.txt").read_text()
     assert up.cmd_upgrade("pool", config_path=config, catalog=_pool_catalog()) == 0
     assert (tmp_path / "requirements-plugins.txt").read_text() == before
-    assert "up to date" in capsys.readouterr().out.lower()
+    out = capsys.readouterr().out.lower()
+    assert "up to date" in out
+    assert "installs on next startup" not in out
+
+
+def test_cmd_upgrade_all_up_to_date_omits_restart_hint(tmp_path, monkeypatch, capsys):
+    lines = [
+        f"{MONOREPO}@pool-v0.2.0#subdirectory=plugins/pool",
+        "led-ticker-crypto==0.9.0",
+    ]
+    config = _manifest(tmp_path, "\n".join(lines) + "\n")
+    monkeypatch.setattr(up, "resolve_latest", lambda line, **kw: line)
+    code = up.cmd_upgrade(
+        None, config_path=config, catalog=_pool_catalog(), all_plugins=True
+    )
+    assert code == 0
+    out = capsys.readouterr().out.lower()
+    assert "installs on next startup" not in out
 
 
 def test_cmd_upgrade_not_declared_is_error(tmp_path, capsys):

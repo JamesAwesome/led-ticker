@@ -68,13 +68,13 @@ docker compose restart
 
 ### Changing a plugin's version or source
 
-Editing an **exact PyPI pin** (`led-ticker-pool==0.1.0` → `==0.2.0`) and restarting is enough: the reconcile compares the manifest pin against the installed version and reinstalls in place when they differ.
+Use [`led-ticker plugin upgrade`](#upgrading-plugins) to move to the newest version — it resolves the latest release and rewrites the manifest line for you, including retargeting a moving `@main` line to a pinned tag or commit.
 
-Changing an **unpinned** line, a **range** spec (`>=`, `~=`), or a **git/URL source** (e.g. retargeting `@main` or a moved branch) is _not_ reliably detected on a restart — the namespace is unchanged and the reconcile can't tell whether the upstream source moved, so it leaves the installed copy alone (and logs an INFO saying so). To force a refresh of a non-pinned source, reset the plugin volume (see [reset all plugins](#removing-a-plugin) below). Pinning to a tag or commit SHA avoids this entirely and is recommended for production signs.
+Editing the manifest by hand works too: on Docker, any change to a declared line — an exact PyPI pin, a range spec (`>=`, `~=`), or a git/URL source — is now detected on the next restart via the reconcile's installed-state stamp, and reinstalls in place. The one case a restart still can't catch is new commits landing on an **already-pinned branch reference** while the manifest line itself doesn't change (e.g. `@main` stays `@main` but upstream moved) — the stamp only compares the line text, not the branch tip, so nothing looks different. `plugin upgrade` sidesteps this by pinning `@main` to a concrete tag or commit SHA on its first run, which makes the state restart-detectable from then on. On a bare-metal / local-venv install (no `/data/plugins` volume), only an exact `==` pin change is auto-detected either way — `plugin upgrade` is the refresh path there too.
 
 ### Production deployments
 
-For a production sign, pin **every** plugin to an immutable tag or commit SHA — not `@main`, a moving branch, or a floating range. A moving source is not re-detected on restart (see [Changing a plugin's version or source](#changing-a-plugins-version-or-source) above), and an immutable pin makes each deploy reproducible. For example:
+For a production sign, pin **every** plugin to an immutable tag or commit SHA — not `@main`, a moving branch, or a floating range. [`plugin upgrade`](#upgrading-plugins) is how you move that pin forward on purpose; upstream commits landing on an unpinned branch reference are never re-detected on their own (the manifest line text doesn't change), so an immutable pin is what makes each deploy reproducible. For example:
 
 ```
 # config/requirements-plugins.txt (production example)
@@ -83,6 +83,56 @@ led-ticker-rss==0.2.1
 ```
 
 Your `config/requirements-plugins.txt` and `config.toml` are **gitignored and per-sign** — upstream changes never rewrite them for you. When a plugin's catalog name, package, or a widget/transition `type` changes (a pack consolidation, a rename), reconcile both files on each sign at deploy: the manifest line, and any affected `type = "…"` in the config. Run `led-ticker validate config.toml` to catch a stale type before it reaches the panel.
+
+## Upgrading plugins
+
+Upgrading is declarative, the same way installing and removing are:
+`led-ticker plugin upgrade pool` (or the Store's **Upgrade** button) rewrites
+the plugin's line in `config/requirements-plugins.txt` to the newest version.
+Nothing installs yet — the change takes effect on the next restart, exactly
+like `plugin add` / `plugin remove`. No volume reset needed.
+
+```bash
+led-ticker plugin upgrade pool
+docker compose restart
+```
+
+Where "newest" comes from depends on the line's source:
+
+- **PyPI lines** (`led-ticker-pool==0.1.0`) — the newest release on PyPI.
+- **Git lines** (`git+https://…@<ref>#subdirectory=…`) — the newest tag
+  matching the convention `<name>-vX.Y.Z`, where `<name>` is tried in this
+  order: the `#subdirectory=` basename, then the catalog name, then a bare
+  `vX.Y.Z` (for a single-plugin repo with no subdirectory). A line tracking a
+  branch (`@main`) with no matching tags falls back to that branch's current
+  tip commit — you still get a concrete, restart-detectable pin, just not a
+  tagged one yet.
+
+Either way, a moving `@main` line becomes a **pinned** line on its first
+upgrade — same package, but now a reproducible reference instead of a moving
+target, which matters for rebuilding a sign to the exact same state later.
+The line the upgrade replaced is kept as a `# upgraded <date>, was <old>`
+comment, so you can see what it used to be.
+
+Upgrade every declared plugin in one pass with `--all`, or preview what would
+change without writing anything with `--dry-run`:
+
+```bash
+led-ticker plugin upgrade --all --dry-run
+led-ticker plugin upgrade --all
+```
+
+Resolving "newest" needs network access (a PyPI lookup or a `git
+ls-remote`) even though nothing installs until the next restart — same
+caveat as a fresh [offline/air-gapped install](#offline--air-gapped-installs).
+If the resolver can't reach PyPI or the git remote (no network, a deleted
+package, a private repo), the command exits non-zero and prints why; the
+manifest is left exactly as it was, so there's nothing to roll back.
+
+From the [web status UI](/concepts/web-status-ui/), the Store's **Upgrade**
+button does the same manifest rewrite — also token-gated, see
+[Install from the web UI](#install-from-the-web-ui) above — and marks the
+plugin "pending restart," the same banner install/remove use.
 
 ## Removing a plugin
 

@@ -66,8 +66,10 @@ Manage plugins. Two pairs of verbs: **`add` / `remove`** edit the manifest
 (`config/requirements-plugins.txt`) only — the **Docker** path, where a
 `docker compose restart` triggers a startup reconcile that installs from the
 manifest (no rebuild) — and **`install` / `uninstall`** also run pip, for
-dev / source-checkout installs. (The old `led-ticker plugins` is a deprecated alias of
-`plugin status`.)
+dev / source-checkout installs. **`upgrade`** rewrites an already-declared
+line to the newest version — manifest only, like `add`/`remove`, no pip; the
+next restart's reconcile installs it. (The old `led-ticker plugins` is a
+deprecated alias of `plugin status`.)
 
 ```bash
 # Docker: edit the manifest, then restart
@@ -79,17 +81,25 @@ docker compose restart              # installs/uninstalls on the next start — 
 led-ticker plugin install pool      # add + pip install
 led-ticker plugin uninstall pool    # remove + pip uninstall
 
+# Move a declared line to the newest version (manifest only — no pip either way)
+led-ticker plugin upgrade pool      # rewrite pool's line to the latest version
+led-ticker plugin upgrade --all     # same, for every declared plugin
+docker compose restart              # installs the new version on the next start
+
 led-ticker plugin status            # plugins loaded/failed for the config
 led-ticker plugin list              # the catalog ([declared] / [installed])
 led-ticker plugin search pool       # search the catalog
 ```
 
-All four management verbs accept a **catalog name or a raw pip spec** (a
+All five management verbs accept a **catalog name or a raw pip spec** (a
 `git+https://…` URL or a PyPI requirement, like `pip`), default the manifest to
 `config/requirements-plugins.txt` (run from your project root; `--config <path>`
 for a non-standard layout, warned if it'd write outside `config/`), and dedup by
 plugin while preserving comments. `add`/`install` take `--source git|pypi` and
-`--unpinned`; all take `--dry-run`.
+`--unpinned`; all take `--dry-run`. `upgrade` additionally takes `--all` (upgrade
+every declared line, mutually exclusive with a target name) — it never runs pip,
+even under `install`'s manifest-plus-pip pairing, since it only rewrites an
+already-declared line rather than adding or removing one.
 
 Run these **on the host**, not inside the container — they edit a host file, and
 the container mounts `./config` read-only, so `docker compose exec led-ticker
@@ -129,6 +139,44 @@ updated).
 | `--unpinned`      | off (pinned) | (`add`/`install`) Write `@main` / a bare PyPI name instead of the catalog ref. (Bundled refs are `@main` today, so this is a no-op for them — see above.) |
 | `--dry-run`       | off          | Print the plan without changing anything.                                                                                                                 |
 | `--config` / `-c` | (none)       | Non-standard layout only: use `requirements-plugins.txt` next to this config instead of `./config/`.                                                      |
+
+### `plugin upgrade` (manifest only — resolves the newest version)
+
+Rewrites an already-declared manifest line to the newest version and never
+runs pip — the new version installs on the next restart, the same way
+`add`/`remove` do. Give a target (catalog name or pip spec, matched the same
+way `remove` matches lines) to upgrade one plugin, or `--all` to upgrade
+every declared line in one pass; the two are mutually exclusive. "Newest"
+comes from PyPI for a PyPI line, or from git tags matching `<name>-vX.Y.Z`
+for a git line (falling back to the tracked branch's tip commit if no tag
+matches) — see [Upgrading plugins](/plugins/#upgrading-plugins) for the full
+resolution order. A `@main` line becomes a pinned line on its first upgrade;
+the replaced line is kept as a `# upgraded <date>, was <old>` comment. A
+target that isn't declared yet is an error — `upgrade` only moves an
+existing pin forward, it doesn't add one (use `plugin add`/`install` first).
+
+```bash
+led-ticker plugin upgrade pool          # rewrite pool's line to the latest version
+led-ticker plugin upgrade --all         # upgrade every declared plugin
+led-ticker plugin upgrade pool --dry-run   # preview without writing
+```
+
+| Flag              | Default | Notes                                                                                                   |
+| ----------------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `target`          | —       | Catalog name or pip spec to upgrade. Required unless `--all` is given; mutually exclusive with `--all`. |
+| `--all`           | off     | Upgrade every line declared in the manifest instead of one target.                                      |
+| `--dry-run`       | off     | Print what would change (old line → new line) without writing anything.                                 |
+| `--config` / `-c` | (none)  | Non-standard layout only: use `requirements-plugins.txt` next to this config instead of `./config/`.    |
+
+Exits `0` when every requested line is already up to date or was upgraded
+successfully, `1` if the resolver couldn't determine a newest version for a
+requested line (PyPI/git unreachable, no matching tags and no resolvable
+branch tip), and `2` on a usage/manifest error (target not declared, or the
+manifest couldn't be written). Under `--all`, one line's failure doesn't
+block the others — every line is attempted and the command exits with the
+worst code seen (a mix of resolver failures and write failures still exits
+non-zero). A resolver failure never touches the manifest for that line —
+only a successful resolution is written.
 
 ### `plugin status`
 

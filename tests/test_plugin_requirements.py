@@ -105,3 +105,18 @@ def test_strip_comment_url_fragment_plus_real_comment():
         _strip_comment("git+https://github.com/x/y@v1#subdirectory=p/q  # note")
         == "git+https://github.com/x/y@v1#subdirectory=p/q"
     )
+
+
+def test_update_requirements_comment_param_overrides_carry(tmp_path):
+    """comment= writes the given provenance comment instead of carrying the old
+    line's comment."""
+    from led_ticker.app.plugin_cmd import _update_requirements
+
+    path = tmp_path / "requirements-plugins.txt"
+    path.write_text("led-ticker-pool==0.1.0  # old note\n")
+    _update_requirements(
+        path, "led-ticker-pool==0.2.0", comment="# upgraded 2026-07-09, was ==0.1.0"
+    )
+    assert path.read_text() == (
+        "led-ticker-pool==0.2.0  # upgraded 2026-07-09, was ==0.1.0\n"
+    )

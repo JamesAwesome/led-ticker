@@ -146,16 +146,20 @@ def _strip_comment(line: str) -> str:
     return (line[: match.start()] if match else line).strip()
 
 
-def _update_requirements(path: Path, requirement: str) -> str | None:
+def _update_requirements(
+    path: Path, requirement: str, *, comment: str | None = None
+) -> str | None:
     """Add `requirement` to the requirements file, replacing any prior line for
     the same plugin. Preserves comments and unrelated lines — including a trailing
-    inline comment on the line being replaced, which is carried onto the new line.
+    inline comment on the line being replaced, which is carried onto the new line
+    UNLESS ``comment`` is given (then the new line gets exactly that comment —
+    the upgrade verb's provenance note replaces any stale annotation).
     Returns the replaced line (verbatim) when one was found, else None (appended)."""
     key = _requirement_key(requirement)
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     kept: list[str] = []
     replaced_line: str | None = None
-    new_line = requirement
+    new_line = f"{requirement}  {comment}" if comment else requirement
     for line in lines:
         stripped = line.strip()
         if (
@@ -168,10 +172,13 @@ def _update_requirements(path: Path, requirement: str) -> str | None:
             # new line so a deliberate annotation isn't silently lost. Detect a
             # comment the way pip does — only a '#' at line-start or preceded by
             # whitespace — so a '#egg='/'#subdirectory=' URL fragment (part of a
-            # git spec, NOT a comment) isn't mistaken for one and mangled.
-            comment = _trailing_comment(line)
-            if comment:
-                new_line = f"{requirement}  {comment}"
+            # git spec, NOT a comment) isn't mistaken for one and mangled. Skipped
+            # when the caller passed an explicit ``comment`` (upgrade provenance
+            # replaces any stale annotation rather than carrying it).
+            if comment is None:
+                carried = _trailing_comment(line)
+                if carried:
+                    new_line = f"{requirement}  {carried}"
             continue  # drop the old line for this plugin
         kept.append(line)
     kept.append(new_line)

@@ -3,6 +3,12 @@
 import pytest
 
 from led_ticker.app import plugin_upgrade as up
+from led_ticker.plugins_catalog import (
+    Catalog,
+    CatalogEntry,
+    CatalogSource,
+    PluginProvides,
+)
 
 # --- _parse_version -----------------------------------------------------------
 
@@ -228,3 +234,130 @@ def test_run_git_other_oserror_raises_upgrade_error(monkeypatch):
     monkeypatch.setattr(up.subprocess, "run", raiser)
     with pytest.raises(up.UpgradeError):
         up._run_git(["ls-remote", "x"])
+
+
+# --- cmd_upgrade --------------------------------------------------------------
+
+
+def _pool_catalog():
+    entry = CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    return Catalog(entries=(entry,))
+
+
+def _manifest(tmp_path, text):
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text(text)
+    return config
+
+
+def test_cmd_upgrade_rewrites_pin_with_provenance(tmp_path, monkeypatch, capsys):
+    old = f"{MONOREPO}@pool-v0.1.0#subdirectory=plugins/pool"
+    new = f"{MONOREPO}@pool-v0.2.0#subdirectory=plugins/pool"
+    config = _manifest(tmp_path, old + "\n")
+    monkeypatch.setattr(up, "resolve_latest", lambda line, **kw: new)
+    code = up.cmd_upgrade("pool", config_path=config, catalog=_pool_catalog())
+    assert code == 0
+    text = (tmp_path / "requirements-plugins.txt").read_text()
+    assert new in text
+    assert "# upgraded" in text and "was" in text
+    assert "restart" in capsys.readouterr().out.lower()
+
+
+def test_cmd_upgrade_up_to_date_writes_nothing(tmp_path, monkeypatch, capsys):
+    line = f"{MONOREPO}@pool-v0.2.0#subdirectory=plugins/pool"
+    config = _manifest(tmp_path, line + "\n")
+    monkeypatch.setattr(up, "resolve_latest", lambda ln, **kw: ln)
+    before = (tmp_path / "requirements-plugins.txt").read_text()
+    assert up.cmd_upgrade("pool", config_path=config, catalog=_pool_catalog()) == 0
+    assert (tmp_path / "requirements-plugins.txt").read_text() == before
+    assert "up to date" in capsys.readouterr().out.lower()
+
+
+def test_cmd_upgrade_not_declared_is_error(tmp_path, capsys):
+    config = _manifest(tmp_path, "# nothing declared\n")
+    assert up.cmd_upgrade("pool", config_path=config, catalog=_pool_catalog()) == 2
+    assert "not declared" in capsys.readouterr().err.lower()
+
+
+def test_cmd_upgrade_resolver_failure_leaves_manifest(tmp_path, monkeypatch, capsys):
+    old = f"{MONOREPO}@pool-v0.1.0#subdirectory=plugins/pool"
+    config = _manifest(tmp_path, old + "\n")
+
+    def boom(line, **kw):
+        raise up.UpgradeError("no matching tags")
+
+    monkeypatch.setattr(up, "resolve_latest", boom)
+    assert up.cmd_upgrade("pool", config_path=config, catalog=_pool_catalog()) == 1
+    assert (tmp_path / "requirements-plugins.txt").read_text() == old + "\n"
+    assert "no matching tags" in capsys.readouterr().err
+
+
+def test_cmd_upgrade_dry_run_writes_nothing(tmp_path, monkeypatch, capsys):
+    old = f"{MONOREPO}@pool-v0.1.0#subdirectory=plugins/pool"
+    new = f"{MONOREPO}@pool-v0.2.0#subdirectory=plugins/pool"
+    config = _manifest(tmp_path, old + "\n")
+    monkeypatch.setattr(up, "resolve_latest", lambda line, **kw: new)
+    code = up.cmd_upgrade(
+        "pool", config_path=config, catalog=_pool_catalog(), dry_run=True
+    )
+    assert code == 0
+    assert (tmp_path / "requirements-plugins.txt").read_text() == old + "\n"
+    out = capsys.readouterr().out
+    assert "Dry run" in out and new in out
+
+
+def test_cmd_upgrade_all_upgrades_every_line(tmp_path, monkeypatch):
+    lines = [
+        f"{MONOREPO}@pool-v0.1.0#subdirectory=plugins/pool",
+        "led-ticker-crypto==0.1.0",
+    ]
+    config = _manifest(tmp_path, "\n".join(lines) + "\n")
+    monkeypatch.setattr(
+        up,
+        "resolve_latest",
+        lambda line, **kw: line.replace("0.1.0", "0.9.0"),
+    )
+    code = up.cmd_upgrade(
+        None, config_path=config, catalog=_pool_catalog(), all_plugins=True
+    )
+    assert code == 0
+    text = (tmp_path / "requirements-plugins.txt").read_text()
+    assert "pool-v0.9.0" in text
+    assert "led-ticker-crypto==0.9.0" in text
+
+
+def test_cmd_upgrade_all_aggregates_failures(tmp_path, monkeypatch):
+    lines = [
+        f"{MONOREPO}@pool-v0.1.0#subdirectory=plugins/pool",
+        "led-ticker-crypto==0.1.0",
+    ]
+    config = _manifest(tmp_path, "\n".join(lines) + "\n")
+
+    def flaky(line, **kw):
+        if "crypto" in line:
+            raise up.UpgradeError("pypi down")
+        return line.replace("0.1.0", "0.9.0")
+
+    monkeypatch.setattr(up, "resolve_latest", flaky)
+    code = up.cmd_upgrade(
+        None, config_path=config, catalog=_pool_catalog(), all_plugins=True
+    )
+    assert code == 1  # partial failure
+    text = (tmp_path / "requirements-plugins.txt").read_text()
+    assert "pool-v0.9.0" in text  # the good one still upgraded
+    assert "led-ticker-crypto==0.1.0" in text  # the bad one untouched

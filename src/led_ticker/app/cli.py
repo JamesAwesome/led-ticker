@@ -270,6 +270,28 @@ def main() -> None:
     _add_dry_run_arg(puninstall)
     _add_config_arg(puninstall)
 
+    pupgrade = plugin_sub.add_parser(
+        "upgrade",
+        help=(
+            "Rewrite a plugin's manifest line to the latest version "
+            "(installs on next restart)"
+        ),
+    )
+    pupgrade.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help="Catalog name (e.g. pool) or pip spec; omit with --all",
+    )
+    pupgrade.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_plugins",
+        help="Upgrade every plugin declared in requirements-plugins.txt",
+    )
+    _add_dry_run_arg(pupgrade)
+    _add_config_arg(pupgrade)
+
     # `webui` subcommand — the unprivileged status sidecar
     webui_parser = subparsers.add_parser(
         "webui",
@@ -347,6 +369,24 @@ def main() -> None:
                     args.target,
                     config_path=args.config,
                     config_explicit=config_explicit,
+                    dry_run=args.dry_run,
+                )
+            )
+        if pc == "upgrade":
+            if args.all_plugins == (args.target is not None):
+                print(
+                    "specify exactly one of: a plugin name, or --all",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
+            from led_ticker.app.plugin_upgrade import cmd_upgrade  # noqa: PLC0415
+
+            sys.exit(
+                cmd_upgrade(
+                    args.target,
+                    config_path=args.config,
+                    config_explicit=config_explicit,
+                    all_plugins=args.all_plugins,
                     dry_run=args.dry_run,
                 )
             )

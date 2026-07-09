@@ -12,12 +12,25 @@ construction. Git tag convention: `<name>-vX.Y.Z` (see the docs-site plugins
 page); `<name>` resolves subdirectory-basename → catalog-name → bare `v`.
 """
 
+import datetime
 import json
 import re
 import subprocess
+import sys
 import urllib.error
 import urllib.request
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+
+from led_ticker.app.plugin_cmd import (
+    _config_warning,
+    _dist_key,
+    _find_requirement_lines,
+    _requirement_key,
+    _requirements_path,
+    _strip_comment,
+    _update_requirements,
+)
+from led_ticker.plugins_catalog import Catalog, load_catalog
 
 _VERSION_RE = re.compile(r"^\d+(\.\d+)*$")
 
@@ -206,3 +219,112 @@ def resolve_latest(
             "edit the manifest line by hand"
         )
     return _latest_pypi(line, fetch_json or _fetch_pypi_json)
+
+
+_UPGRADE_HINT = (
+    "The new version installs on next startup — run `docker compose restart` "
+    "(no rebuild needed)."
+)
+
+
+def _catalog_name_for_key(key: str, catalog: Catalog) -> str | None:
+    """The catalog entry NAME whose requirement dedup-key matches ``key`` —
+    feeds the git tag-prefix convention. None for off-catalog lines."""
+    for entry in catalog.entries:
+        try:
+            if _requirement_key(entry.requirement()) == key:
+                return entry.name
+        except ValueError:
+            continue
+    return None
+
+
+def _upgrade_one_line(
+    req_path: Path, old_line: str, catalog: Catalog, *, dry_run: bool
+) -> int:
+    """Resolve + rewrite ONE manifest line. Returns 0 (upgraded or up to date)
+    or 1 (resolver failure; manifest untouched, reason printed)."""
+    old_spec = _strip_comment(old_line)
+    key = _requirement_key(old_spec)
+    try:
+        new_spec = resolve_latest(
+            old_spec, catalog_name=_catalog_name_for_key(key, catalog)
+        )
+    except UpgradeError as e:
+        print(f"{old_spec}: {e}", file=sys.stderr)
+        return 1
+    if new_spec == old_spec:
+        print(f"{old_spec} is already up to date.")
+        return 0
+    if dry_run:
+        print("Dry run — no changes made.")
+        print(f"  would replace: {old_spec}")
+        print(f"  with:          {new_spec}")
+        return 0
+    today = datetime.date.today().isoformat()
+    provenance = f"# upgraded {today}, was {old_spec}"
+    try:
+        _update_requirements(req_path, new_spec, comment=provenance)
+    except OSError as e:
+        print(f"could not write {req_path}: {e}", file=sys.stderr)
+        return 2
+    print(f"Upgraded: {old_spec} -> {new_spec}")
+    return 0
+
+
+def cmd_upgrade(
+    target: str | None,
+    *,
+    config_path: Path,
+    config_explicit: bool = True,
+    all_plugins: bool = False,
+    dry_run: bool = False,
+    catalog: Catalog | None = None,
+) -> int:
+    """Rewrite manifest line(s) to the latest version (no pip — the boot
+    reconcile installs the change). Exit codes: 0 ok/up-to-date, 1 resolver
+    failure (any, under --all), 2 usage/manifest error."""
+    catalog = catalog or load_catalog()
+    req_path = _requirements_path(config_path, config_explicit)
+    config_warning = _config_warning(req_path)
+
+    if all_plugins:
+        if not req_path.exists():
+            print(f"{req_path} does not exist — nothing to upgrade.", file=sys.stderr)
+            return 2
+        lines = [
+            line
+            for line in req_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        if not lines:
+            print("No plugins declared — nothing to upgrade.")
+            return 0
+        worst = 0
+        upgraded_any = False
+        for line in lines:
+            code = _upgrade_one_line(req_path, line, catalog, dry_run=dry_run)
+            worst = max(worst, code)
+            upgraded_any = upgraded_any or code == 0
+        if config_warning:
+            print(config_warning, file=sys.stderr)
+        if not dry_run and upgraded_any:
+            print(_UPGRADE_HINT)
+        return worst
+
+    assert target is not None  # cli enforces target XOR --all
+    key = _dist_key(target, catalog)
+    matches = _find_requirement_lines(req_path, key)
+    if not matches:
+        print(
+            f"{target!r} is not declared in {req_path} — add it first "
+            f"(led-ticker plugin add {target}).",
+            file=sys.stderr,
+        )
+        return 2
+    code = _upgrade_one_line(req_path, matches[-1], catalog, dry_run=dry_run)
+    if config_warning:
+        print(config_warning, file=sys.stderr)
+    if code == 0 and not dry_run:
+        print(_UPGRADE_HINT)
+    return code

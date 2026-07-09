@@ -1,0 +1,166 @@
+---
+title: storefront plugin
+description: The storefront plugin is provided by the storefront package in led-ticker-plugins. It paints an always-visible OPEN/CLOSED business-hours badge as a corner overlay, driven by a weekly schedule and the Pi's clock.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The **storefront** plugin is provided by the **[storefront](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/storefront)** package in the led-ticker-plugins monorepo. It paints an always-visible **OPEN** or **CLOSED** badge as a corner overlay on top of whatever the ticker is showing, flipped by a weekly business-hours schedule and the Pi's clock — no external service, works offline.
+
+It's the sibling of the core [busy light](/concepts/busy-light/) overlay: same mechanism (a frame overlay hook + a background poller that flips shared state; `paint()` stays paint-only), richer content — text, colors, orientation, animated "neon" color.
+
+## Install
+
+Add the package to your plugin manifest and restart:
+
+```text
+# First plugin? Create your manifest from the example:
+cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
+# Add the package (one name per line), then restart:
+echo "led-ticker-storefront" >> config/requirements-plugins.txt
+docker compose restart
+```
+
+Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/plugins/).
+
+## Minimal config
+
+Unlike a widget, storefront isn't added to a playlist section — it's a top-level `[storefront]` block, present anywhere in `config.toml`:
+
+```toml
+[storefront]
+corner = "top_right"
+
+[storefront.open]
+text = "OPEN"
+color = [0, 255, 0]
+
+[storefront.closed]
+text = "CLOSED"
+color = [255, 0, 0]
+
+[storefront.schedule]
+mon = "09:00-17:00"
+tue = "09:00-17:00"
+wed = "09:00-17:00"
+thu = "09:00-17:00"
+fri = "09:00-17:00"
+sat = "10:00-14:00"
+# sun omitted = closed all day
+```
+
+The badge appears the moment the config loads (an eager first evaluation runs at startup, before the first poll), and flips automatically as the clock crosses a schedule boundary.
+
+## Schedule syntax
+
+<Aside type="caution">
+  **Read this one first.** An overnight range belongs to the day it *starts* on, not the day it ends
+  on — this is the single most common thing to get wrong, so it's the leading example.
+
+```toml
+[storefront.schedule]
+fri = "18:00-02:00"
+```
+
+This means Friday 18:00 through Saturday 02:00. **The wrap belongs to Friday** — at Saturday 00:30
+the sign still reads **OPEN**, evaluated against Friday's range. It does not flip to CLOSED just
+because the calendar date rolled over to Saturday.
+
+</Aside>
+
+Each day of the week (`mon` … `sun`) maps to a schedule string:
+
+- **A single range:** `"09:00-17:00"` — 24-hour `HH:MM-HH:MM`.
+- **Multiple ranges (e.g. a lunch closure):** `"09:00-12:00,13:00-17:00"` — comma-separated; the day is open if _any_ range matches.
+- **Closed:** `"closed"`, or simply omit the day key — both mean closed all day.
+- **Open all day:** `"00:00-24:00"` — `24:00` (1440 minutes) is only valid as a range _end_, meaning end-of-day.
+- **Overnight wrap:** a range whose end is less than or equal to its start (`"18:00-02:00"`) crosses midnight and belongs to its start day, per the caution above.
+
+## Full config reference
+
+```toml
+[storefront]
+background  = [0, 0, 0]
+padding     = 2
+# font       = "..."
+font_size   = 16
+# timezone   = "America/New_York"
+corner      = "top_right"
+orientation = "horizontal"
+
+[storefront.open]
+text        = "OPEN"
+color       = [0, 255, 0]
+# corner and orientation fall back to the shared values above
+
+[storefront.closed]
+text        = "CLOSED"
+color       = [255, 0, 0]
+
+[storefront.schedule]
+# mon = "09:00-17:00"  ...one key per weekday (mon..sun); see above
+```
+
+| Field                              | Type                                                      | Default                       | Notes                                                                                                                                |
+| ---------------------------------- | --------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `background`                       | `[r, g, b]` or `"none"`                                   | `[0, 0, 0]`                   | Opaque box behind the text. `"none"` paints only lit glyph pixels over live content (transparent).                                   |
+| `padding`                          | int                                                       | `2`                           | Pixels of background box around the text. Only visible with an opaque background.                                                    |
+| `font`                             | string                                                    | bundled default               | BDF font name or hi-res font name. Hi-res is supported on the bigsign.                                                               |
+| `font_size`                        | int                                                       | `16`                          | Real (physical) pixels — block-scaled for BDF, native size for hi-res. See [layout notes](#layout-notes) for the vertical-badge cap. |
+| `timezone`                         | string (IANA name)                                        | system local clock            | e.g. `"America/New_York"`. See [Caveats](#caveats).                                                                                  |
+| `corner`                           | `top_left` / `top_right` / `bottom_left` / `bottom_right` | `"top_right"`                 | Shared default corner for both badges. Same four-value vocabulary as [busy light](/concepts/busy-light/#configuration).              |
+| `orientation`                      | `horizontal` / `vertical`                                 | `"horizontal"`                | Shared default orientation for both badges.                                                                                          |
+| `[storefront.open].text`           | string                                                    | `"OPEN"`                      |                                                                                                                                      |
+| `[storefront.open].color`          | `[r, g, b]` / string / table                              | `[0, 255, 0]` (green)         | Flat color or a [color provider](/concepts/color-providers/) — see [Neon glow](#neon-glow).                                          |
+| `[storefront.open].corner`         | corner value                                              | inherits shared `corner`      | Only set this to split the two badges into different corners.                                                                        |
+| `[storefront.open].orientation`    | orientation value                                         | inherits shared `orientation` |                                                                                                                                      |
+| `[storefront.closed].text`         | string                                                    | `"CLOSED"`                    |                                                                                                                                      |
+| `[storefront.closed].color`        | `[r, g, b]` / string / table                              | `[255, 0, 0]` (red)           |                                                                                                                                      |
+| `[storefront.closed].corner`       | corner value                                              | inherits shared `corner`      |                                                                                                                                      |
+| `[storefront.closed].orientation`  | orientation value                                         | inherits shared `orientation` |                                                                                                                                      |
+| `[storefront.schedule].<mon..sun>` | schedule string                                           | omitted = closed              | See [Schedule syntax](#schedule-syntax).                                                                                             |
+
+`background`, `padding`, `font`, `font_size`, and `timezone` are shared between the two badges — there's no per-state override for those (a documented future).
+
+## Layout notes
+
+- **Corner anchoring:** the badge's bounding box (text extent + `padding`) anchors flush to its corner, same vocabulary as busy light's four corners.
+- **`orientation = "horizontal"`** draws the word on one line. **`orientation = "vertical"`** stacks each character upright, one per row, centered in the column — good for a narrow strip down the edge of the panel.
+- **Opaque vs. transparent background:** the default `background = [0, 0, 0]` paints a solid box first for a clean reserved-strip look. Set `background = "none"` to paint only the glyph pixels directly over whatever else is on screen.
+- **Hi-res fonts and `font_size`:** a hi-res font paints at its native real-pixel size; a BDF font block-scales up to `font_size`. **Vertical badges have a real size ceiling with the default BDF font** — on a 64px-tall bigsign, a multi-letter word like `OPEN` stacked vertically only fits up to roughly `font_size = 16`; larger sizes overflow the panel and the badge is skipped (with a warning logged) rather than drawn corrupted. If you want a **large** vertical badge, switch to a hi-res font via `font = "..."`, which isn't bound by the BDF cell-height math.
+- **Large hardware panels (bigsign):** the plugin's own `examples/*.bigsign.toml` smoke fixtures use a simplified single-canvas `[display]` block for render-demo GIFs — they are **not** a wiring reference. For the real 8-panel chain and `pixel_mapper_config`, see [`config/config.bigsign.example.toml`](https://github.com/JamesAwesome/led-ticker/blob/main/config/config.bigsign.example.toml) in the core repo.
+
+## Neon glow
+
+`color` on either badge accepts a flat `[r, g, b]` or a [color provider](/concepts/color-providers/) string/table (`"shimmer"`, `"rainbow"`, `"color_cycle"`, or an inline table), animated once per frame via a shared frame counter — the badge visibly breathes or sweeps rather than sitting static.
+
+<Aside type="tip">
+  **Bare `color = "shimmer"` defaults to a dim gray-blue base** — it won't read as "green neon" out of
+  the box. For a colored glow, use the table form and set an explicit `base`:
+
+```toml
+[storefront.open]
+text  = "OPEN"
+color = { style = "shimmer", base = [0, 255, 0], shimmer = "white" }
+```
+
+That pairs a green base with a white shimmer sweep — the effect the two bigsign smoke fixtures in
+the plugin's `examples/` directory use.
+
+</Aside>
+
+## Caveats
+
+- **Timezone / NTP dependency.** All schedule comparisons happen against the configured `timezone` (or the system local clock if omitted). A wrong clock — bad `timezone`, missing NTP sync, a DST edge — produces a wrong badge, and it will look like a plugin bug rather than a clock problem. The startup log line always states the time the plugin thinks it is:
+
+  ```text
+  storefront: OPEN (matched mon 09:00-17:00; now 14:23 America/New_York)
+  storefront: CLOSED (no matching range; now 18:05 America/New_York)
+  ```
+
+  and logs again on every state flip — if the badge looks wrong, check this line before anything else.
+
+- **No `led-ticker validate` coverage.** `validate` only checks playlist widgets, not top-level plugin overlay blocks. A malformed `[storefront]` block (bad time string, unknown corner/orientation, unknown weekday key, a badge too large for the panel) is caught at **startup** instead: the error is logged, plugin-load isolation disables the badge, and the rest of the panel keeps running undisturbed.
+
+<RelatedPages slugs={["concepts/busy-light", "concepts/color-providers", "plugins/available"]} />

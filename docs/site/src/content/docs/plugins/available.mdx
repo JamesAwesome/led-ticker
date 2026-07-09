@@ -77,6 +77,16 @@ The flair pack also ships two text effects — an animation and a transition —
 
 ---
 
+## Overlays
+
+An overlay plugin paints on top of whatever the sign is currently showing, the same way as widgets except it isn't added to a playlist section — it's configured via its own top-level TOML block. The shipped [busy light](/concepts/busy-light/) is the built-in example of this pattern.
+
+### [storefront](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/storefront)
+
+Always-visible OPEN/CLOSED business-hours badge overlay (`[storefront]` config block; no `type =`). Flips the badge on a weekly schedule and the Pi's clock — offline, no external service. Supports independent per-state text/color/corner/orientation, hi-res fonts, and animated "neon" color providers (shimmer/rainbow). See the [storefront plugin page](/plugins/storefront/) for the config reference and the schedule's overnight-wrap rule, or the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/storefront/README.md) for install steps.
+
+---
+
 ## Backends
 
 A backend is led-ticker's **rendering target** — where the sign is drawn (the LED panel, or an alternative like a terminal). Unlike a widget, a backend isn't added to a section; it's selected in your display configuration.

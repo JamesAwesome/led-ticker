@@ -163,4 +163,6 @@ the plugin's `examples/` directory use.
 
 - **No `led-ticker validate` coverage.** `validate` only checks playlist widgets, not top-level plugin overlay blocks. A malformed `[storefront]` block (bad time string, unknown corner/orientation, unknown weekday key, a badge too large for the panel) is caught at **startup** instead: the error is logged, plugin-load isolation disables the badge, and the rest of the panel keeps running undisturbed.
 
+- **Not covered by config hot-reload.** The plugin reads its `[storefront]` block once at startup, so editing it while the display is running does not take effect — hot-reload reports "restart required" and names the `storefront` block; restart the process to apply the change.
+
 <RelatedPages slugs={["concepts/busy-light", "concepts/color-providers", "plugins/available"]} />

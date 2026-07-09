@@ -90,11 +90,35 @@ async def load_and_validate(path: Path) -> tuple[Any, list[str], bool]:
 # matrix setter; schedule is driven by the schedule ticker; hot_reload is meta.
 RELOADABLE_DISPLAY_FIELDS = frozenset({"schedule", "hot_reload", "brightness"})
 
+# Top-level TOML keys that core's own load_config() reads. Any other top-level
+# key is a plugin-owned block (e.g. [storefront]) that a plugin captured at
+# startup and never re-reads — hot-reload cannot make it take effect, so a
+# change to one is always restart-required. MUST track load_config's `raw.get(...)`
+# reads in config.py — add a new key here whenever load_config starts reading one.
+_CORE_OWNED_TOP_LEVEL_KEYS = frozenset(
+    {
+        "display",
+        "transitions",
+        "busy_light",
+        "title",
+        "source",
+        "playlist",
+        "plugins",
+        "web",
+    }
+)
+
 
 def nonreloadable_changed(old: Any, new: Any) -> list[str]:
     """Names of restart-required fields that differ between old and new config.
     Derived from the dataclass fields (NOT hand-listed) so a new DisplayConfig field
-    is restart-required by default. Empty -> a fully-reloadable change."""
+    is restart-required by default. Empty -> a fully-reloadable change.
+
+    Also flags any changed plugin-owned top-level TOML block (a key not in
+    _CORE_OWNED_TOP_LEVEL_KEYS, e.g. [storefront]) by comparing the raw parsed
+    TOML on both configs' `_raw` — plugins read their block once at startup, so
+    core cannot hot-reload it; the block name itself is reported (e.g.
+    "storefront") so the user knows what needs a restart."""
     changed: list[str] = []
     for f in fields(type(new.display)):
         if f.name in RELOADABLE_DISPLAY_FIELDS:
@@ -107,6 +131,13 @@ def nonreloadable_changed(old: Any, new: Any) -> list[str]:
         changed.append("plugins")
     if getattr(old, "web", None) != getattr(new, "web", None):
         changed.append("web")
+
+    old_raw = getattr(old, "_raw", {}) or {}
+    new_raw = getattr(new, "_raw", {}) or {}
+    plugin_keys = (set(old_raw) | set(new_raw)) - _CORE_OWNED_TOP_LEVEL_KEYS
+    for key in sorted(plugin_keys):
+        if old_raw.get(key) != new_raw.get(key):
+            changed.append(key)
     return changed
 
 

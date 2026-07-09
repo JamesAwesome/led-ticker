@@ -113,6 +113,50 @@ def test_nonreloadable_changed_section_only_is_empty(tmp_path):
     assert rl.nonreloadable_changed(a, b) == []
 
 
+def test_nonreloadable_changed_plugin_block_value_changed(tmp_path):
+    """A plugin-owned top-level block (e.g. [storefront]) is invisible to core's
+    dataclasses — the ONLY way to see a change is via the raw TOML. Changing a
+    value inside it must be flagged as restart-required."""
+    a = load_config(
+        _write(tmp_path / "a.toml", _MIN + "\n[storefront]\nfont_size = 16\n")
+    )
+    b = load_config(
+        _write(tmp_path / "b.toml", _MIN + "\n[storefront]\nfont_size = 24\n")
+    )
+    assert "storefront" in rl.nonreloadable_changed(a, b)
+
+
+def test_nonreloadable_changed_plugin_block_added(tmp_path):
+    """[storefront] absent -> present must be flagged (a plugin can't pick up a
+    brand-new block without reading the file again at startup)."""
+    a = load_config(_write(tmp_path / "a.toml", _MIN))
+    b = load_config(
+        _write(tmp_path / "b.toml", _MIN + "\n[storefront]\nfont_size = 16\n")
+    )
+    assert "storefront" in rl.nonreloadable_changed(a, b)
+
+
+def test_nonreloadable_changed_plugin_block_removed(tmp_path):
+    """[storefront] present -> absent must also be flagged."""
+    a = load_config(
+        _write(tmp_path / "a.toml", _MIN + "\n[storefront]\nfont_size = 16\n")
+    )
+    b = load_config(_write(tmp_path / "b.toml", _MIN))
+    assert "storefront" in rl.nonreloadable_changed(a, b)
+
+
+def test_nonreloadable_changed_plugin_block_unchanged_not_flagged(tmp_path):
+    """Identical [storefront] block in both configs, plus a section-only change
+    (playlist is core-owned) -> the plugin-block check must NOT fire."""
+    storefront = "\n[storefront]\nfont_size = 16\n"
+    a = load_config(_write(tmp_path / "a.toml", _MIN + storefront))
+    extra = '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+    b = load_config(_write(tmp_path / "b.toml", _MIN + extra + storefront))
+    assert len(a.sections[0].widgets) == 0 and len(b.sections[0].widgets) == 1
+    assert "storefront" not in rl.nonreloadable_changed(a, b)
+    assert rl.nonreloadable_changed(a, b) == []
+
+
 def test_nonreloadable_changed_brightness_is_reloadable(tmp_path):
     a = load_config(_write(tmp_path / "a.toml", _MIN))
     b_toml = (

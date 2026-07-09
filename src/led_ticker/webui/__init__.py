@@ -462,12 +462,133 @@ def build_webui_app(
         )
         return web.json_response(plugin_entry)
 
+    async def upgrade_handler(request: web.Request) -> web.Response:
+        """POST /api/store/upgrade — rewrite a plugin's manifest line to the
+        latest version (resolver queries PyPI / git; NO pip here — the display
+        process's boot reconcile installs the change after a restart).
+
+        Token-gated by the global auth middleware (upgrade is NOT in
+        _OPEN_PATHS); mirrors install_handler's "no token → 403" convention.
+        The network resolve runs in a thread (asyncio.to_thread) so a slow
+        remote can't stall the event loop, and BEFORE the manifest lock; the
+        locked transform re-checks the line so a concurrent edit → 409, never
+        a lost update.
+        """
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+
+        if (request.content_length or 0) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+
+        namespace = payload.get("namespace") if isinstance(payload, dict) else None
+        if not isinstance(namespace, str) or not namespace:
+            return web.json_response({"error": "missing namespace"}, status=400)
+
+        catalog = _load_catalog_lazy()
+        entry = next((e for e in catalog.entries if e.namespace == namespace), None)
+        if entry is None:
+            return web.json_response({"error": "unknown plugin"}, status=400)
+
+        # Lazy imports keep the module rgbmatrix-pure.
+        from led_ticker.app import plugin_upgrade  # noqa: PLC0415
+        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+            _find_requirement_lines,
+            _requirement_key,
+            _strip_comment,
+        )
+
+        req_key = _requirement_key(entry.requirement())
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+
+        current_lines = _find_requirement_lines(manifest_path, req_key)
+        if not current_lines:
+            return web.json_response({"error": "not declared"}, status=404)
+        old_spec = _strip_comment(current_lines[-1])
+
+        try:
+            new_spec = await asyncio.to_thread(
+                plugin_upgrade.resolve_latest, old_spec, catalog_name=entry.name
+            )
+        except plugin_upgrade.UpgradeError as e:
+            return web.json_response({"error": str(e)}, status=502)
+
+        if new_spec == old_spec:
+            return web.json_response(
+                {"up_to_date": True, "namespace": namespace, "current": old_spec}
+            )
+
+        import datetime  # noqa: PLC0415
+
+        provenance = f"# upgraded {datetime.date.today().isoformat()}, was {old_spec}"
+
+        class _Conflict(Exception):
+            pass
+
+        def replace_line(current: str) -> str | None:
+            # Runs INSIDE manifest_lock against the freshly-read manifest text.
+            # The resolve happened OUTSIDE the lock, so re-verify the line we
+            # resolved from is still there — a concurrent install/remove/save
+            # between resolve and write must 409, not be silently clobbered.
+            out: list[str] = []
+            replaced = False
+            for line in current.splitlines():
+                stripped = line.strip()
+                if (
+                    stripped
+                    and not stripped.startswith("#")
+                    and _requirement_key(stripped) == req_key
+                ):
+                    if _strip_comment(stripped) != old_spec:
+                        raise _Conflict
+                    out.append(f"{new_spec}  {provenance}")
+                    replaced = True
+                    continue
+                out.append(line)
+            if not replaced:
+                raise _Conflict
+            return "\n".join(out).rstrip("\n") + "\n"
+
+        try:
+            await _update_manifest_atomic(manifest_path, replace_line, manifest_lock)
+        except _Conflict:
+            return web.json_response(
+                {"error": "manifest changed concurrently — retry"}, status=409
+            )
+        except OSError as e:
+            return web.json_response(
+                {"error": f"manifest write failed: {e}"}, status=500
+            )
+
+        inner_status: dict = _fresh_inner_status(status_path)
+        store_payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+        )
+        plugin_entry = next(
+            (
+                p
+                for p in store_payload.get("plugins", [])
+                if p["namespace"] == namespace
+            ),
+            {"namespace": namespace},
+        )
+        plugin_entry["upgraded"] = {"from": old_spec, "to": new_spec}
+        return web.json_response(plugin_entry)
+
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
     app.router.add_post("/api/restart", restart_handler)
     app.router.add_get("/api/store", store_handler)
     app.router.add_post("/api/store/install", install_handler)
     app.router.add_delete("/api/store/remove", remove_handler)
+    app.router.add_post("/api/store/upgrade", upgrade_handler)
     _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)

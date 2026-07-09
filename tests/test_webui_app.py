@@ -2451,3 +2451,177 @@ def test_reload_poll_is_patient():
     # The old impatient 6s budget (3 attempts) and stale message are gone.
     assert "pollReloadOutcome(priorReloadAt, 3)" not in html
     assert "saved — waiting for reload…" not in html
+
+
+# ---------------------------------------------------------------------------
+# POST /api/store/upgrade — plugin store upgrade
+# ---------------------------------------------------------------------------
+
+
+def _upgrade_fixtures(monkeypatch, *, resolved=None, resolve_error=None):
+    """Patch catalog + store + resolver for upgrade_handler tests. Returns the
+    fake catalog entry."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.app import plugin_upgrade
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    fake_entry = CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=(fake_entry,))
+    )
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {"plugins": [{"namespace": "pool", "state": "active"}]},
+    )
+
+    def fake_resolve(line, **kwargs):
+        if resolve_error is not None:
+            raise plugin_upgrade.UpgradeError(resolve_error)
+        return resolved if resolved is not None else line
+
+    monkeypatch.setattr(plugin_upgrade, "resolve_latest", fake_resolve)
+    return fake_entry
+
+
+OLD_LINE = (
+    "git+https://github.com/JamesAwesome/led-ticker-plugins@pool-v0.1.0"
+    "#subdirectory=plugins/pool"
+)
+NEW_LINE = (
+    "git+https://github.com/JamesAwesome/led-ticker-plugins@pool-v0.2.0"
+    "#subdirectory=plugins/pool"
+)
+
+
+async def test_upgrade_rewrites_manifest_line(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["upgraded"] == {"from": OLD_LINE, "to": NEW_LINE}
+        text = manifest.read_text()
+        assert NEW_LINE in text
+        assert "# upgraded" in text
+        # The old line no longer stands alone (it may still appear as the
+        # tail of the new line's provenance comment, "...was <old_spec>").
+        assert OLD_LINE not in text.splitlines()
+    finally:
+        await client.close()
+
+
+async def test_upgrade_up_to_date_is_noop(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch)  # resolver echoes the line back
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        assert (await resp.json())["up_to_date"] is True
+        assert manifest.read_text() == OLD_LINE + "\n"
+        # No backup written for a no-op.
+        assert not manifest.with_suffix(manifest.suffix + ".bak").exists()
+    finally:
+        await client.close()
+
+
+async def test_upgrade_requires_token(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post("/api/store/upgrade", json={"namespace": "pool"})
+        assert resp.status == 401  # auth middleware (route is not open)
+    finally:
+        await client.close()
+
+
+async def test_upgrade_no_token_configured_is_disabled(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path)  # no token at all
+    try:
+        resp = await client.post("/api/store/upgrade", json={"namespace": "pool"})
+        assert resp.status == 403
+        assert "disabled" in (await resp.json())["error"]
+    finally:
+        await client.close()
+
+
+async def test_upgrade_unknown_namespace(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "nope"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 400
+    finally:
+        await client.close()
+
+
+async def test_upgrade_not_declared_is_404(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path, token="s3cret")  # no manifest at all
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 404
+    finally:
+        await client.close()
+
+
+async def test_upgrade_resolver_failure_is_502_manifest_untouched(
+    tmp_path, monkeypatch
+):
+    _upgrade_fixtures(monkeypatch, resolve_error="no matching tags")
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 502
+        assert "no matching tags" in (await resp.json())["error"]
+        assert manifest.read_text() == OLD_LINE + "\n"
+    finally:
+        await client.close()

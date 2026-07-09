@@ -1518,3 +1518,197 @@ def test_write_stamp_never_raises(tmp_path):
     blocker = tmp_path / "vol"
     blocker.write_text("i am a file, not a dir")
     r.write_stamp(blocker, {"pool": "x"})  # no exception
+
+
+def _volume_reconcile_env(tmp_path, monkeypatch, *, manifest_line, installed, stamped):
+    """Shared setup for stamp-drift tests: a volume target rooted at tmp_path,
+    one namespace 'pool' declared via `manifest_line`, `installed` dists, and
+    an optional pre-seeded stamp. Returns the list pip-install calls append to."""
+    import led_ticker.plugin_reconcile as r
+
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text(manifest_line + "\n")
+    monkeypatch.setattr(
+        r,
+        "resolve_target",
+        lambda **k: r.Target("volume", str(tmp_path / "venv/bin/python"), None),
+    )
+    monkeypatch.setattr(r, "ensure_volume_venv", lambda venv_dir: None)
+    monkeypatch.setattr(r, "apply_to_syspath", lambda target: None)
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"pool"})
+    monkeypatch.setattr(
+        r, "_declared_requirements", lambda p: {"pool": manifest_line.strip()}
+    )
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: dict(installed))
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+    monkeypatch.setattr(
+        r, "_freeze_to_constraints", lambda py: (str(tmp_path / "c.txt"), 0)
+    )
+    (tmp_path / "c.txt").write_text("")
+    installs = []
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda ns, py, constraints=None, requirement_line=None: (
+            installs.append((ns, requirement_line)) or 0
+        ),
+    )
+    monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: 0)
+    if stamped is not None:
+        r.write_stamp(tmp_path, stamped)
+    return installs
+
+
+def test_reconcile_line_change_reinstalls(tmp_path, monkeypatch):
+    """Stamped @v0.1.0, manifest now @v0.2.0 → reinstall under the new line."""
+    import led_ticker.plugin_reconcile as r
+
+    old = "git+https://github.com/x/plugins@pool-v0.1.0#subdirectory=plugins/pool"
+    new = "git+https://github.com/x/plugins@pool-v0.2.0#subdirectory=plugins/pool"
+    installs = _volume_reconcile_env(
+        tmp_path,
+        monkeypatch,
+        manifest_line=new,
+        installed={"pool": "led-ticker-pool"},
+        stamped={"pool": old},
+    )
+    actions = r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
+    assert ("pool", new) in installs
+    assert any(a.namespace == "pool" and a.action == "installed" for a in actions)
+    # Stamp now records the NEW line.
+    assert r.read_stamp(tmp_path) == {"pool": new}
+
+
+def test_reconcile_unchanged_line_no_churn(tmp_path, monkeypatch):
+    """Same line stamped and declared → NO reinstall (the no-churn tripwire)."""
+    import led_ticker.plugin_reconcile as r
+
+    line = "git+https://github.com/x/plugins@main#subdirectory=plugins/pool"
+    installs = _volume_reconcile_env(
+        tmp_path,
+        monkeypatch,
+        manifest_line=line,
+        installed={"pool": "led-ticker-pool"},
+        stamped={"pool": line},
+    )
+    r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
+    assert installs == []
+
+
+def test_reconcile_comment_only_edit_no_churn(tmp_path, monkeypatch):
+    """Adding a trailing comment to the line must not trigger a reinstall."""
+    import led_ticker.plugin_reconcile as r
+
+    spec = "led-ticker-pool==0.2.0"
+    installs = _volume_reconcile_env(
+        tmp_path,
+        monkeypatch,
+        manifest_line=f"{spec}  # upgraded 2026-07-09, was ==0.1.0",
+        installed={"pool": "led-ticker-pool"},
+        stamped={"pool": spec},
+    )
+    r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
+    assert installs == []
+
+
+def test_reconcile_missing_stamp_adopts_without_reinstall(tmp_path, monkeypatch):
+    """No stamp file (migration / fresh volume): adopt current lines, no churn."""
+    import led_ticker.plugin_reconcile as r
+
+    line = "git+https://github.com/x/plugins@pool-v0.1.0#subdirectory=plugins/pool"
+    installs = _volume_reconcile_env(
+        tmp_path,
+        monkeypatch,
+        manifest_line=line,
+        installed={"pool": "led-ticker-pool"},
+        stamped=None,
+    )
+    r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
+    assert installs == []
+    assert r.read_stamp(tmp_path) == {"pool": line}
+
+
+def test_reconcile_failed_install_keeps_old_stamp(tmp_path, monkeypatch):
+    """pip failure on the new line → stamp keeps the OLD line so next boot retries."""
+    import led_ticker.plugin_reconcile as r
+
+    old = "led-ticker-pool==0.1.0"
+    new = "led-ticker-pool==0.2.0"
+    _volume_reconcile_env(
+        tmp_path,
+        monkeypatch,
+        manifest_line=new,
+        installed={"pool": "led-ticker-pool"},
+        stamped={"pool": old},
+    )
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda ns, py, constraints=None, requirement_line=None: 1,
+    )
+    actions = r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
+    assert any(a.namespace == "pool" and a.action == "failed" for a in actions)
+    assert r.read_stamp(tmp_path) == {"pool": old}
+
+
+def test_reconcile_uninstall_removes_stamp_entry(tmp_path, monkeypatch):
+    """A successful uninstall drops the namespace from the stamp."""
+    import led_ticker.plugin_reconcile as r
+
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("# empty\n")
+    monkeypatch.setattr(
+        r,
+        "resolve_target",
+        lambda **k: r.Target("volume", str(tmp_path / "venv/bin/python"), None),
+    )
+    monkeypatch.setattr(r, "ensure_volume_venv", lambda venv_dir: None)
+    monkeypatch.setattr(r, "apply_to_syspath", lambda target: None)
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: set())
+    monkeypatch.setattr(r, "_declared_requirements", lambda p: {})
+    monkeypatch.setattr(
+        r, "installed_plugin_dists", lambda: {"pool": "led-ticker-pool"}
+    )
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+    monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: 0)
+    r.write_stamp(tmp_path, {"pool": "led-ticker-pool==0.1.0"})
+    r.reconcile(config, volume_root=tmp_path)
+    assert r.read_stamp(tmp_path) == {}
+
+
+def test_reconcile_stampless_target_still_detects_pin_drift(tmp_path, monkeypatch):
+    """Legacy path: no stamp home (default /data/plugins absent) → the _exact_pin
+    check still catches ==pin drift, exactly as before this feature."""
+    import led_ticker.plugin_reconcile as r
+
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool==0.2.0\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"pool"})
+    monkeypatch.setattr(
+        r, "_declared_requirements", lambda p: {"pool": "led-ticker-pool==0.2.0"}
+    )
+    monkeypatch.setattr(
+        r, "installed_plugin_dists", lambda: {"pool": "led-ticker-pool"}
+    )
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+    monkeypatch.setattr(r.importlib.metadata, "version", lambda dist: "0.1.0")
+    monkeypatch.setattr(
+        r, "_freeze_to_constraints", lambda py: (str(tmp_path / "c.txt"), 0)
+    )
+    (tmp_path / "c.txt").write_text("")
+    installs = []
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda ns, py, constraints=None, requirement_line=None: (
+            installs.append(ns) or 0
+        ),
+    )
+    monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: 0)
+    # volume_root deliberately left at a nonexistent path → read_stamp is None.
+    r.reconcile(config, volume_root=tmp_path / "no-volume")
+    assert installs == ["pool"]

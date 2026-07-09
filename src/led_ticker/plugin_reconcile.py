@@ -427,6 +427,23 @@ def _uninstall_dist(dist: str, python_exe: str) -> int:
     return _pip_uninstall(dist, python_exe=python_exe)
 
 
+def _freeze_to_constraints(python_exe: str) -> tuple[str | None, int]:
+    """Thin module-level wrapper over ``plugin_cmd._freeze_to_constraints``.
+
+    Exists (rather than the call site importing plugin_cmd's function directly)
+    so tests can monkeypatch ``plugin_reconcile._freeze_to_constraints`` the same
+    way they already monkeypatch ``_install_namespace`` / ``_uninstall_dist`` —
+    those live in THIS module, but the freeze helper is plugin_cmd's. The lazy
+    import still runs on every call, so tests that instead patch
+    ``plugin_cmd._freeze_to_constraints`` keep working unchanged.
+    """
+    from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+        _freeze_to_constraints as _pc_freeze_to_constraints,
+    )
+
+    return _pc_freeze_to_constraints(python_exe)
+
+
 def reconcile(
     config_path: Path,
     *,
@@ -494,46 +511,76 @@ def reconcile(
 
         to_install, to_uninstall = compute_diff(declared, installed)
 
-        # Version-pin drift on an ALREADY-installed plugin. compute_diff is a pure
-        # namespace set-difference with no version awareness, so editing a manifest
-        # line `led-ticker-pool==0.1.0` -> `==0.2.0` and restarting would be a
-        # silent no-op (pool is in both `declared` and `installed`). For each
-        # declared+installed plugin whose manifest line carries an EXACT `==X.Y.Z`
-        # pin that differs from the installed dist version, add it to the install
-        # set so pip reinstalls/upgrades in place under the pinned line. For
-        # UNPINNED or git/url/non-`==` lines a restart can't reliably detect a
-        # source change — do NOT churn them; log one INFO so the operator knows the
-        # volume reset is the way to refresh a non-pinned source.
-        # Tripwires: test_reconcile_pin_change_on_installed_plugin,
-        # test_reconcile_unpinned_installed_plugin_not_reinstalled.
-        for ns in sorted(declared & installed):
-            line = declared_reqs.get(ns)
-            if not line:
-                continue
-            pin = _exact_pin(line)
-            dist = installed_map.get(ns, ns)
-            if pin is None:
-                _log.info(
-                    "plugin reconcile: %s is declared+installed via a non-pinned "
-                    "source (%s); cannot verify the source changed on a restart — "
-                    "reset the plugin volume to refresh it",
-                    ns,
-                    line,
-                )
-                continue
-            try:
-                current = importlib.metadata.version(dist)
-            except importlib.metadata.PackageNotFoundError:
-                current = None
-            if current is not None and current != pin:
-                _log.info(
-                    "plugin reconcile: %s pin changed (installed %s -> manifest "
-                    "%s); reinstalling in place",
-                    ns,
-                    current,
-                    pin,
-                )
-                to_install.add(ns)
+        # Lazy import mirrors the module's other plugin_cmd imports.
+        from led_ticker.app.plugin_cmd import _strip_comment  # noqa: PLC0415
+
+        # ── Drift on ALREADY-installed plugins ────────────────────────────────
+        # compute_diff is a pure namespace set-difference with no version/source
+        # awareness. The STAMP records the exact manifest line each namespace was
+        # installed from; any change to the (comment-stripped) line — a git ref
+        # bump, a ==pin edit, a pypi<->git source switch — reinstalls in place.
+        # A namespace with NO stamp entry (fresh volume, first boot after this
+        # shipped, corrupt stamp) is ADOPTED at its current line without a
+        # reinstall, so the feature arrives with zero churn.
+        # Tripwires: test_reconcile_line_change_reinstalls,
+        # test_reconcile_unchanged_line_no_churn,
+        # test_reconcile_missing_stamp_adopts_without_reinstall.
+        stamp = read_stamp(volume_root)
+        stamp_dirty = False
+        if stamp is not None:
+            for ns in sorted(declared & installed):
+                line = declared_reqs.get(ns)
+                if not line:
+                    continue
+                current = _strip_comment(line)
+                recorded = stamp.get(ns)
+                if recorded is None:
+                    stamp[ns] = current
+                    stamp_dirty = True
+                elif _strip_comment(recorded) != current:
+                    _log.info(
+                        "plugin reconcile: %s manifest line changed "
+                        "(%s -> %s); reinstalling in place",
+                        ns,
+                        recorded,
+                        current,
+                    )
+                    to_install.add(ns)
+        else:
+            # No stamp home (local-venv target): the legacy exact-==pin drift
+            # check below is all a restart can reliably detect. Non-pinned
+            # sources there still need `plugin upgrade` (which rewrites the
+            # line) or a venv rebuild.
+            for ns in sorted(declared & installed):
+                line = declared_reqs.get(ns)
+                if not line:
+                    continue
+                pin = _exact_pin(line)
+                dist = installed_map.get(ns, ns)
+                if pin is None:
+                    _log.info(
+                        "plugin reconcile: %s is declared+installed via a "
+                        "non-pinned source (%s); cannot verify the source "
+                        "changed on a restart — run `led-ticker plugin "
+                        "upgrade %s` to refresh it",
+                        ns,
+                        line,
+                        ns,
+                    )
+                    continue
+                try:
+                    current_version = importlib.metadata.version(dist)
+                except importlib.metadata.PackageNotFoundError:
+                    current_version = None
+                if current_version is not None and current_version != pin:
+                    _log.info(
+                        "plugin reconcile: %s pin changed (installed %s -> "
+                        "manifest %s); reinstalling in place",
+                        ns,
+                        current_version,
+                        pin,
+                    )
+                    to_install.add(ns)
 
         _log.info(
             "plugin reconcile: declared=%s installed=%s to_install=%s to_uninstall=%s",
@@ -556,10 +603,6 @@ def reconcile(
         shared_constraints: str | None = None
         if to_install:
             try:
-                from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
-                    _freeze_to_constraints,
-                )
-
                 shared_constraints, _rc = _freeze_to_constraints(target.python_exe)
             except Exception as e:  # noqa: BLE001
                 # A failed pass-level freeze is non-fatal: each _install_namespace
@@ -615,6 +658,9 @@ def reconcile(
                             actions.append(
                                 PluginAction(namespace=ns, action="installed")
                             )
+                            if stamp is not None:
+                                stamp[ns] = _strip_comment(declared_reqs.get(ns, ns))
+                                stamp_dirty = True
                         _log.info("plugin reconcile: installed %s", label)
                 except Exception as e:  # noqa: BLE001
                     _log.warning("plugin reconcile: failed to install %s: %s", label, e)
@@ -655,12 +701,17 @@ def reconcile(
                     )
                 else:
                     actions.append(PluginAction(namespace=ns, action="uninstalled"))
+                    if stamp is not None and stamp.pop(ns, None) is not None:
+                        stamp_dirty = True
                     _log.info("plugin reconcile: uninstalled %s", ns)
             except Exception as e:  # noqa: BLE001
                 _log.warning("plugin reconcile: failed to uninstall %s: %s", ns, e)
                 actions.append(
                     PluginAction(namespace=ns, action="failed", detail=str(e))
                 )
+
+        if stamp is not None and stamp_dirty:
+            write_stamp(volume_root, stamp)
 
         # If anything changed on disk this pass, drop the import-system caches so
         # the immediately-following entry-point discovery in run() sees freshly

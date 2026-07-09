@@ -2625,3 +2625,95 @@ async def test_upgrade_resolver_failure_is_502_manifest_untouched(
         assert manifest.read_text() == OLD_LINE + "\n"
     finally:
         await client.close()
+
+
+async def test_upgrade_concurrent_edit_is_409(tmp_path, monkeypatch):
+    """resolve_latest runs OUTSIDE the manifest lock; the locked transform
+    re-verifies the line it resolved from is still there. Simulate another
+    editor (install/remove/save) rewriting the manifest's pin for this same
+    plugin WHILE the resolve is in flight — the fake resolver does the
+    concurrent rewrite itself before returning, since it runs (via
+    asyncio.to_thread) before the lock is taken. The locked re-read must then
+    see a spec that no longer matches what was resolved from -> 409, and the
+    concurrent editor's line must survive untouched (no lost update)."""
+    _upgrade_fixtures(monkeypatch)
+    from led_ticker.app import plugin_upgrade
+
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+
+    CONCURRENT_LINE = (
+        "git+https://github.com/JamesAwesome/led-ticker-plugins@pool-v0.1.5"
+        "#subdirectory=plugins/pool"
+    )
+
+    def fake_resolve_with_concurrent_edit(line, **kwargs):
+        # Runs inside asyncio.to_thread, before the manifest lock is taken.
+        # Rewrite the manifest as if a concurrent install/remove/save landed
+        # in between the handler's initial read and the locked re-check.
+        manifest.write_text(CONCURRENT_LINE + "\n")
+        return NEW_LINE
+
+    monkeypatch.setattr(
+        plugin_upgrade, "resolve_latest", fake_resolve_with_concurrent_edit
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 409
+        text = manifest.read_text()
+        # The concurrent editor's line stands as written — no lost update,
+        # no provenance comment, and the resolved NEW_LINE never lands.
+        assert text == CONCURRENT_LINE + "\n"
+        assert NEW_LINE not in text
+        assert "# upgraded" not in text
+    finally:
+        await client.close()
+
+
+async def test_upgrade_oversize_body_is_413(tmp_path):
+    """POST /api/store/upgrade with an oversized body -> 413 before JSON parse."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            data="x" * (1024 * 1024 + 1),
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 413
+    finally:
+        await client.close()
+
+
+async def test_upgrade_manifest_write_failure_is_500(tmp_path, monkeypatch):
+    """_update_manifest_atomic raising OSError (e.g. disk full) during the
+    locked write -> 500 with the handler's actual error-message format."""
+    import led_ticker.webui as webui_mod
+
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+
+    async def fake_update_manifest_atomic(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(
+        webui_mod, "_update_manifest_atomic", fake_update_manifest_atomic
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 500
+        assert "manifest write failed: disk full" in (await resp.json())["error"]
+    finally:
+        await client.close()

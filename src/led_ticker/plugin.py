@@ -155,6 +155,7 @@ __all__ = [
     "get_text_width",
     "is_scaled",
     "make_color",
+    "plugin_config_block",
     "make_rotation_surface",
     "measure_emoji_at",
     "measure_width",
@@ -463,6 +464,15 @@ def make_color(r: int, g: int, b: int) -> Color:
     from led_ticker._compat import require_graphics
 
     return require_graphics().Color(r, g, b)
+
+
+def plugin_config_block(config: Any, name: str) -> dict:
+    """Return the raw TOML table for a plugin's top-level config block (e.g.
+    ``plugin_config_block(ctx.config, "storefront")``), or an empty dict if the
+    block is absent. The public way for an overlay/service plugin to read its
+    own ``[name]`` block from ``StartupContext.config`` without reaching into
+    private ``AppConfig`` internals."""
+    return getattr(config, "_raw", {}).get(name, {})
 
 
 def draw_text(

@@ -1520,10 +1520,24 @@ def test_write_stamp_never_raises(tmp_path):
     r.write_stamp(blocker, {"pool": "x"})  # no exception
 
 
-def _volume_reconcile_env(tmp_path, monkeypatch, *, manifest_line, installed, stamped):
+def _volume_reconcile_env(
+    tmp_path,
+    monkeypatch,
+    *,
+    manifest_line,
+    installed,
+    stamped,
+    patch_install_namespace=True,
+):
     """Shared setup for stamp-drift tests: a volume target rooted at tmp_path,
     one namespace 'pool' declared via `manifest_line`, `installed` dists, and
-    an optional pre-seeded stamp. Returns the list pip-install calls append to."""
+    an optional pre-seeded stamp. Returns the list pip-install calls append to.
+
+    When ``patch_install_namespace`` is False, ``_install_namespace`` is left
+    as the REAL implementation (so its comment-stripping behavior is actually
+    exercised) — the caller is then responsible for monkeypatching
+    ``led_ticker.app.plugin_cmd._pip_install`` to observe what reaches pip.
+    """
     import led_ticker.plugin_reconcile as r
 
     config = tmp_path / "config.toml"
@@ -1547,13 +1561,14 @@ def _volume_reconcile_env(tmp_path, monkeypatch, *, manifest_line, installed, st
     )
     (tmp_path / "c.txt").write_text("")
     installs = []
-    monkeypatch.setattr(
-        r,
-        "_install_namespace",
-        lambda ns, py, constraints=None, requirement_line=None: (
-            installs.append((ns, requirement_line)) or 0
-        ),
-    )
+    if patch_install_namespace:
+        monkeypatch.setattr(
+            r,
+            "_install_namespace",
+            lambda ns, py, constraints=None, requirement_line=None: (
+                installs.append((ns, requirement_line)) or 0
+            ),
+        )
     monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: 0)
     if stamped is not None:
         r.write_stamp(tmp_path, stamped)
@@ -1650,6 +1665,99 @@ def test_reconcile_failed_install_keeps_old_stamp(tmp_path, monkeypatch):
     actions = r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
     assert any(a.namespace == "pool" and a.action == "failed" for a in actions)
     assert r.read_stamp(tmp_path) == {"pool": old}
+
+
+# ── finding: pip must receive the comment-stripped requirement ────────────────
+# (a verbatim provenance-commented manifest line is invalid pip CLI syntax, or —
+# for a git+#subdirectory= line — mangles the fragment. Both tests below run the
+# REAL `_install_namespace` and observe what it forwards to `plugin_cmd._pip_install`.)
+
+
+def test_reconcile_install_strips_provenance_comment(tmp_path, monkeypatch):
+    """Drift-with-comment: stamped @0.1.0, manifest bumped to @0.2.0 with a
+    trailing upgrade-provenance comment → reinstall fires AND pip receives the
+    comment-free spec (not the verbatim commented line)."""
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    old = "led-ticker-pool==0.1.0"
+    new_commented = "led-ticker-pool==0.2.0  # upgraded 2026-07-09, was ==0.1.0"
+    _volume_reconcile_env(
+        tmp_path,
+        monkeypatch,
+        manifest_line=new_commented,
+        installed={"pool": "led-ticker-pool"},
+        stamped={"pool": old},
+        patch_install_namespace=False,
+    )
+    seen: list[str] = []
+    monkeypatch.setattr(
+        pc,
+        "_pip_install",
+        lambda req, *, python_exe=sys.executable, constraints=None: (
+            seen.append(req) or 0
+        ),
+    )
+    actions = r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
+    assert any(a.namespace == "pool" and a.action == "installed" for a in actions)
+    assert seen == ["led-ticker-pool==0.2.0"]
+
+
+def test_reconcile_fresh_install_strips_provenance_comment(tmp_path, monkeypatch):
+    """Fresh-install-with-comment: not installed at all, manifest line carries a
+    trailing comment → pip receives the comment-free spec. Also covers the
+    git-monorepo shape: the `#subdirectory=` fragment must survive intact while
+    the trailing `# upgraded ...` comment is stripped."""
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    line = (
+        "git+https://github.com/x/plugins@pool-v0.2.0#subdirectory=plugins/pool"
+        "  # upgraded 2026-07-09"
+    )
+    _volume_reconcile_env(
+        tmp_path,
+        monkeypatch,
+        manifest_line=line,
+        installed={},  # not installed -> fresh install via the diff, not drift
+        stamped=None,
+        patch_install_namespace=False,
+    )
+    seen: list[str] = []
+    monkeypatch.setattr(
+        pc,
+        "_pip_install",
+        lambda req, *, python_exe=sys.executable, constraints=None: (
+            seen.append(req) or 0
+        ),
+    )
+    actions = r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
+    assert any(a.namespace == "pool" and a.action == "installed" for a in actions)
+    assert seen == [
+        "git+https://github.com/x/plugins@pool-v0.2.0#subdirectory=plugins/pool"
+    ]
+
+
+def test_reconcile_adopt_with_comment_stamps_comment_stripped_line(
+    tmp_path, monkeypatch
+):
+    """No stamp file, manifest line carries a trailing comment, plugin already
+    installed → adopted with NO reinstall, and the stamp records the
+    COMMENT-STRIPPED line (not the verbatim commented one)."""
+    import led_ticker.plugin_reconcile as r
+
+    spec = "led-ticker-pool==0.2.0"
+    line = f"{spec}  # upgraded 2026-07-09, was ==0.1.0"
+    installs = _volume_reconcile_env(
+        tmp_path,
+        monkeypatch,
+        manifest_line=line,
+        installed={"pool": "led-ticker-pool"},
+        stamped=None,
+    )
+    r.reconcile(tmp_path / "config.toml", volume_root=tmp_path)
+    assert installs == []
+    assert r.read_stamp(tmp_path) == {"pool": spec}
 
 
 def test_reconcile_uninstall_removes_stamp_entry(tmp_path, monkeypatch):

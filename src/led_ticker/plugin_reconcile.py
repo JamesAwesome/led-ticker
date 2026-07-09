@@ -402,11 +402,17 @@ def _install_namespace(
     ``constraints`` (a path produced once per reconcile pass by
     ``_freeze_to_constraints``) is forwarded so the per-install env freeze is
     skipped — one freeze per pass instead of one per plugin.
+
+    A manifest line may carry a trailing upgrade-provenance comment
+    (``led-ticker-pool==0.2.0  # upgraded 2026-07-09, was ==0.1.0``) — pip's CLI
+    rejects a commented pypi requirement outright and mis-parses a commented
+    git ``#subdirectory=`` fragment, so the comment MUST be stripped before the
+    requirement reaches pip. Tripwire: test_reconcile_install_strips_provenance_comment.
     """
-    from led_ticker.app.plugin_cmd import _pip_install  # noqa: PLC0415
+    from led_ticker.app.plugin_cmd import _pip_install, _strip_comment  # noqa: PLC0415
 
     if requirement_line:
-        requirement = requirement_line
+        requirement = _strip_comment(requirement_line)
     else:
         from led_ticker.plugins_catalog import load_catalog  # noqa: PLC0415
 

@@ -18,6 +18,12 @@ from led_ticker.plugins_catalog import Catalog, CatalogEntry, load_catalog
 
 _PLUGINS_ENTRY_GROUP = "led_ticker.plugins"
 
+# pip-semantics trailing comment: `#` at line-start or preceded by whitespace —
+# NOT a `#egg=`/`#subdirectory=` fragment inside a git URL. Shared by
+# `_requirement_key`, `_trailing_comment`, and `_strip_comment` so the three
+# stay in lockstep by construction.
+_COMMENT_RE = re.compile(r"(?:^|\s)#.*$")
+
 _KIND_LABELS = {
     "widgets": "widgets",
     "transitions": "transitions",
@@ -94,7 +100,7 @@ def _requirement_key(requirement: str) -> str:
     subdirectory value, corrupting the dedup key on every subsequent lookup.
     """
     req = requirement.strip()
-    comment_match = re.search(r"(?:^|\s)#.*$", req)
+    comment_match = _COMMENT_RE.search(req)
     if comment_match:
         req = req[: comment_match.start()].strip()
     if req.startswith(("git+", "-e ")):
@@ -140,8 +146,8 @@ def _trailing_comment(line: str) -> str | None:
     a comment. Returns the comment text including the leading ``#`` (stripped of
     surrounding whitespace), or None when the line has no comment.
     """
-    match = re.search(r"(?:^|\s)(#.*)$", line)
-    return match.group(1).strip() if match else None
+    match = _COMMENT_RE.search(line)
+    return match.group().strip() if match else None
 
 
 def _strip_comment(line: str) -> str:
@@ -153,7 +159,7 @@ def _strip_comment(line: str) -> str:
     meaning — a provenance comment must never make two equal requirements
     look different (or reconcile would churn a reinstall on every boot).
     """
-    match = re.search(r"(?:^|\s)#.*$", line)
+    match = _COMMENT_RE.search(line)
     return (line[: match.start()] if match else line).strip()
 
 

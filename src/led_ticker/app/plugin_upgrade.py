@@ -165,11 +165,23 @@ def _tag_prefixes(fragment: str | None, catalog_name: str | None) -> list[str]:
     return prefixes
 
 
+_GIT_URL_SCHEMES = ("https://", "http://", "ssh://", "git://")
+
+
 def _latest_git(line: str, catalog_name: str | None, run_git) -> str:
     base, ref, fragment = _split_git_line(line)
     url = base.removeprefix("git+")
+    # Defensive posture mirrors _pip_install's argument-like refusal: `url`
+    # comes straight from the manifest. A leading-dash URL would be parsed as
+    # a git OPTION rather than a positional arg, and git's `ext::` transport
+    # executes an arbitrary command — both are option/command injection via a
+    # manifest line, not just a bad requirement. Allowlist the URL scheme
+    # before either ls-remote call, and pass "--" to end option parsing on the
+    # (now-validated) url regardless.
+    if not url.startswith(_GIT_URL_SCHEMES):
+        raise UpgradeError(f"refusing to query non-URL git source: {url!r}")
     tags: list[str] = []
-    for out_line in run_git(["ls-remote", "--tags", url]).splitlines():
+    for out_line in run_git(["ls-remote", "--tags", "--", url]).splitlines():
         _, _, refname = out_line.partition("\t")
         tag = refname.strip().removeprefix("refs/tags/").removesuffix("^{}")
         if tag:
@@ -188,7 +200,7 @@ def _latest_git(line: str, catalog_name: str | None, run_git) -> str:
         if best_tag is not None:
             return _join_git_line(base, best_tag, fragment)
     # No convention-matching tags: pin the tip of the tracked branch (or HEAD).
-    out = run_git(["ls-remote", url, ref or "HEAD"])
+    out = run_git(["ls-remote", "--", url, ref or "HEAD"])
     sha = out.split()[0] if out.split() else ""
     if not sha:
         raise UpgradeError(

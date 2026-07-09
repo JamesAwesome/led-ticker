@@ -224,6 +224,45 @@ def test_resolve_latest_rejects_editable_and_unknown_forms():
         up.resolve_latest("https://example.com/wheel.whl")
 
 
+# --- _latest_git: option/command-injection URLs are refused ------------------
+
+
+def _tracking_runner():
+    """A run_git fake that records calls and must NEVER actually be invoked
+    for the injection cases below — asserted empty by the caller."""
+    calls: list[list[str]] = []
+
+    def run(args):
+        calls.append(args)
+        return ""
+
+    run.calls = calls
+    return run
+
+
+def test_resolve_latest_git_rejects_ext_transport():
+    run = _tracking_runner()
+    with pytest.raises(up.UpgradeError):
+        up.resolve_latest("git+ext::sh -c touch /tmp/pwned@main", run_git=run)
+    assert run.calls == []
+
+
+def test_resolve_latest_git_rejects_leading_dash_url():
+    run = _tracking_runner()
+    with pytest.raises(up.UpgradeError):
+        up.resolve_latest("git+--upload-pack=touch /tmp/pwned@main", run_git=run)
+    assert run.calls == []
+
+
+def test_latest_git_passes_double_dash_before_url():
+    """ls-remote invocations end option parsing with `--` before the url, even
+    for an allowlisted scheme — belt-and-suspenders alongside the scheme check."""
+    run = _git_runner(LS_REMOTE_TAGS)
+    up.resolve_latest(f"{MONOREPO}@pool-v0.1.0#subdirectory=plugins/pool", run_git=run)
+    tags_call = next(c for c in run.calls if "--tags" in c)
+    assert tags_call == ["ls-remote", "--tags", "--", MONOREPO.removeprefix("git+")]
+
+
 # --- _run_git -------------------------------------------------------------
 
 

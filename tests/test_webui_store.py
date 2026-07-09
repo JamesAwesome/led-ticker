@@ -1,5 +1,35 @@
-from led_ticker.plugins_catalog import load_catalog
+from led_ticker.plugins_catalog import (
+    Catalog,
+    CatalogEntry,
+    CatalogSource,
+    PluginProvides,
+    load_catalog,
+)
 from led_ticker.webui.store import build_store, config_references, redact_anonymous
+
+
+def _fake_catalog() -> Catalog:
+    """A minimal single-entry catalog for stamp/upgrade tests — a single
+    git-source CatalogEntry (namespace "pool", ref "pool-v0.1.0",
+    subdirectory "plugins/pool") so ``entry.requirement()`` contains a
+    version-like token the upgrade tests can bump (v0.1.0 -> v0.2.0) without
+    depending on the real catalog's pinned refs drifting under us."""
+    entry = CatalogEntry(
+        name="Pool",
+        namespace="pool",
+        summary="Pool water temperature monitor.",
+        homepage="https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    return Catalog(entries=(entry,))
 
 
 def test_config_references_widget_and_transition(tmp_path):
@@ -682,3 +712,97 @@ def test_redact_anonymous_preserves_homepage(tmp_path):
     assert rss["homepage"] == "https://github.com/JamesAwesome/led-ticker-plugins", (
         f"homepage must not be redacted, got {rss['homepage']!r}"
     )
+
+
+def test_store_restart_to_upgrade_when_stamp_differs(tmp_path, monkeypatch):
+    """Declared+active entry whose manifest line ≠ stamped line → pending upgrade."""
+    from led_ticker.webui.store import build_store
+
+    catalog = _fake_catalog()  # reuse the file's existing fake-catalog helper
+    entry = catalog.entries[0]
+    manifest = tmp_path / "requirements-plugins.txt"
+    new_line = entry.requirement().replace("v0.1.0", "v0.2.0")
+    manifest.write_text(new_line + "  # upgraded 2026-07-09\n")
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    status = {"plugins": [{"namespace": entry.namespace}]}
+
+    payload = build_store(
+        manifest_path=manifest,
+        config_path=config,
+        status=status,
+        token_configured=True,
+        catalog=catalog,
+        stamp={entry.namespace: entry.requirement()},  # old line stamped
+    )
+    row = next(p for p in payload["plugins"] if p["namespace"] == entry.namespace)
+    assert row["state"] == "restart_to_upgrade"
+    assert payload["pending_count"] == 1
+
+
+def test_store_stamp_match_stays_active(tmp_path):
+    from led_ticker.webui.store import build_store
+
+    catalog = _fake_catalog()
+    entry = catalog.entries[0]
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(entry.requirement() + "\n")
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    status = {"plugins": [{"namespace": entry.namespace}]}
+
+    payload = build_store(
+        manifest_path=manifest,
+        config_path=config,
+        status=status,
+        token_configured=True,
+        catalog=catalog,
+        stamp={entry.namespace: entry.requirement()},
+    )
+    row = next(p for p in payload["plugins"] if p["namespace"] == entry.namespace)
+    assert row["state"] == "active"
+    assert payload["pending_count"] == 0
+
+
+def test_store_no_stamp_is_behavior_unchanged(tmp_path):
+    from led_ticker.webui.store import build_store
+
+    catalog = _fake_catalog()
+    entry = catalog.entries[0]
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(entry.requirement() + "\n")
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    status = {"plugins": [{"namespace": entry.namespace}]}
+
+    payload = build_store(
+        manifest_path=manifest,
+        config_path=config,
+        status=status,
+        token_configured=True,
+        catalog=catalog,
+        stamp=None,
+    )
+    row = next(p for p in payload["plugins"] if p["namespace"] == entry.namespace)
+    assert row["state"] == "active"
+
+
+def test_redact_anonymous_coarsens_restart_to_upgrade():
+    from led_ticker.webui.store import redact_anonymous
+
+    payload = {
+        "display_online": True,
+        "pending_count": 1,
+        "auth_required": True,
+        "plugins": [
+            {
+                "namespace": "pool",
+                "state": "restart_to_upgrade",
+                "in_use_by": [{"section": "s", "type": "pool.monitor"}],
+                "removable": True,
+            }
+        ],
+    }
+    out = redact_anonymous(payload)
+    assert out["plugins"][0]["state"] == "installed"
+    assert out["pending_count"] == 0

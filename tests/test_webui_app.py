@@ -875,6 +875,7 @@ def test_index_html_has_store_tab():
     assert "loadStore" in html
     assert "storeAction" in html
     assert "/api/store/install" in html
+    assert "/api/store/upgrade" in html
     assert "/api/store/remove" in html
 
 

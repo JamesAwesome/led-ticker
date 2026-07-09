@@ -84,8 +84,19 @@ def _requirement_key(requirement: str) -> str:
     a name hint only (not identity) and is dropped. The subdirectory path is NOT
     case-folded or ``_``->``-`` mangled — it must match the literal filesystem
     path (e.g. ``plugins/sailor_moon``).
+
+    A genuine trailing comment (pip semantics: ``#`` at line start or after
+    whitespace — same detection as ``_strip_comment``/``_trailing_comment``) is
+    stripped BEFORE parsing, so it can never perturb the key. Without this, a
+    monorepo git line's ``#subdirectory=`` fragment sits right where a naive
+    first-``#`` split would instead swallow a later comment (e.g. the upgrade
+    provenance annotation ``# upgraded 2026-07-09, was ...``) into the
+    subdirectory value, corrupting the dedup key on every subsequent lookup.
     """
     req = requirement.strip()
+    comment_match = re.search(r"(?:^|\s)#.*$", req)
+    if comment_match:
+        req = req[: comment_match.start()].strip()
     if req.startswith(("git+", "-e ")):
         # git+https://host/owner/repo.git@<ref>[#egg=...&subdirectory=...] ->
         #   led-ticker-pool  (or  led-ticker-plugins#plugins/pool  for a monorepo)

@@ -138,6 +138,26 @@ def _build_store(**kwargs: Any) -> dict[str, Any]:
     return build_store(**kwargs)
 
 
+def _read_stamp_readonly(
+    volume_root: Path = Path("/data/plugins"),
+) -> dict[str, str] | None:
+    """The reconcile stamp, if readable — for the Store's restart_to_upgrade
+    badge. The webui mounts the plugin volume :ro, so plugin_reconcile's
+    read_stamp (which gates on os.W_OK, mirroring the install target) would
+    return None here; this reader gates on EXISTENCE only, like
+    apply_volume_visibility. Never raises; None = no badge, never an error."""
+    path = volume_root / "installed.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except OSError, ValueError:
+        return None
+    if not isinstance(data, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in data.items()
+    ):
+        return None
+    return data
+
+
 def _load_catalog_lazy():
     """Load the plugin catalog with lazy import (no rgbmatrix at import time).
 
@@ -270,6 +290,7 @@ def build_webui_app(
             config_path=config_path,
             status=inner_status,
             token_configured=bool(token),
+            stamp=_read_stamp_readonly(),
         )
         provided = request.headers.get("X-Web-Token") or request.query.get("token")
         if not _token_ok(provided, token):
@@ -350,6 +371,7 @@ def build_webui_app(
             config_path=config_path,
             status=inner_status,
             token_configured=bool(token),
+            stamp=_read_stamp_readonly(),
         )
         plugin_entry = next(
             (
@@ -451,6 +473,7 @@ def build_webui_app(
             status=inner_status,
             token_configured=bool(token),
             refs=config_refs,
+            stamp=_read_stamp_readonly(),
         )
         plugin_entry = next(
             (
@@ -570,6 +593,7 @@ def build_webui_app(
             config_path=config_path,
             status=inner_status,
             token_configured=bool(token),
+            stamp=_read_stamp_readonly(),
         )
         plugin_entry = next(
             (

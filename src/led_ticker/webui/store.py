@@ -8,7 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from led_ticker._config_scan import config_references
-from led_ticker.app.plugin_cmd import _declared_keys, _requirement_key
+from led_ticker.app.plugin_cmd import (
+    _declared_keys,
+    _find_requirement_lines,
+    _requirement_key,
+    _strip_comment,
+)
 from led_ticker.plugins_catalog import Catalog, CatalogEntry, load_catalog
 
 
@@ -31,6 +36,7 @@ def build_store(
     token_configured: bool,
     catalog: Catalog | None = None,
     refs: dict[str, list[dict[str, str]]] | None = None,
+    stamp: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Derive the Plugin Store payload from all state sources.
 
@@ -45,6 +51,16 @@ def build_store(
     ``refs`` (config-reference map) is computed from ``config_path`` when None.
     Callers that already parsed it (e.g. remove_handler) may pass it in so
     config.toml is parsed once per request instead of twice.
+
+    ``stamp`` is the reconcile installed-state stamp ({namespace:
+    line-as-installed}, see ``plugin_reconcile.read_stamp`` /
+    ``webui._read_stamp_readonly``). When a declared+active entry's current
+    manifest line (comment-stripped) differs from its stamped line, the entry
+    has been rewritten (by `plugin upgrade` or the Upgrade button) but the
+    boot reconcile hasn't installed it yet — state becomes
+    ``"restart_to_upgrade"``. ``None`` (the default) is a zero-behavior-change
+    no-op — callers that don't pass a stamp see the pre-upgrade-feature
+    behavior exactly.
     """
     catalog = catalog or load_catalog()
 
@@ -95,6 +111,18 @@ def build_store(
         else:
             # Catalog plugin neither declared nor active — installable.
             state = "available"
+
+        # Pending upgrade: manifest line rewritten (by `plugin upgrade` / the
+        # webui Upgrade button) but the boot reconcile hasn't installed it yet.
+        # The stamp records the line-as-installed; a declared entry whose
+        # current (comment-stripped) manifest line differs is waiting on a
+        # restart. Only overrides the "everything looks fine" state — a
+        # restart_to_activate/restart_to_remove entry already shows a pending
+        # badge of its own.
+        if state == "active" and stamp is not None and ns in stamp:
+            lines = _find_requirement_lines(manifest_path, entry_key[ns])
+            if lines and _strip_comment(lines[-1]) != _strip_comment(stamp[ns]):
+                state = "restart_to_upgrade"
 
         in_use = refs.get(ns, [])
         # Shared-package siblings: removing this manifest line drops the package
@@ -168,8 +196,10 @@ def build_store(
     # dedup by the manifest requirement key (entry_key) before counting.
     # `restart_to_remove` (active-but-undeclared: the user removed the manifest
     # line, restart needed to actually uninstall) is also pending — count it so
-    # the restart banner appears for removals too.
-    _PENDING_STATES = ("restart_to_activate", "restart_to_remove")
+    # the restart banner appears for removals too. `restart_to_upgrade` (manifest
+    # line rewritten to a newer version, restart needed to install it) is the
+    # same class of pending restart.
+    _PENDING_STATES = ("restart_to_activate", "restart_to_remove", "restart_to_upgrade")
     pending_count = len(
         {
             entry_key[p["namespace"]]
@@ -198,6 +228,7 @@ _INSTALLED_STATES = frozenset(
         "active",
         "restart_to_activate",
         "restart_to_remove",
+        "restart_to_upgrade",
         "externally_installed",
         "installed",
     }

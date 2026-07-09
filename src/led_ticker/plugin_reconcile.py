@@ -4,7 +4,9 @@ Runs at the top of app/run.py:run() — before plugins load and before the frame
 build drops root. NEVER raises: a failure is recorded + logged, the panel boots.
 """
 
+import contextlib
 import importlib.metadata
+import json
 import logging
 import os
 import shutil
@@ -82,6 +84,60 @@ def resolve_target(volume_root: Path = Path("/data/plugins")) -> Target:
             site_packages=str(sp),
         )
     return Target(kind="venv", python_exe=sys.executable, site_packages=None)
+
+
+STAMP_NAME = "installed.json"
+
+
+def read_stamp(volume_root: Path) -> dict[str, str] | None:
+    """The installed-state stamp: {namespace: requirement_line-as-installed}.
+
+    Returns None when ``volume_root`` is not a writable directory — no stamp
+    home exists (bare-metal/local-venv target), so the caller falls back to
+    the legacy ``_exact_pin`` drift check. Returns {} when the file is missing
+    or unreadable/corrupt: every current namespace is then re-adopted at its
+    current manifest line (no churn), which is both the fresh-volume migration
+    AND the corrupt-recovery path. Never raises.
+    """
+    if not (volume_root.is_dir() and os.access(volume_root, os.W_OK)):
+        return None
+    path = volume_root / STAMP_NAME
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as e:
+        _log.warning(
+            "plugin reconcile: stamp %s unreadable (%s) — re-stamping from "
+            "current state",
+            path,
+            e,
+        )
+        return {}
+    if not isinstance(data, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in data.items()
+    ):
+        _log.warning(
+            "plugin reconcile: stamp %s has unexpected shape — re-stamping", path
+        )
+        return {}
+    return data
+
+
+def write_stamp(volume_root: Path, stamp: dict[str, str]) -> None:
+    """Atomically persist the stamp. Never raises — a stamp write failure only
+    costs drift detection on the next boot, never the panel."""
+    path = volume_root / STAMP_NAME
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        os.replace(tmp, path)
+    except OSError as e:
+        _log.warning("plugin reconcile: could not write stamp %s: %s", path, e)
+        with contextlib.suppress(OSError):
+            tmp.unlink(missing_ok=True)
 
 
 def _py_tag() -> str:

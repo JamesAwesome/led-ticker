@@ -71,3 +71,37 @@ def test_dockerfile_does_not_bake_plugins():
 # it covered are now enforced by test_dockerfile_does_not_bake_plugins
 # (Dockerfile layer) and the plugin_reconcile runtime path.
 # The bare-metal deploy files were deleted in the same commit.
+
+
+# --- _strip_comment -----------------------------------------------------------
+
+
+def test_strip_comment_plain_line():
+    from led_ticker.app.plugin_cmd import _strip_comment
+
+    assert _strip_comment("led-ticker-pool==0.1.0") == "led-ticker-pool==0.1.0"
+
+
+def test_strip_comment_removes_trailing_comment():
+    from led_ticker.app.plugin_cmd import _strip_comment
+
+    assert (
+        _strip_comment("led-ticker-pool==0.1.0  # upgraded 2026-07-09, was @main")
+        == "led-ticker-pool==0.1.0"
+    )
+
+
+def test_strip_comment_preserves_url_fragment():
+    from led_ticker.app.plugin_cmd import _strip_comment
+
+    line = "git+https://github.com/x/y@main#subdirectory=plugins/pool"
+    assert _strip_comment(line) == line
+
+
+def test_strip_comment_url_fragment_plus_real_comment():
+    from led_ticker.app.plugin_cmd import _strip_comment
+
+    assert (
+        _strip_comment("git+https://github.com/x/y@v1#subdirectory=p/q  # note")
+        == "git+https://github.com/x/y@v1#subdirectory=p/q"
+    )

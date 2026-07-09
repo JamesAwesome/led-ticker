@@ -1465,3 +1465,56 @@ def test_referenced_namespaces_core_owned_blocks_are_not_reported(tmp_path):
     )
     refs = r.referenced_namespaces(cfg)
     assert refs.isdisjoint({"display", "web", "busy_light"})
+
+
+# --- installed-state stamp ----------------------------------------------------
+
+
+def test_read_stamp_unavailable_when_no_volume(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    assert r.read_stamp(tmp_path / "nope") is None
+
+
+def test_read_stamp_missing_file_is_empty_dict(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    assert r.read_stamp(tmp_path) == {}
+
+
+def test_stamp_roundtrip(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    r.write_stamp(tmp_path, {"pool": "led-ticker-pool==0.1.0"})
+    assert r.read_stamp(tmp_path) == {"pool": "led-ticker-pool==0.1.0"}
+    assert (tmp_path / r.STAMP_NAME).exists()
+
+
+def test_read_stamp_corrupt_file_is_empty_dict(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / r.STAMP_NAME).write_text("{not json")
+    assert r.read_stamp(tmp_path) == {}
+
+
+def test_read_stamp_non_dict_payload_is_empty_dict(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / r.STAMP_NAME).write_text('["a", "b"]')
+    assert r.read_stamp(tmp_path) == {}
+
+
+def test_read_stamp_non_string_values_is_empty_dict(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / r.STAMP_NAME).write_text('{"pool": 3}')
+    assert r.read_stamp(tmp_path) == {}
+
+
+def test_write_stamp_never_raises(tmp_path):
+    import led_ticker.plugin_reconcile as r
+
+    # Target is a FILE, so the stamp path is unwritable — must log, not raise.
+    blocker = tmp_path / "vol"
+    blocker.write_text("i am a file, not a dir")
+    r.write_stamp(blocker, {"pool": "x"})  # no exception

@@ -133,6 +133,19 @@ def _trailing_comment(line: str) -> str | None:
     return match.group(1).strip() if match else None
 
 
+def _strip_comment(line: str) -> str:
+    """The requirement portion of a manifest line, trailing comment removed.
+
+    Comment detection mirrors ``_trailing_comment`` (pip semantics: ``#`` at
+    line start or after whitespace), so a ``#subdirectory=`` / ``#egg=`` URL
+    fragment survives intact. Used to compare manifest lines by their pip
+    meaning — a provenance comment must never make two equal requirements
+    look different (or reconcile would churn a reinstall on every boot).
+    """
+    match = re.search(r"(?:^|\s)#.*$", line)
+    return (line[: match.start()] if match else line).strip()
+
+
 def _update_requirements(path: Path, requirement: str) -> str | None:
     """Add `requirement` to the requirements file, replacing any prior line for
     the same plugin. Preserves comments and unrelated lines — including a trailing

@@ -455,6 +455,18 @@ def test_cmd_search_no_match(capsys):
         ("led-ticker-pool==1.2.0", "led-ticker-pool"),
         ("led_ticker_pool", "led-ticker-pool"),
         ("led-ticker-pool>=1.0", "led-ticker-pool"),
+        # a genuine trailing comment (pip semantics: '#' at line-start or after
+        # whitespace) must be stripped BEFORE parsing so it can't fuse with a
+        # '#subdirectory=' fragment and corrupt the key.
+        (
+            "git+https://github.com/JamesAwesome/led-ticker-plugins@main"
+            "#subdirectory=plugins/pool  # upgraded 2026-07-09",
+            "led-ticker-plugins#plugins/pool",
+        ),
+        (
+            "led-ticker-pool==0.2.0  # upgraded 2026-07-09, was ==0.1.0",
+            "led-ticker-pool",
+        ),
     ],
 )
 def test_requirement_key_normalizes(requirement, key):

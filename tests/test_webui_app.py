@@ -976,6 +976,48 @@ def test_token_ok_constant_time_compare():
     assert _token_ok("", "s3cret") is False
 
 
+def test_read_stamp_readonly_file_absent(tmp_path):
+    """No stamp file at all -> None, never an error."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    assert _read_stamp_readonly(tmp_path) is None
+
+
+def test_read_stamp_readonly_malformed_json(tmp_path):
+    """Unparseable JSON -> None."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    (tmp_path / "installed.json").write_text("{not json", encoding="utf-8")
+    assert _read_stamp_readonly(tmp_path) is None
+
+
+def test_read_stamp_readonly_not_a_dict(tmp_path):
+    """Valid JSON but not a dict (e.g. a list) -> None."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    (tmp_path / "installed.json").write_text(
+        json.dumps(["pool", "baseball"]), encoding="utf-8"
+    )
+    assert _read_stamp_readonly(tmp_path) is None
+
+
+def test_read_stamp_readonly_non_string_values(tmp_path):
+    """Dict with non-string values -> None (schema requires str: str)."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    (tmp_path / "installed.json").write_text(json.dumps({"pool": 1}), encoding="utf-8")
+    assert _read_stamp_readonly(tmp_path) is None
+
+
+def test_read_stamp_readonly_valid_dict(tmp_path):
+    """Valid {str: str} dict -> returned as-is."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    stamp = {"pool": "0.2.0", "baseball": "1.0.0"}
+    (tmp_path / "installed.json").write_text(json.dumps(stamp), encoding="utf-8")
+    assert _read_stamp_readonly(tmp_path) == stamp
+
+
 async def test_store_returns_expected_shape(tmp_path, monkeypatch):
     """GET /api/store → 200 with plugins list and metadata keys."""
     import led_ticker.webui as webui_mod

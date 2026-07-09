@@ -28,6 +28,7 @@ from aiohttp import web
 
 from led_ticker._build import build_ref
 from led_ticker.config import resolve_secret_token
+from led_ticker.plugin_reconcile import STAMP_NAME
 from led_ticker.preview import HEADER, PREVIEW_MAGIC, PREVIEW_VERSION
 from led_ticker.reload import config_hash
 from led_ticker.status_board import SCHEMA_VERSION
@@ -146,9 +147,10 @@ def _read_stamp_readonly(
     read_stamp (which gates on os.W_OK, mirroring the install target) would
     return None here; this reader gates on EXISTENCE only, like
     apply_volume_visibility. Never raises; None = no badge, never an error."""
-    path = volume_root / "installed.json"
+    path = volume_root / STAMP_NAME
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
+    # PEP 758 (Python 3.14) parenthesis-free tuple catch — not a typo.
     except OSError, ValueError:
         return None
     if not isinstance(data, dict) or not all(

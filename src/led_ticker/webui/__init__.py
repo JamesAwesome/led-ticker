@@ -597,7 +597,7 @@ def build_webui_app(
             token_configured=bool(token),
             stamp=_read_stamp_readonly(),
         )
-        plugin_entry = next(
+        plugin_entry: dict[str, Any] = next(
             (
                 p
                 for p in store_payload.get("plugins", [])

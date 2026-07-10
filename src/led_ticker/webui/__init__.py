@@ -550,13 +550,13 @@ def build_webui_app(
         old_spec = _strip_comment(current_lines[-1])
 
         try:
-            new_spec = await asyncio.to_thread(
-                plugin_upgrade.resolve_latest, old_spec, catalog_name=entry.name
+            new_spec, changed = await asyncio.to_thread(
+                plugin_upgrade.resolve_upgrade, old_spec, catalog_name=entry.name
             )
         except plugin_upgrade.UpgradeError as e:
             return web.json_response({"error": str(e)}, status=502)
 
-        if new_spec == old_spec:
+        if not changed:
             return web.json_response(
                 {"up_to_date": True, "namespace": namespace, "current": old_spec}
             )

@@ -135,8 +135,9 @@ button does the same manifest rewrite — also token-gated, see
 plugin "pending restart," the same banner install/remove use.
 
 The Store doesn't show Upgrade for every plugin up front — click **Check for
-updates** first. It resolves the latest version for every installed plugin
-(a package shared by several plugin lines is only resolved once) and labels
+updates** first. It resolves the latest version for every declared, active
+plugin (a pip-installed-but-pending-restart plugin is skipped; a package
+shared by several plugin lines is only resolved once) and labels
 each line **Upgrade → `<version>`** only where a newer or newly-pinnable
 version is actually available; a plugin already on the newest version shows
 **Up to date** instead. Results are per-session — re-run the check after you

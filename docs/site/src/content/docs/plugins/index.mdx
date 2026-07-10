@@ -134,6 +134,16 @@ button does the same manifest rewrite — also token-gated, see
 [Install from the web UI](#install-from-the-web-ui) above — and marks the
 plugin "pending restart," the same banner install/remove use.
 
+The Store doesn't show Upgrade for every plugin up front — click **Check for
+updates** first. It resolves the latest version for every installed plugin
+(a package shared by several plugin lines is only resolved once) and labels
+each line **Upgrade → `<version>`** only where a newer or newly-pinnable
+version is actually available; a plugin already on the newest version shows
+**Up to date** instead. Results are per-session — re-run the check after you
+install, remove, or hand-edit `requirements-plugins.txt`, since the last
+check no longer reflects the current manifest. Checking needs the same token
+as Install/Remove/Upgrade.
+
 ## Removing a plugin
 
 Delete the line from `config/requirements-plugins.txt` and restart:

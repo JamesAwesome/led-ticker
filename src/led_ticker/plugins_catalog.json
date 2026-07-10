@@ -117,9 +117,10 @@
     {
       "name": "flair",
       "namespace": "flair",
-      "summary": "Flair text-effect pack — flair.propeller animation (spinning in-plane reveal on message widgets) and flair.spinout transition (outgoing widget spins out before cut to incoming). Part of the led-ticker-flair pack.",
+      "summary": "Flair text-effect pack — flair.lottery lottery-ball roll-in widget, flair.propeller animation (spinning in-plane reveal on message widgets), flair.fisheye scroll-lens animation, and flair.spinout transition (outgoing widget spins out before cut to incoming). Part of the led-ticker-flair pack.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": {
+        "widgets": ["flair.lottery"],
         "animations": ["flair.propeller", "flair.fisheye"],
         "transitions": ["flair.spinout"]
       },

@@ -432,3 +432,46 @@ class TestColorLUT:
         c2 = cc.color_for(frame=10, char_index=4, total_chars=1)
         # ColorCycle ignores char_index — same frame → same LUT entry
         assert c1 is c2
+
+
+class TestColorProviderRuntimeCheckable:
+    """isinstance(x, ColorProvider) must WORK (regression: the Protocol was not
+    @runtime_checkable, so isinstance raised TypeError — the storefront plugin's
+    tests had to assert against ColorProviderBase instead)."""
+
+    def test_isinstance_does_not_raise(self):
+        from led_ticker.color_providers import ColorProvider, Rainbow
+
+        # the original paper cut: this line raised TypeError
+        assert isinstance(Rainbow(), ColorProvider)
+
+    def test_all_shipped_providers_pass(self):
+        from led_ticker.color_providers import (
+            ColorCycle,
+            ColorProvider,
+            Gradient,
+            Rainbow,
+            Random,
+            _ConstantColor,
+        )
+
+        for provider in (
+            Rainbow(),
+            ColorCycle(),
+            Random(),
+            Gradient(from_color=Color(0, 0, 0), to_color=Color(255, 255, 255)),
+            _ConstantColor(Color(1, 2, 3)),
+        ):
+            assert isinstance(provider, ColorProvider), provider
+
+    def test_non_provider_fails(self):
+        from led_ticker.color_providers import ColorProvider
+
+        class NotAProvider:
+            def color_for(self, frame, char_index, total_chars):
+                return None  # pragma: no cover
+
+            # has color_for but lacks per_char / frame_invariant
+
+        assert not isinstance(NotAProvider(), ColorProvider)
+        assert not isinstance(object(), ColorProvider)

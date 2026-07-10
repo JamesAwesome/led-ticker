@@ -30,7 +30,7 @@ opt out (continuous sweep / cycle); the others keep the default
 
 import math
 import random
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from led_ticker._types import Color
 from led_ticker.color_lut import hue_color
@@ -75,6 +75,7 @@ class ColorProviderBase:
         return 0
 
 
+@runtime_checkable
 class ColorProvider(Protocol):
     """Returns a Color given a frame counter and (for per-char
     providers) a character index within the string being drawn.
@@ -83,7 +84,12 @@ class ColorProvider(Protocol):
     the `frame` argument. True providers (constant, gradient, random)
     let the engine take a paint-once-and-sleep fast path on otherwise-
     static content; False providers (rainbow, color_cycle) force the
-    per-tick render loop so animation actually animates."""
+    per-tick render loop so animation actually animates.
+
+    Runtime-checkable (same as the `Animation` Protocol): a plugin may
+    `isinstance(x, ColorProvider)` — the check requires all three members
+    (`per_char`, `frame_invariant`, `color_for`), consistent with
+    `ColorProviderBase.__init_subclass__`'s enforcement."""
 
     per_char: bool
     frame_invariant: bool

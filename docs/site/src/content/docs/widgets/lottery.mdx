@@ -67,7 +67,7 @@ Balls don't enter in config order — they enter **rack-fill**: the first ball t
 
 ### Derived sizing — no size knobs
 
-There's no `ball_size` / `diameter` field. Ball diameter, slot spacing, and per-ball font size are all derived from the panel geometry and the word count: fewer or shorter words get bigger balls, more or longer words get smaller ones. If a word genuinely can't fit any legible label size on its ball, `led-ticker validate` warns at config-load time, and at render time the ball still paints — just without a label, rather than failing the widget. Check the warning and shorten the word (or accept the unlabeled ball) instead of hunting for a size knob that doesn't exist.
+There's no `ball_size` / `diameter` field. Ball diameter and slot spacing derive from the panel geometry and the word **count** — fewer words get bigger balls, more words get smaller ones. Word **length** never changes the ball size; it only drives the per-ball label size, which auto-fits each word to its (fixed-diameter) face. If a word genuinely can't fit any legible label size on its ball, `led-ticker validate` warns at config-load time, and at render time the ball still paints — just without a label, rather than failing the widget. Check the warning and shorten the word (or accept the unlabeled ball) instead of hunting for a size knob that doesn't exist.
 
 ### Re-rolls every visit
 

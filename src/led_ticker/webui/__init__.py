@@ -28,6 +28,7 @@ from aiohttp import web
 
 from led_ticker._build import build_ref
 from led_ticker.config import resolve_secret_token
+from led_ticker.plugin_reconcile import STAMP_NAME
 from led_ticker.preview import HEADER, PREVIEW_MAGIC, PREVIEW_VERSION
 from led_ticker.reload import config_hash
 from led_ticker.status_board import SCHEMA_VERSION
@@ -136,6 +137,27 @@ def _build_store(**kwargs: Any) -> dict[str, Any]:
     from led_ticker.webui.store import build_store  # noqa: PLC0415
 
     return build_store(**kwargs)
+
+
+def _read_stamp_readonly(
+    volume_root: Path = Path("/data/plugins"),
+) -> dict[str, str] | None:
+    """The reconcile stamp, if readable — for the Store's restart_to_upgrade
+    badge. The webui mounts the plugin volume :ro, so plugin_reconcile's
+    read_stamp (which gates on os.W_OK, mirroring the install target) would
+    return None here; this reader gates on EXISTENCE only, like
+    apply_volume_visibility. Never raises; None = no badge, never an error."""
+    path = volume_root / STAMP_NAME
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    # PEP 758 (Python 3.14) parenthesis-free tuple catch — not a typo.
+    except OSError, ValueError:
+        return None
+    if not isinstance(data, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in data.items()
+    ):
+        return None
+    return data
 
 
 def _load_catalog_lazy():
@@ -270,6 +292,7 @@ def build_webui_app(
             config_path=config_path,
             status=inner_status,
             token_configured=bool(token),
+            stamp=_read_stamp_readonly(),
         )
         provided = request.headers.get("X-Web-Token") or request.query.get("token")
         if not _token_ok(provided, token):
@@ -350,6 +373,7 @@ def build_webui_app(
             config_path=config_path,
             status=inner_status,
             token_configured=bool(token),
+            stamp=_read_stamp_readonly(),
         )
         plugin_entry = next(
             (
@@ -391,10 +415,20 @@ def build_webui_app(
             return web.json_response({"error": "unknown plugin"}, status=400)
 
         # Import helpers lazily to keep the module rgbmatrix-pure.
-        from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
+        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+            _entry_match_keys,
+            _requirement_key,
+        )
 
         req = entry.requirement()
         req_key = _requirement_key(req)
+        # The manifest line may have been declared via a NON-default source
+        # (e.g. `--source git` when pypi is the catalog default); drop it by any
+        # of the entry's source keys so removal matches build_store's (widened)
+        # declared? detection — otherwise the Store would show a Remove button
+        # that silently no-ops. `req_key` stays the pack-sibling grouping key
+        # below (shared packages are single-source, unaffected by the widening).
+        match_keys = _entry_match_keys(entry)
 
         # Config-reference guard: refuse if the running config still uses THIS
         # plugin OR any sibling namespace that shares the same pip package.
@@ -425,7 +459,7 @@ def build_webui_app(
                 if (
                     stripped
                     and not stripped.startswith("#")
-                    and _requirement_key(stripped) == req_key
+                    and _requirement_key(stripped) in match_keys
                 ):
                     continue  # drop this line
                 kept.append(line)
@@ -451,6 +485,7 @@ def build_webui_app(
             status=inner_status,
             token_configured=bool(token),
             refs=config_refs,
+            stamp=_read_stamp_readonly(),
         )
         plugin_entry = next(
             (
@@ -462,12 +497,138 @@ def build_webui_app(
         )
         return web.json_response(plugin_entry)
 
+    async def upgrade_handler(request: web.Request) -> web.Response:
+        """POST /api/store/upgrade — rewrite a plugin's manifest line to the
+        latest version (resolver queries PyPI / git; NO pip here — the display
+        process's boot reconcile installs the change after a restart).
+
+        Token-gated by the global auth middleware (upgrade is NOT in
+        _OPEN_PATHS); mirrors install_handler's "no token → 403" convention.
+        The network resolve runs in a thread (asyncio.to_thread) so a slow
+        remote can't stall the event loop, and BEFORE the manifest lock; the
+        locked transform re-checks the line so a concurrent edit → 409, never
+        a lost update.
+        """
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+
+        if (request.content_length or 0) > MAX_VALIDATE_BODY:
+            return web.json_response({"error": "body too large"}, status=413)
+
+        try:
+            payload = await request.json()
+        except ValueError:
+            return web.json_response({"error": "body must be JSON"}, status=400)
+
+        namespace = payload.get("namespace") if isinstance(payload, dict) else None
+        if not isinstance(namespace, str) or not namespace:
+            return web.json_response({"error": "missing namespace"}, status=400)
+
+        catalog = _load_catalog_lazy()
+        entry = next((e for e in catalog.entries if e.namespace == namespace), None)
+        if entry is None:
+            return web.json_response({"error": "unknown plugin"}, status=400)
+
+        # Lazy imports keep the module rgbmatrix-pure.
+        from led_ticker.app import plugin_upgrade  # noqa: PLC0415
+        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+            _entry_match_keys,
+            _find_requirement_lines_for_keys,
+            _requirement_key,
+            _strip_comment,
+        )
+
+        # Match against EVERY source key the entry could be declared under, so a
+        # plugin added via its non-default source (e.g. `--source git` when pypi
+        # is the catalog default) is found instead of 404ing as "not declared".
+        match_keys = _entry_match_keys(entry)
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+
+        current_lines = _find_requirement_lines_for_keys(manifest_path, match_keys)
+        if not current_lines:
+            return web.json_response({"error": "not declared"}, status=404)
+        old_spec = _strip_comment(current_lines[-1])
+
+        try:
+            new_spec = await asyncio.to_thread(
+                plugin_upgrade.resolve_latest, old_spec, catalog_name=entry.name
+            )
+        except plugin_upgrade.UpgradeError as e:
+            return web.json_response({"error": str(e)}, status=502)
+
+        if new_spec == old_spec:
+            return web.json_response(
+                {"up_to_date": True, "namespace": namespace, "current": old_spec}
+            )
+
+        import datetime  # noqa: PLC0415
+
+        provenance = f"# upgraded {datetime.date.today().isoformat()}, was {old_spec}"
+
+        class _Conflict(Exception):
+            pass
+
+        def replace_line(current: str) -> str | None:
+            # Runs INSIDE manifest_lock against the freshly-read manifest text.
+            # The resolve happened OUTSIDE the lock, so re-verify the line we
+            # resolved from is still there — a concurrent install/remove/save
+            # between resolve and write must 409, not be silently clobbered.
+            out: list[str] = []
+            replaced = False
+            for line in current.splitlines():
+                stripped = line.strip()
+                if (
+                    stripped
+                    and not stripped.startswith("#")
+                    and _requirement_key(stripped) in match_keys
+                ):
+                    if _strip_comment(stripped) != old_spec:
+                        raise _Conflict
+                    out.append(f"{new_spec}  {provenance}")
+                    replaced = True
+                    continue
+                out.append(line)
+            if not replaced:
+                raise _Conflict
+            return "\n".join(out).rstrip("\n") + "\n"
+
+        try:
+            await _update_manifest_atomic(manifest_path, replace_line, manifest_lock)
+        except _Conflict:
+            return web.json_response(
+                {"error": "manifest changed concurrently — retry"}, status=409
+            )
+        except OSError as e:
+            return web.json_response(
+                {"error": f"manifest write failed: {e}"}, status=500
+            )
+
+        inner_status: dict = _fresh_inner_status(status_path)
+        store_payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+            stamp=_read_stamp_readonly(),
+        )
+        plugin_entry: dict[str, Any] = next(
+            (
+                p
+                for p in store_payload.get("plugins", [])
+                if p["namespace"] == namespace
+            ),
+            {"namespace": namespace},
+        )
+        plugin_entry["upgraded"] = {"from": old_spec, "to": new_spec}
+        return web.json_response(plugin_entry)
+
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
     app.router.add_post("/api/restart", restart_handler)
     app.router.add_get("/api/store", store_handler)
     app.router.add_post("/api/store/install", install_handler)
     app.router.add_delete("/api/store/remove", remove_handler)
+    app.router.add_post("/api/store/upgrade", upgrade_handler)
     _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)

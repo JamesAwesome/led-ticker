@@ -966,6 +966,7 @@ function storeBadge(state, displayOnline) {
   }
   if (state === "active") return '<span class="store-badge badge-active">Active</span>';
   if (state === "restart_to_activate") return '<span class="store-badge badge-restart">Restart to activate</span>';
+  if (state === "restart_to_upgrade") return '<span class="store-badge badge-restart">Restart to upgrade</span>';
   // Active-but-undeclared: the user removed the manifest line; a restart will
   // uninstall it. Amber, like restart_to_activate.
   if (state === "restart_to_remove") return '<span class="store-badge badge-restart">Restart to remove</span>';
@@ -1036,7 +1037,7 @@ function renderStore(data) {
   }
 
   const rows = plugins.map((p) => {
-    const isDeclared = p.state === "active" || p.state === "restart_to_activate";
+    const isDeclared = p.state === "active" || p.state === "restart_to_activate" || p.state === "restart_to_upgrade";
     const inUse = p.in_use_by || [];
     const badge = storeBadge(p.state, displayOnline);
     const pack = p.pack || "";
@@ -1080,6 +1081,13 @@ function renderStore(data) {
       actionHtml = `<button class="store-btn remove" ${disabled ? "disabled" : ""}
         data-action="remove" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
         ${disabledReason ? `title="${esc(disabledReason)}"` : ""}>${removeLabel}</button>`;
+      // Upgrade button — auth-gated like Remove, but never gated on `removable`:
+      // upgrading rewrites the shared manifest line for all pack siblings without
+      // orphaning any of them, unlike Remove which drops the line entirely.
+      const upgradeLabel = pack ? `Upgrade ${esc(pack)} pack` : "Upgrade";
+      actionHtml = `<button class="store-btn install" ${needsAuth ? "disabled" : ""}
+        data-action="upgrade" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
+        ${needsAuth ? 'title="Enter your token to upgrade plugins"' : ""}>${upgradeLabel}</button>` + actionHtml;
       if (cantRemove && inUse.length > 0) {
         // This namespace's own config refs — show the specific sections.
         const refs = inUse.map((r) => `${esc(r.section)} → ${esc(r.type)}`).join(", ");
@@ -1113,7 +1121,7 @@ function renderStore(data) {
       const pack = btn.dataset.pack || "";
       const members = btn.dataset.packMembers ? btn.dataset.packMembers.split(",").filter(Boolean) : [];
       if (pack && members.length > 1) {
-        const verb = btn.dataset.action === "install" ? "Installs" : "Removes";
+        const verb = btn.dataset.action === "install" ? "Installs" : btn.dataset.action === "upgrade" ? "Upgrades" : "Removes";
         const ok = confirm(`${verb} the ${pack} pack: ${members.join(", ")}`);
         if (!ok) return;
       }
@@ -1142,15 +1150,21 @@ async function loadStore() {
 }
 
 async function storeAction(action, namespace) {
-  const method = action === "install" ? "POST" : "DELETE";
-  const url = action === "install" ? "/api/store/install" : "/api/store/remove";
+  const method = action === "remove" ? "DELETE" : "POST";
+  const url = action === "install" ? "/api/store/install"
+    : action === "upgrade" ? "/api/store/upgrade"
+    : "/api/store/remove";
   try {
     const r = await fetch(url, {
       method,
       headers: {...auth, "Content-Type": "application/json"},
       body: JSON.stringify({namespace}),
     });
-    if (r.status === 409) {
+    // The in-use-conflict banner only applies to remove's 409 (config still
+    // references the plugin). Upgrade's 409 means "manifest changed
+    // concurrently — retry" — a different shape (no in_use_by) — so it falls
+    // through to the generic !r.ok alert below instead of this banner.
+    if (r.status === 409 && action === "remove") {
       const body = await r.json();
       const refs = (body.in_use_by || []).map((x) => `${esc(x.section)} → ${esc(x.type)}`).join(", ");
       const note = document.createElement("div");
@@ -1177,12 +1191,21 @@ async function storeAction(action, namespace) {
     }
     if (!r.ok) {
       const body = await r.json().catch(() => ({}));
-      alert((action === "install" ? "Install" : "Remove") + " failed: " + (body.error || r.status));
+      const verb = action === "install" ? "Install" : action === "upgrade" ? "Upgrade" : "Remove";
+      alert(verb + " failed: " + (body.error || r.status));
       return;
     }
     // Remove any prior conflict note on success
     const existing = $("store-conflict-note");
     if (existing) existing.remove();
+    const body = await r.json();
+    if (action === "upgrade") {
+      if (body.up_to_date) {
+        alert(`${namespace} is already up to date.`);
+      } else if (body.upgraded) {
+        alert(`Upgraded ${namespace}:\n${body.upgraded.from}\n  → ${body.upgraded.to}\nRestart the display to apply.`);
+      }
+    }
     // Refresh the store view
     await loadStore();
   } catch (e) {

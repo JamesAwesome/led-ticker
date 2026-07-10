@@ -875,6 +875,7 @@ def test_index_html_has_store_tab():
     assert "loadStore" in html
     assert "storeAction" in html
     assert "/api/store/install" in html
+    assert "/api/store/upgrade" in html
     assert "/api/store/remove" in html
 
 
@@ -973,6 +974,48 @@ def test_token_ok_constant_time_compare():
     assert _token_ok("wrong", "s3cret") is False
     assert _token_ok(None, "s3cret") is False
     assert _token_ok("", "s3cret") is False
+
+
+def test_read_stamp_readonly_file_absent(tmp_path):
+    """No stamp file at all -> None, never an error."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    assert _read_stamp_readonly(tmp_path) is None
+
+
+def test_read_stamp_readonly_malformed_json(tmp_path):
+    """Unparseable JSON -> None."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    (tmp_path / "installed.json").write_text("{not json", encoding="utf-8")
+    assert _read_stamp_readonly(tmp_path) is None
+
+
+def test_read_stamp_readonly_not_a_dict(tmp_path):
+    """Valid JSON but not a dict (e.g. a list) -> None."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    (tmp_path / "installed.json").write_text(
+        json.dumps(["pool", "baseball"]), encoding="utf-8"
+    )
+    assert _read_stamp_readonly(tmp_path) is None
+
+
+def test_read_stamp_readonly_non_string_values(tmp_path):
+    """Dict with non-string values -> None (schema requires str: str)."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    (tmp_path / "installed.json").write_text(json.dumps({"pool": 1}), encoding="utf-8")
+    assert _read_stamp_readonly(tmp_path) is None
+
+
+def test_read_stamp_readonly_valid_dict(tmp_path):
+    """Valid {str: str} dict -> returned as-is."""
+    from led_ticker.webui import _read_stamp_readonly
+
+    stamp = {"pool": "0.2.0", "baseball": "1.0.0"}
+    (tmp_path / "installed.json").write_text(json.dumps(stamp), encoding="utf-8")
+    assert _read_stamp_readonly(tmp_path) == stamp
 
 
 async def test_store_returns_expected_shape(tmp_path, monkeypatch):
@@ -2451,3 +2494,377 @@ def test_reload_poll_is_patient():
     # The old impatient 6s budget (3 attempts) and stale message are gone.
     assert "pollReloadOutcome(priorReloadAt, 3)" not in html
     assert "saved — waiting for reload…" not in html
+
+
+# ---------------------------------------------------------------------------
+# POST /api/store/upgrade — plugin store upgrade
+# ---------------------------------------------------------------------------
+
+
+def _upgrade_fixtures(monkeypatch, *, resolved=None, resolve_error=None):
+    """Patch catalog + store + resolver for upgrade_handler tests. Returns the
+    fake catalog entry."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.app import plugin_upgrade
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    fake_entry = CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=(fake_entry,))
+    )
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {"plugins": [{"namespace": "pool", "state": "active"}]},
+    )
+
+    def fake_resolve(line, **kwargs):
+        if resolve_error is not None:
+            raise plugin_upgrade.UpgradeError(resolve_error)
+        return resolved if resolved is not None else line
+
+    monkeypatch.setattr(plugin_upgrade, "resolve_latest", fake_resolve)
+    return fake_entry
+
+
+OLD_LINE = (
+    "git+https://github.com/JamesAwesome/led-ticker-plugins@pool-v0.1.0"
+    "#subdirectory=plugins/pool"
+)
+NEW_LINE = (
+    "git+https://github.com/JamesAwesome/led-ticker-plugins@pool-v0.2.0"
+    "#subdirectory=plugins/pool"
+)
+
+
+async def test_upgrade_rewrites_manifest_line(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["upgraded"] == {"from": OLD_LINE, "to": NEW_LINE}
+        text = manifest.read_text()
+        assert NEW_LINE in text
+        assert "# upgraded" in text
+        # The old line no longer stands alone (it may still appear as the
+        # tail of the new line's provenance comment, "...was <old_spec>").
+        assert OLD_LINE not in text.splitlines()
+    finally:
+        await client.close()
+
+
+async def test_upgrade_up_to_date_is_noop(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch)  # resolver echoes the line back
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        assert (await resp.json())["up_to_date"] is True
+        assert manifest.read_text() == OLD_LINE + "\n"
+        # No backup written for a no-op.
+        assert not manifest.with_suffix(manifest.suffix + ".bak").exists()
+    finally:
+        await client.close()
+
+
+async def test_upgrade_requires_token(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post("/api/store/upgrade", json={"namespace": "pool"})
+        assert resp.status == 401  # auth middleware (route is not open)
+    finally:
+        await client.close()
+
+
+async def test_upgrade_no_token_configured_is_disabled(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path)  # no token at all
+    try:
+        resp = await client.post("/api/store/upgrade", json={"namespace": "pool"})
+        assert resp.status == 403
+        assert "disabled" in (await resp.json())["error"]
+    finally:
+        await client.close()
+
+
+async def test_upgrade_unknown_namespace(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "nope"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 400
+    finally:
+        await client.close()
+
+
+async def test_upgrade_not_declared_is_404(tmp_path, monkeypatch):
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+    client = await _client(tmp_path, token="s3cret")  # no manifest at all
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 404
+    finally:
+        await client.close()
+
+
+async def test_upgrade_resolver_failure_is_502_manifest_untouched(
+    tmp_path, monkeypatch
+):
+    _upgrade_fixtures(monkeypatch, resolve_error="no matching tags")
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 502
+        assert "no matching tags" in (await resp.json())["error"]
+        assert manifest.read_text() == OLD_LINE + "\n"
+    finally:
+        await client.close()
+
+
+async def test_upgrade_concurrent_edit_is_409(tmp_path, monkeypatch):
+    """resolve_latest runs OUTSIDE the manifest lock; the locked transform
+    re-verifies the line it resolved from is still there. Simulate another
+    editor (install/remove/save) rewriting the manifest's pin for this same
+    plugin WHILE the resolve is in flight — the fake resolver does the
+    concurrent rewrite itself before returning, since it runs (via
+    asyncio.to_thread) before the lock is taken. The locked re-read must then
+    see a spec that no longer matches what was resolved from -> 409, and the
+    concurrent editor's line must survive untouched (no lost update)."""
+    _upgrade_fixtures(monkeypatch)
+    from led_ticker.app import plugin_upgrade
+
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+
+    CONCURRENT_LINE = (
+        "git+https://github.com/JamesAwesome/led-ticker-plugins@pool-v0.1.5"
+        "#subdirectory=plugins/pool"
+    )
+
+    def fake_resolve_with_concurrent_edit(line, **kwargs):
+        # Runs inside asyncio.to_thread, before the manifest lock is taken.
+        # Rewrite the manifest as if a concurrent install/remove/save landed
+        # in between the handler's initial read and the locked re-check.
+        manifest.write_text(CONCURRENT_LINE + "\n")
+        return NEW_LINE
+
+    monkeypatch.setattr(
+        plugin_upgrade, "resolve_latest", fake_resolve_with_concurrent_edit
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 409
+        text = manifest.read_text()
+        # The concurrent editor's line stands as written — no lost update,
+        # no provenance comment, and the resolved NEW_LINE never lands.
+        assert text == CONCURRENT_LINE + "\n"
+        assert NEW_LINE not in text
+        assert "# upgraded" not in text
+    finally:
+        await client.close()
+
+
+async def test_upgrade_oversize_body_is_413(tmp_path):
+    """POST /api/store/upgrade with an oversized body -> 413 before JSON parse."""
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            data="x" * (1024 * 1024 + 1),
+            headers={"X-Web-Token": "s3cret", "Content-Type": "application/json"},
+        )
+        assert resp.status == 413
+    finally:
+        await client.close()
+
+
+async def test_upgrade_manifest_write_failure_is_500(tmp_path, monkeypatch):
+    """_update_manifest_atomic raising OSError (e.g. disk full) during the
+    locked write -> 500 with the handler's actual error-message format."""
+    import led_ticker.webui as webui_mod
+
+    _upgrade_fixtures(monkeypatch, resolved=NEW_LINE)
+
+    async def fake_update_manifest_atomic(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(
+        webui_mod, "_update_manifest_atomic", fake_update_manifest_atomic
+    )
+
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 500
+        assert "manifest write failed: disk full" in (await resp.json())["error"]
+    finally:
+        await client.close()
+
+
+async def test_upgrade_finds_non_default_source_declaration(tmp_path, monkeypatch):
+    """pool's catalog default is pypi, but it's declared via git — the endpoint
+    must find + rewrite that line, not 404 as "not declared"."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.app import plugin_upgrade
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    entry = CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(type="pypi", package="led-ticker-pool", version="0.1.0"),
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=(entry,))
+    )
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {"plugins": [{"namespace": "pool", "state": "active"}]},
+    )
+    monkeypatch.setattr(plugin_upgrade, "resolve_latest", lambda line, **kw: NEW_LINE)
+
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")  # declared via the git (non-default) source
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200, await resp.text()
+        assert (await resp.json())["upgraded"] == {"from": OLD_LINE, "to": NEW_LINE}
+        assert NEW_LINE in manifest.read_text()
+    finally:
+        await client.close()
+
+
+async def test_remove_non_default_source_actually_drops_line(tmp_path, monkeypatch):
+    """Regression: a plugin declared via its non-default (git) source must be
+    actually removed — not a silent 200 no-op keyed off the pypi default."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    entry = CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(type="pypi", package="led-ticker-pool", version="0.1.0"),
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=(entry,))
+    )
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {"plugins": [{"namespace": "pool", "state": "available"}]},
+    )
+
+    git_line = entry.requirement(source="git")  # non-default declaration
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(git_line + "\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        # The git line must be GONE (was silently left in place before the fix).
+        assert "pool-v0.1.0" not in manifest_path.read_text()
+    finally:
+        await client.close()

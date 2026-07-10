@@ -122,7 +122,7 @@ exception day doesn't cut it short. Adjust Friday's hours (e.g. drop the wrap, o
 
 Keys are `"MM-DD"` (recurring — matches that date every year) or `"YYYY-MM-DD"` (one specific date, zero-padded); values reuse the same day-string grammar as the weekly schedule (`"closed"`, a single range, comma-separated multiple ranges, `"00:00-24:00"`).
 
-Precedence is **specific date > recurring date > weekly day** — a matching exception key **replaces** that day's hours outright; it never merges with the weekly schedule underneath it. Bare keys work the same way they do in the weekly schedule too — `"12-25" = "closed"` is exactly `"closed"`, not shorthand for anything fancier.
+Precedence is **specific date > recurring date > weekly day** — a matching exception key **replaces** that day's hours outright; it never merges with the weekly schedule underneath it. Quoting the keys is optional — TOML accepts them bare too (`12-25 = "closed"`).
 
 Every open/closed flip logs an enriched line naming the next change, so you can confirm an exception took effect without waiting for the next boundary:
 
@@ -199,7 +199,7 @@ storefront: badge 'OPEN' (16x64) does not fit the 64x32 panel at font_size=16; s
 
 The trap this catches most often: **vertical orientation + a large `font_size` + the default BDF font, on a 64px-tall bigsign.** BDF block-scales in whole-cell-height multiples, so a multi-letter word like `OPEN` stacked vertically only fits up to roughly `font_size = 16` on a 64px-tall panel — larger sizes overflow and get skipped. That ceiling is **relative to the panel's real height, not a fixed number**: it's the panel height that constrains BDF's block-scale math, not `font_size` itself.
 
-There is **no font_size ceiling at all** with a hi-res font — `font = "Inter-Regular"` (or any bundled/user hi-res font) paints at its native real-pixel size and isn't bound by BDF's cell-height math. This is verified directly: `test_hires_badge_renders_on_large_panel` in the plugin's test suite draws a 64px-tall hi-res vertical badge on a 512×128 headless canvas and asserts it renders with no oversize warning — a size that would have been well past the BDF ceiling on a real bigsign. A same-size BDF badge on that same large canvas also renders taller without clipping (`test_bdf_block_scale_badge_on_large_panel`) — the constraint tracks panel height, not the font system.
+There is **no font_size ceiling at all** with a hi-res font — `font = "Inter-Regular"` (or any bundled/user hi-res font) paints at its native real-pixel size and isn't bound by BDF's cell-height math. This is verified directly: `test_hires_badge_renders_on_large_panel` in the plugin's test suite draws a 64px hi-res badge on a 512×128 headless canvas and asserts it renders with no oversize warning — a size that would have been well past the BDF ceiling on a real bigsign. BDF badges at `font_size` 24 and 96 on that same large canvas also block-scale up without clipping (`test_bdf_block_scale_badge_on_large_panel`) — the constraint tracks panel height, not the font system.
 
 So: if the skip-warning above fires and you actually want a **large** badge (rather than a smaller one), the fix it names — "a smaller `font_size` or a shorter label" — isn't your only option. Switching to a hi-res font via `font = "..."` gets you the large badge you wanted instead of shrinking it.
 

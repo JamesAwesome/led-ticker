@@ -877,6 +877,9 @@ def test_index_html_has_store_tab():
     assert "/api/store/install" in html
     assert "/api/store/upgrade" in html
     assert "/api/store/remove" in html
+    assert "/api/store/check-updates" in html
+    # The always-on Upgrade button is gone — Upgrade is now check-gated.
+    assert 'data-action="upgrade"' not in html or "upgradeChecks" in html
 
 
 def test_index_html_has_pack_chip_rendering():

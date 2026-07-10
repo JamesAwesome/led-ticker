@@ -886,6 +886,81 @@ class TestRotationSurfaceBlitDxLogical:
         assert dst.pixels == direct_dst.pixels
 
 
+class TestRotationSurfaceBlitDyLogical:
+    """RotationSurface.blit(dy_logical=...) forwards ty using the SAME
+    scale factor blit already uses for dx_logical (and cx_logical)."""
+
+    def test_scale1_dy_logical_shifts_by_exactly_dy(self) -> None:
+        """Angle-0 vertical shift exactness: content at row Y lands at
+        Y + dy_logical (scale-1's conversion factor is 1.0)."""
+        from led_ticker.rotate import make_rotation_surface
+
+        dst = _RecordingDst(32, 16)
+        surface = make_rotation_surface(dst)
+        surface.target.SetPixel(10, 8, 255, 0, 0)
+        surface.blit(dst, 0.0, 16.0, dy_logical=3.0)
+        assert dst.pixels.get((10, 11)) == (255, 0, 0)
+
+    def test_scale1_combined_dx_dy_shifts_diagonally(self) -> None:
+        """Combined dx+dy at angle 0: a diagonal shift, not just dy alone."""
+        from led_ticker.rotate import make_rotation_surface
+
+        dst = _RecordingDst(32, 16)
+        surface = make_rotation_surface(dst)
+        surface.target.SetPixel(10, 8, 255, 0, 0)
+        surface.blit(dst, 0.0, 16.0, dx_logical=5.0, dy_logical=3.0)
+        assert dst.pixels.get((15, 11)) == (255, 0, 0)
+
+    def test_scaled_dy_logical_scales_by_scale_over_two(self) -> None:
+        """At scale=4, ty_half = dy_logical * scale / 2, identical to the
+        dx_logical factor, then doubled again by the scale-2 wrapper's
+        SubFill expansion into real space."""
+        from led_ticker.rotate import make_rotation_surface
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = _RecordingDst(64, 64)
+        wrapper = ScaledCanvas(real, scale=4, content_height=16)
+        surface = make_rotation_surface(wrapper)
+        inner = unwrap_to_real(surface.target)
+        inner.SetPixel(20, 32, 255, 0, 0)  # physical coords, direct
+
+        surface.blit(wrapper, 0.0, 8.0, dy_logical=2.0)
+
+        # ty_half = 2.0 * 4 / 2 = 4.0 half-space rows -> +8 real px.
+        # Expected 2x2 block at real (20, 40).
+        lit = {xy for xy, rgb in real.pixels.items() if rgb == (255, 0, 0)}
+        assert lit == {(20, 40), (21, 40), (20, 41), (21, 41)}, lit
+
+    def test_dy_logical_default_is_back_compat(self) -> None:
+        """Omitting dy_logical entirely must match today's blit output
+        (identical to a no-kwarg call and to an explicit dy_logical=0.0)."""
+        from led_ticker.rotate import make_rotation_surface
+
+        no_kwarg_dst = _RecordingDst()
+        surface_a = make_rotation_surface(no_kwarg_dst)
+        surface_a.target.SetPixel(11, 8, 255, 0, 0)
+        surface_a.blit(no_kwarg_dst, 90.0, 8.0)
+
+        explicit_zero_dst = _RecordingDst()
+        surface_b = make_rotation_surface(explicit_zero_dst)
+        surface_b.target.SetPixel(11, 8, 255, 0, 0)
+        surface_b.blit(explicit_zero_dst, 90.0, 8.0, dy_logical=0.0)
+
+        assert explicit_zero_dst.pixels == no_kwarg_dst.pixels
+
+    def test_rotated_pivot_lands_at_pivot_plus_dx_dy(self) -> None:
+        """One rotated case: the pivot-painted pixel lands at
+        pivot + (dx_logical, dy_logical) regardless of angle (pivot
+        invariance under rotation survives combined translation)."""
+        from led_ticker.rotate import make_rotation_surface
+
+        dst = _RecordingDst(32, 32)
+        surface = make_rotation_surface(dst)
+        surface.target.SetPixel(16, 16, 255, 0, 0)  # exactly the pivot
+        surface.blit(dst, 137.5, 16.0, dx_logical=3.0, dy_logical=2.0)
+        assert dst.pixels.get((19, 18)) == (255, 0, 0)
+
+
 class TestScanRegionCompleteness:
     """rotate_blit is inverse-mapped: it iterates a DESTINATION scan region
     and samples the source. The region must cover everywhere the rotated

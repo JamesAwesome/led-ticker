@@ -425,10 +425,11 @@ class RotationSurface:
     - Call ``snapshot()`` once per spin (at spin entry or lazily on first
       blit): produces the half-res artifact used for per-frame blitting.
     - Call ``blit(canvas, angle, cx_logical)`` per frame. Optional
-      ``dx_logical`` (keyword-only, default 0.0) translates the rotated
-      content horizontally in logical px (+right) — e.g. a rolling ball
-      widget sliding a spinning face across the panel. No vertical
-      translation in v1.
+      ``dx_logical`` / ``dy_logical`` (keyword-only, default 0.0 each)
+      translate the rotated content horizontally (+right) / vertically
+      (+down) in logical px — e.g. a rolling ball widget sliding a spinning
+      face across the panel (``dx_logical``), or push-transition
+      compositing offsetting content vertically (``dy_logical``).
     - Call ``invalidate()`` on visit reset (widget's ``reset_frame()``).
     - Call ``clear()`` at the start of the next spin (resets + invalidates).
 
@@ -585,28 +586,34 @@ class RotationSurface:
         cx_logical: float,
         *,
         dx_logical: float = 0.0,
+        dy_logical: float = 0.0,
     ) -> None:
         """Inverse-rotate the artifact onto the canvas, then translate the
-        painted content horizontally by ``dx_logical`` (logical px; +dx
-        moves content RIGHT). Rolling (rotation + translation) widgets pass
-        this to slide the ball face across the panel as it spins. There is
-        no vertical translation in v1 (no ``dy_logical`` param) — ``rotate_blit``
-        itself supports ``ty`` symmetrically, but this surface doesn't need
-        it yet.
+        painted content by ``(dx_logical, dy_logical)`` (logical px; +dx
+        moves content RIGHT, +dy moves content DOWN — matching rotate_blit's
+        ``ty``/screen-y convention). Rolling (rotation + translation) widgets
+        pass this to slide the ball face across the panel as it spins;
+        push-transition compositing (flair.lottery) passes ``dy_logical`` for
+        vertical offset during a push.
 
         Scale > 1: blits the half buffer through the construct-once
         ``_dst_wrapper`` (scale=2, content_height=h_real//2).  ``real`` is
         rebound via one assignment per call (constraint #9).  Pivot in
-        half-space: ``(cx_logical*scale/2, h_real/4)``. ``dx_logical`` is
-        converted to the SAME half-space using the identical factor as the
-        pivot: ``tx_half = dx_logical * scale / 2``.
+        half-space: ``(cx_logical*scale/2, h_real/4)``. ``dx_logical`` and
+        ``dy_logical`` are converted to the SAME half-space using the
+        identical factor as the pivot: ``tx_half = dx_logical * scale / 2``,
+        ``ty_half = dy_logical * scale / 2``.
 
         Scale == 1: direct blit of the artifact with its extent.
-        ``dx_logical`` is passed straight through as ``tx`` (scale factor 1,
-        matching how ``cx_logical`` is used directly as ``cx`` here).
+        ``dx_logical``/``dy_logical`` are passed straight through as
+        ``tx``/``ty`` (scale factor 1, matching how ``cx_logical`` is used
+        directly as ``cx`` here).
 
         Lazy-snapshot: if ``has_snapshot`` is False when blit is called,
         snapshot() is called first (backward-compat for Task 5B).
+
+        Default ``dy_logical=0.0`` is byte-identical to blit's pre-dy
+        behavior (back-compat).
         """
         if not self.has_snapshot:
             self.snapshot()
@@ -621,6 +628,7 @@ class RotationSurface:
                 canvas.height / 2,
                 src_extent=extent,
                 tx=dx_logical,
+                ty=dy_logical,
             )
         else:
             assert self._half_buffer is not None
@@ -640,6 +648,7 @@ class RotationSurface:
             cx_half = cx_logical * self._scale / 2.0
             cy_half = h_real / 4.0
             tx_half = dx_logical * self._scale / 2.0
+            ty_half = dy_logical * self._scale / 2.0
             extent = half.lit_extent
             rotate_blit(
                 self._dst_wrapper,
@@ -649,6 +658,7 @@ class RotationSurface:
                 cy_half,
                 src_extent=extent,
                 tx=tx_half,
+                ty=ty_half,
             )
 
 

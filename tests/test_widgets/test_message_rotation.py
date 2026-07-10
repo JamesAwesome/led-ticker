@@ -902,9 +902,13 @@ class TestSnapshotOnceLifecycle:
             draw_text_calls.append(1)
             return _real_draw_text(canvas, font, x, y, color, text)
 
-        def _spy_rotate_blit(dst, src, angle, cx, cy, src_extent=None):
+        def _spy_rotate_blit(
+            dst, src, angle, cx, cy, src_extent=None, *, tx=0.0, ty=0.0
+        ):
             blit_calls.append(1)
-            return real_rotate_blit(dst, src, angle, cx, cy, src_extent=src_extent)
+            return real_rotate_blit(
+                dst, src, angle, cx, cy, src_extent=src_extent, tx=tx, ty=ty
+            )
 
         monkeypatch.setattr(msg_mod, "draw_text", _spy_draw_text)
         monkeypatch.setattr(rotate_mod, "rotate_blit", _spy_rotate_blit)

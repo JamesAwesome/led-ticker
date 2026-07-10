@@ -145,8 +145,12 @@ def rotate_blit(
     cx: float,
     cy: float,
     src_extent: tuple[int, int, int, int] | None = None,
+    *,
+    tx: float = 0.0,
+    ty: float = 0.0,
 ) -> None:
-    """Paint ``src`` onto ``dst`` rotated ``angle_deg`` clockwise about (cx, cy).
+    """Paint ``src`` onto ``dst`` rotated ``angle_deg`` clockwise about (cx, cy),
+    then translated by ``(tx, ty)`` in dst space.
 
     Inverse-mapped nearest-neighbor: for each dst pixel, sample src at
     R(-angle) — hole-free at every angle (a forward map leaves ~30% gaps
@@ -165,9 +169,13 @@ def rotate_blit(
     always blits.
 
     Sign convention: clockwise-positive in screen coordinates (y grows
-    DOWN). Forward map: (dx·cos − dy·sin, dx·sin + dy·cos). Inverse
-    (transpose, applied per dst pixel): sx = cx + dx·cos + dy·sin,
-    sy = cy − dx·sin + dy·cos.
+    DOWN). Forward map: dst = R(src − c) + c + t, i.e.
+    (dx·cos − dy·sin + tx, dx·sin + dy·cos + ty). +tx moves content RIGHT
+    in dst space; +ty moves content DOWN. Inverse (transpose, applied per
+    dst pixel, first undoing the translation): sx = cx + (dx−tx)·cos +
+    (dy−ty)·sin, sy = cy − (dx−tx)·sin + (dy−ty)·cos, where dx = px − cx,
+    dy = py − cy for dst pixel (px, py). Defaults ``tx=0.0, ty=0.0`` are
+    byte-identical to the pre-translation behavior (back-compat).
 
     Inner loop: DDA forward differencing (scanline rasterization). Per-row
     start terms are computed once; within a row sx and sy each advance by
@@ -210,8 +218,8 @@ def rotate_blit(
     ys: list[float] = []
     for px, py in ext_corners:
         dx, dy = px - cx, py - cy
-        xs.append(cx + dx * cos_t - dy * sin_t)
-        ys.append(cy + dx * sin_t + dy * cos_t)
+        xs.append(cx + dx * cos_t - dy * sin_t + tx)
+        ys.append(cy + dx * sin_t + dy * cos_t + ty)
 
     dst_w: int = getattr(dst, "width", src.width)
     dst_h: int = getattr(dst, "height", src.height)
@@ -231,22 +239,28 @@ def rotate_blit(
     # int(sx + 0.5) ≡ round(sx) for non-halfway values (the overwhelming
     # majority in practice at LED-panel resolutions).
     #
+    # Translation (tx, ty) is folded into the row-start base terms only —
+    # undoing +t before undoing the rotation (inverse of dst = R(src-c)+c+t)
+    # costs nothing per-pixel: dx0 and dy below are each computed once
+    # (dx0 outside the row loop, dy once per row, same as before this
+    # feature existed).
+    #
     # Row-start:
-    #   dx0 = scan_x0 - cx
-    #   dy_y = y - cy
+    #   dx0 = scan_x0 - tx - cx
+    #   dy_y = y - ty - cy
     #   sx_row_start = cx + dx0*cos_t + dy_y*sin_t + 0.5
     #   sy_row_start = cy - dx0*sin_t + dy_y*cos_t + 0.5
     # Then for each x in the row:
     #   sx += cos_t   (each step moves one column forward in src-space)
     #   sy -= sin_t
 
-    dx0 = scan_x0 - cx
+    dx0 = scan_x0 - tx - cx
     # Base terms (y-independent part of the per-row start):
     base_sx = cx + dx0 * cos_t + 0.5
     base_sy = cy - dx0 * sin_t + 0.5
 
     for y in range(scan_y0, scan_y1 + 1):
-        dy = y - cy
+        dy = y - ty - cy
         # Row-start src coords (truncate-as-round via the +0.5 fold above).
         sx_f = base_sx + dy * sin_t
         sy_f = base_sy + dy * cos_t
@@ -410,7 +424,11 @@ class RotationSurface:
     - Draw into ``target`` using LOGICAL coordinates.
     - Call ``snapshot()`` once per spin (at spin entry or lazily on first
       blit): produces the half-res artifact used for per-frame blitting.
-    - Call ``blit(canvas, angle, cx_logical)`` per frame.
+    - Call ``blit(canvas, angle, cx_logical)`` per frame. Optional
+      ``dx_logical`` (keyword-only, default 0.0) translates the rotated
+      content horizontally in logical px (+right) — e.g. a rolling ball
+      widget sliding a spinning face across the panel. No vertical
+      translation in v1.
     - Call ``invalidate()`` on visit reset (widget's ``reset_frame()``).
     - Call ``clear()`` at the start of the next spin (resets + invalidates).
 
@@ -560,15 +578,32 @@ class RotationSurface:
         self._buffer.clear()
         self.has_snapshot = False
 
-    def blit(self, canvas: Any, angle_deg: float, cx_logical: float) -> None:
-        """Inverse-rotate the artifact onto the canvas.
+    def blit(
+        self,
+        canvas: Any,
+        angle_deg: float,
+        cx_logical: float,
+        *,
+        dx_logical: float = 0.0,
+    ) -> None:
+        """Inverse-rotate the artifact onto the canvas, then translate the
+        painted content horizontally by ``dx_logical`` (logical px; +dx
+        moves content RIGHT). Rolling (rotation + translation) widgets pass
+        this to slide the ball face across the panel as it spins. There is
+        no vertical translation in v1 (no ``dy_logical`` param) — ``rotate_blit``
+        itself supports ``ty`` symmetrically, but this surface doesn't need
+        it yet.
 
         Scale > 1: blits the half buffer through the construct-once
         ``_dst_wrapper`` (scale=2, content_height=h_real//2).  ``real`` is
         rebound via one assignment per call (constraint #9).  Pivot in
-        half-space: ``(cx_logical*scale/2, h_real/4)``.
+        half-space: ``(cx_logical*scale/2, h_real/4)``. ``dx_logical`` is
+        converted to the SAME half-space using the identical factor as the
+        pivot: ``tx_half = dx_logical * scale / 2``.
 
         Scale == 1: direct blit of the artifact with its extent.
+        ``dx_logical`` is passed straight through as ``tx`` (scale factor 1,
+        matching how ``cx_logical`` is used directly as ``cx`` here).
 
         Lazy-snapshot: if ``has_snapshot`` is False when blit is called,
         snapshot() is called first (backward-compat for Task 5B).
@@ -585,6 +620,7 @@ class RotationSurface:
                 cx_logical,
                 canvas.height / 2,
                 src_extent=extent,
+                tx=dx_logical,
             )
         else:
             assert self._half_buffer is not None
@@ -603,6 +639,7 @@ class RotationSurface:
             half = self._half_buffer
             cx_half = cx_logical * self._scale / 2.0
             cy_half = h_real / 4.0
+            tx_half = dx_logical * self._scale / 2.0
             extent = half.lit_extent
             rotate_blit(
                 self._dst_wrapper,
@@ -611,6 +648,7 @@ class RotationSurface:
                 cx_half,
                 cy_half,
                 src_extent=extent,
+                tx=tx_half,
             )
 
 

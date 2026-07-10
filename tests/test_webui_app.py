@@ -878,8 +878,13 @@ def test_index_html_has_store_tab():
     assert "/api/store/upgrade" in html
     assert "/api/store/remove" in html
     assert "/api/store/check-updates" in html
-    # The always-on Upgrade button is gone — Upgrade is now check-gated.
-    assert 'data-action="upgrade"' not in html or "upgradeChecks" in html
+    # The always-on Upgrade button is gone — Upgrade is now check-gated: it
+    # appears exactly once in the template (inside the gated branch), and the
+    # availability check precedes the button markup in source order.
+    assert html.count('data-action="upgrade"') == 1
+    assert html.index("chk && chk.upgrade_available") < html.index(
+        'data-action="upgrade"'
+    )
 
 
 def test_index_html_has_pack_chip_rendering():
@@ -3036,6 +3041,41 @@ async def test_check_updates_shared_package_one_resolve_per_line(tmp_path, monke
         nss = {r["namespace"] for r in (await resp.json())["results"]}
         assert nss == {"nyancat", "pacman"}
         assert calls["n"] == 2  # two distinct lines -> two resolves (not 4)
+    finally:
+        await client.close()
+
+
+async def test_check_updates_shared_line_resolves_once(tmp_path, monkeypatch):
+    # Two DISTINCT namespaces backed by the SAME pip package (the
+    # led-ticker-flair case: one manifest line serves both siblings). Their
+    # match keys both resolve to the ONE shared line, so this exercises the
+    # actual dedup — unlike the test above, where two distinct lines happen
+    # to add up to the same resolve count as if dedup were absent.
+    flair_a = _entry("flair-a", "flair_a", pypi="led-ticker-flair", version="0.1.0")
+    flair_b = _entry("flair-b", "flair_b", pypi="led-ticker-flair", version="0.1.0")
+    calls = {"n": 0}
+
+    def resolve(line, **kw):
+        calls["n"] += 1
+        return line.replace("0.1.0", "0.2.0")
+
+    _check_fixtures(
+        monkeypatch,
+        entries=[flair_a, flair_b],
+        active={"flair_a", "flair_b"},
+        resolve=resolve,
+    )
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-flair==0.1.0\n")
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        by_ns = {r["namespace"]: r for r in (await resp.json())["results"]}
+        assert set(by_ns) == {"flair_a", "flair_b"}
+        assert calls["n"] == 1  # ONE shared line -> ONE resolve, not one per namespace
+        assert by_ns["flair_a"]["latest"] == by_ns["flair_b"]["latest"]
     finally:
         await client.close()
 

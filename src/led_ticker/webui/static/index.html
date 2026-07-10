@@ -1094,6 +1094,10 @@ function renderStore(data) {
       // Upgrade is offered ONLY after a check reports the line would change.
       // (The always-on button was removed — it invited upgrades that were
       // often no-ops. `upgradeChecks` is populated by "Check for updates".)
+      // Unlike Remove, this button is gated on auth only (needsAuth below) —
+      // never on `removable` — so upgrading one led-ticker-flair sibling
+      // doesn't get blocked by another sibling still referencing the shared
+      // manifest line.
       const chk = upgradeChecks[p.namespace];
       if (chk && chk.upgrade_available) {
         const target = esc(chk.latest || "");

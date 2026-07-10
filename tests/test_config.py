@@ -1286,3 +1286,17 @@ def test_separator_size_parsed_on_both_homes(tmp_path):
     assert section.separator_size == 4
     assert section.widget_transition.separator_size == 3
     assert "separator_size" not in section.widget_transition.extra
+
+
+def test_load_config_preserves_raw_toml_for_plugin_blocks(tmp_path):
+    cfg_file = tmp_path / "config.toml"
+    cfg_file.write_text(
+        "[display]\nrows = 16\ncols = 32\nchain_length = 5\n\n"
+        "[storefront]\nfont_size = 24\n\n"
+        '[storefront.open]\ntext = "OPEN"\n'
+    )
+    from led_ticker.config import load_config
+
+    cfg = load_config(cfg_file)
+    assert cfg._raw["storefront"]["font_size"] == 24
+    assert cfg._raw["storefront"]["open"]["text"] == "OPEN"

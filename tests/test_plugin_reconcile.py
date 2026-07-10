@@ -1381,3 +1381,87 @@ def test_apply_volume_visibility_noop_when_absent(tmp_path):
         assert sys.path == saved
     finally:
         sys.path[:] = saved
+
+
+# ── storefront flap regression (overlay-only plugin uninstalled every other
+# boot) ─────────────────────────────────────────────────────────────────────
+#
+# Reproduction: a manifest line for the new `storefront` plugin resolved to the
+# DIST name (`led-ticker-storefront`), not the entry-point namespace
+# (`storefront`), because no catalog entry mapped it — so `_declared_namespaces`
+# disagreed with `installed_plugin_dists()` (keyed by namespace) every boot.
+# AND `referenced_namespaces` only walks widget/transition `type` strings, so a
+# top-level `[storefront]` overlay block (no `type =` anywhere) was invisible to
+# the uninstall guard. Both gaps let compute_diff emit the SAME plugin in both
+# to_install and to_uninstall in one pass. Fix 1: catalog entry (namespace
+# resolution). Fix 2: overlay blocks count as referenced (defense in depth).
+
+
+def test_declared_namespaces_storefront_pep508_line_resolves_to_namespace(tmp_path):
+    """The exact repro line: `name @ git+url#subdirectory=...` (PEP 508 direct
+    reference form). Without the catalog entry this resolves to the dedup key
+    `led-ticker-storefront` (the space before `@ git+` short-circuits
+    `_requirement_key`'s pypi-branch parse) and stays UNMAPPED to the
+    `storefront` namespace — the flap. With the catalog entry present, the pypi
+    source's key is also `led-ticker-storefront`, so it now maps to `storefront`."""
+    import led_ticker.plugin_reconcile as r
+
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(
+        "led-ticker-storefront @ git+https://github.com/JamesAwesome/"
+        "led-ticker-plugins.git@f41eeb7780d1a2726616385ccc5e690f5f3ca81e"
+        "#subdirectory=plugins/storefront\n"
+    )
+    config = tmp_path / "config.toml"
+    config.write_text("")
+
+    assert "storefront" in r._declared_namespaces(config)
+
+
+def test_declared_namespaces_storefront_bare_git_url_resolves_to_namespace(tmp_path):
+    """The bare `git+url#subdirectory=...` form (no leading `name @`) parses via
+    `_requirement_key`'s git branch to the dedup key
+    `led-ticker-plugins#plugins/storefront` — this must ALSO map to `storefront`
+    via the catalog's git source (not just the pypi source in the test above)."""
+    import led_ticker.plugin_reconcile as r
+
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(
+        "git+https://github.com/JamesAwesome/led-ticker-plugins.git@main"
+        "#subdirectory=plugins/storefront\n"
+    )
+    config = tmp_path / "config.toml"
+    config.write_text("")
+
+    assert "storefront" in r._declared_namespaces(config)
+
+
+def test_referenced_namespaces_reads_top_level_overlay_block(tmp_path):
+    """An overlay-only plugin's `[<namespace>]` config block (e.g. `[storefront]`)
+    has no widget/transition `type` string ANYWHERE in the config — the existing
+    dotted-value walk can never see it. The top-level-key scan must report it
+    as referenced so the uninstall guard blocks pruning it."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('[storefront]\ncorner = "top_right"\n')
+    refs = r.referenced_namespaces(cfg)
+    assert "storefront" in refs
+    reason = r.uninstall_blocked_reason("storefront", "led-ticker-storefront", refs)
+    assert reason is not None
+
+
+def test_referenced_namespaces_core_owned_blocks_are_not_reported(tmp_path):
+    """[display], [web], etc. are core-owned top-level tables — a plugin will
+    never be named after one, so they must NOT count as referenced namespaces
+    (that would make the guard block uninstalling a plugin actually named e.g.
+    "web", which doesn't exist, but more importantly proves the exclusion set
+    is honored rather than every top-level key being swept in unconditionally)."""
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        "[display]\nrows = 16\n[web]\nenabled = true\n[busy_light]\nenabled = false\n"
+    )
+    refs = r.referenced_namespaces(cfg)
+    assert refs.isdisjoint({"display", "web", "busy_light"})

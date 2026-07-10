@@ -73,3 +73,23 @@ def test_compute_cursor_is_public():
 
     assert "compute_cursor" in P.__all__
     assert P.compute_cursor is core_compute_cursor
+
+
+def test_plugin_config_block_returns_block_or_empty():
+    from led_ticker.config import AppConfig, DisplayConfig
+    from led_ticker.plugin import plugin_config_block
+
+    cfg = AppConfig(
+        display=DisplayConfig(),
+        sections=[],
+        _raw={"storefront": {"font_size": 24, "open": {"text": "OPEN"}}},
+    )
+    assert plugin_config_block(cfg, "storefront")["font_size"] == 24
+    assert plugin_config_block(cfg, "storefront")["open"]["text"] == "OPEN"
+    assert plugin_config_block(cfg, "absent") == {}
+
+
+def test_plugin_config_block_in_public_all():
+    import led_ticker.plugin as p
+
+    assert "plugin_config_block" in p.__all__

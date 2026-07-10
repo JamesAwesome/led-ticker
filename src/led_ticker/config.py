@@ -373,6 +373,17 @@ class AppConfig:
     _coerce_warnings: list[CoercionWarning] = field(
         default_factory=list, repr=False, compare=False
     )
+    # Full parsed TOML, preserved so plugin-owned top-level blocks (e.g.
+    # [storefront]) survive load_config. Read via plugin_config_block().
+    # WARNING: this carries the ENTIRE raw TOML, including any secrets a user
+    # left inline (a token, an API key) instead of in .env. It must never be
+    # serialized — no dataclasses.asdict(), no JSON dump, no logging it
+    # wholesale — or a secret leaks into a log file / status endpoint / bug
+    # report. compare=False and repr=False above keep it out of equality
+    # checks and reprs, but that is NOT a redaction guarantee for an explicit
+    # serializer; any new code path that dumps AppConfig must exclude this
+    # field explicitly.
+    _raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
 
 _DISPLAY_INT_FIELDS: frozenset[str] = frozenset(
@@ -774,4 +785,5 @@ def load_config(path: Path) -> AppConfig:
         plugins=plugins,
         web=web,
         _coerce_warnings=coerce_warnings,
+        _raw=raw,
     )

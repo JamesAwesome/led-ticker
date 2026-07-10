@@ -155,6 +155,7 @@ __all__ = [
     "get_text_width",
     "is_scaled",
     "make_color",
+    "plugin_config_block",
     "make_rotation_surface",
     "measure_emoji_at",
     "measure_width",
@@ -463,6 +464,21 @@ def make_color(r: int, g: int, b: int) -> Color:
     from led_ticker._compat import require_graphics
 
     return require_graphics().Color(r, g, b)
+
+
+def plugin_config_block(config: Any, name: str) -> dict[str, Any]:
+    """Return the raw TOML table for a plugin's top-level config block (e.g.
+    ``plugin_config_block(ctx.config, "storefront")``), or an empty dict if the
+    block is absent. The public way for an overlay/service plugin to read its
+    own ``[name]`` block from ``StartupContext.config`` without reaching into
+    private ``AppConfig`` internals.
+
+    Two caveats: (1) the returned mapping is a LIVE reference into the config's
+    raw TOML, not a copy — mutating it mutates the config's ``_raw``, so copy
+    it first if you need to modify it; (2) if the user wrote a non-table value
+    for this key (e.g. ``storefront = "x"``), that raw value is returned as-is
+    (not coerced to a dict) — the caller owns validating the block's shape."""
+    return getattr(config, "_raw", {}).get(name, {})
 
 
 def draw_text(

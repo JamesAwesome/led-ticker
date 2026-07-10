@@ -15,6 +15,8 @@ from pathlib import Path
 
 import attrs
 
+from led_ticker.reload import _CORE_OWNED_TOP_LEVEL_KEYS
+
 _log = logging.getLogger(__name__)
 
 
@@ -155,8 +157,18 @@ def referenced_namespaces(config_path: Path) -> set[str]:
     ONLY via ``transition = "nyancat.forward"`` (never a widget ``type``) must
     still count as referenced so the uninstall guard blocks it — otherwise the
     guard would let the plugin be uninstalled while config still uses it,
-    breaking the next boot. Never raises — a bad or missing config returns an
-    empty set.
+    breaking the next boot.
+
+    ALSO treats every top-level TOML table key that isn't core-owned (the same
+    ``_CORE_OWNED_TOP_LEVEL_KEYS`` frozenset ``reload.py`` uses to detect
+    plugin-owned config blocks) as a referenced namespace. An overlay-only
+    plugin — one that paints via a frame overlay hook rather than a widget/
+    transition ``type`` string, e.g. the storefront plugin's ``[storefront]``
+    block — has no dotted value anywhere in config for the walk above to find,
+    so without this the uninstall guard would never see it as referenced and
+    would prune it out from under the running overlay on the very next boot.
+
+    Never raises — a bad or missing config returns an empty set.
     """
     try:
         data = tomllib.loads(config_path.read_text(encoding="utf-8"))
@@ -191,6 +203,8 @@ def referenced_namespaces(config_path: Path) -> set[str]:
                 walk(v)
 
     walk(data)
+    if isinstance(data, dict):
+        out.update(set(data) - _CORE_OWNED_TOP_LEVEL_KEYS)
     return out
 
 

@@ -3,7 +3,7 @@
 This runbook covers the one-time setup required before any package can be published, the first-publish sequence (core then plugins), and the procedure for subsequent releases.
 
 **Who:** the repository owner (`JamesAwesome`).  
-**Packages:** `led-ticker-core` (core, `led-ticker` repo) + eight plugin packages (`led-ticker-pool`, `led-ticker-baseball`, `led-ticker-crypto`, `led-ticker-calendar`, `led-ticker-rss`, `led-ticker-weather`, `led-ticker-flair`, `led-ticker-telnet`) in the `led-ticker-plugins` repo. Both core and every plugin are **tag-driven** (hatch-vcs): the git tag is the version — no `pyproject.toml` version edit is needed or correct.
+**Packages:** `led-ticker-core` (core, `led-ticker` repo) + nine plugin packages (`led-ticker-pool`, `led-ticker-baseball`, `led-ticker-crypto`, `led-ticker-calendar`, `led-ticker-rss`, `led-ticker-weather`, `led-ticker-flair`, `led-ticker-telnet`, `led-ticker-storefront`) in the `led-ticker-plugins` repo. Both core and every plugin are **tag-driven** (hatch-vcs): the git tag is the version — no `pyproject.toml` version edit is needed or correct.
 
 ---
 
@@ -35,6 +35,7 @@ A *pending* Trusted Publisher creates the PyPI project automatically on the firs
 | `led-ticker-weather` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
 | `led-ticker-flair` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
 | `led-ticker-telnet` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
+| `led-ticker-storefront` | `JamesAwesome` | `led-ticker-plugins` | `publish.yml` | `release` |
 
 ---
 

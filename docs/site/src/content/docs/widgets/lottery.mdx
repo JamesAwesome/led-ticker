@@ -50,20 +50,26 @@ colors = [[255, 60, 60], [60, 220, 60], [255, 180, 0]]
 
 ## Options
 
-| Field        | Type                    | Default        | Notes                                                                                                                                                                                                                           |
-| ------------ | ----------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `words`      | list of str, 1-8        | required       | One ball per word, in reading order. Each word must be a non-empty string; `led-ticker validate` catches empty entries and lists over 8.                                                                                        |
-| `ball_style` | `"classic"` / `"solid"` | `"classic"`    | See "Both ball styles" above.                                                                                                                                                                                                   |
-| `colors`     | list of `[r, g, b]`     | auto-palette   | Must be the same length as `words` if given — colors the rim ring (classic) or the fill (solid). Omit it to cycle an 8-color built-in palette (red, green, amber, blue, magenta, cyan, orange, violet), repeating past 8 words. |
-| `roll_ms`    | int >= 100              | `800`          | Wall-clock roll duration for a single ball's staggered-relay window. Total reveal time for `n` balls is roughly `n × roll_ms`.                                                                                                  |
-| `font`       | str                     | `"Inter-Bold"` | Hi-res font used for each ball's label — see [Fonts](/concepts/fonts/) for the bundled hi-res catalog.                                                                                                                          |
-| `border`     | any core border spec    | none           | Same `border` field as `message` / `countdown` / `two_row` / etc — paints the panel perimeter, not the balls. See [Borders](/concepts/borders/).                                                                                |
+| Field          | Type                             | Default        | Notes                                                                                                                                                                                                                           |
+| -------------- | -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `words`        | list of str, 1-8                 | required       | One ball per word, in reading order. Each word must be a non-empty string; `led-ticker validate` catches empty entries and lists over 8.                                                                                        |
+| `ball_style`   | `"classic"` / `"solid"`          | `"classic"`    | See "Both ball styles" above.                                                                                                                                                                                                   |
+| `colors`       | list of `[r, g, b]`              | auto-palette   | Must be the same length as `words` if given — colors the rim ring (classic) or the fill (solid). Omit it to cycle an 8-color built-in palette (red, green, amber, blue, magenta, cyan, orange, violet), repeating past 8 words. |
+| `roll_ms`      | int >= 100                       | `800`          | Wall-clock roll duration for a single ball's staggered-relay window. Total reveal time for `n` balls is roughly `n × roll_ms`.                                                                                                  |
+| `choreography` | `"rack_fill"` / `"roll_through"` | `"rack_fill"`  | Entry order — see [Choreography](#choreography-rack-fill-or-roll-through) below. Requires flair >= 0.6.0.                                                                                                                       |
+| `font`         | str                              | `"Inter-Bold"` | Hi-res font used for each ball's label — see [Fonts](/concepts/fonts/) for the bundled hi-res catalog.                                                                                                                          |
+| `border`       | any core border spec             | none           | Same `border` field as `message` / `countdown` / `two_row` / etc — paints the panel perimeter, not the balls. See [Borders](/concepts/borders/).                                                                                |
 
 ## Behavior notes
 
-### Rack-fill entry, not left-to-right
+### Choreography — rack-fill or roll-through
 
-Balls don't enter in config order — they enter **rack-fill**: the first ball to roll lands in the **rightmost** slot, the next stops one slot short, and so on, so no rolling ball ever crosses a ball that's already settled. Reveal order is therefore right-to-left (the last word in `words` lands first), but the **final display always reads `words` left-to-right, unchanged** — word index and slot index are the same throughout; only the _timing_ of which slot fills first is reordered.
+Two entry orders, selected by `choreography` (flair >= 0.6.0):
+
+- **`"rack_fill"`** (default): the first ball to roll lands in the **rightmost** slot, the next stops one slot short, and so on — no rolling ball ever crosses a ball that's already settled. Reveal order is right-to-left (the last word in `words` lands first).
+- **`"roll_through"`**: balls fill **left-to-right in word order**, and each later ball visibly rolls _in front of_ the settled balls it passes on its way to its slot — a busier, more chaotic lottery-machine look.
+
+In both modes the **final display always reads `words` left-to-right, unchanged** — word index and slot index are the same throughout; only the _timing_ of which slot fills first differs.
 
 ### Derived sizing — no size knobs
 

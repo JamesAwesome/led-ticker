@@ -10,7 +10,8 @@ from typing import Any
 from led_ticker._config_scan import config_references
 from led_ticker.app.plugin_cmd import (
     _declared_keys,
-    _find_requirement_lines,
+    _entry_match_keys,
+    _find_requirement_lines_for_keys,
     _requirement_key,
     _strip_comment,
 )
@@ -74,8 +75,16 @@ def build_store(
     ns_to_entry: dict[str, CatalogEntry] = {e.namespace: e for e in catalog.entries}
 
     # Precompute each catalog entry's manifest dedup key (mirrors plugin_cmd.cmd_list).
+    # entry_key is the DEFAULT-source key, kept for pack grouping / pending-count
+    # dedup. entry_match_keys is the union of ALL source keys the entry could be
+    # declared under — used for the declared? test so a plugin added via a
+    # non-default source (e.g. `--source git` when pypi is the catalog default)
+    # is recognized as declared instead of showing as "available".
     entry_key: dict[str, str] = {
         e.namespace: _requirement_key(e.requirement()) for e in catalog.entries
+    }
+    entry_match_keys: dict[str, set[str]] = {
+        e.namespace: _entry_match_keys(e) for e in catalog.entries
     }
 
     # Reverse map: dedup key -> namespaces that share it.  Multiple catalog
@@ -92,7 +101,7 @@ def build_store(
     # Catalog entries — one entry each regardless of install state.
     for entry in catalog.entries:
         ns = entry.namespace
-        is_declared = entry_key[ns] in declared_keys
+        is_declared = bool(entry_match_keys[ns] & declared_keys)
         is_active = ns in active
 
         if is_declared and is_active:
@@ -120,7 +129,9 @@ def build_store(
         # restart_to_activate/restart_to_remove entry already shows a pending
         # badge of its own.
         if state == "active" and stamp is not None and ns in stamp:
-            lines = _find_requirement_lines(manifest_path, entry_key[ns])
+            lines = _find_requirement_lines_for_keys(
+                manifest_path, entry_match_keys[ns]
+            )
             if lines and _strip_comment(lines[-1]) != _strip_comment(stamp[ns]):
                 state = "restart_to_upgrade"
 

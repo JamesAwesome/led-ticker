@@ -417,3 +417,66 @@ def test_cmd_upgrade_all_aggregates_failures(tmp_path, monkeypatch):
     text = (tmp_path / "requirements-plugins.txt").read_text()
     assert "pool-v0.9.0" in text  # the good one still upgraded
     assert "led-ticker-crypto==0.1.0" in text  # the bad one untouched
+
+
+# --- non-default-source declaration ------------------------------------------
+# Regression: a catalog entry ships multiple sources (pypi default + git); a
+# plugin declared via `--source git` must still be found by the upgrade verb
+# (was 404/"not declared" when keyed only off the pypi-default source).
+
+from led_ticker.app.plugin_cmd import (  # noqa: E402
+    _entry_match_keys,
+    _find_requirement_lines_for_keys,
+)
+
+
+def _pool_multisource_entry():
+    return CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(type="pypi", package="led-ticker-pool", version="0.1.0"),
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+
+
+def test_entry_match_keys_covers_all_sources():
+    keys = _entry_match_keys(_pool_multisource_entry())
+    # pypi key (from the default source) AND the git repo#subdir key.
+    assert "led-ticker-pool" in keys
+    assert "led-ticker-plugins#plugins/pool" in keys
+
+
+def test_find_requirement_lines_for_keys_matches_any(tmp_path):
+    path = tmp_path / "requirements-plugins.txt"
+    path.write_text(
+        "led-ticker-crypto==0.1.0\n"
+        f"{MONOREPO}.git@pool-v0.1.0#subdirectory=plugins/pool\n"
+    )
+    found = _find_requirement_lines_for_keys(path, {"led-ticker-plugins#plugins/pool"})
+    assert len(found) == 1
+    assert "pool-v0.1.0" in found[0]
+
+
+def test_cmd_upgrade_finds_non_default_source_declaration(tmp_path, monkeypatch):
+    """pool's catalog default is pypi, but it's declared here via its git
+    source — the upgrade verb must still find + rewrite that line, not 404."""
+    entry = _pool_multisource_entry()
+    git_line = entry.requirement(source="git")  # git+...@pool-v0.1.0#subdirectory=...
+    config = _manifest(tmp_path, git_line + "\n")
+    new_line = git_line.replace("pool-v0.1.0", "pool-v0.2.0")
+    monkeypatch.setattr(up, "resolve_latest", lambda line, **kw: new_line)
+    code = up.cmd_upgrade("pool", config_path=config, catalog=Catalog(entries=(entry,)))
+    assert code == 0
+    text = (tmp_path / "requirements-plugins.txt").read_text()
+    assert "pool-v0.2.0" in text
+    assert "# upgraded" in text

@@ -522,15 +522,19 @@ def build_webui_app(
         # Lazy imports keep the module rgbmatrix-pure.
         from led_ticker.app import plugin_upgrade  # noqa: PLC0415
         from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
-            _find_requirement_lines,
+            _entry_match_keys,
+            _find_requirement_lines_for_keys,
             _requirement_key,
             _strip_comment,
         )
 
-        req_key = _requirement_key(entry.requirement())
+        # Match against EVERY source key the entry could be declared under, so a
+        # plugin added via its non-default source (e.g. `--source git` when pypi
+        # is the catalog default) is found instead of 404ing as "not declared".
+        match_keys = _entry_match_keys(entry)
         manifest_path = config_path.parent / "requirements-plugins.txt"
 
-        current_lines = _find_requirement_lines(manifest_path, req_key)
+        current_lines = _find_requirement_lines_for_keys(manifest_path, match_keys)
         if not current_lines:
             return web.json_response({"error": "not declared"}, status=404)
         old_spec = _strip_comment(current_lines[-1])
@@ -566,7 +570,7 @@ def build_webui_app(
                 if (
                     stripped
                     and not stripped.startswith("#")
-                    and _requirement_key(stripped) == req_key
+                    and _requirement_key(stripped) in match_keys
                 ):
                     if _strip_comment(stripped) != old_spec:
                         raise _Conflict

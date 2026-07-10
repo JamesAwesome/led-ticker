@@ -806,3 +806,74 @@ def test_redact_anonymous_coarsens_restart_to_upgrade():
     out = redact_anonymous(payload)
     assert out["plugins"][0]["state"] == "installed"
     assert out["pending_count"] == 0
+
+
+def _pool_multisource_catalog() -> Catalog:
+    """pool with pypi as the DEFAULT source and git as a secondary source —
+    exercises a plugin declared via its non-default (git) source."""
+    entry = CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(type="pypi", package="led-ticker-pool", version="0.1.0"),
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    return Catalog(entries=(entry,))
+
+
+def test_store_non_default_source_declaration_is_declared(tmp_path):
+    """A plugin declared via its non-default (git) source must show as
+    declared/active — otherwise the Upgrade/Remove buttons never render."""
+    catalog = _pool_multisource_catalog()
+    entry = catalog.entries[0]
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(entry.requirement(source="git") + "\n")  # git, not pypi default
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    status = {"plugins": [{"namespace": "pool"}]}
+
+    payload = build_store(
+        manifest_path=manifest,
+        config_path=config,
+        status=status,
+        token_configured=True,
+        catalog=catalog,
+    )
+    row = next(p for p in payload["plugins"] if p["namespace"] == "pool")
+    assert row["state"] == "active"  # was "available" before the multi-key fix
+    assert row["removable"] is True
+
+
+def test_store_non_default_source_restart_to_upgrade(tmp_path):
+    """restart_to_upgrade must also fire for a git-declared plugin whose
+    stamped line differs (the badge lookup must use all source keys)."""
+    catalog = _pool_multisource_catalog()
+    entry = catalog.entries[0]
+    manifest = tmp_path / "requirements-plugins.txt"
+    old = entry.requirement(source="git")
+    new = old.replace("pool-v0.1.0", "pool-v0.2.0")
+    manifest.write_text(new + "  # upgraded 2026-07-10\n")
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    status = {"plugins": [{"namespace": "pool"}]}
+
+    payload = build_store(
+        manifest_path=manifest,
+        config_path=config,
+        status=status,
+        token_configured=True,
+        catalog=catalog,
+        stamp={"pool": old},  # installed at the OLD git line
+    )
+    row = next(p for p in payload["plugins"] if p["namespace"] == "pool")
+    assert row["state"] == "restart_to_upgrade"
+    assert payload["pending_count"] == 1

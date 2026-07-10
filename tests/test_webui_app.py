@@ -2760,3 +2760,57 @@ async def test_upgrade_manifest_write_failure_is_500(tmp_path, monkeypatch):
         assert "manifest write failed: disk full" in (await resp.json())["error"]
     finally:
         await client.close()
+
+
+async def test_upgrade_finds_non_default_source_declaration(tmp_path, monkeypatch):
+    """pool's catalog default is pypi, but it's declared via git — the endpoint
+    must find + rewrite that line, not 404 as "not declared"."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.app import plugin_upgrade
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    entry = CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(type="pypi", package="led-ticker-pool", version="0.1.0"),
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=(entry,))
+    )
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {"plugins": [{"namespace": "pool", "state": "active"}]},
+    )
+    monkeypatch.setattr(plugin_upgrade, "resolve_latest", lambda line, **kw: NEW_LINE)
+
+    client = await _client(tmp_path, token="s3cret")
+    manifest = tmp_path / "requirements-plugins.txt"
+    manifest.write_text(OLD_LINE + "\n")  # declared via the git (non-default) source
+    try:
+        resp = await client.post(
+            "/api/store/upgrade",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200, await resp.text()
+        assert (await resp.json())["upgraded"] == {"from": OLD_LINE, "to": NEW_LINE}
+        assert NEW_LINE in manifest.read_text()
+    finally:
+        await client.close()

@@ -6,6 +6,7 @@ through `sys.executable -m pip` so the active interpreter's environment is the
 install target; the module never imports pip.
 """
 
+import contextlib
 import difflib
 import importlib.metadata
 import re
@@ -339,6 +340,48 @@ def _removed_phrase(lines: list[str], key: str) -> str:
     if len(lines) == 1:
         return repr(lines[0].strip())
     return f"{len(lines)} lines for {key!r}"
+
+
+def _entry_match_keys(entry: CatalogEntry) -> set[str]:
+    """Every manifest dedup key a catalog entry could be declared under — one
+    per source (git/pypi), pinned or unpinned.
+
+    A catalog entry ships multiple sources (e.g. pool has a pypi AND a git
+    source); ``entry.requirement()`` with no ``source=`` always builds the
+    DEFAULT (``sources[0]``) key, so keying a manifest lookup off it misses a
+    plugin the operator declared via the non-default source
+    (``plugin add pool --source git`` — a documented path). Matching against
+    the union of ALL source keys finds the line regardless of which source
+    declared it. Mirrors ``plugin_reconcile._declared_requirements``'
+    key_to_ns construction. Falls back to the default-source key if source
+    enumeration turns up nothing.
+    """
+    keys: set[str] = set()
+    for src in entry.sources:
+        for pinned in (True, False):
+            try:
+                keys.add(
+                    _requirement_key(entry.requirement(source=src.type, pinned=pinned))
+                )
+            except Exception:  # noqa: BLE001
+                continue
+    if not keys:
+        with contextlib.suppress(Exception):
+            keys.add(_requirement_key(entry.requirement()))
+    return keys
+
+
+def _find_requirement_lines_for_keys(path: Path, keys: set[str]) -> list[str]:
+    """Like ``_find_requirement_lines`` but matches ANY of ``keys`` — used where
+    a plugin may be declared under one of several source-specific keys (see
+    ``_entry_match_keys``)."""
+    if not path.exists() or not keys:
+        return []
+    return [
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if (s := line.strip()) and not s.startswith("#") and _requirement_key(s) in keys
+    ]
 
 
 def _dist_key(target: str, catalog: Catalog) -> str:

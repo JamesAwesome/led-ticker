@@ -877,3 +877,24 @@ def test_store_non_default_source_restart_to_upgrade(tmp_path):
     row = next(p for p in payload["plugins"] if p["namespace"] == "pool")
     assert row["state"] == "restart_to_upgrade"
     assert payload["pending_count"] == 1
+
+
+def test_config_references_are_deduplicated(tmp_path):
+    """A section title with two identical emoji tokens + widget text with two
+    more must yield ONE entry per unique (section, type) pair — the Store's
+    in-use note joins every entry verbatim, and duplicates were flooding it
+    (the baseball-card wall-of-text regression)."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        "[[playlist.section]]\n"
+        'title = {text = ":baseball.ball: Oh! Baseball!! :baseball.ball:"}\n'
+        'transition = "baseball.roll_alternating"\n'
+        "[[playlist.section.widget]]\n"
+        'type = "baseball.scores"\n'
+        'text = "Go :baseball.ball: team :baseball.ball: go"\n'
+    )
+    refs = config_references(cfg)["baseball"]
+    pairs = [(r["section"], r["type"]) for r in refs]
+    assert len(pairs) == len(set(pairs)), f"duplicate refs: {pairs}"
+    # exactly the 3 unique references: transition, emoji, widget type
+    assert len(pairs) == 3

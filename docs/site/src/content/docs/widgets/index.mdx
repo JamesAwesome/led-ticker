@@ -26,13 +26,15 @@ one that fits your data, then read its page for the full options list.
 | [`calendar.events`](/widgets/calendar/) _(plugin)_          | iCal / .ics URL             | upcoming events, agenda / next / two_row   |
 | [`rss.feed`](/widgets/rss_feed/) _(plugin)_                 | any RSS URL                 | news / blog headlines                      |
 | [`weather.current`](/widgets/weather/) _(plugin)_           | WeatherAPI.com              | forecast / current conditions              |
+| [`flair.lottery`](/widgets/lottery/) _(plugin)_             | static words                | lottery-ball roll-in reveal (bigsign only) |
 
 ## By complexity
 
 - **Just text:** `message`, `countdown`, `clock`. No external dependencies.
 - **Two text rows (storefront layout):** `two_row` at section `scale=2`.
-- **Live data (background fetch):** all plugin widgets — `pool`, `baseball.scores`, `baseball.standings`, `crypto.coingecko`, `calendar.events`, `rss.feed`, and `weather.current`. Each has retry + exponential backoff.
+- **Live data (background fetch):** all data plugin widgets — `pool`, `baseball.scores`, `baseball.standings`, `crypto.coingecko`, `calendar.events`, `rss.feed`, and `weather.current`. Each has retry + exponential backoff.
 - **Visual:** `gif`, `image`. Both support text overlay, fit modes (pillarbox / letterbox / stretch / crop), and per-row two-row layouts.
+- **Effect (no data source):** [`flair.lottery`](/widgets/lottery/) _(plugin)_ — a held roll-in reveal over static words, bigsign only.
 
 ## Common knobs
 

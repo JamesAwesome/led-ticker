@@ -434,6 +434,8 @@ _PIP_UNINSTALL_TIMEOUT_S = 120
 
 def _freeze_to_constraints(
     python_exe: str = sys.executable,
+    *,
+    exclude: set[str] | None = None,
 ) -> tuple[str | None, int]:
     """Freeze the target env to a temp constraints file.
 
@@ -443,6 +445,16 @@ def _freeze_to_constraints(
     already-installed deps so a plugin install can't move them. The file is the
     CALLER's to delete (use ``_pip_install(..., constraints=path)`` then unlink).
     Raises ``subprocess.TimeoutExpired`` if pip stalls past the freeze wall clock.
+
+    ``exclude`` is a set of distribution names (matched case-insensitively with
+    ``_`` normalized to ``-``) dropped from the freeze. Reconcile passes the
+    installed PLUGIN dists here: a blanket ``pip freeze`` pins every installed
+    package including the plugins themselves, so reinstalling a plugin to a NEW
+    version (``led-ticker-flair`` 0.1.1 -> 0.5.0, the upgrade path) would fail
+    with "conflicting dependencies" — the constraints pin the OLD version
+    against the requested new one. Excluding the plugin dists keeps core's deps
+    pinned (the documented intent) while letting the version bump through.
+    Tripwire: test_freeze_to_constraints_excludes_named_dists.
     """
     freeze = subprocess.run(
         [python_exe, "-m", "pip", "list", "--format=freeze"],
@@ -453,10 +465,29 @@ def _freeze_to_constraints(
     if freeze.returncode != 0:
         print(freeze.stderr, file=sys.stderr)
         return (None, freeze.returncode)
+    text = freeze.stdout
+    if exclude:
+        norm_exclude = {d.lower().replace("_", "-") for d in exclude}
+
+        def _pkg_name(line: str) -> str:
+            # Freeze lines are `name==version` (or `name @ url`); take the name
+            # up to the first version/url delimiter and normalize like pip.
+            name = line
+            for delim in ("==", " @ ", " ", "@"):
+                idx = name.find(delim)
+                if idx != -1:
+                    name = name[:idx]
+            return name.strip().lower().replace("_", "-")
+
+        text = "".join(
+            f"{line}\n"
+            for line in freeze.stdout.splitlines()
+            if not (line.strip() and _pkg_name(line) in norm_exclude)
+        )
     with tempfile.NamedTemporaryFile(
         "w", suffix=".txt", delete=False, encoding="utf-8"
     ) as fh:
-        fh.write(freeze.stdout)
+        fh.write(text)
         return (fh.name, 0)
 
 

@@ -433,7 +433,9 @@ def _uninstall_dist(dist: str, python_exe: str) -> int:
     return _pip_uninstall(dist, python_exe=python_exe)
 
 
-def _freeze_to_constraints(python_exe: str) -> tuple[str | None, int]:
+def _freeze_to_constraints(
+    python_exe: str, *, exclude: set[str] | None = None
+) -> tuple[str | None, int]:
     """Thin module-level wrapper over ``plugin_cmd._freeze_to_constraints``.
 
     Exists (rather than the call site importing plugin_cmd's function directly)
@@ -442,12 +444,16 @@ def _freeze_to_constraints(python_exe: str) -> tuple[str | None, int]:
     those live in THIS module, but the freeze helper is plugin_cmd's. The lazy
     import still runs on every call, so tests that instead patch
     ``plugin_cmd._freeze_to_constraints`` keep working unchanged.
+
+    ``exclude`` forwards the installed PLUGIN dist names so the pass-level
+    constraints don't pin a plugin against its own version bump (see
+    ``plugin_cmd._freeze_to_constraints``).
     """
     from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
         _freeze_to_constraints as _pc_freeze_to_constraints,
     )
 
-    return _pc_freeze_to_constraints(python_exe)
+    return _pc_freeze_to_constraints(python_exe, exclude=exclude)
 
 
 def reconcile(
@@ -606,10 +612,20 @@ def reconcile(
         # `pip list --format=freeze` subprocess (~1-3s on a cold Pi 4 SD card),
         # N-1 of them redundant, all on the first-boot dark-panel path.
         # Tripwire: test_reconcile_freezes_env_once_per_pass.
+        #
+        # EXCLUDE the installed plugin dists from the freeze: a blanket
+        # `pip freeze` pins them at their CURRENT version, so reinstalling one to
+        # a new version (the upgrade path — e.g. led-ticker-flair 0.1.1 -> 0.5.0)
+        # would fail "conflicting dependencies" against its own old pin. The
+        # constraints must pin core's deps only. Tripwire:
+        # test_reconcile_upgrade_excludes_plugin_from_constraints.
+        installed_dists = {d for d in installed_map.values() if d}
         shared_constraints: str | None = None
         if to_install:
             try:
-                shared_constraints, _rc = _freeze_to_constraints(target.python_exe)
+                shared_constraints, _rc = _freeze_to_constraints(
+                    target.python_exe, exclude=installed_dists
+                )
             except Exception as e:  # noqa: BLE001
                 # A failed pass-level freeze is non-fatal: each _install_namespace
                 # falls back to its own per-install freeze (constraints=None).

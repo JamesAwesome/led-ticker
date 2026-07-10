@@ -251,6 +251,26 @@ def _catalog_name_for_key(key: str, catalog: Catalog) -> str | None:
     return None
 
 
+def resolve_upgrade(
+    current_line: str,
+    *,
+    catalog_name: str | None = None,
+    resolve=None,
+) -> tuple[str, bool]:
+    """Resolve the latest pin for ``current_line`` and report whether it would
+    CHANGE the line. Returns ``(latest_line, changed)`` where
+    ``changed = latest_line != current_line`` — the single definition of "an
+    upgrade is available", shared by the CLI verb, the webui upgrade action, and
+    the Store's check-updates endpoint so they can't drift. Raises
+    ``UpgradeError`` on resolve failure. ``resolve`` is injectable for tests;
+    None binds the module ``resolve_latest`` at CALL time so monkeypatching it
+    is honored.
+    """
+    resolve = resolve or resolve_latest
+    latest = resolve(current_line, catalog_name=catalog_name)
+    return latest, latest != current_line
+
+
 def _upgrade_one_line(
     req_path: Path, old_line: str, catalog: Catalog, *, dry_run: bool
 ) -> tuple[int, bool]:
@@ -262,13 +282,13 @@ def _upgrade_one_line(
     old_spec = _strip_comment(old_line)
     key = _requirement_key(old_spec)
     try:
-        new_spec = resolve_latest(
+        new_spec, changed = resolve_upgrade(
             old_spec, catalog_name=_catalog_name_for_key(key, catalog)
         )
     except UpgradeError as e:
         print(f"{old_spec}: {e}", file=sys.stderr)
         return 1, False
-    if new_spec == old_spec:
+    if not changed:
         print(f"{old_spec} is already up to date.")
         return 0, False
     if dry_run:

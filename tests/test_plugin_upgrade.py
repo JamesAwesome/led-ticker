@@ -480,3 +480,40 @@ def test_cmd_upgrade_finds_non_default_source_declaration(tmp_path, monkeypatch)
     text = (tmp_path / "requirements-plugins.txt").read_text()
     assert "pool-v0.2.0" in text
     assert "# upgraded" in text
+
+
+# --- resolve_upgrade (shared availability check) ------------------------------
+
+
+def test_resolve_upgrade_changed_when_newer():
+    latest, changed = up.resolve_upgrade(
+        "led-ticker-pool==0.1.0",
+        resolve=lambda line, **kw: "led-ticker-pool==0.2.0",
+    )
+    assert latest == "led-ticker-pool==0.2.0"
+    assert changed is True
+
+
+def test_resolve_upgrade_unchanged_when_same():
+    latest, changed = up.resolve_upgrade(
+        "led-ticker-pool==0.2.0",
+        resolve=lambda line, **kw: "led-ticker-pool==0.2.0",
+    )
+    assert latest == "led-ticker-pool==0.2.0"
+    assert changed is False
+
+
+def test_resolve_upgrade_propagates_error():
+    def boom(line, **kw):
+        raise up.UpgradeError("no matching tags")
+
+    with pytest.raises(up.UpgradeError, match="no matching tags"):
+        up.resolve_upgrade("led-ticker-pool==0.1.0", resolve=boom)
+
+
+def test_resolve_upgrade_default_uses_module_resolve_latest(monkeypatch):
+    # Default resolve= must bind resolve_latest at CALL time, so monkeypatching
+    # the module attribute is honored (as the CLI/webui tests rely on).
+    monkeypatch.setattr(up, "resolve_latest", lambda line, **kw: line + "-X")
+    latest, changed = up.resolve_upgrade("pkg", catalog_name="pool")
+    assert latest == "pkg-X" and changed is True

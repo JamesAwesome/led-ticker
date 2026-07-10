@@ -2814,3 +2814,57 @@ async def test_upgrade_finds_non_default_source_declaration(tmp_path, monkeypatc
         assert NEW_LINE in manifest.read_text()
     finally:
         await client.close()
+
+
+async def test_remove_non_default_source_actually_drops_line(tmp_path, monkeypatch):
+    """Regression: a plugin declared via its non-default (git) source must be
+    actually removed — not a silent 200 no-op keyed off the pypi default."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.plugins_catalog import (
+        Catalog,
+        CatalogEntry,
+        CatalogSource,
+        PluginProvides,
+    )
+
+    entry = CatalogEntry(
+        name="pool",
+        namespace="pool",
+        summary="Pool.",
+        homepage="",
+        provides=PluginProvides(widgets=("pool.monitor",)),
+        sources=(
+            CatalogSource(type="pypi", package="led-ticker-pool", version="0.1.0"),
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref="pool-v0.1.0",
+                subdirectory="plugins/pool",
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=(entry,))
+    )
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {"plugins": [{"namespace": "pool", "state": "available"}]},
+    )
+
+    git_line = entry.requirement(source="git")  # non-default declaration
+    manifest_path = tmp_path / "requirements-plugins.txt"
+    manifest_path.write_text(git_line + "\n")
+
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.delete(
+            "/api/store/remove",
+            json={"namespace": "pool"},
+            headers={"X-Web-Token": "s3cret"},
+        )
+        assert resp.status == 200
+        # The git line must be GONE (was silently left in place before the fix).
+        assert "pool-v0.1.0" not in manifest_path.read_text()
+    finally:
+        await client.close()

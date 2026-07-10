@@ -295,24 +295,12 @@ def _apply_to_manifest(req_path: Path, requirement: str) -> int:
     return 0
 
 
-def _find_requirement_lines(path: Path, key: str) -> list[str]:
-    """Read-only: every manifest line matching `key` (verbatim). Used by dry-run
-    remove/uninstall so the preview matches what the real command would do —
-    including a drifted manifest holding more than one line for the same plugin."""
-    if not path.exists():
-        return []
-    return [
-        line
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if (s := line.strip()) and not s.startswith("#") and _requirement_key(s) == key
-    ]
-
-
-def _remove_requirement(path: Path, key: str) -> list[str]:
-    """Drop the manifest line(s) for `key`, preserving comments + other lines.
-    Returns every removed line (verbatim) — usually one, but a drifted manifest
-    can hold several lines that normalize to the same key, and ALL are removed."""
-    if not path.exists():
+def _remove_requirement_for_keys(path: Path, keys: set[str]) -> list[str]:
+    """Like ``_remove_requirement`` but drops lines matching ANY of ``keys`` —
+    so a plugin declared via a non-default source (keyed differently from the
+    catalog default) is actually removed instead of silently left in place.
+    Returns every removed line (verbatim)."""
+    if not path.exists() or not keys:
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
     kept: list[str] = []
@@ -322,7 +310,7 @@ def _remove_requirement(path: Path, key: str) -> list[str]:
         if (
             stripped
             and not stripped.startswith("#")
-            and (_requirement_key(stripped) == key)
+            and _requirement_key(stripped) in keys
         ):
             removed.append(line)
             continue
@@ -333,18 +321,19 @@ def _remove_requirement(path: Path, key: str) -> list[str]:
     return removed
 
 
-def _removed_phrase(lines: list[str], key: str) -> str:
+def _removed_phrase(lines: list[str], label: str) -> str:
     """Human phrase for removed/matching manifest line(s): the verbatim line when
     there's exactly one, else a count (so a drifted multi-line manifest doesn't
-    silently report only the last line)."""
+    silently report only the last line). ``label`` names the target in the
+    plural case."""
     if len(lines) == 1:
         return repr(lines[0].strip())
-    return f"{len(lines)} lines for {key!r}"
+    return f"{len(lines)} lines for {label!r}"
 
 
 def _entry_match_keys(entry: CatalogEntry) -> set[str]:
     """Every manifest dedup key a catalog entry could be declared under — one
-    per source (git/pypi), pinned or unpinned.
+    per source (git/pypi).
 
     A catalog entry ships multiple sources (e.g. pool has a pypi AND a git
     source); ``entry.requirement()`` with no ``source=`` always builds the
@@ -352,23 +341,31 @@ def _entry_match_keys(entry: CatalogEntry) -> set[str]:
     plugin the operator declared via the non-default source
     (``plugin add pool --source git`` — a documented path). Matching against
     the union of ALL source keys finds the line regardless of which source
-    declared it. Mirrors ``plugin_reconcile._declared_requirements``'
-    key_to_ns construction. Falls back to the default-source key if source
-    enumeration turns up nothing.
+    declared it. The pin dimension is irrelevant here: ``_requirement_key``
+    strips the ``@ref`` / ``==version`` before returning, so pinned and
+    unpinned forms of one source normalize to the same key. Falls back to the
+    default-source key if source enumeration turns up nothing.
     """
     keys: set[str] = set()
     for src in entry.sources:
-        for pinned in (True, False):
-            try:
-                keys.add(
-                    _requirement_key(entry.requirement(source=src.type, pinned=pinned))
-                )
-            except Exception:  # noqa: BLE001
-                continue
+        try:
+            keys.add(_requirement_key(entry.requirement(source=src.type)))
+        except Exception:  # noqa: BLE001
+            continue
     if not keys:
         with contextlib.suppress(Exception):
             keys.add(_requirement_key(entry.requirement()))
     return keys
+
+
+def _target_match_keys(target: str, catalog: Catalog) -> set[str]:
+    """Manifest match keys for a remove/upgrade target: a catalog name expands
+    to ALL its source keys (so a plugin declared via a non-default source is
+    still matched); a raw pip spec matches its own key only."""
+    entry = catalog.get(target)
+    if entry is not None:
+        return _entry_match_keys(entry)
+    return {_requirement_key(target)}
 
 
 def _find_requirement_lines_for_keys(path: Path, keys: set[str]) -> list[str]:
@@ -382,23 +379,6 @@ def _find_requirement_lines_for_keys(path: Path, keys: set[str]) -> list[str]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if (s := line.strip()) and not s.startswith("#") and _requirement_key(s) in keys
     ]
-
-
-def _dist_key(target: str, catalog: Catalog) -> str:
-    """The MANIFEST MATCH key for a target — a catalog name resolves via its
-    requirement (`pool` -> `led-ticker-plugins#plugins/pool` for a monorepo
-    plugin, or `led-ticker-pool` for a single-repo one); a raw spec via the spec
-    itself.
-
-    Used for finding/removing/dedup-ing manifest lines (`_remove_requirement`,
-    `_find_requirement_lines`, `_declared_keys`). It is NOT the pip distribution
-    name — for monorepo plugins the match key carries a `#subdirectory` fragment
-    while the pip dist name is the real package name (see `_pip_dist_name`).
-    """
-    entry = catalog.get(target)
-    if entry is not None:
-        return _requirement_key(entry.requirement())
-    return _requirement_key(target)
 
 
 def _pip_dist_name(target: str, catalog: Catalog) -> str:
@@ -577,7 +557,10 @@ def cmd_list(
     print(f"Available plugins ({len(catalog.entries)}):")
     for entry in catalog.entries:
         marks = []
-        if _requirement_key(entry.requirement()) in declared:
+        # Match any source key so a plugin declared via a non-default source
+        # (e.g. `--source git`) still shows [declared], consistent with the
+        # Store, remove, and upgrade surfaces.
+        if _entry_match_keys(entry) & declared:
             marks.append("[declared]")
         if entry.namespace in installed:
             marks.append("[installed]")
@@ -713,15 +696,18 @@ def cmd_remove(
 ) -> int:
     """Remove a plugin from the manifest only (no pip) — the Docker-native path."""
     catalog = catalog or load_catalog()
-    key = _dist_key(target, catalog)
+    # Match every source key the target could be declared under, so a plugin
+    # added via a non-default source (`--source git` when pypi is the default)
+    # is actually removed instead of reported "nothing to remove".
+    keys = _target_match_keys(target, catalog)
     req_path = _requirements_path(config_path, config_explicit)
     config_warning = _config_warning(req_path)
 
     if dry_run:
         print("Dry run — no changes made.")
-        matches = _find_requirement_lines(req_path, key)
+        matches = _find_requirement_lines_for_keys(req_path, keys)
         if matches:
-            print(f"  would remove {_removed_phrase(matches, key)} from: {req_path}")
+            print(f"  would remove {_removed_phrase(matches, target)} from: {req_path}")
         else:
             print(f"  {target!r} is not in {req_path} (nothing to remove).")
         if config_warning:
@@ -729,7 +715,7 @@ def cmd_remove(
         return 0
 
     try:
-        removed = _remove_requirement(req_path, key)
+        removed = _remove_requirement_for_keys(req_path, keys)
     except OSError as e:
         print(f"could not write {req_path}: {e}", file=sys.stderr)
         return 2
@@ -738,7 +724,7 @@ def cmd_remove(
         if config_warning:
             print(config_warning, file=sys.stderr)
         return 0
-    print(f"Removed {_removed_phrase(removed, key)} from {req_path}")
+    print(f"Removed {_removed_phrase(removed, target)} from {req_path}")
     if config_warning:
         print(config_warning, file=sys.stderr)
     print(_REMOVE_HINT)
@@ -755,22 +741,21 @@ def cmd_uninstall(
 ) -> int:
     """Remove a plugin from the manifest AND pip-uninstall it (bare-metal/dev)."""
     catalog = catalog or load_catalog()
-    # The manifest match key (subdirectory-aware) and the pip distribution name
-    # diverge for monorepo plugins: the line is keyed by repo#subdirectory, but
-    # the installed package is `led-ticker-<name>`. Find/remove the line with one;
-    # pip-uninstall the other.
-    match_key = _dist_key(target, catalog)
+    # The manifest match keys (subdirectory-aware, one per source) and the pip
+    # distribution name diverge for monorepo plugins: the line is keyed by
+    # repo#subdirectory, but the installed package is `led-ticker-<name>`.
+    # Find/remove the line by ANY source key (so a non-default-source
+    # declaration is caught); pip-uninstall the single dist name.
+    match_keys = _target_match_keys(target, catalog)
     dist = _pip_dist_name(target, catalog)
     req_path = _requirements_path(config_path, config_explicit)
     config_warning = _config_warning(req_path)
 
     if dry_run:
         print("Dry run — no changes made.")
-        matches = _find_requirement_lines(req_path, match_key)
+        matches = _find_requirement_lines_for_keys(req_path, match_keys)
         if matches:
-            print(
-                f"  would remove {_removed_phrase(matches, match_key)} from: {req_path}"
-            )
+            print(f"  would remove {_removed_phrase(matches, target)} from: {req_path}")
         else:
             print(f"  {target!r} is not in {req_path} (nothing to remove).")
         print(f"  would run:   {sys.executable} -m pip uninstall -y {dist}")
@@ -779,12 +764,12 @@ def cmd_uninstall(
         return 0
 
     try:
-        removed = _remove_requirement(req_path, match_key)
+        removed = _remove_requirement_for_keys(req_path, match_keys)
     except OSError as e:
         print(f"could not write {req_path}: {e}", file=sys.stderr)
         return 2
     if removed:
-        print(f"Removed {_removed_phrase(removed, match_key)} from {req_path}")
+        print(f"Removed {_removed_phrase(removed, target)} from {req_path}")
     else:
         print(f"{target!r} was not in {req_path}.")
     if config_warning:

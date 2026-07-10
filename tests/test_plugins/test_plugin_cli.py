@@ -538,7 +538,8 @@ def test_remove_drifted_manifest_drops_all_and_reports_count(tmp_path, fakepip, 
     assert code == 0
     assert "led-ticker-pool" not in rf.read_text()  # both gone
     out = capsys.readouterr().out
-    assert "2 lines" in out and "led-ticker-pool" in out
+    # Plural report names the count and the target the user asked to remove.
+    assert "2 lines for 'pool'" in out
 
 
 def test_remove_dry_run_drifted_manifest_reports_count(tmp_path, fakepip, capsys):
@@ -908,3 +909,59 @@ def test_pip_uninstall_refuses_argument_like_dist(monkeypatch):
     with pytest.raises(ValueError, match="argument-like"):
         plugin_cmd._pip_uninstall("--yes", python_exe="/venv/bin/python")
     assert called == []
+
+
+def _multisource_catalog():
+    """pool with pypi as DEFAULT source + a monorepo git source (distinct
+    keys: `led-ticker-pool` vs `led-ticker-plugins#plugins/pool`)."""
+    return Catalog(
+        entries=(
+            CatalogEntry(
+                name="pool",
+                namespace="pool",
+                summary="Pool.",
+                homepage="",
+                provides=PluginProvides(widgets=("pool.monitor",)),
+                sources=(
+                    CatalogSource(
+                        type="pypi", package="led-ticker-pool", version="0.1.0"
+                    ),
+                    CatalogSource(
+                        type="git",
+                        url="https://github.com/JamesAwesome/led-ticker-plugins",
+                        ref="pool-v0.1.0",
+                        subdirectory="plugins/pool",
+                    ),
+                ),
+            ),
+        )
+    )
+
+
+def test_remove_non_default_source_declaration(tmp_path, fakepip):
+    """Regression: `plugin remove pool` must drop a git-declared line even when
+    pool's catalog default is pypi (was reported 'nothing to remove')."""
+    catalog = _multisource_catalog()
+    git_line = catalog.entries[0].requirement(source="git")
+    _reqfile(tmp_path).write_text(git_line + "\n")
+    code = plugin_cmd.cmd_remove(
+        "pool", config_path=tmp_path / "config.toml", catalog=catalog
+    )
+    assert code == 0
+    assert "pool-v0.1.0" not in _reqfile(tmp_path).read_text()
+    assert fakepip.calls == []
+
+
+def test_uninstall_non_default_source_declaration(tmp_path, fakepip):
+    """`plugin uninstall pool` drops the git-declared line and pip-uninstalls
+    the real dist name (led-ticker-pool)."""
+    catalog = _multisource_catalog()
+    git_line = catalog.entries[0].requirement(source="git")
+    _reqfile(tmp_path).write_text(git_line + "\n")
+    code = plugin_cmd.cmd_uninstall(
+        "pool", config_path=tmp_path / "config.toml", catalog=catalog
+    )
+    assert code == 0
+    assert "pool-v0.1.0" not in _reqfile(tmp_path).read_text()
+    assert fakepip.uninstall_cmd is not None
+    assert "led-ticker-pool" in fakepip.uninstall_cmd

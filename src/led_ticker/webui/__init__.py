@@ -415,10 +415,20 @@ def build_webui_app(
             return web.json_response({"error": "unknown plugin"}, status=400)
 
         # Import helpers lazily to keep the module rgbmatrix-pure.
-        from led_ticker.app.plugin_cmd import _requirement_key  # noqa: PLC0415
+        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+            _entry_match_keys,
+            _requirement_key,
+        )
 
         req = entry.requirement()
         req_key = _requirement_key(req)
+        # The manifest line may have been declared via a NON-default source
+        # (e.g. `--source git` when pypi is the catalog default); drop it by any
+        # of the entry's source keys so removal matches build_store's (widened)
+        # declared? detection — otherwise the Store would show a Remove button
+        # that silently no-ops. `req_key` stays the pack-sibling grouping key
+        # below (shared packages are single-source, unaffected by the widening).
+        match_keys = _entry_match_keys(entry)
 
         # Config-reference guard: refuse if the running config still uses THIS
         # plugin OR any sibling namespace that shares the same pip package.
@@ -449,7 +459,7 @@ def build_webui_app(
                 if (
                     stripped
                     and not stripped.startswith("#")
-                    and _requirement_key(stripped) == req_key
+                    and _requirement_key(stripped) in match_keys
                 ):
                     continue  # drop this line
                 kept.append(line)

@@ -23,11 +23,11 @@ from pathlib import Path, PurePosixPath
 
 from led_ticker.app.plugin_cmd import (
     _config_warning,
-    _entry_match_keys,
     _find_requirement_lines_for_keys,
     _requirement_key,
     _requirements_path,
     _strip_comment,
+    _target_match_keys,
     _update_requirements,
 )
 from led_ticker.plugins_catalog import Catalog, load_catalog
@@ -331,12 +331,9 @@ def cmd_upgrade(
     # Match the manifest against EVERY source key the catalog entry could be
     # declared under (pool via `--source git` is keyed by the git line, not the
     # pypi default), so a non-default-source declaration is still upgradeable.
-    # A raw (non-catalog) spec target matches its own key only.
-    entry = catalog.get(target)
-    match_keys = (
-        _entry_match_keys(entry) if entry is not None else {_requirement_key(target)}
+    matches = _find_requirement_lines_for_keys(
+        req_path, _target_match_keys(target, catalog)
     )
-    matches = _find_requirement_lines_for_keys(req_path, match_keys)
     if not matches:
         print(
             f"{target!r} is not declared in {req_path} — add it first "

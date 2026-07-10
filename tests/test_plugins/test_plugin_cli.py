@@ -965,3 +965,59 @@ def test_uninstall_non_default_source_declaration(tmp_path, fakepip):
     assert "pool-v0.1.0" not in _reqfile(tmp_path).read_text()
     assert fakepip.uninstall_cmd is not None
     assert "led-ticker-pool" in fakepip.uninstall_cmd
+
+
+# --- _freeze_to_constraints excludes plugin dists (upgrade self-constraint) ---
+
+
+def test_freeze_to_constraints_excludes_named_dists(tmp_path, monkeypatch):
+    """The frozen constraints must pin CORE deps only — NOT the plugin dists
+    being (re)installed. A blanket `pip freeze` includes the installed plugin
+    (e.g. led-ticker-flair==0.1.1), which would pin it against its own upgrade
+    to 0.5.0 (`Cannot install ... conflicting dependencies`). Excluding the
+    plugin dist names lets the version bump proceed while core stays pinned."""
+    from pathlib import Path as _P
+    from types import SimpleNamespace
+
+    freeze_out = (
+        "Pillow==10.2.0\n"
+        "aiohttp==3.9.1\n"
+        "led-ticker-flair==0.1.1\n"
+        "led_ticker_pool==0.1.0\n"  # underscore form — must still match
+    )
+    monkeypatch.setattr(
+        plugin_cmd.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=freeze_out, stderr=""),
+    )
+    path, rc = plugin_cmd._freeze_to_constraints(
+        exclude={"led-ticker-flair", "led-ticker-pool"}
+    )
+    assert rc == 0 and path is not None
+    body = _P(path).read_text()
+    _P(path).unlink(missing_ok=True)
+    # Core deps kept, both plugin lines (hyphen + underscore) dropped.
+    assert "Pillow==10.2.0" in body
+    assert "aiohttp==3.9.1" in body
+    assert "led-ticker-flair" not in body
+    assert "led-ticker-pool" not in body
+    assert "led_ticker_pool" not in body
+
+
+def test_freeze_to_constraints_no_exclude_keeps_everything(tmp_path, monkeypatch):
+    """Default (no exclude) is unchanged: every frozen line is kept."""
+    from pathlib import Path as _P
+    from types import SimpleNamespace
+
+    freeze_out = "Pillow==10.2.0\nled-ticker-flair==0.1.1\n"
+    monkeypatch.setattr(
+        plugin_cmd.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=freeze_out, stderr=""),
+    )
+    path, rc = plugin_cmd._freeze_to_constraints()
+    assert rc == 0 and path is not None
+    body = _P(path).read_text()
+    _P(path).unlink(missing_ok=True)
+    assert "Pillow==10.2.0" in body
+    assert "led-ticker-flair==0.1.1" in body

@@ -878,7 +878,7 @@ def test_reconcile_freezes_env_once_per_pass(tmp_path, monkeypatch):
 
     freeze_calls = {"n": 0}
 
-    def fake_freeze(python_exe=sys.executable):
+    def fake_freeze(python_exe=sys.executable, **_kw):
         freeze_calls["n"] += 1
         return ("/tmp/constraints-fake.txt", 0)
 
@@ -1019,7 +1019,7 @@ def test_reconcile_honors_manifest_pin(tmp_path, monkeypatch):
     monkeypatch.setattr(pc, "_pip_install", fake_pip_install)
     # _freeze_to_constraints would shell out to real pip; stub it.
     monkeypatch.setattr(
-        pc, "_freeze_to_constraints", lambda py=sys.executable: (None, 0)
+        pc, "_freeze_to_constraints", lambda py=sys.executable, **_kw: (None, 0)
     )
 
     actions = r.reconcile(cfg)
@@ -1050,7 +1050,7 @@ def test_reconcile_honors_git_source_manifest_line(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        pc, "_freeze_to_constraints", lambda py=sys.executable: (None, 0)
+        pc, "_freeze_to_constraints", lambda py=sys.executable, **_kw: (None, 0)
     )
 
     r.reconcile(cfg)
@@ -1093,7 +1093,7 @@ def test_reconcile_pin_change_on_installed_plugin(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        pc, "_freeze_to_constraints", lambda py=sys.executable: (None, 0)
+        pc, "_freeze_to_constraints", lambda py=sys.executable, **_kw: (None, 0)
     )
 
     actions = r.reconcile(cfg)
@@ -1217,7 +1217,7 @@ def test_reconcile_freeze_nonzero_falls_back_to_per_install(tmp_path, monkeypatc
     monkeypatch.setattr(r, "_declared_requirements", lambda p: {})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
     monkeypatch.setattr(
-        pc, "_freeze_to_constraints", lambda py=sys.executable: (None, 1)
+        pc, "_freeze_to_constraints", lambda py=sys.executable, **_kw: (None, 1)
     )
 
     constraints_seen: list = []
@@ -1249,7 +1249,7 @@ def test_reconcile_freeze_raise_falls_back_to_per_install(tmp_path, monkeypatch)
     monkeypatch.setattr(r, "_declared_requirements", lambda p: {})
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
 
-    def boom_freeze(py=sys.executable):
+    def boom_freeze(py=sys.executable, **_kw):
         raise subprocess.TimeoutExpired("pip", 1)
 
     monkeypatch.setattr(pc, "_freeze_to_constraints", boom_freeze)
@@ -1557,7 +1557,7 @@ def _volume_reconcile_env(
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: dict(installed))
     monkeypatch.setattr(r, "is_depended_on", lambda d: False)
     monkeypatch.setattr(
-        r, "_freeze_to_constraints", lambda py: (str(tmp_path / "c.txt"), 0)
+        r, "_freeze_to_constraints", lambda py, **_kw: (str(tmp_path / "c.txt"), 0)
     )
     (tmp_path / "c.txt").write_text("")
     installs = []
@@ -1805,7 +1805,7 @@ def test_reconcile_stampless_target_still_detects_pin_drift(tmp_path, monkeypatc
     monkeypatch.setattr(r, "is_depended_on", lambda d: False)
     monkeypatch.setattr(r.importlib.metadata, "version", lambda dist: "0.1.0")
     monkeypatch.setattr(
-        r, "_freeze_to_constraints", lambda py: (str(tmp_path / "c.txt"), 0)
+        r, "_freeze_to_constraints", lambda py, **_kw: (str(tmp_path / "c.txt"), 0)
     )
     (tmp_path / "c.txt").write_text("")
     installs = []
@@ -1820,3 +1820,55 @@ def test_reconcile_stampless_target_still_detects_pin_drift(tmp_path, monkeypatc
     # volume_root deliberately left at a nonexistent path → read_stamp is None.
     r.reconcile(config, volume_root=tmp_path / "no-volume")
     assert installs == ["pool"]
+
+
+def test_reconcile_upgrade_excludes_plugin_from_constraints(tmp_path, monkeypatch):
+    """Regression (led-ticker-flair 0.1.1 -> 0.5.0 upgrade failed with
+    'conflicting dependencies'): when reconcile reinstalls an already-installed
+    plugin at a new version, the pass-level freeze must EXCLUDE that plugin's
+    dist name, or the constraints pin the old version against the new one."""
+    import led_ticker.plugin_reconcile as r
+
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-flair==0.5.0\n")
+    monkeypatch.setattr(
+        r,
+        "resolve_target",
+        lambda **k: r.Target("volume", str(tmp_path / "venv/bin/python"), None),
+    )
+    monkeypatch.setattr(r, "ensure_volume_venv", lambda venv_dir: None)
+    monkeypatch.setattr(r, "apply_to_syspath", lambda target: None)
+    monkeypatch.setattr(r, "_declared_namespaces", lambda p: {"nyancat"})
+    monkeypatch.setattr(
+        r, "_declared_requirements", lambda p: {"nyancat": "led-ticker-flair==0.5.0"}
+    )
+    # Installed at the OLD version; dist name is the shared package.
+    monkeypatch.setattr(
+        r, "installed_plugin_dists", lambda: {"nyancat": "led-ticker-flair"}
+    )
+    monkeypatch.setattr(r, "is_depended_on", lambda d: False)
+    # Stamped at the old version -> drift -> reinstall.
+    r.write_stamp(tmp_path, {"nyancat": "led-ticker-flair==0.1.1"})
+
+    captured = {}
+
+    def capturing_freeze(py, *, exclude=frozenset()):
+        captured["exclude"] = set(exclude)
+        (tmp_path / "c.txt").write_text("")
+        return (str(tmp_path / "c.txt"), 0)
+
+    monkeypatch.setattr(r, "_freeze_to_constraints", capturing_freeze)
+    monkeypatch.setattr(
+        r,
+        "_install_namespace",
+        lambda ns, py, constraints=None, requirement_line=None: 0,
+    )
+    monkeypatch.setattr(r, "_uninstall_dist", lambda d, py: 0)
+
+    actions = r.reconcile(config, volume_root=tmp_path)
+
+    assert "led-ticker-flair" in captured.get("exclude", set()), (
+        "the upgrading plugin's dist must be excluded from the freeze constraints"
+    )
+    assert any(a.namespace == "nyancat" and a.action == "installed" for a in actions)

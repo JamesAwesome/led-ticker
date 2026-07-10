@@ -622,6 +622,80 @@ def build_webui_app(
         plugin_entry["upgraded"] = {"from": old_spec, "to": new_spec}
         return web.json_response(plugin_entry)
 
+    async def check_updates_handler(request: web.Request) -> web.Response:
+        """POST /api/store/check-updates — resolve every declared+active plugin's
+        manifest line and report whether an upgrade would change it. Read-only:
+        resolves only, never writes. Token-gated (NOT in _OPEN_PATHS); resolves
+        run in threads so `git ls-remote` / PyPI I/O doesn't block the loop.
+        """
+        if not token:
+            return web.json_response({"error": "editing disabled"}, status=403)
+
+        catalog = _load_catalog_lazy()
+        manifest_path = config_path.parent / "requirements-plugins.txt"
+        inner_status: dict = _fresh_inner_status(status_path)
+        store_payload = _build_store(
+            manifest_path=manifest_path,
+            config_path=config_path,
+            status=inner_status,
+            token_configured=bool(token),
+            stamp=_read_stamp_readonly(),
+        )
+        active = {
+            p["namespace"]
+            for p in store_payload.get("plugins", [])
+            if p.get("state") == "active"
+        }
+
+        from led_ticker.app import plugin_upgrade  # noqa: PLC0415
+        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+            _entry_match_keys,
+            _find_requirement_lines_for_keys,
+            _strip_comment,
+        )
+
+        # Map each active declared namespace to its comment-stripped manifest
+        # line, and group namespaces by that line so a SHARED package resolves
+        # once (led-ticker-flair -> its siblings share one line).
+        ns_line: dict[str, str] = {}
+        ns_entry: dict[str, object] = {}
+        line_to_nss: dict[str, list[str]] = {}
+        for entry in catalog.entries:
+            if entry.namespace not in active:
+                continue
+            lines = _find_requirement_lines_for_keys(
+                manifest_path, _entry_match_keys(entry)
+            )
+            if not lines:
+                continue
+            cur = _strip_comment(lines[-1])
+            ns_line[entry.namespace] = cur
+            ns_entry[entry.namespace] = entry
+            line_to_nss.setdefault(cur, []).append(entry.namespace)
+
+        async def resolve_line(line: str):
+            # One representative namespace's catalog name feeds the git tag
+            # prefix (irrelevant for pypi lines). Returns a per-line result dict.
+            rep = line_to_nss[line][0]
+            name = getattr(ns_entry[rep], "name", None)
+            try:
+                latest, changed = await asyncio.to_thread(
+                    plugin_upgrade.resolve_upgrade, line, catalog_name=name
+                )
+                return {"latest": latest, "upgrade_available": changed}
+            except plugin_upgrade.UpgradeError as e:
+                return {"error": str(e)}
+
+        unique_lines = list(line_to_nss)
+        resolved = await asyncio.gather(*(resolve_line(ln) for ln in unique_lines))
+        line_result = dict(zip(unique_lines, resolved, strict=True))
+
+        results = [
+            {"namespace": ns, "current": ns_line[ns], **line_result[ns_line[ns]]}
+            for ns in sorted(ns_line)
+        ]
+        return web.json_response({"results": results})
+
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)
     app.router.add_post("/api/restart", restart_handler)
@@ -629,6 +703,7 @@ def build_webui_app(
     app.router.add_post("/api/store/install", install_handler)
     app.router.add_delete("/api/store/remove", remove_handler)
     app.router.add_post("/api/store/upgrade", upgrade_handler)
+    app.router.add_post("/api/store/check-updates", check_updates_handler)
     _add_config_routes(app, config_path, token, asyncio.Lock())
     app.router.add_get("/api/preview", preview_handler)
     _add_page_route(app)

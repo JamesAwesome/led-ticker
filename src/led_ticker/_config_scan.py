@@ -24,17 +24,26 @@ def _references_from_data(data: dict) -> dict[str, list[dict[str, str]]]:
     value and inline :ns.slug: emoji. UNFILTERED — includes non-catalog
     namespaces (the Store needs them for in_use_by)."""
     out: dict[str, list[dict[str, str]]] = {}
+    # Dedup: one entry per unique (ns, section, type). Emoji-heavy configs
+    # otherwise flood the Store's in-use note — a title with two identical
+    # tokens plus widget text with two more yielded four copies of the same
+    # reference (the baseball-card wall-of-text regression). Order preserved.
+    seen: set[tuple[str, str, str]] = set()
+
+    def _add_ref(ns: str, section: str, ref_type: str) -> None:
+        key = (ns, section, ref_type)
+        if key in seen:
+            return
+        seen.add(key)
+        out.setdefault(ns, []).append({"section": section, "type": ref_type})
 
     def add(ns_source: str, section: str) -> None:
         if "." in ns_source:
-            ns = ns_source.split(".")[0]
-            out.setdefault(ns, []).append({"section": section, "type": ns_source})
+            _add_ref(ns_source.split(".")[0], section, ns_source)
 
     def add_emoji_refs(text: str, section: str) -> None:
         for m in _EMOJI_TOKEN.finditer(text):
-            out.setdefault(m.group(1), []).append(
-                {"section": section, "type": m.group(0)}
-            )
+            _add_ref(m.group(1), section, m.group(0))
 
     def walk(obj: object, section: str) -> None:
         if isinstance(obj, dict):

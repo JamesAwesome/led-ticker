@@ -3239,3 +3239,88 @@ class TestStartBusyLight:
         for t in others:
             t.cancel()
         await asyncio.gather(*others, return_exceptions=True)
+
+
+class TestPluginTransitionColorForwarding:
+    """`transition_colors`/`transition_color` reach a PLUGIN transition's
+    constructor when (and only when) it declares the matching explicit
+    parameter — parity with the builtin path's colors-elif-color precedence.
+    Regression for the fireworks-era gap where typed colors were silently
+    dropped on the dotted-type branch."""
+
+    @pytest.fixture()
+    def fake_transitions(self):
+        from led_ticker import transitions as tr
+
+        class ColorfulTransition:  # explicit colors + color params
+            def __init__(self, colors=None, color=None, zing=1):
+                self.colors = colors
+                self.color = color
+                self.zing = zing
+
+            def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+                return canvas
+
+        class CatchallTransition:  # **kwargs only — must NOT receive injection
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def frame_at(self, t, canvas, outgoing, incoming, **kwargs):
+                return canvas
+
+        tr._TRANSITION_REGISTRY.pop("fake.colorful", None)
+        tr._TRANSITION_REGISTRY.pop("fake.catchall", None)
+        tr.register_transition("fake.colorful")(ColorfulTransition)
+        tr.register_transition("fake.catchall")(CatchallTransition)
+        yield ColorfulTransition, CatchallTransition
+        tr._TRANSITION_REGISTRY.pop("fake.colorful", None)
+        tr._TRANSITION_REGISTRY.pop("fake.catchall", None)
+
+    def test_colors_injected_when_ctor_accepts(self, fake_transitions):
+        from led_ticker.config import TransitionConfig
+
+        cfg = TransitionConfig(type="fake.colorful", colors=[(255, 0, 0), (0, 255, 0)])
+        obj = _build_trans_obj(cfg)
+        assert obj.colors == [(255, 0, 0), (0, 255, 0)]
+
+    def test_colors_wins_over_color_like_builtins(self, fake_transitions):
+        from led_ticker.config import TransitionConfig
+
+        cfg = TransitionConfig(
+            type="fake.colorful", colors=[(1, 2, 3)], color=(9, 9, 9)
+        )
+        obj = _build_trans_obj(cfg)
+        assert obj.colors == [(1, 2, 3)]
+        assert obj.color is None  # elif precedence — color NOT also injected
+
+    def test_color_injected_when_colors_absent(self, fake_transitions):
+        from led_ticker.config import TransitionConfig
+
+        cfg = TransitionConfig(type="fake.colorful", color=(9, 9, 9))
+        obj = _build_trans_obj(cfg)
+        assert obj.color == (9, 9, 9)
+
+    def test_extra_wins_over_typed_field(self, fake_transitions):
+        from led_ticker.config import TransitionConfig
+
+        cfg = TransitionConfig(
+            type="fake.colorful",
+            colors=[(1, 1, 1)],
+            extra={"colors": [(7, 7, 7)]},
+        )
+        obj = _build_trans_obj(cfg)
+        assert obj.colors == [(7, 7, 7)]  # the plugin-local key keeps meaning
+
+    def test_catchall_ctor_gets_no_injection(self, fake_transitions):
+        from led_ticker.config import TransitionConfig
+
+        cfg = TransitionConfig(type="fake.catchall", colors=[(1, 2, 3)])
+        obj = _build_trans_obj(cfg)
+        assert "colors" not in obj.kwargs  # **kwargs is not an opt-in
+
+    def test_no_colors_no_injection(self, fake_transitions):
+        from led_ticker.config import TransitionConfig
+
+        cfg = TransitionConfig(type="fake.colorful", extra={"zing": 3})
+        obj = _build_trans_obj(cfg)
+        assert obj.colors is None and obj.zing == 3

@@ -18,6 +18,7 @@ from typing import Any
 import aiohttp
 
 from led_ticker.app.coercion import (
+    _allowed_init_kwargs,
     _build_plugin_style,
     _coerce_animation,
     _coerce_border,
@@ -395,9 +396,25 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
     # clean ValueError for unknown/missing keys (not a raw TypeError). Built-in
     # transitions keep their special-cased kwargs.
     if "." in trans_cfg.type:
-        return _build_plugin_style(
-            cls, trans_cfg.extra, f"transition {trans_cfg.type!r}"
-        )
+        plugin_kwargs = dict(trans_cfg.extra)
+        # Forward the typed color fields (parsed from `transition_colors` /
+        # `transition_color`) to plugin constructors that declare the matching
+        # EXPLICIT parameter — mirroring the builtin colors-elif-color
+        # precedence below. A `**kwargs` catch-all is NOT an opt-in
+        # (`_allowed_init_kwargs` returns only named params), and a key the
+        # user already wrote in the transition table (`extra`) always wins, so
+        # existing plugin-local `colors = [...]` configs keep their meaning.
+        allowed = _allowed_init_kwargs(cls)
+        if trans_cfg.colors is not None:
+            if "colors" in allowed and "colors" not in plugin_kwargs:
+                plugin_kwargs["colors"] = trans_cfg.colors
+        elif (
+            trans_cfg.color is not None
+            and "color" in allowed
+            and "color" not in plugin_kwargs
+        ):
+            plugin_kwargs["color"] = trans_cfg.color
+        return _build_plugin_style(cls, plugin_kwargs, f"transition {trans_cfg.type!r}")
     kwargs: dict[str, Any] = {}
     if trans_cfg.colors is not None:
         kwargs["colors"] = trans_cfg.colors

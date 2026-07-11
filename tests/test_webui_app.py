@@ -877,6 +877,14 @@ def test_index_html_has_store_tab():
     assert "/api/store/install" in html
     assert "/api/store/upgrade" in html
     assert "/api/store/remove" in html
+    assert "/api/store/check-updates" in html
+    # The always-on Upgrade button is gone — Upgrade is now check-gated: it
+    # appears exactly once in the template (inside the gated branch), and the
+    # availability check precedes the button markup in source order.
+    assert html.count('data-action="upgrade"') == 1
+    assert html.index("chk && chk.upgrade_available") < html.index(
+        'data-action="upgrade"'
+    )
 
 
 def test_index_html_has_pack_chip_rendering():
@@ -2866,5 +2874,249 @@ async def test_remove_non_default_source_actually_drops_line(tmp_path, monkeypat
         assert resp.status == 200
         # The git line must be GONE (was silently left in place before the fix).
         assert "pool-v0.1.0" not in manifest_path.read_text()
+    finally:
+        await client.close()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/store/check-updates
+# ---------------------------------------------------------------------------
+
+
+def _check_fixtures(monkeypatch, *, entries, active, resolve):
+    """Patch catalog, store state, and the resolver for check-updates tests.
+    `entries` = list[CatalogEntry]; `active` = set of namespaces the store
+    reports as state 'active'; `resolve(line, **kw)` stands in for
+    resolve_latest."""
+    import led_ticker.webui as webui_mod
+    from led_ticker.app import plugin_upgrade
+    from led_ticker.plugins_catalog import Catalog
+
+    monkeypatch.setattr(
+        webui_mod, "_load_catalog_lazy", lambda: Catalog(entries=tuple(entries))
+    )
+    monkeypatch.setattr(
+        webui_mod,
+        "_build_store",
+        lambda **kw: {
+            "plugins": [
+                {
+                    "namespace": e.namespace,
+                    "state": ("active" if e.namespace in active else "available"),
+                }
+                for e in entries
+            ]
+        },
+    )
+    monkeypatch.setattr(plugin_upgrade, "resolve_latest", resolve)
+
+
+def _entry(name, namespace, *, pypi=None, version=None, git_sub=None):
+    from led_ticker.plugins_catalog import CatalogEntry, CatalogSource, PluginProvides
+
+    sources = []
+    if pypi:
+        sources.append(CatalogSource(type="pypi", package=pypi, version=version))
+    if git_sub:
+        sources.append(
+            CatalogSource(
+                type="git",
+                url="https://github.com/JamesAwesome/led-ticker-plugins",
+                ref=f"{name}-v0.1.0",
+                subdirectory=f"plugins/{git_sub}",
+            )
+        )
+    return CatalogEntry(
+        name=name,
+        namespace=namespace,
+        summary="",
+        homepage="",
+        provides=PluginProvides(widgets=(f"{namespace}.w",)),
+        sources=tuple(sources),
+    )
+
+
+async def test_check_updates_reports_available_and_current(tmp_path, monkeypatch):
+    pool = _entry("pool", "pool", pypi="led-ticker-pool", version="0.1.0")
+    rss = _entry("rss", "rss", pypi="led-ticker-rss", version="0.2.0")
+
+    def resolve(line, **kw):
+        return "led-ticker-pool==0.2.0" if "pool" in line else line  # rss unchanged
+
+    _check_fixtures(
+        monkeypatch, entries=[pool, rss], active={"pool", "rss"}, resolve=resolve
+    )
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text(
+        "led-ticker-pool==0.1.0\nled-ticker-rss==0.2.0\n"
+    )
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        by_ns = {r["namespace"]: r for r in (await resp.json())["results"]}
+        assert by_ns["pool"]["upgrade_available"] is True
+        assert by_ns["pool"]["latest"] == "led-ticker-pool==0.2.0"
+        assert by_ns["rss"]["upgrade_available"] is False
+    finally:
+        await client.close()
+
+
+async def test_check_updates_per_plugin_error_isolated(tmp_path, monkeypatch):
+    from led_ticker.app import plugin_upgrade
+
+    pool = _entry("pool", "pool", pypi="led-ticker-pool", version="0.1.0")
+    rss = _entry("rss", "rss", pypi="led-ticker-rss", version="0.2.0")
+
+    def resolve(line, **kw):
+        if "rss" in line:
+            raise plugin_upgrade.UpgradeError("pypi down")
+        return "led-ticker-pool==0.2.0"
+
+    _check_fixtures(
+        monkeypatch, entries=[pool, rss], active={"pool", "rss"}, resolve=resolve
+    )
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text(
+        "led-ticker-pool==0.1.0\nled-ticker-rss==0.2.0\n"
+    )
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        by_ns = {r["namespace"]: r for r in (await resp.json())["results"]}
+        assert by_ns["pool"]["upgrade_available"] is True
+        assert "pypi down" in by_ns["rss"]["error"]
+    finally:
+        await client.close()
+
+
+async def test_check_updates_skips_non_active(tmp_path, monkeypatch):
+    pool = _entry("pool", "pool", pypi="led-ticker-pool", version="0.1.0")
+    # pool present but NOT active (e.g. available / restart_to_activate) -> skipped
+    _check_fixtures(
+        monkeypatch, entries=[pool], active=set(), resolve=lambda line, **kw: line + "!"
+    )
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool==0.1.0\n")
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        assert (await resp.json())["results"] == []
+    finally:
+        await client.close()
+
+
+async def test_check_updates_shared_package_one_resolve_per_line(tmp_path, monkeypatch):
+    # led-ticker-flair ships two namespaces via ONE line; resolve must run ONCE.
+    nyan = _entry("nyancat", "nyancat", git_sub="nyancat")  # git, monorepo
+    pac = _entry("pacman", "pacman", git_sub="pacman")
+    # Both declared via the SAME shared pypi line for this test's simplicity:
+    calls = {"n": 0}
+
+    def resolve(line, **kw):
+        calls["n"] += 1
+        return line.replace("0.1.0", "0.2.0")
+
+    _check_fixtures(
+        monkeypatch, entries=[nyan, pac], active={"nyancat", "pacman"}, resolve=resolve
+    )
+    client = await _client(tmp_path, token="s3cret")
+    # One shared line keyed to both namespaces' git source (repo#subdir differs,
+    # so give each its own line here; dedup is by line — assert per-namespace
+    # results exist and each line resolved once).
+    (tmp_path / "requirements-plugins.txt").write_text(
+        "git+https://github.com/JamesAwesome/led-ticker-plugins@nyancat-v0.1.0#subdirectory=plugins/nyancat\n"
+        "git+https://github.com/JamesAwesome/led-ticker-plugins@pacman-v0.1.0#subdirectory=plugins/pacman\n"
+    )
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        nss = {r["namespace"] for r in (await resp.json())["results"]}
+        assert nss == {"nyancat", "pacman"}
+        assert calls["n"] == 2  # two distinct lines -> two resolves (not 4)
+    finally:
+        await client.close()
+
+
+async def test_check_updates_shared_line_resolves_once(tmp_path, monkeypatch):
+    # Two DISTINCT namespaces backed by the SAME pip package (the
+    # led-ticker-flair case: one manifest line serves both siblings). Their
+    # match keys both resolve to the ONE shared line, so this exercises the
+    # actual dedup — unlike the test above, where two distinct lines happen
+    # to add up to the same resolve count as if dedup were absent.
+    flair_a = _entry("flair-a", "flair_a", pypi="led-ticker-flair", version="0.1.0")
+    flair_b = _entry("flair-b", "flair_b", pypi="led-ticker-flair", version="0.1.0")
+    calls = {"n": 0}
+
+    def resolve(line, **kw):
+        calls["n"] += 1
+        return line.replace("0.1.0", "0.2.0")
+
+    _check_fixtures(
+        monkeypatch,
+        entries=[flair_a, flair_b],
+        active={"flair_a", "flair_b"},
+        resolve=resolve,
+    )
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-flair==0.1.0\n")
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        by_ns = {r["namespace"]: r for r in (await resp.json())["results"]}
+        assert set(by_ns) == {"flair_a", "flair_b"}
+        assert calls["n"] == 1  # ONE shared line -> ONE resolve, not one per namespace
+        assert by_ns["flair_a"]["latest"] == by_ns["flair_b"]["latest"]
+    finally:
+        await client.close()
+
+
+async def test_check_updates_requires_token(tmp_path, monkeypatch):
+    pool = _entry("pool", "pool", pypi="led-ticker-pool", version="0.1.0")
+    _check_fixtures(
+        monkeypatch, entries=[pool], active={"pool"}, resolve=lambda line, **k: line
+    )
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post("/api/store/check-updates")  # no token
+        assert resp.status == 401
+    finally:
+        await client.close()
+
+
+async def test_check_updates_no_token_configured_disabled(tmp_path, monkeypatch):
+    pool = _entry("pool", "pool", pypi="led-ticker-pool", version="0.1.0")
+    _check_fixtures(
+        monkeypatch, entries=[pool], active={"pool"}, resolve=lambda line, **k: line
+    )
+    client = await _client(tmp_path)  # no token configured
+    try:
+        resp = await client.post("/api/store/check-updates")
+        assert resp.status == 403
+        assert "disabled" in (await resp.json())["error"]
+    finally:
+        await client.close()
+
+
+async def test_check_updates_empty_when_nothing_declared(tmp_path, monkeypatch):
+    _check_fixtures(
+        monkeypatch, entries=[], active=set(), resolve=lambda line, **k: line
+    )
+    client = await _client(tmp_path, token="s3cret")
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        assert (await resp.json())["results"] == []
     finally:
         await client.close()

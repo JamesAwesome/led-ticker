@@ -226,6 +226,10 @@
         <div class="restart-btn-wrap" id="store-restart-btn-wrap"></div>
         <div id="store-restart-status" class="restart-status"></div>
       </div>
+      <div id="store-check-wrap" style="margin-top:.75rem;">
+        <button id="store-check-btn" class="store-btn">Check for updates</button>
+        <span id="store-check-status" class="muted" style="margin-left:.5rem;"></span>
+      </div>
       <div id="store-list" style="margin-top:.75rem;">
         <p class="muted">Loading…</p>
       </div>
@@ -266,6 +270,12 @@ let prevSwapCount = null;
 let stallPolls = 0;
 // allow_restart as last seen from /api/status or /api/store
 let lastAllowRestart = false;
+// namespace -> {latest, upgrade_available} | {error}, from POST /api/store/check-updates.
+// Ephemeral: cleared on every loadStore() so a reload never shows a stale/unchecked Upgrade.
+let upgradeChecks = {};
+// Last payload rendered by renderStore(), kept so checkForUpdates() can re-render
+// the same plugin list with fresh upgradeChecks without re-fetching /api/store.
+let lastStoreData = {plugins: []};
 
 // ---------------------------------------------------------------------------
 // Restart-to-apply button — reusable across Store pending banner and
@@ -1081,13 +1091,25 @@ function renderStore(data) {
       actionHtml = `<button class="store-btn remove" ${disabled ? "disabled" : ""}
         data-action="remove" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
         ${disabledReason ? `title="${esc(disabledReason)}"` : ""}>${removeLabel}</button>`;
-      // Upgrade button — auth-gated like Remove, but never gated on `removable`:
-      // upgrading rewrites the shared manifest line for all pack siblings without
-      // orphaning any of them, unlike Remove which drops the line entirely.
-      const upgradeLabel = pack ? `Upgrade ${esc(pack)} pack` : "Upgrade";
-      actionHtml = `<button class="store-btn install" ${needsAuth ? "disabled" : ""}
-        data-action="upgrade" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
-        ${needsAuth ? 'title="Enter your token to upgrade plugins"' : ""}>${upgradeLabel}</button>` + actionHtml;
+      // Upgrade is offered ONLY after a check reports the line would change.
+      // (The always-on button was removed — it invited upgrades that were
+      // often no-ops. `upgradeChecks` is populated by "Check for updates".)
+      // Unlike Remove, this button is gated on auth only (needsAuth below) —
+      // never on `removable` — so upgrading one led-ticker-flair sibling
+      // doesn't get blocked by another sibling still referencing the shared
+      // manifest line.
+      const chk = upgradeChecks[p.namespace];
+      if (chk && chk.upgrade_available) {
+        const target = esc(chk.latest || "");
+        const upLabel = pack ? `Upgrade ${esc(pack)} pack → ${target}` : `Upgrade → ${target}`;
+        actionHtml = `<button class="store-btn install" ${needsAuth ? "disabled" : ""}
+          data-action="upgrade" data-ns="${esc(p.namespace)}" data-pack="${esc(pack)}" data-pack-members="${esc(packMembers.join(","))}"
+          ${needsAuth ? 'title="Enter your token to upgrade plugins"' : ""}>${upLabel}</button>` + actionHtml;
+      } else if (chk && chk.error) {
+        actionHtml = `<span class="store-in-use-note">check failed: ${esc(chk.error)}</span>` + actionHtml;
+      } else if (chk) {
+        actionHtml = `<span class="store-in-use-note">Up to date</span>` + actionHtml;
+      }
       if (cantRemove && inUse.length > 0) {
         // This namespace's own config refs — show a few, tooltip the rest.
         // (Unbounded enumeration overlapped the card body on emoji-heavy
@@ -1134,9 +1156,41 @@ function renderStore(data) {
       storeAction(btn.dataset.action, btn.dataset.ns);
     };
   });
+
+  const checkBtn = $("store-check-btn");
+  if (checkBtn) {
+    const needsAuth = authRequired && !hasToken;
+    checkBtn.disabled = needsAuth;
+    checkBtn.title = needsAuth ? "Enter your token to check for updates" : "";
+    checkBtn.onclick = checkForUpdates;
+  }
+}
+
+async function checkForUpdates() {
+  const status = $("store-check-status");
+  const btn = $("store-check-btn");
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = "checking…";
+  try {
+    const r = await fetch("/api/store/check-updates", {method: "POST", headers: auth});
+    if (r.status === 401) { alert("Auth failed — check your token in the field above."); return; }
+    if (r.status === 403) { alert("Editing disabled (no token configured on the server)."); return; }
+    if (!r.ok) { if (status) status.textContent = `check failed (${r.status})`; return; }
+    const body = await r.json();
+    upgradeChecks = {};
+    for (const res of (body.results || [])) upgradeChecks[res.namespace] = res;
+    const n = (body.results || []).filter((x) => x.upgrade_available).length;
+    if (status) status.textContent = n ? `${n} update${n === 1 ? "" : "s"} available` : "all up to date";
+    renderStore(lastStoreData);  // re-render rows with the fresh results
+  } catch (e) {
+    if (status) status.textContent = "could not reach the webui";
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function loadStore() {
+  upgradeChecks = {};
   try {
     // GET /api/store is in _OPEN_PATHS so unauthenticated visitors can browse
     // the catalog (the server redacts config-derived fields for them). We DO
@@ -1149,7 +1203,8 @@ async function loadStore() {
       $("store-list").innerHTML = `<p class="muted">Could not load store (${r.status}).</p>`;
       return;
     }
-    renderStore(await r.json());
+    lastStoreData = await r.json();
+    renderStore(lastStoreData);
   } catch (e) {
     $("store-list").innerHTML = '<p class="muted">Could not reach the webui — is it still running?</p>';
   }

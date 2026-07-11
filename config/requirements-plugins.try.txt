@@ -11,4 +11,4 @@ led-ticker-rss==0.2.1
 
 # Sprite-trail transitions: nyancat / pokeball / pacman / sailor_moon
 # (transition = "nyancat.forward" etc.)
-led-ticker-flair==0.3.0
+led-ticker-flair==0.7.0

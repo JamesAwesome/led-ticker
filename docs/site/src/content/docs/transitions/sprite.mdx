@@ -1,6 +1,6 @@
 ---
 title: Sprite and flair transitions
-description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites and the flair.spinout text-spin transition."
+description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, the flair.spinout text-spin transition, and the flair.fireworks burst transition."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -185,5 +185,54 @@ duration = 1.0
 - **Scrolled text spins from its parked position.** If the outgoing widget had been scrolling, `flair.spinout` picks up at the position where the text stopped (the same `outgoing_scroll_pos` continuity used by the push family).
 - **Colors freeze during the spin.** Animated `font_color` providers (`rainbow`, `color_cycle`, `shimmer`) are paused for the outgoing widget while it spins, consistent with how transitions pause frame-aware effects in general.
 - **Pairs with `flair.propeller`.** Use `flair.spinout` as the inter-widget or between-sections transition alongside `animation = "flair.propeller"` on `message` widgets for a full spin-in / spin-out cycle. See [flair.propeller → Pairing with flair.spinout](/concepts/animations/#pairing-with-flairspinout).
+
+### `flair.fireworks` (flair >= 0.7.0, core >= 4.10)
+
+`flair.fireworks` holds the outgoing widget while staggered firework bursts launch as rising streaks from the bottom edge, then open into black "burn-through" holes ringed by radial spoke trails — an asterisk of bright white heads and fading colored tails, not a ring outline. Past the halfway point every burst's hole blooms in lockstep toward full-panel coverage, revealing the incoming widget through the expanding circles and blacking out everything outside their union, until embers fade and the whole panel cuts to the incoming section. Transition duration follows `[transitions] duration` — about 1.2 s gives the bursts room to stagger, open, and bloom without feeling rushed.
+
+<DemoGif
+  src="/demos-long/transitions-fireworks.gif"
+  caption="`flair.fireworks` — staggered bursts open over the outgoing widget, then bloom to reveal the incoming widget"
+/>
+
+#### Install
+
+`flair.fireworks` is part of the same `led-ticker-flair` package as the homage sprite-trails and `flair.spinout`:
+
+```text
+led-ticker-flair
+```
+
+One install registers all flair transitions and animations. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Minimal"
+  code={`[transitions]
+between_sections = "flair.fireworks"
+duration = 1.2`}
+/>
+
+With knobs, set via an inline table on the section's `transition` field (or on `[transitions] default`/`between_sections`):
+
+<TomlExample
+  title="With knobs"
+  code={`[[playlist.section]]
+transition = {type = "flair.fireworks", bursts = 3, colors = [[255, 60, 60], [0, 220, 220]]}`}
+/>
+
+#### Knobs
+
+| Knob     | Default                  | Notes                                                                                                                                                                                                                                                                                                                                  |
+| -------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bursts` | size-adaptive (3-6)      | Number of firework bursts. Auto-picked from the panel's width-to-height ratio when omitted — wider panels get more bursts (smallsign: 5, bigsign: 4, longboi: 6) — or set explicitly in `[2, 8]`.                                                                                                                                      |
+| `colors` | 8-color built-in palette | List of `[r, g, b]` triples, cycled across bursts in order. **Note:** this is `colors`, not `transition_colors` — core's `transition_colors` config field does not reach plugin transitions (a known gap); `colors` is this transition's own constructor kwarg.                                                                        |
+| `seed`   | `None` (OS entropy)      | Fixes the RNG for reproducible bursts — useful for regression tests and reproducible demo GIFs. Not a promise that the same seed plans the same sequence forever: a re-fire of the same running instance continues drawing from that same RNG stream, so consecutive firings on a live sign still vary. Leave unset for a real deploy. |
+
+#### Behavior notes
+
+- **Size-adaptive by default.** Burst count, radius, and stagger timing are all derived from the panel's actual width/height at draw time — the same `transition = "flair.fireworks"` line looks right on smallsign, bigsign, and longboi without per-sign tuning.
+- **Two-phase design, painted through black.** There is no `GetPixel` on real hardware (the framebuffer stores pre-computed GPIO bitplane data, not readable RGB), so nothing can be composited from a previous frame — every frame is drawn from scratch from the widgets plus burst geometry. Phase one (`t < 0.5`) plays over the outgoing widget; phase two (`t >= 0.5`) switches to the incoming widget and blacks out everything outside the union of the (still-growing) burst circles, guaranteeing full coverage by `t == 1.0` regardless of any individual burst's stagger.
 
 <RelatedPages slugs={["transitions/push", "transitions/wipe", "concepts/animations"]} />

@@ -229,6 +229,7 @@
       <div id="store-check-wrap" style="margin-top:.75rem;">
         <button id="store-check-btn" class="store-btn">Check for updates</button>
         <span id="store-check-status" class="muted" style="margin-left:.5rem;"></span>
+        <div id="store-core-line" style="margin-top:.35rem;"></div>
       </div>
       <div id="store-list" style="margin-top:.75rem;">
         <p class="muted">Loading…</p>
@@ -1182,6 +1183,24 @@ async function checkForUpdates() {
     const n = (body.results || []).filter((x) => x.upgrade_available).length;
     if (status) status.textContent = n ? `${n} update${n === 1 ? "" : "s"} available` : "all up to date";
     renderStore(lastStoreData);  // re-render rows with the fresh results
+    const coreEl = $("store-core-line");
+    if (coreEl) {
+      const c = body.core;
+      if (!c) {
+        coreEl.textContent = "";
+      } else if (c.update_available === true) {
+        coreEl.className = "";
+        coreEl.innerHTML =
+          `<strong>core ${esc(c.running)} → ${esc(c.latest)} available</strong>` +
+          ` — run <code>git pull && make update</code> on the sign`;
+      } else if (c.update_available === false) {
+        coreEl.className = "muted";
+        coreEl.textContent = `core ${c.running} — up to date`;
+      } else {
+        coreEl.className = "muted";
+        coreEl.textContent = `core ${c.running} — ${c.note || "can't compare"}`;
+      }
+    }
   } catch (e) {
     if (status) status.textContent = "could not reach the webui";
   } finally {
@@ -1191,6 +1210,8 @@ async function checkForUpdates() {
 
 async function loadStore() {
   upgradeChecks = {};
+  const coreEl = $("store-core-line");
+  if (coreEl) coreEl.textContent = "";
   try {
     // GET /api/store is in _OPEN_PATHS so unauthenticated visitors can browse
     // the catalog (the server redacts config-derived fields for them). We DO

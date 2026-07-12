@@ -887,6 +887,24 @@ def test_index_html_has_store_tab():
     )
 
 
+def test_index_html_renders_core_update_line():
+    """The Store tab renders the core update flag from body.core: a
+    #store-core-line element, populated by checkForUpdates(), with the
+    git pull && make update instruction and NO action button for core."""
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    assert html.count("store-core-line") >= 2  # the div + the JS lookup
+    assert "body.core" in html
+    assert (
+        "git pull && make update" in html or "git pull &amp;&amp; make update" in html
+    )
+    # flag, not a button: no store-action wiring for core
+    assert 'data-action="upgrade-core"' not in html
+
+
 def test_index_html_has_pack_chip_rendering():
     """The Store tab JS renders a pack chip for plugins with a non-empty pack field,
     and uses pack-aware Install/Remove button labels with a confirm() for pack members.

@@ -1,6 +1,6 @@
 ---
 title: flight.overhead widget
-description: flight.overhead is a planes-overhead ADS-B flight tracker plugin widget with ticker/hero/dashboard layouts chosen automatically by sign shape (type = "flight.overhead").
+description: Planes-overhead ADS-B flight tracker widget with ticker, hero, and dashboard layouts picked automatically by sign shape.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
@@ -105,14 +105,14 @@ With 2 or more tracked flights, `hero` and `dashboard` fade the entire card thro
 | `radius_km`    | int, 2-460                                       | `30`                            | Search radius in kilometers. Converted to nautical miles for the adsb.lol call.                                                                                                        |
 | `layout`       | `"auto"` / `"ticker"` / `"hero"` / `"dashboard"` | `"auto"`                        | See [Layouts](#layouts) above.                                                                                                                                                         |
 | `max_aircraft` | int, 1-8                                         | `4`                             | Cap on tracked aircraft. The closest N (by distance) are kept.                                                                                                                         |
-| `interval`     | float, >= 5                                      | `10`                            | Seconds between adsb.lol polls. See [Data source](#data-source) below before lowering it.                                                                                              |
+| `interval`     | float, 5-3600                                    | `10`                            | Seconds between adsb.lol polls. See [Data source](#data-source) below before lowering it.                                                                                              |
 | `demo`         | bool                                             | `false`                         | Render the bundled 4-flight sample feed instead of calling the network. No coordinates needed — see [Try it without coordinates](#try-it-without-coordinates-or-a-network-call) above. |
 
 There's **no font or color knob** on this widget — the semantic palette (ident white, altitude amber, speed green, track cyan, distance magenta, climb/descend cues) and the airline tail-fin colors are pinned by the design across every layout and every sign, the same way a real departures board doesn't let you recolor its columns.
 
 ## Data source
 
-Aircraft come from [adsb.lol](https://adsb.lol/)'s point-radius endpoint — free, public, no API key. Be a good citizen of the shared endpoint: the default 10-second `interval` is already frequent for a keyless public API — don't lower it without a reason. Aircraft missing a callsign, altitude, or position are dropped before the remaining set is sorted by distance and capped at `max_aircraft`.
+Aircraft come from [adsb.lol](https://adsb.lol/)'s point-radius endpoint — a community aggregator of ADS-B, the position broadcasts that aircraft transmit — free, public, no API key. Be a good citizen of the shared endpoint: the default 10-second `interval` is already frequent for a keyless public API — don't lower it without a reason. Aircraft missing a callsign, altitude, or position are dropped before the remaining set is sorted by distance and capped at `max_aircraft`.
 
 ## If it doesn't work
 
@@ -120,6 +120,6 @@ Aircraft come from [adsb.lol](https://adsb.lol/)'s point-radius endpoint — fre
 - **The panel always shows "NO TRAFFIC".** Check that `latitude`/`longitude` are your actual location (not swapped, not `0, 0`) and that `radius_km` is large enough for your local traffic density — a small suburban or rural airport may need the full 460km radius during quiet hours.
 - **`hero`/`dashboard` never appears — only `ticker`.** Hi-res layouts require a scaled display (`default_scale > 1`, e.g. bigsign/longboi). On a smallsign (`default_scale = 1`), `layout = "auto"` — and even an explicit `"hero"`/`"dashboard"` — always falls back to `ticker`.
 
-**Full documentation** — the design handoff spec (palette, tail-fin geometry, exact layout math) and implementation notes — lives in the [flight package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/flight/README.md).
+**Full documentation** — install steps and implementation notes live in the [flight package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/flight/README.md); the design handoff spec (palette, tail-fin geometry, exact layout math) lives in [design/README.md](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/flight/design/README.md).
 
 <RelatedPages slugs={["plugins/available", "widgets", "concepts/sections-and-modes"]} />

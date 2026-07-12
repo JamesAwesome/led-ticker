@@ -140,6 +140,17 @@
       ]
     },
     {
+      "name": "flight",
+      "namespace": "flight",
+      "summary": "Planes-overhead ADS-B flight tracker (ticker / hero / dashboard layouts).",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flight",
+      "provides": { "widgets": ["flight.overhead"] },
+      "sources": [
+        { "type": "pypi", "package": "led-ticker-flight" },
+        { "type": "git", "url": "https://github.com/JamesAwesome/led-ticker-plugins", "ref": "flight-v0.1.0", "subdirectory": "plugins/flight" }
+      ]
+    },
+    {
       "name": "telnet",
       "namespace": "telnet",
       "summary": "Telnet (ANSI terminal) rendering backend for led-ticker — watch your sign in a terminal.",

@@ -19,6 +19,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 
 from led_ticker.app.plugin_cmd import (
@@ -367,3 +368,62 @@ def cmd_upgrade(
     if wrote and not dry_run:
         print(_UPGRADE_HINT)
     return code
+
+
+def _running_core_version() -> str:
+    """Installed led-ticker-core version string, or "unknown" (test seam)."""
+    import importlib.metadata
+
+    try:
+        return importlib.metadata.version("led-ticker-core")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def resolve_core_update(fetch_json: Callable[[str], dict] | None = None) -> dict:
+    """Is a newer led-ticker-core on PyPI than the one running?
+
+    Returns {running, latest, update_available, note}. update_available is
+    None (with a note) when either side can't be compared: a dev/editable
+    build (version string doesn't parse), missing metadata, or a PyPI
+    failure. Total function — never raises; core updates ship via
+    `git pull && make update`, so this is a FLAG for the webui, not a
+    resolver for pip.
+    """
+    running = _running_core_version()
+    fetch = fetch_json or _fetch_pypi_json
+    try:
+        data = fetch("led-ticker-core")
+        parseable = [v for v in data.get("releases", {}) if _parse_version(v)]
+        if parseable:
+            latest = max(parseable, key=lambda v: _parse_version(v) or ())
+        else:
+            latest = None
+    except Exception:
+        return {
+            "running": running,
+            "latest": None,
+            "update_available": None,
+            "note": "PyPI unreachable",
+        }
+    run_v = _parse_version(running)
+    if latest is None or run_v is None:
+        note = (
+            "running a dev build — can't compare"
+            if latest is not None
+            else "no releases found on PyPI"
+        )
+        return {
+            "running": running,
+            "latest": latest,
+            "update_available": None,
+            "note": note,
+        }
+    latest_v = _parse_version(latest)
+    assert latest_v is not None  # parseable list guarantees this
+    return {
+        "running": running,
+        "latest": latest,
+        "update_available": latest_v > run_v,
+        "note": None,
+    }

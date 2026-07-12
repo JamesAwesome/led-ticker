@@ -11,28 +11,29 @@ one that fits your data, then read its page for the full options list.
 
 ## By data source
 
-| Widget                                                      | Source                      | Use when                                   |
-| ----------------------------------------------------------- | --------------------------- | ------------------------------------------ |
-| [`message`](/widgets/message/)                              | static text                 | most lines on most signs                   |
-| [`clock`](/widgets/clock/)                                  | local clock                 | current time (12h/24h, optional date/tz)   |
-| [`countdown`](/widgets/countdown/)                          | local clock + a target date | "X days until …"                           |
-| [`two_row`](/widgets/two_row/)                              | two static lines            | held-handle + scrolling promo (storefront) |
-| [`gif`](/widgets/gif/)                                      | local file                  | animated gifs / webp / multi-frame images  |
-| [`image`](/widgets/image/)                                  | static PNG / JPG            | logos / single still graphics              |
-| [`pool`](/widgets/pool/) _(plugin)_                         | pool_monitor InfluxDB       | water temp (today / 7-day / season)        |
-| [`baseball.scores`](/widgets/mlb/) _(plugin)_               | MLB free API                | game scores / series state                 |
-| [`baseball.standings`](/widgets/mlb_standings/) _(plugin)_  | MLB free API                | standings (top N + tracked teams)          |
-| [`crypto.coingecko`](/widgets/crypto-coingecko/) _(plugin)_ | CoinGecko                   | multi-coin price ticker                    |
-| [`calendar.events`](/widgets/calendar/) _(plugin)_          | iCal / .ics URL             | upcoming events, agenda / next / two_row   |
-| [`rss.feed`](/widgets/rss_feed/) _(plugin)_                 | any RSS URL                 | news / blog headlines                      |
-| [`weather.current`](/widgets/weather/) _(plugin)_           | WeatherAPI.com              | forecast / current conditions              |
-| [`flair.lottery`](/widgets/lottery/) _(plugin)_             | static words                | lottery-ball roll-in reveal (bigsign only) |
+| Widget                                                      | Source                      | Use when                                    |
+| ----------------------------------------------------------- | --------------------------- | ------------------------------------------- |
+| [`message`](/widgets/message/)                              | static text                 | most lines on most signs                    |
+| [`clock`](/widgets/clock/)                                  | local clock                 | current time (12h/24h, optional date/tz)    |
+| [`countdown`](/widgets/countdown/)                          | local clock + a target date | "X days until …"                            |
+| [`two_row`](/widgets/two_row/)                              | two static lines            | held-handle + scrolling promo (storefront)  |
+| [`gif`](/widgets/gif/)                                      | local file                  | animated gifs / webp / multi-frame images   |
+| [`image`](/widgets/image/)                                  | static PNG / JPG            | logos / single still graphics               |
+| [`pool`](/widgets/pool/) _(plugin)_                         | pool_monitor InfluxDB       | water temp (today / 7-day / season)         |
+| [`baseball.scores`](/widgets/mlb/) _(plugin)_               | MLB free API                | game scores / series state                  |
+| [`baseball.standings`](/widgets/mlb_standings/) _(plugin)_  | MLB free API                | standings (top N + tracked teams)           |
+| [`crypto.coingecko`](/widgets/crypto-coingecko/) _(plugin)_ | CoinGecko                   | multi-coin price ticker                     |
+| [`calendar.events`](/widgets/calendar/) _(plugin)_          | iCal / .ics URL             | upcoming events, agenda / next / two_row    |
+| [`rss.feed`](/widgets/rss_feed/) _(plugin)_                 | any RSS URL                 | news / blog headlines                       |
+| [`weather.current`](/widgets/weather/) _(plugin)_           | WeatherAPI.com              | forecast / current conditions               |
+| [`flair.lottery`](/widgets/lottery/) _(plugin)_             | static words                | lottery-ball roll-in reveal (bigsign only)  |
+| [`flight.overhead`](/widgets/flight/) _(plugin)_            | adsb.lol                    | planes overhead (ticker / hero / dashboard) |
 
 ## By complexity
 
 - **Just text:** `message`, `countdown`, `clock`. No external dependencies.
 - **Two text rows (storefront layout):** `two_row` at section `scale=2`.
-- **Live data (background fetch):** all data plugin widgets — `pool`, `baseball.scores`, `baseball.standings`, `crypto.coingecko`, `calendar.events`, `rss.feed`, and `weather.current`. Each has retry + exponential backoff.
+- **Live data (background fetch):** all data plugin widgets — `pool`, `baseball.scores`, `baseball.standings`, `crypto.coingecko`, `calendar.events`, `rss.feed`, `weather.current`, and `flight.overhead`. Each has retry + exponential backoff.
 - **Visual:** `gif`, `image`. Both support text overlay, fit modes (pillarbox / letterbox / stretch / crop), and per-row two-row layouts.
 - **Effect (no data source):** [`flair.lottery`](/widgets/lottery/) _(plugin)_ — a held roll-in reveal over static words, bigsign only.
 

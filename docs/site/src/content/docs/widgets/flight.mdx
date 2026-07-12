@@ -1,0 +1,125 @@
+---
+title: flight.overhead widget
+description: Planes-overhead ADS-B flight tracker widget with ticker, hero, and dashboard layouts picked automatically by sign shape.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The **flight.overhead** widget is provided by the **[flight](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flight)** package in the led-ticker-plugins monorepo, referenced in config as `type = "flight.overhead"`. It shows nearby aircraft — callsign, aircraft type, altitude with a climb/descend cue, ground speed, track, and distance/bearing — pulled from the free, keyless [adsb.lol](https://adsb.lol/) API, in the visual language of an airport departures board.
+
+<DemoGif
+  src="/demos-long/widget-flight-bigsign.gif"
+  caption="hero layout on a bigsign-shaped sign: one flight at a time — swept tail-fin, hi-res callsign, airline/type line, and a metrics line (altitude, speed, track, distance) — rotating through tracked aircraft."
+/>
+
+**Requires led-ticker-core >= 4.8.** The widget picks one of three layouts automatically based on your sign's shape (see [Layouts](#layouts) below) — no wiring or extra config needed to get a sensible look on smallsign, bigsign, or a wide panel like longboi.
+
+```toml
+[[playlist.section.widget]]
+type = "flight.overhead"
+latitude = 40.7128
+longitude = -74.0060
+radius_km = 30
+```
+
+To install the plugin on a Docker deploy, add its line to the plugin manifest and restart:
+
+```bash
+# First plugin? Create your manifest from the example:
+cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
+# Add the package (one name per line), then restart:
+echo "led-ticker-flight" >> config/requirements-plugins.txt
+docker compose restart
+```
+
+Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/plugins/).
+
+## Try it without coordinates or a network call
+
+Set `demo = true` to render a bundled 4-flight sample feed instead of calling adsb.lol — no `latitude`/`longitude` needed, no internet required:
+
+```toml
+[[playlist.section.widget]]
+type = "flight.overhead"
+demo = true
+```
+
+This is the fastest way to preview the layouts before you know your receiver's coordinates, or on a dev machine with no network access.
+
+## Layouts
+
+`layout = "auto"` (the default) resolves at draw time from the canvas's scale and physical width, so the same config works unmodified across a smallsign/bigsign/longboi deploy. You can also pin a layout explicitly with `layout = "ticker"` / `"hero"` / `"dashboard"` — an explicit `"hero"` or `"dashboard"` on a scale-1 sign falls back to `ticker`, since hi-res drawing isn't possible there.
+
+### `ticker` — smallsign (`scale = 1`)
+
+<DemoGif
+  src="/demos-long/widget-flight-smallsign.gif"
+  caption="ticker layout: a single continuously scrolling line — tail-fin, callsign, aircraft type, altitude, speed, track, and distance/bearing, dot-separated and color-coded per field."
+/>
+
+A single-line, continuously-scrolling BDF crawl through every tracked aircraft's full field set. This is the layout for scale-1 signs (smallsign) where hi-res drawing isn't available.
+
+### `hero` — a narrower hi-res sign (`scale > 1`, `< 400` physical px, e.g. bigsign)
+
+One flight at a time, shown large: a swept tail-fin, a hi-res callsign, an airline-name/type line, a metrics line (climb/descend cue, altitude, speed, track, distance), and paging dots. Rotates through the tracked flights on a fixed dwell (see the demo GIF at the top of this page).
+
+### `dashboard` — a wide hi-res sign (`scale > 1`, `>= 400` physical px, e.g. longboi)
+
+<DemoGif
+  src="/demos-long/widget-flight-longboi.gif"
+  caption="dashboard layout on a longboi-shaped sign: hero ident on the left, four labeled metric columns (altitude, speed, track, distance) filling the rest of the width."
+/>
+
+The widescreen layout: hero ident on the left, four labelled metric columns filling the rest of the width.
+
+## No traffic overhead
+
+<DemoGif
+  src="/demos-long/widget-flight-empty.gif"
+  caption='radar-idle empty state: a slow cyan sweep line crosses the panel while a pulsing "NO TRAFFIC" label fades in and out.'
+/>
+
+When a poll returns zero aircraft in range — quiet airspace, a `radius_km` that's too small, or a receiver location with nothing overhead — every layout falls back to the same radar-idle state instead of drawing a blank panel: a slow sweep line crosses the panel at physical resolution and a pulsing "NO TRAFFIC" (or "NO TRAFFIC OVERHEAD" on a wide sign) label sits centered. It's a "the widget is alive and polling" indicator, not an error.
+
+## Fade-through-black between rotating flights
+
+With 2 or more tracked flights, `hero` and `dashboard` fade the entire card through black for 200ms at the start and end of each flight's dwell window (4.2s per flight on `hero`, 4.8s on `dashboard`) instead of cutting straight to the next flight — a hard cut between rotating flights read as a glitch on real hardware during design review. A single tracked flight is just held continuously; it never fades. `ticker` has no dwell rotation (every flight is already visible in the one scrolling line), so this doesn't apply there.
+
+<Aside type="tip">
+  The widget also nudges its own **section transition** to land on one of these black frames: when
+  the hold-to-transition handoff lands within 1 second of a dwell boundary, it extends the hold to
+  reach it, so the cut to the next section composites over black instead of chopping a flight card
+  mid-display. For a guaranteed clean landing every time (not just when the handoff happens to be
+  close), set your section's `hold_time` to a whole multiple of the dwell — e.g. `8.4`/`12.6`
+  seconds for `hero`, `9.6`/`14.4` for `dashboard`.
+</Aside>
+
+## Options
+
+| Field          | Type                                             | Default                         | Notes                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------ | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `latitude`     | float                                            | required (unless `demo = true`) | Receiver location, -90 to 90.                                                                                                                                                          |
+| `longitude`    | float                                            | required (unless `demo = true`) | Receiver location, -180 to 180.                                                                                                                                                        |
+| `radius_km`    | int, 2-460                                       | `30`                            | Search radius in kilometers. Converted to nautical miles for the adsb.lol call.                                                                                                        |
+| `layout`       | `"auto"` / `"ticker"` / `"hero"` / `"dashboard"` | `"auto"`                        | See [Layouts](#layouts) above.                                                                                                                                                         |
+| `max_aircraft` | int, 1-8                                         | `4`                             | Cap on tracked aircraft. The closest N (by distance) are kept.                                                                                                                         |
+| `interval`     | float, 5-3600                                    | `10`                            | Seconds between adsb.lol polls. See [Data source](#data-source) below before lowering it.                                                                                              |
+| `demo`         | bool                                             | `false`                         | Render the bundled 4-flight sample feed instead of calling the network. No coordinates needed — see [Try it without coordinates](#try-it-without-coordinates-or-a-network-call) above. |
+
+There's **no font or color knob** on this widget — the semantic palette (ident white, altitude amber, speed green, track cyan, distance magenta, climb/descend cues) and the airline tail-fin colors are pinned by the design across every layout and every sign, the same way a real departures board doesn't let you recolor its columns.
+
+## Data source
+
+Aircraft come from [adsb.lol](https://adsb.lol/)'s point-radius endpoint — a community aggregator of ADS-B, the position broadcasts that aircraft transmit — free, public, no API key. Be a good citizen of the shared endpoint: the default 10-second `interval` is already frequent for a keyless public API — don't lower it without a reason. Aircraft missing a callsign, altitude, or position are dropped before the remaining set is sorted by distance and capped at `max_aircraft`.
+
+## If it doesn't work
+
+- **"flight.overhead requires latitude and longitude (or demo = true)".** Set both `latitude` and `longitude` to your receiver's coordinates, or set `demo = true` to preview with the bundled sample feed while you figure out your coordinates.
+- **The panel always shows "NO TRAFFIC".** Check that `latitude`/`longitude` are your actual location (not swapped, not `0, 0`) and that `radius_km` is large enough for your local traffic density — a small suburban or rural airport may need the full 460km radius during quiet hours.
+- **`hero`/`dashboard` never appears — only `ticker`.** Hi-res layouts require a scaled display (`default_scale > 1`, e.g. bigsign/longboi). On a smallsign (`default_scale = 1`), `layout = "auto"` — and even an explicit `"hero"`/`"dashboard"` — always falls back to `ticker`.
+
+**Full documentation** — install steps and implementation notes live in the [flight package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/flight/README.md); the design handoff spec (palette, tail-fin geometry, exact layout math) lives in [design/README.md](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/flight/design/README.md).
+
+<RelatedPages slugs={["plugins/available", "widgets", "concepts/sections-and-modes"]} />

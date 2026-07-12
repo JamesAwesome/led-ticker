@@ -2883,11 +2883,13 @@ async def test_remove_non_default_source_actually_drops_line(tmp_path, monkeypat
 # ---------------------------------------------------------------------------
 
 
-def _check_fixtures(monkeypatch, *, entries, active, resolve):
+def _check_fixtures(monkeypatch, *, entries, active, resolve, core=None):
     """Patch catalog, store state, and the resolver for check-updates tests.
     `entries` = list[CatalogEntry]; `active` = set of namespaces the store
     reports as state 'active'; `resolve(line, **kw)` stands in for
-    resolve_latest."""
+    resolve_latest. `core` stands in for resolve_core_update (a dict, or an
+    Exception instance to raise); defaults to a benign stub so every
+    check-updates test is shielded from real PyPI/network access."""
     import led_ticker.webui as webui_mod
     from led_ticker.app import plugin_upgrade
     from led_ticker.plugins_catalog import Catalog
@@ -2909,6 +2911,20 @@ def _check_fixtures(monkeypatch, *, entries, active, resolve):
         },
     )
     monkeypatch.setattr(plugin_upgrade, "resolve_latest", resolve)
+
+    core_result = core or {
+        "running": "4.12.0",
+        "latest": "4.12.0",
+        "update_available": False,
+        "note": None,
+    }
+
+    def fake_core():
+        if isinstance(core_result, Exception):
+            raise core_result
+        return core_result
+
+    monkeypatch.setattr(plugin_upgrade, "resolve_core_update", fake_core)
 
 
 def _entry(name, namespace, *, pypi=None, version=None, git_sub=None):
@@ -3118,5 +3134,60 @@ async def test_check_updates_empty_when_nothing_declared(tmp_path, monkeypatch):
         )
         assert resp.status == 200
         assert (await resp.json())["results"] == []
+    finally:
+        await client.close()
+
+
+async def test_check_updates_includes_core_block(tmp_path, monkeypatch):
+    pool = _entry("pool", "pool", pypi="led-ticker-pool", version="0.1.0")
+    core = {
+        "running": "4.11.1",
+        "latest": "4.12.0",
+        "update_available": True,
+        "note": None,
+    }
+    _check_fixtures(
+        monkeypatch,
+        entries=[pool],
+        active={"pool"},
+        resolve=lambda line, **kw: line,
+        core=core,
+    )
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool==0.1.0\n")
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["core"] == core
+        assert "results" in body  # plugin shape untouched
+    finally:
+        await client.close()
+
+
+async def test_check_updates_core_failure_isolated(tmp_path, monkeypatch):
+    """A raising core resolve must not break the plugin results."""
+    pool = _entry("pool", "pool", pypi="led-ticker-pool", version="0.1.0")
+    _check_fixtures(
+        monkeypatch,
+        entries=[pool],
+        active={"pool"},
+        resolve=lambda line, **kw: "led-ticker-pool==0.2.0",
+        core=RuntimeError("boom"),
+    )
+    client = await _client(tmp_path, token="s3cret")
+    (tmp_path / "requirements-plugins.txt").write_text("led-ticker-pool==0.1.0\n")
+    try:
+        resp = await client.post(
+            "/api/store/check-updates", headers={"X-Web-Token": "s3cret"}
+        )
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["core"]["update_available"] is None
+        assert body["core"]["note"] == "core check failed"
+        by_ns = {r["namespace"]: r for r in body["results"]}
+        assert by_ns["pool"]["upgrade_available"] is True
     finally:
         await client.close()

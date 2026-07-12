@@ -686,15 +686,31 @@ def build_webui_app(
             except plugin_upgrade.UpgradeError as e:
                 return {"error": str(e)}
 
+        async def resolve_core():
+            # Belt over resolve_core_update's own never-raise contract: a bug
+            # in the core check must not 500 the plugin results.
+            try:
+                return await asyncio.to_thread(plugin_upgrade.resolve_core_update)
+            except Exception:
+                return {
+                    "running": "unknown",
+                    "latest": None,
+                    "update_available": None,
+                    "note": "core check failed",
+                }
+
         unique_lines = list(line_to_nss)
-        resolved = await asyncio.gather(*(resolve_line(ln) for ln in unique_lines))
+        core_info, resolved = await asyncio.gather(
+            resolve_core(),
+            asyncio.gather(*(resolve_line(ln) for ln in unique_lines)),
+        )
         line_result = dict(zip(unique_lines, resolved, strict=True))
 
         results = [
             {"namespace": ns, "current": ns_line[ns], **line_result[ns_line[ns]]}
             for ns in sorted(ns_line)
         ]
-        return web.json_response({"results": results})
+        return web.json_response({"results": results, "core": core_info})
 
     app = web.Application(middlewares=[auth])
     app.router.add_get("/api/status", status_handler)

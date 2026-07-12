@@ -517,3 +517,81 @@ def test_resolve_upgrade_default_uses_module_resolve_latest(monkeypatch):
     monkeypatch.setattr(up, "resolve_latest", lambda line, **kw: line + "-X")
     latest, changed = up.resolve_upgrade("pkg", catalog_name="pool")
     assert latest == "pkg-X" and changed is True
+
+
+# --- resolve_core_update -------------------------------------------------------
+
+
+class TestResolveCoreUpdate:
+    """resolve_core_update: PyPI-vs-running comparison for led-ticker-core."""
+
+    def _fetch(self, releases):
+        def fetch_json(package):
+            assert package == "led-ticker-core"
+            return {"releases": {v: [] for v in releases}}
+
+        return fetch_json
+
+    def test_newer_release_flags_update(self, monkeypatch):
+        monkeypatch.setattr(up, "_running_core_version", lambda: "4.11.1")
+        out = up.resolve_core_update(self._fetch(["4.11.1", "4.12.0"]))
+        assert out == {
+            "running": "4.11.1",
+            "latest": "4.12.0",
+            "update_available": True,
+            "note": None,
+        }
+
+    def test_equal_is_up_to_date(self, monkeypatch):
+        monkeypatch.setattr(up, "_running_core_version", lambda: "4.12.0")
+        out = up.resolve_core_update(self._fetch(["4.11.1", "4.12.0"]))
+        assert out["update_available"] is False
+
+    def test_running_ahead_of_pypi_is_not_an_update(self, monkeypatch):
+        monkeypatch.setattr(up, "_running_core_version", lambda: "4.13.0")
+        out = up.resolve_core_update(self._fetch(["4.12.0"]))
+        assert out["update_available"] is False
+
+    def test_prereleases_ignored_when_picking_latest(self, monkeypatch):
+        monkeypatch.setattr(up, "_running_core_version", lambda: "4.11.0")
+        out = up.resolve_core_update(self._fetch(["4.11.0", "4.12.0rc1", "4.11.1"]))
+        assert out["latest"] == "4.11.1"
+        assert out["update_available"] is True
+
+    def test_dev_build_cannot_compare(self, monkeypatch):
+        monkeypatch.setattr(up, "_running_core_version", lambda: "4.12.0.dev3+g123abc")
+        out = up.resolve_core_update(self._fetch(["4.12.0"]))
+        assert out["update_available"] is None
+        assert out["note"] == "running a dev build — can't compare"
+        assert out["latest"] == "4.12.0"
+
+    def test_pypi_failure_degrades_to_note(self, monkeypatch):
+        monkeypatch.setattr(up, "_running_core_version", lambda: "4.11.1")
+
+        def boom(package):
+            raise OSError("no network")
+
+        out = up.resolve_core_update(boom)
+        assert out == {
+            "running": "4.11.1",
+            "latest": None,
+            "update_available": None,
+            "note": "PyPI unreachable",
+        }
+
+    def test_missing_metadata_reports_unknown(self, monkeypatch):
+        import importlib.metadata
+
+        def missing(name):
+            raise importlib.metadata.PackageNotFoundError(name)
+
+        monkeypatch.setattr(importlib.metadata, "version", missing)
+        out = up.resolve_core_update(self._fetch(["4.12.0"]))
+        assert out["running"] == "unknown"
+        assert out["update_available"] is None
+
+    def test_no_parseable_releases(self, monkeypatch):
+        monkeypatch.setattr(up, "_running_core_version", lambda: "4.11.1")
+        out = up.resolve_core_update(self._fetch(["4.12.0rc1"]))
+        assert out["update_available"] is None
+        assert out["latest"] is None

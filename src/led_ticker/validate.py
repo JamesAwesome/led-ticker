@@ -362,6 +362,8 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
 
 def _check_static(config: AppConfig) -> list[ValidationIssue]:
     """Synchronous checks on raw widget dicts for errors not caught by _build_widget."""
+    from led_ticker.app.coercion import _coerce_animation
+
     issues: list[ValidationIssue] = []
     ph = _panel_h_real(config.display)
     for i, section in enumerate(config.sections):
@@ -611,6 +613,75 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             fix="Add text = '...' or remove animation",
                         )
                     )
+
+            # Rule 65: lens-emitting animation on gif/image, combined with a
+            # gif/image-only conflict (bottom_text / non-center text_valign /
+            # text_wrap). Structural raw-dict twin of the refusals
+            # `_BaseImageWidget._validate_common` raises at widget
+            # construction — `validate_widget_cfg` (what `led-ticker
+            # validate` runs) never constructs the widget, so without this
+            # rule these mistakes pass static validation clean and only
+            # crash at real app startup. Duck-typed on `emits_lens`
+            # (best-effort coercion, mirrors rule 64) rather than a literal
+            # string match (rule 14's `== "typewriter"` gap) because a lens
+            # animation is always configured via the inline-table form
+            # (it takes magnify/edge_squeeze kwargs). Message widgets have
+            # no bottom_text/text_valign/text_wrap surface, so this is
+            # gif/image-only by construction — no twin needed there.
+            if is_gif_or_image:
+                anim_raw = widget_cfg.get("animation")
+                anim = None
+                if anim_raw is not None:
+                    try:
+                        anim = _coerce_animation(anim_raw)
+                    except ValueError, TypeError:
+                        anim = None
+                if anim is not None and getattr(anim, "emits_lens", False):
+                    if widget_cfg.get("bottom_text", ""):
+                        issues.append(
+                            ValidationIssue(
+                                rule=65,
+                                location=loc,
+                                severity="error",
+                                message=(
+                                    "a lens animation is not supported in"
+                                    " two-row mode (bottom_text is set)"
+                                ),
+                                fix="Remove animation, or remove bottom_text.",
+                            )
+                        )
+                    valign = widget_cfg.get("text_valign", "center")
+                    if valign != "center":
+                        issues.append(
+                            ValidationIssue(
+                                rule=65,
+                                location=loc,
+                                severity="error",
+                                message=(
+                                    "a lens animation requires"
+                                    " text_valign='center'; got"
+                                    f" text_valign={valign!r} — the lens"
+                                    " bulge is symmetric about the band"
+                                    " center"
+                                ),
+                                fix=(
+                                    "Set text_valign='center', or remove"
+                                    " the lens animation."
+                                ),
+                            )
+                        )
+                    if widget_cfg.get("text_wrap", False):
+                        issues.append(
+                            ValidationIssue(
+                                rule=65,
+                                location=loc,
+                                severity="error",
+                                message=(
+                                    "a lens animation is not compatible with text_wrap"
+                                ),
+                                fix="Remove text_wrap, or remove the lens animation.",
+                            )
+                        )
 
             # Rule 28: bottom_text_loops on two_row requires wrap mode
             # (no concept of cycle without wrap separator). Mirrors the

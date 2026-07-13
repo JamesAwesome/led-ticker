@@ -65,20 +65,18 @@ Typewriter has `restart_on_visit = true` — the reveal counter resets every tim
 
 ## Where it works
 
-| Widget type                   | `animation = "typewriter"`?            | `animation = "flair.propeller"`?                  | `animation = "flair.fisheye"`?                  |
-| ----------------------------- | -------------------------------------- | ------------------------------------------------- | ----------------------------------------------- |
-| `message`                     | yes                                    | yes                                               | yes                                             |
-| `countdown`                   | no                                     | no                                                | no                                              |
-| `gif`                         | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | accepted but the lens is ignored [^fisheye-gif] |
-| `image`                       | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | accepted but the lens is ignored [^fisheye-gif] |
-| `two_row`                     | no                                     | no                                                | no                                              |
-| `weather.current`, `rss.feed` | no                                     | no                                                | no                                              |
+| Widget type                   | `animation = "typewriter"`?            | `animation = "flair.propeller"`?                  | `animation = "flair.fisheye"`?                                                     |
+| ----------------------------- | -------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `message`                     | yes                                    | yes                                               | yes                                                                                |
+| `countdown`                   | no                                     | no                                                | no                                                                                 |
+| `gif`                         | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | yes — single-row only, core >= 4.13 (see [gif/image note](#gif-and-image-widgets)) |
+| `image`                       | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | yes — single-row only, core >= 4.13 (see [gif/image note](#gif-and-image-widgets)) |
+| `two_row`                     | no                                     | no                                                | no                                                                                 |
+| `weather.current`, `rss.feed` | no                                     | no                                                | no                                                                                 |
 
 [^propeller-gif]: `flair.propeller` is accepted on `gif` and `image` at config-load so a section can carry both a spinning `message` and an image widget without a validation error, but the rotation has no visible effect — only `message` widgets render the spin.
 
-[^fisheye-gif]: `flair.fisheye` is accepted on `gif` and `image` at config-load so a section can carry both a lens-scrolling `message` and an image widget without a validation error, but the lens has no visible effect — only `message` widgets warp.
-
-On `gif` and `image` widgets, typewriter is restricted to single-row text overlays. It will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty.
+On `gif` and `image` widgets, both typewriter and the fisheye lens are restricted to single-row text overlays. Typewriter will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty. The fisheye lens has its own single-row constraints — see [gif and image widgets](#gif-and-image-widgets) under `flair.fisheye` below.
 
 ## Tips
 
@@ -329,11 +327,46 @@ text = "SEE YOU SOON"
 center = true`}
 />
 
+### `gif` and `image` widgets
+
+`led-ticker-flair >= 0.4.0` and core >= 4.13 bring the fisheye lens to the `gif` and `image` widgets' single-row text overlay — the same `LensTextRenderer` the `message` widget uses, so bulge geometry, live `font_color`, and inline `:slug:` emoji all behave identically to the `message`-widget version above.
+
+<DemoGif
+  src="/demos-long/fisheye-gif-overlay.gif"
+  caption="`gif` widget with `animation = flair.fisheye` and `text_align = scroll_over` — the overlay text scrolls through the lens over the animation"
+/>
+
+<TomlExample
+  title="Scrolling overlay"
+  code={`[[playlist.section.widget]]
+type = "gif"
+path = "config/assets/phoenix_transparent.gif"
+text = "GRAND OPENING TODAY"
+text_align = "scroll_over"
+animation = "flair.fisheye"`}
+/>
+
+Both scrolling modes (`text_align = "scroll"` / `"scroll_over"`) and a held static bulge (`text_align = "left"` / `"right"` / `"auto"` with no scroll) work exactly as they do on `message` — the lens doesn't care whether the text is moving under its own scroll or sitting still.
+
+#### Constraints (single-row only)
+
+The lens overlay on `gif`/`image` is single-row only, the same restriction typewriter has on these widgets:
+
+- **No `bottom_text`** — setting it switches the widget to two-row mode, which the lens doesn't support. `led-ticker validate` catches the combination at config-load (rule 65).
+- **`text_valign` must be `"center"`** (the default) — the bulge is symmetric about the band center, so any other valign is refused.
+- **No `text_wrap`** — the continuous warp has no wrap-cycle semantics.
+
+#### Hi-res fonts need a scaled display
+
+Same rule as `message`: on a scaled sign (bigsign) a hi-res font warps along with the text, subject to the same `magnify × font line-height ≤ content_height` ceiling described above. On a smallsign (scale 1) a hi-res font renders normally (unwarped) and `led-ticker validate` warns — rule 64 fires for `gif`/`image` exactly as it does for `message`.
+
 <RelatedPages
   slugs={[
     "concepts/color-providers",
     "reference/frame-counters",
     "widgets/message",
+    "widgets/gif",
+    "widgets/image",
     "transitions/sprite",
   ]}
 />

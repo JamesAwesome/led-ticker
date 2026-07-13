@@ -241,6 +241,24 @@ border = "rainbow"
 play_count = 0   # play through hold_time`}
 />
 
+### Fisheye lens overlay (single-row only — text warps as it scrolls past the animation)
+
+`led-ticker-flair >= 0.4.0` and core >= 4.13 required. The lens is the same `LensTextRenderer` the `message` widget uses — see [Animations: `flair.fisheye`](/concepts/animations/#gif-and-image-widgets) for the full write-up (constraints, hi-res font behavior, static bulge).
+
+<DemoGif
+  src="/demos-long/fisheye-gif-overlay.gif"
+  caption="phoenix plays while `GRAND OPENING TODAY` scrolls through a stationary fisheye lens"
+/>
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "gif"
+path = "config/assets/phoenix_transparent.gif"
+text = "GRAND OPENING TODAY"
+text_align = "scroll_over"
+animation = "flair.fisheye"`}
+/>
+
 ## Tips
 
 ### Playing through `hold_time`: `play_count = 0`
@@ -264,6 +282,10 @@ play_count = 0   # fills the section's hold_time
 
 `animation = "typewriter"` rejects three combinations: `bottom_text` set (two-row layout), `text_align = "scroll"` / `"scroll_over"` (cursor moves each tick), or empty `text`. Drop the conflicting setting; typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
+### The fisheye lens is single-row only too
+
+`animation = "flair.fisheye"` rejects `bottom_text` set (two-row layout), a non-center `text_valign`, and `text_wrap` — `led-ticker validate` catches all three at config-load (rule 65). Unlike typewriter, the lens is compatible with `text_align = "scroll"` / `"scroll_over"` — the scroll IS the lens effect. See [Animations: `flair.fisheye`](/concepts/animations/#gif-and-image-widgets) for the full constraint list.
+
 ### `text_align="scroll"` needs transparency
 
 Stretch fills every pixel with image, leaving no transparent regions for the text to scroll through. Use `text_align="scroll_over"` for a fullscreen marquee, or pair `scroll` with a transparent `.gif` and `fit="pillarbox"`.
@@ -273,5 +295,11 @@ Stretch fills every pixel with image, leaving no transparent regions for the tex
 Static offsets don't compose with the per-tick scroll cursor. Set `text_x_offset = 0` or change `text_align` to `"left"` or `"right"`.
 
 <RelatedPages
-  slugs={["widgets/image", "widgets/two_row", "assets/emoji", "concepts/value-tokens"]}
+  slugs={[
+    "widgets/image",
+    "widgets/two_row",
+    "assets/emoji",
+    "concepts/value-tokens",
+    "concepts/animations",
+  ]}
 />

@@ -2817,7 +2817,7 @@ class TestImageTokenTypewriterFreeze:
         tick_count = [0]
 
         def spy_render_tick(
-            self, canvas, text_canvas, scroll_pos, baseline_y, x_left, x_right
+            self, canvas, text_canvas, scroll_pos, baseline_y, x_left, x_right, **kw
         ):
             resolved_values.append(self._resolved_text_single)
             tick_count[0] += 1
@@ -2826,7 +2826,7 @@ class TestImageTokenTypewriterFreeze:
                 src.value = "ZZZZZZZZZ"
                 src.refresh()
             return orig_render_tick(
-                self, canvas, text_canvas, scroll_pos, baseline_y, x_left, x_right
+                self, canvas, text_canvas, scroll_pos, baseline_y, x_left, x_right, **kw
             )
 
         from led_ticker.widgets._image_base import _BaseImageWidget
@@ -2996,4 +2996,617 @@ class TestHeldImageTokenFastPath:
             f"fast-path fired and froze the value. Add `and not "
             f"self._has_overlay_tokens()` to the two-row fast-path gate in "
             f"_play_with_two_row_text."
+        )
+
+
+class TestImageFisheyeLens:
+    """Lens animations on the single-row image text overlay (spec 2026-07-12).
+
+    Uses a minimal stand-in lens animation (no flair dependency): the same
+    duck-typed surface the plugin emits."""
+
+    class _FakeLens:
+        emits_lens = True
+        restart_on_visit = False
+
+        def __init__(self):
+            from led_ticker.animations import LensSpec
+
+            self._spec = LensSpec(magnify=1.3, edge_squeeze=0.6, profile="cosine")
+
+        def frame_for(self, frame, full_text, canvas_width, text_width):
+            from led_ticker.animations import AnimationFrame
+
+            return AnimationFrame(visible_text=full_text, lens=self._spec)
+
+        def frames_to_rest(self, frame, total_chars):
+            return 0
+
+    # ---- helpers -------------------------------------------------------
+
+    def _spec(self):
+        from led_ticker.animations import LensSpec
+
+        return LensSpec(magnify=1.3, edge_squeeze=0.6)
+
+    def _scaled(self, real_w=256, real_h=64, scale=4, content_height=16):
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        real = HeadlessCanvas(width=real_w, height=real_h)
+        return ScaledCanvas(real, scale=scale, content_height=content_height), real
+
+    def _lit(self, real):
+        return {
+            (x, y)
+            for x in range(real.width)
+            for y in range(real.height)
+            if real.get_pixel(x, y) != (0, 0, 0)
+        }
+
+    # ---- validation ----------------------------------------------------
+
+    def test_lens_allows_scroll_modes(self):
+        """A lens animation is compatible with the scroll modes (its
+        signature IS a scrolling warp) — construction must succeed."""
+        w = _DummyImage(
+            text="Hello",
+            animation=self._FakeLens(),
+            text_align="scroll_over",
+        )
+        assert w.animation is not None
+        assert getattr(w.animation, "emits_lens", False) is True
+
+    def test_typewriter_still_rejects_scroll_modes(self):
+        """Non-lens animations (typewriter) keep the scroll-mode refusal."""
+        from led_ticker.animations import Typewriter
+
+        with pytest.raises(ValueError, match="text_align"):
+            _DummyImage(
+                text="Hello",
+                animation=Typewriter(),
+                text_align="scroll",
+            )
+
+    def test_lens_rejects_bottom_text(self):
+        """Two-row mode refusal applies to lens animations too."""
+        with pytest.raises(ValueError, match="two-row mode"):
+            _DummyImage(
+                text="Hi",
+                bottom_text="there",
+                animation=self._FakeLens(),
+            )
+
+    def test_lens_rejects_noncenter_valign(self):
+        """The lens bulge is symmetric about the band center — refuse a
+        non-center text_valign."""
+        with pytest.raises(ValueError, match="text_valign='center'"):
+            _DummyImage(
+                text="Hi",
+                animation=self._FakeLens(),
+                text_align="scroll_over",
+                text_valign="top",
+            )
+
+    def test_lens_rejects_text_wrap(self):
+        with pytest.raises(ValueError, match="text_wrap"):
+            _DummyImage(
+                text="Hi",
+                animation=self._FakeLens(),
+                text_align="scroll",
+                text_wrap=True,
+            )
+
+    def test_lens_empty_text_reworded_refusal(self):
+        """The empty-text refusal now covers any animation (not just
+        typewriter) — reworded parenthetical."""
+        with pytest.raises(ValueError, match="no text to act on"):
+            _DummyImage(
+                text="",
+                animation=self._FakeLens(),
+                text_align="scroll_over",
+            )
+
+    # ---- rendering -----------------------------------------------------
+
+    def test_lensed_scroll_differs_from_unlensed(self):
+        """Render one tick with and without the lens on identical
+        widgets/canvas; the warp must change the lit-pixel set."""
+        from led_ticker.colors import RGB_WHITE
+
+        w = _DummyImage(
+            text="HELLO WORLD",
+            animation=self._FakeLens(),
+            text_align="scroll_over",
+            font_color=RGB_WHITE,
+        )
+        canvas_l, real_l = self._scaled()
+        canvas_u, real_u = self._scaled()
+        baseline = w._baseline_y(canvas_l)
+
+        w._render_tick(canvas_l, canvas_l, 0, baseline, 2, 60, lens=self._spec())
+        w._render_tick(canvas_u, canvas_u, 0, baseline, 2, 60, lens=None)
+
+        lit_l = self._lit(real_l)
+        lit_u = self._lit(real_u)
+        assert lit_l, "lensed render produced no pixels"
+        assert lit_u, "unlensed render produced no pixels"
+        assert lit_l != lit_u, "lens did not alter the rendered pixels"
+
+    def test_center_column_taller_than_edge(self):
+        """Long held text: the center columns show a taller lit band
+        (bulge) than the panel-edge columns (squeeze)."""
+        from led_ticker.colors import RGB_WHITE
+
+        w = _DummyImage(
+            text="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+            animation=self._FakeLens(),
+            text_align="scroll_over",
+            font_color=RGB_WHITE,
+        )
+        canvas, real = self._scaled()
+        baseline = w._baseline_y(canvas)
+        w._render_tick(canvas, canvas, 0, baseline, 2, 60, lens=self._spec())
+
+        def extent(xlo, xhi):
+            ys = [
+                y
+                for x in range(xlo, xhi)
+                for y in range(real.height)
+                if real.get_pixel(x, y) != (0, 0, 0)
+            ]
+            return (max(ys) - min(ys)) if ys else -1
+
+        center = extent(120, 136)
+        edge_l = extent(0, 16)
+        edge_r = extent(240, 256)
+        assert center > 0, "no lit pixels in the center band"
+        assert center > edge_l, (
+            f"center extent {center} not taller than left-edge {edge_l}"
+        )
+        assert center > edge_r, (
+            f"center extent {center} not taller than right-edge {edge_r}"
+        )
+
+    def test_scroll_mode_paint_order_preserved(self, monkeypatch):
+        """`scroll` mode: the lensed text lands on text_canvas BEFORE
+        `_paint_skip_black` (text-behind-silhouette semantics)."""
+        from rgbmatrix import _StubCanvas
+
+        order: list[str] = []
+
+        def _rec_draw_text(self, *a, **kw):
+            order.append("draw_text")
+            return 0
+
+        def _rec_skip_black(self, *a, **kw):
+            order.append("paint_skip_black")
+
+        monkeypatch.setattr(_DummyImage, "_draw_text", _rec_draw_text)
+        monkeypatch.setattr(_DummyImage, "_paint_skip_black", _rec_skip_black)
+
+        w = _DummyImage(
+            text="HELLO",
+            animation=self._FakeLens(),
+            text_align="scroll",
+        )
+        canvas = _StubCanvas(width=64, height=32)
+        w._render_tick(canvas, canvas, 0, 12, 2, 60, lens=self._spec())
+
+        assert "draw_text" in order and "paint_skip_black" in order
+        assert order.index("draw_text") < order.index("paint_skip_black"), (
+            f"lensed text must paint before skip-black; got {order}"
+        )
+
+    async def test_lens_forces_slow_path(self, mock_frame):
+        """A lens animation (animation is not None) must bypass the
+        static paint-once fast path so the per-tick loop runs — even on
+        a static alignment. Mirrors the animated-border fast-path
+        bypass tripwire."""
+        w = _DummyImage(
+            text="HI",
+            animation=self._FakeLens(),
+            text_align="left",
+        )
+        with (
+            mock.patch.object(type(w), "_render_tick") as render_mock,
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await w._play_with_text(
+                mock_frame.swap.return_value,
+                mock_frame,
+                n_ticks=10,
+            )
+        assert render_mock.call_count == 10, (
+            f"lens animation must force the per-tick loop; got "
+            f"{render_mock.call_count} render calls, expected 10"
+        )
+
+    def test_font_size_block_scale_composes(self):
+        """BDF `font_size=24` derives block_scale=2; the lens renderer
+        picks up geometry from the block-scaled text canvas and renders
+        lensed output that differs from unlensed — no special-casing."""
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.fonts import FONT_DEFAULT, block_scale_for_font_size
+
+        block = block_scale_for_font_size(FONT_DEFAULT, 24)
+        assert block == 2, f"expected block_scale 2 for font_size=24; got {block}"
+
+        w = _DummyImage(
+            text="HELLO",
+            animation=self._FakeLens(),
+            text_align="scroll_over",
+            font=FONT_DEFAULT,
+            font_size=24,
+            font_color=RGB_WHITE,
+        )
+        # Wrap the section canvas at the font_size-derived block scale,
+        # exactly as `_play_with_text` does for the BDF path.
+        canvas_l, real_l = self._scaled(scale=block, content_height=64 // block)
+        canvas_u, real_u = self._scaled(scale=block, content_height=64 // block)
+        baseline = w._baseline_y(canvas_l)
+
+        w._render_tick(canvas_l, canvas_l, 0, baseline, 2, 60, lens=self._spec())
+        w._render_tick(canvas_u, canvas_u, 0, baseline, 2, 60, lens=None)
+
+        lit_l = self._lit(real_l)
+        assert lit_l, "font_size=24 lensed render produced no pixels"
+        assert lit_l != self._lit(real_u), "lens did not alter the render"
+
+    def test_hires_font_scale1_warns_and_draws_unwarped(self, caplog):
+        """Smallsign-shaped canvas (scale 1) + hires font + lens: log the
+        warning exactly ONCE across multiple lensed ticks — warn-once,
+        not warn-every-tick — and draw unwarped (output equals the
+        unlensed render) both times. A single-tick render can't
+        distinguish "warns once" from "warns every tick"; two lensed
+        ticks on the SAME widget instance (so `_warned_hires_lens`
+        persists) can."""
+        import logging
+
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        font = load_hires_font("Inter-Regular", 12)
+
+        w = _DummyImage(
+            text="HELLO",
+            animation=self._FakeLens(),
+            text_align="scroll_over",
+            font=font,
+            font_size=12,
+            font_color=RGB_WHITE,
+        )
+        # Scale-1 text canvas (smallsign): no wrapper.
+        canvas_l = HeadlessCanvas(width=160, height=16)
+        canvas_u = HeadlessCanvas(width=160, height=16)
+        baseline = w._baseline_y(canvas_l)
+
+        with caplog.at_level(logging.WARNING):
+            w._render_tick(canvas_l, canvas_l, 0, baseline, 2, 60, lens=self._spec())
+            w._render_tick(canvas_l, canvas_l, 0, baseline, 2, 60, lens=self._spec())
+        w._render_tick(canvas_u, canvas_u, 0, baseline, 2, 60, lens=None)
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == 1, (
+            f"expected exactly one hires-lens warning across two lensed "
+            f"ticks (warn-once, not warn-every-tick); got {len(warnings)}"
+        )
+        assert self._lit(canvas_l) == self._lit(canvas_u), (
+            "hires + scale-1 must draw unwarped (equal to the no-lens render)"
+        )
+
+    def test_emoji_overlay_renders_through_lens(self):
+        """Text with a `:sun:` slug + lens on a scale-4 canvas renders
+        the sprite through the strip (draw_with_emoji + hires_downscale)
+        and differs from the unlensed render."""
+        from led_ticker.colors import RGB_WHITE
+
+        w = _DummyImage(
+            text="SUN :sun:",
+            animation=self._FakeLens(),
+            text_align="scroll_over",
+            font_color=RGB_WHITE,
+        )
+        assert w._has_emoji(), "test text must contain a renderable emoji"
+
+        canvas_l, real_l = self._scaled()
+        canvas_u, real_u = self._scaled()
+        baseline = w._baseline_y(canvas_l)
+
+        w._render_tick(canvas_l, canvas_l, 0, baseline, 2, 60, lens=self._spec())
+        w._render_tick(canvas_u, canvas_u, 0, baseline, 2, 60, lens=None)
+
+        lit_l = self._lit(real_l)
+        assert lit_l, "emoji+lens render produced no pixels"
+        assert lit_l != self._lit(real_u), "lens did not alter the emoji render"
+
+    async def test_static_align_fetches_frame_once_per_tick(self):
+        """Single-fetch pin (reviewer Important): with a lens animation +
+        static text_align, `frame_for` must run exactly ONCE per tick —
+        the loop derives BOTH the lens and the visible-text override from
+        one `_anim_frame` fetch, and `_render_tick`'s static branch must
+        not fetch again. Drives one real tick (real `_render_tick`)."""
+        from led_ticker.backends.headless import HeadlessCanvas
+
+        fake = self._FakeLens()
+        calls = [0]
+        orig_frame_for = fake.frame_for
+
+        def counting_frame_for(frame, full_text, canvas_width, text_width):
+            calls[0] += 1
+            return orig_frame_for(frame, full_text, canvas_width, text_width)
+
+        fake.frame_for = counting_frame_for  # type: ignore[method-assign]
+
+        w = _DummyImage(text="HI", animation=fake, text_align="left")
+        real = HeadlessCanvas(width=160, height=16)
+        frame = mock.Mock()
+        frame.swap.return_value = HeadlessCanvas(width=160, height=16)
+
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await w._play_with_text(real, frame, n_ticks=1)
+
+        assert calls[0] == 1, (
+            f"animation.frame_for ran {calls[0]} times in one tick — the "
+            f"AnimationFrame must be fetched exactly once (lens + "
+            f"visible_text derive from the same frame)"
+        )
+
+    def test_text_y_offset_composes_with_lens(self):
+        """`text_y_offset=2` + lens shifts the lensed output (applied once
+        on the strip baseline — no double-application, no crash)."""
+        from led_ticker.colors import RGB_WHITE
+
+        def _render(offset):
+            w = _DummyImage(
+                text="HELLO",
+                animation=self._FakeLens(),
+                text_align="scroll_over",
+                text_y_offset=offset,
+                font_color=RGB_WHITE,
+            )
+            canvas, real = self._scaled()
+            baseline = w._baseline_y(canvas)
+            w._render_tick(canvas, canvas, 0, baseline, 2, 60, lens=self._spec())
+            return self._lit(real)
+
+        lit_0 = _render(0)
+        lit_2 = _render(2)
+        assert lit_0, "offset=0 lensed render produced no pixels"
+        assert lit_2, "offset=2 lensed render produced no pixels"
+        assert lit_0 != lit_2, (
+            "text_y_offset=2 must shift the lensed output vs offset=0"
+        )
+
+    # ---- lens-through-the-real-play-loop pin (reviewer Important) ------
+    #
+    # All the tests above call `_render_tick` directly with an explicit
+    # `lens=` kwarg — they never exercise the ONE site in `_play_with_text`
+    # that derives `lens` from the animation's `AnimationFrame` and
+    # threads it into `_render_tick`. Hard-coding `lens = None` at that
+    # site (instead of `lens = getattr(anim_frame, "lens", None)`) would
+    # pass every test above unchanged while silently turning the feature
+    # into a no-op in production. These two tests drive the REAL
+    # `_play_with_text` loop (mocking only `asyncio.sleep`) for a static-
+    # align widget and a scroll_over widget, and assert the resulting
+    # back-buffer pixels differ from an animation-free twin.
+
+    class _StopMarquee(Exception):
+        """Sentinel to abort `_play_with_text` mid-loop so the test can
+        inspect a KNOWN mid-scroll tick — the marquee's start/end ticks
+        are edge cases (text fully offscreen), which would make a pixel-
+        diff assertion flaky regardless of correctness."""
+
+    async def _render_via_real_loop(
+        self, *, text_align, animation, n_ticks, stop_after=None
+    ):
+        from led_ticker.backends.headless import HeadlessCanvas
+
+        w = _DummyImage(
+            text="HI",
+            animation=animation,
+            text_align=text_align,
+            font_color=(255, 255, 255),
+        )
+        real = HeadlessCanvas(width=32, height=16)
+        frame = mock.Mock()
+        frame.swap.return_value = real
+
+        if stop_after is None:
+            with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+                await w._play_with_text(real, frame, n_ticks=n_ticks)
+        else:
+            calls = {"n": 0}
+
+            async def _counting_sleep(*_a, **_kw):
+                calls["n"] += 1
+                if calls["n"] >= stop_after:
+                    raise self._StopMarquee
+
+            with (
+                mock.patch("asyncio.sleep", side_effect=_counting_sleep),
+                pytest.raises(self._StopMarquee),
+            ):
+                await w._play_with_text(real, frame, n_ticks=n_ticks)
+        return self._lit(real)
+
+    async def test_lens_flows_through_real_play_loop_static_align(self):
+        """Static text_align keeps n_ticks exact (no marquee floor) — one
+        tick, one `_render_tick` call, through the real per-tick loop."""
+        lit_lensed = await self._render_via_real_loop(
+            text_align="left", animation=self._FakeLens(), n_ticks=1
+        )
+        lit_plain = await self._render_via_real_loop(
+            text_align="left", animation=None, n_ticks=1
+        )
+        assert lit_lensed, "lensed real-loop render produced no pixels"
+        assert lit_plain, "plain real-loop render produced no pixels"
+        assert lit_lensed != lit_plain, (
+            "lens must flow from the animation's AnimationFrame through "
+            "the real _play_with_text loop into _render_tick (static align)"
+        )
+
+    async def test_lens_flows_through_real_play_loop_scroll_over(self):
+        """Same pin, but for the scroll_over dispatch branch — scrolling
+        widgets go through the marquee-floor-extended per-tick loop.
+        Stops mid-scroll (tick 20) so the compared frame is a KNOWN
+        on-canvas position rather than the marquee's offscreen edges."""
+        lit_lensed = await self._render_via_real_loop(
+            text_align="scroll_over",
+            animation=self._FakeLens(),
+            n_ticks=1,
+            stop_after=20,
+        )
+        lit_plain = await self._render_via_real_loop(
+            text_align="scroll_over", animation=None, n_ticks=1, stop_after=20
+        )
+        assert lit_lensed, "lensed real-loop render produced no pixels"
+        assert lit_plain, "plain real-loop render produced no pixels"
+        assert lit_lensed != lit_plain, (
+            "lens must flow from the animation's AnimationFrame through "
+            "the real _play_with_text loop into _render_tick (scroll_over)"
+        )
+
+    # ---- text_override parity across paint-order branches (Fix 4) ------
+    #
+    # `_render_tick`'s static (`else`) branch has always forwarded
+    # `text_override` to `_lensed_or_plain_draw`; the `scroll` and
+    # `scroll_over` branches did not, even though the parameter is
+    # threaded into `_render_tick` from the exact same per-tick
+    # `_anim_frame` fetch for every alignment. `flair.fisheye` (the only
+    # shipping lens animation) always returns `visible_text=full_text`,
+    # so this was invisible in practice — but the api-reference docs
+    # claim gif/image "behave identically" to the message-widget lens
+    # path, which DOES honor a slicing `visible_text`. A hypothetical
+    # (or future) lens animation that slices text would silently render
+    # the full string instead of the slice on scroll/scroll_over aligns.
+
+    class _SlicingLens:
+        """Duck-typed lens animation whose `visible_text` is a 1-char
+        slice of the full text — unlike `_FakeLens`, which always
+        returns the full string (matching flair.fisheye's real
+        behavior). Exercises the forwarding path specifically."""
+
+        emits_lens = True
+        restart_on_visit = False
+
+        def __init__(self, spec):
+            self._spec = spec
+
+        def frame_for(self, frame, full_text, canvas_width, text_width):
+            from led_ticker.animations import AnimationFrame
+
+            return AnimationFrame(visible_text=full_text[:1], lens=self._spec)
+
+        def frames_to_rest(self, frame, total_chars):
+            return 0
+
+    def test_scroll_over_forwards_text_override_slice(self):
+        """scroll_over: a lens animation that slices `visible_text` must
+        have the SLICE rendered (fewer lit pixels than the full string),
+        not the full text."""
+        from led_ticker.colors import RGB_WHITE
+
+        spec = self._spec()
+        w = _DummyImage(
+            text="HELLO WORLD",
+            animation=self._SlicingLens(spec),
+            text_align="scroll_over",
+            font_color=RGB_WHITE,
+        )
+        canvas, real = self._scaled()
+        baseline = w._baseline_y(canvas)
+
+        anim_frame = w._anim_frame(0, canvas)
+        assert anim_frame is not None
+        assert anim_frame.visible_text == "H", (
+            "test setup: the slicing lens must actually slice to 1 char"
+        )
+
+        # Sliced render: the animation's real visible_text override.
+        w._render_tick(
+            canvas,
+            canvas,
+            0,
+            baseline,
+            2,
+            60,
+            lens=anim_frame.lens,
+            text_override=anim_frame.visible_text,
+        )
+        lit_sliced = self._lit(real)
+
+        # Full-text render for comparison: same lens, full-text override.
+        canvas2, real2 = self._scaled()
+        w._render_tick(
+            canvas2,
+            canvas2,
+            0,
+            baseline,
+            2,
+            60,
+            lens=anim_frame.lens,
+            text_override="HELLO WORLD",
+        )
+        lit_full = self._lit(real2)
+
+        assert lit_sliced, "sliced render produced no pixels"
+        assert lit_full, "full-text render produced no pixels"
+        assert len(lit_sliced) < len(lit_full), (
+            "text_override slice was not forwarded through the scroll_over "
+            "_render_tick branch — rendered pixel count should shrink when "
+            "only 1 char is visible"
+        )
+
+    def test_scroll_forwards_text_override_slice(self):
+        """`scroll` mode (text-behind-image-silhouette): same forwarding
+        pin as scroll_over, mirrored for the other scroll branch."""
+        from led_ticker.colors import RGB_WHITE
+
+        spec = self._spec()
+        w = _DummyImage(
+            text="HELLO WORLD",
+            animation=self._SlicingLens(spec),
+            text_align="scroll",
+            font_color=RGB_WHITE,
+        )
+        canvas, real = self._scaled()
+        baseline = w._baseline_y(canvas)
+
+        anim_frame = w._anim_frame(0, canvas)
+        assert anim_frame is not None
+        assert anim_frame.visible_text == "H"
+
+        w._render_tick(
+            canvas,
+            canvas,
+            0,
+            baseline,
+            2,
+            60,
+            lens=anim_frame.lens,
+            text_override=anim_frame.visible_text,
+        )
+        lit_sliced = self._lit(real)
+
+        canvas2, real2 = self._scaled()
+        w._render_tick(
+            canvas2,
+            canvas2,
+            0,
+            baseline,
+            2,
+            60,
+            lens=anim_frame.lens,
+            text_override="HELLO WORLD",
+        )
+        lit_full = self._lit(real2)
+
+        assert lit_sliced, "sliced render produced no pixels"
+        assert lit_full, "full-text render produced no pixels"
+        assert len(lit_sliced) < len(lit_full), (
+            "text_override slice was not forwarded through the scroll "
+            "_render_tick branch — rendered pixel count should shrink when "
+            "only 1 char is visible"
         )

@@ -5,7 +5,6 @@ here for backwards compatibility.
 """
 
 import logging
-import math
 from typing import Any
 
 import attrs
@@ -14,16 +13,12 @@ from led_ticker._types import Canvas, Color, DrawResult, Font
 from led_ticker.color_providers import ColorProvider, _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
-from led_ticker.fonts import FONT_DEFAULT, font_line_height_logical
+from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.fonts.hires_loader import HiresFont
+from led_ticker.lens_render import LensTextRenderer
 from led_ticker.pixel_emoji import has_renderable_emoji
-from led_ticker.rotate import (
-    PixelBuffer,
-    build_lens_maps,
-    lens_blit,
-    make_rotation_surface,
-)
-from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
+from led_ticker.rotate import lens_blit, make_rotation_surface
+from led_ticker.scaled_canvas import is_scaled
 from led_ticker.sources import TokenizedField, get_data_registry
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
@@ -100,16 +95,11 @@ class TickerMessage(FrameAwareBase):
     # emitted once per instance so the log doesn't flood. Same shape as
     # `_warned_hires_rotation`.
     _warned_hires_lens: bool = attrs.field(init=False, default=False)
-    # Construct-once lens strip: a render-resolution PixelBuffer the text is
-    # drawn into fresh every tick (NO snapshot — colors stay live), plus its
-    # draw target (a ScaledCanvas wrapper at render_scale, or the bare buffer
-    # at render_scale==1). Keyed by (strip_w, strip_h, render_scale); rebuilt
-    # on mismatch. `_lens_blit_wrapper` is the construct-once dst wrapper for
-    # scaled displays (`.real` rebound per call, RotationSurface discipline).
-    _lens_strip_buffer: Any = attrs.field(init=False, default=None)
-    _lens_strip_target: Any = attrs.field(init=False, default=None)
-    _lens_strip_key: tuple[int, int, int] | None = attrs.field(init=False, default=None)
-    _lens_blit_wrapper: Any = attrs.field(init=False, default=None)
+    # Stationary-lens renderer (fisheye spec §2-§3): owns the construct-once
+    # strip buffer, draw target, and blit wrapper. Shared with image/gif
+    # widgets via `led_ticker.lens_render.LensTextRenderer` — one instance
+    # per widget, geometry lives entirely in the renderer.
+    _lens_renderer: LensTextRenderer = attrs.field(init=False, factory=LensTextRenderer)
 
     def __attrs_post_init__(self) -> None:
         # `_has_emoji` is computed on the RAW text — emoji slugs survive
@@ -474,141 +464,50 @@ class TickerMessage(FrameAwareBase):
     ) -> DrawResult:
         """Render the text through a stationary fisheye lens (spec §2–§3).
 
-        The text is rasterized FRESH each tick into a render-resolution strip
-        buffer (no snapshot — colors stay live), then inverse-mapped onto the
-        canvas via ``lens_blit`` and the cached lens maps. The border paints
-        first, un-warped, directly to the canvas. Returns the UNWARPED
-        cursor_pos (full content width) so the engine's overflow gate is
-        unaffected — the lens never changes traversal arithmetic.
-
-        Resolution policy (spec §3, antagonist F2): the strip renders at
-        ``render_scale = max(1, scale // 2)`` and the lens blit expands by
-        ``blit_scale = scale // render_scale`` (DERIVED, never hardcoded).
-        Bigsign (scale 4) → render 2 / blit 2; scale 2 → render 1 / blit 2;
-        scale 3 → render 1 / blit 3; scale 1 (smallsign) → render 1 / blit 1
-        (direct logical blit).
+        Geometry lives in the shared `LensTextRenderer` (`lens_render.py`),
+        which image/gif widgets reuse. Returns the UNWARPED cursor_pos (full
+        content width) so the engine's overflow gate is unaffected — the lens
+        never changes traversal arithmetic.
         """
-        scale = getattr(canvas, "scale", 1)
-        render_scale = max(1, scale // 2)
-        blit_scale = scale // render_scale
-        logical_h = canvas.height
-        panel_w_render = canvas.width * render_scale
-        panel_h_render = logical_h * render_scale
-
-        # Vertical-fit check (band-fit policy): a bulge taller than the content
-        # band would clip. Raise at first lensed draw, naming the widget.
-        line_h_logical = font_line_height_logical(self.font, scale)
-        if lens.magnify * line_h_logical > logical_h:
-            raise ValueError(
-                f"{type(self).__name__}: fisheye magnify={lens.magnify} × font "
-                f"line-height {line_h_logical} = "
-                f"{lens.magnify * line_h_logical:.1f} exceeds the content "
-                f"height {logical_h} — the bulged text would clip against the "
-                f"panel. Lower magnify, use a shorter font, or raise "
-                f"content_height."
-            )
-
-        maps = build_lens_maps(lens, panel_w_render)
-        span = maps.total_src_span
-
-        # src_x0 anchor (spec §2): center-anchored, ONE formula for held and
-        # scroll. In RENDER-resolution text columns (cursor_pos × render_scale).
-        # The strip is text-column-indexed; its column 0 = the largest
-        # render_scale-multiple text column ≤ src_x0, so the text can be drawn
-        # at an integer logical origin. The sub-render_scale remainder is
-        # folded into the fractional src_x0 passed to lens_blit.
-        src_x0_render = (panel_w_render / 2.0 - cursor_pos * render_scale) - span / 2.0
-        base_units = math.floor(src_x0_render / render_scale)
-        x_logical = -base_units
-        src_x0_frac = src_x0_render - base_units * render_scale
-
-        # Strip covers the [0, span] text window plus a render_scale margin for
-        # the fractional shift and nearest-neighbor rounding.
-        strip_w_render = int(math.ceil(span)) + 2 * render_scale + 2
-        strip_buffer, strip_target = self._lens_strip(
-            strip_w_render, panel_h_render, render_scale, logical_h
-        )
-        strip_buffer.clear()
-
-        # Hi-res emoji render at their native physical_size, which is sized for
-        # the REAL panel scale. The strip renders at render_scale (<= scale), so
-        # a native sprite would be scale/render_scale times too tall and fill
-        # the strip, leaving no headroom for the vertical magnification (the
-        # top clips and never recovers). Downscale hi-res sprites by
-        # render_scale/scale so they keep their real-panel logical size.
-        hires_downscale = render_scale / scale if scale > render_scale else 1.0
-        strip_baseline = compute_baseline(self.font, strip_target, valign="center")
-        self._paint_strip(
-            strip_target,
-            x_logical,
-            strip_baseline,
-            y_offset,
-            provider,
-            visible_text,
-            full_text,
-            hires_downscale,
-        )
-
-        # Border paints FIRST, un-warped, directly to the canvas (it frames the
-        # panel, not the text) — border-before-text order preserved.
+        # Border paints FIRST, un-warped, directly to the canvas (it frames
+        # the panel, not the text). Moved before the renderer call (was
+        # previously painted between the strip render and the blit) —
+        # canvas-equivalent, since the strip renders to an offscreen buffer
+        # and only touches the canvas at blit time, which still happens
+        # after this paint either way.
         if self.border is not None:
             self.border.paint(canvas, self.frame_for("border"))
 
-        dst = self._lens_blit_dst(canvas, blit_scale, panel_h_render)
-        lens_blit(dst, strip_buffer, maps, src_x0_frac, panel_h_render / 2.0)
+        def _paint_strip_adapter(
+            target: Any, x_logical: int, baseline: int, hires_downscale: float
+        ) -> None:
+            self._paint_strip(
+                target,
+                x_logical,
+                baseline,
+                y_offset,
+                provider,
+                visible_text,
+                full_text,
+                hires_downscale,
+            )
+
+        # `blit=lens_blit` forwards THIS module's own (patchable) name —
+        # `LensTextRenderer.draw` reads it at call time rather than binding
+        # its own import, so the pre-extraction test suite's
+        # `monkeypatch.setattr(message, "lens_blit", spy)` still intercepts
+        # the real blit call.
+        self._lens_renderer.draw(
+            canvas,
+            lens,
+            font=self.font,
+            cursor_pos=cursor_pos,
+            owner_name=type(self).__name__,
+            paint_strip=_paint_strip_adapter,
+            blit=lens_blit,
+        )
 
         return canvas, cursor_pos + content_width + end_padding
-
-    def _lens_strip(
-        self, width: int, height: int, render_scale: int, logical_h: int
-    ) -> tuple[Any, Any]:
-        """Return the (buffer, draw-target) pair, constructing once per dims.
-
-        The draw target is a ``ScaledCanvas`` at ``render_scale`` (so the text
-        helpers render into the buffer at reduced resolution) when
-        ``render_scale > 1``, else the bare buffer (logical resolution). Mirror
-        of ``RotationSurface``'s scale-1-vs-scaled target policy.
-        """
-        key = (width, height, render_scale)
-        if self._lens_strip_key != key:
-            buffer = PixelBuffer(width, height)
-            if render_scale > 1:
-                target: Any = ScaledCanvas(
-                    buffer, scale=render_scale, content_height=logical_h
-                )
-            else:
-                target = buffer
-            self._lens_strip_buffer = buffer
-            self._lens_strip_target = target
-            self._lens_strip_key = key
-        return self._lens_strip_buffer, self._lens_strip_target
-
-    def _lens_blit_dst(
-        self, canvas: Canvas, blit_scale: int, panel_h_render: int
-    ) -> Any:
-        """Return the lens_blit destination.
-
-        ``blit_scale == 1`` (smallsign): blit directly to the real canvas.
-        Otherwise blit through a construct-once ``ScaledCanvas`` at
-        ``blit_scale`` whose ``.real`` is rebound to the live back buffer each
-        call (one assignment — constraint #9 / RotationSurface discipline).
-        """
-        if blit_scale == 1:
-            return canvas
-        real = unwrap_to_real(canvas)
-        wrapper = self._lens_blit_wrapper
-        if (
-            wrapper is None
-            or wrapper.scale != blit_scale
-            or wrapper.content_height != panel_h_render
-        ):
-            wrapper = ScaledCanvas(
-                real, scale=blit_scale, content_height=panel_h_render
-            )
-            self._lens_blit_wrapper = wrapper
-        else:
-            wrapper.real = real
-        return wrapper
 
     def _paint_strip(
         self,

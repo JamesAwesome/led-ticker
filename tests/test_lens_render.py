@@ -89,3 +89,61 @@ class TestLensTextRenderer:
         )
         assert seen["scale"] == 2  # render_scale = max(1, 4 // 2)
         assert seen["down"] == 0.5  # render_scale / scale
+
+    def test_blit_wrapper_rebinds_to_new_real_across_calls(self):
+        """CLAUDE.md constraint #10 pin: `_lens_blit_dst`'s cached
+        `_lens_blit_wrapper` must rebind `.real` to the CURRENT real
+        canvas on every call, not just the first. On hardware this is
+        the pulsing-flicker regression — a cached wrapper stuck on the
+        first back buffer would paint every other tick's lens blit onto
+        a buffer that's no longer live.
+
+        Uses two DIFFERENT `HeadlessCanvas` reals (simulating swap-driven
+        back-buffer rotation) each wrapped in a scale>1 `ScaledCanvas` so
+        the wrapper path is exercised (not the scale-1 direct-blit
+        shortcut, where `_lens_blit_dst` returns `canvas` untouched)."""
+        from led_ticker.scaled_canvas import unwrap_to_real
+
+        real1 = HeadlessCanvas(256, 64)
+        real2 = HeadlessCanvas(256, 64)
+        canvas1 = ScaledCanvas(real1, scale=4, content_height=16)
+        canvas2 = ScaledCanvas(real2, scale=4, content_height=16)
+        r = LensTextRenderer()
+
+        def paint(target, x_logical, baseline, hires_downscale):
+            for x in range(0, 60):
+                for y in range(4, 12):
+                    target.SetPixel(x, y, 255, 255, 255)
+
+        r.draw(
+            canvas1,
+            _lens(),
+            font=FONT_DEFAULT,
+            cursor_pos=0,
+            owner_name="T",
+            paint_strip=paint,
+        )
+        assert real1._pixels, "first draw painted nothing onto real1"
+        pixels_after_first_draw = dict(real1._pixels)
+
+        r.draw(
+            canvas2,
+            _lens(),
+            font=FONT_DEFAULT,
+            cursor_pos=0,
+            owner_name="T",
+            paint_strip=paint,
+        )
+
+        assert real2._pixels, (
+            "second draw's blit did not land on real2 — the cached blit "
+            "wrapper's .real was not rebound to the current back buffer"
+        )
+        assert real1._pixels == pixels_after_first_draw, (
+            "second draw's blit bled into real1 — the cached blit wrapper "
+            "is still pointing at the first (now-stale) back buffer"
+        )
+        assert r._lens_blit_wrapper.real is unwrap_to_real(canvas2), (
+            "cached blit wrapper's .real must point at the CURRENT real "
+            "canvas after every draw() call"
+        )

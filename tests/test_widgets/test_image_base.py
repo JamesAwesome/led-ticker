@@ -3254,8 +3254,13 @@ class TestImageFisheyeLens:
         assert lit_l != self._lit(real_u), "lens did not alter the render"
 
     def test_hires_font_scale1_warns_and_draws_unwarped(self, caplog):
-        """Smallsign-shaped canvas (scale 1) + hires font + lens: log one
-        warning and draw unwarped (output equals the unlensed render)."""
+        """Smallsign-shaped canvas (scale 1) + hires font + lens: log the
+        warning exactly ONCE across multiple lensed ticks — warn-once,
+        not warn-every-tick — and draw unwarped (output equals the
+        unlensed render) both times. A single-tick render can't
+        distinguish "warns once" from "warns every tick"; two lensed
+        ticks on the SAME widget instance (so `_warned_hires_lens`
+        persists) can."""
         import logging
 
         from led_ticker.backends.headless import HeadlessCanvas
@@ -3279,11 +3284,13 @@ class TestImageFisheyeLens:
 
         with caplog.at_level(logging.WARNING):
             w._render_tick(canvas_l, canvas_l, 0, baseline, 2, 60, lens=self._spec())
+            w._render_tick(canvas_l, canvas_l, 0, baseline, 2, 60, lens=self._spec())
         w._render_tick(canvas_u, canvas_u, 0, baseline, 2, 60, lens=None)
 
         warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
         assert len(warnings) == 1, (
-            f"expected exactly one hires-lens warning; got {len(warnings)}"
+            f"expected exactly one hires-lens warning across two lensed "
+            f"ticks (warn-once, not warn-every-tick); got {len(warnings)}"
         )
         assert self._lit(canvas_l) == self._lit(canvas_u), (
             "hires + scale-1 must draw unwarped (equal to the no-lens render)"
@@ -3370,4 +3377,93 @@ class TestImageFisheyeLens:
         assert lit_2, "offset=2 lensed render produced no pixels"
         assert lit_0 != lit_2, (
             "text_y_offset=2 must shift the lensed output vs offset=0"
+        )
+
+    # ---- lens-through-the-real-play-loop pin (reviewer Important) ------
+    #
+    # All the tests above call `_render_tick` directly with an explicit
+    # `lens=` kwarg — they never exercise the ONE site in `_play_with_text`
+    # that derives `lens` from the animation's `AnimationFrame` and
+    # threads it into `_render_tick`. Hard-coding `lens = None` at that
+    # site (instead of `lens = getattr(anim_frame, "lens", None)`) would
+    # pass every test above unchanged while silently turning the feature
+    # into a no-op in production. These two tests drive the REAL
+    # `_play_with_text` loop (mocking only `asyncio.sleep`) for a static-
+    # align widget and a scroll_over widget, and assert the resulting
+    # back-buffer pixels differ from an animation-free twin.
+
+    class _StopMarquee(Exception):
+        """Sentinel to abort `_play_with_text` mid-loop so the test can
+        inspect a KNOWN mid-scroll tick — the marquee's start/end ticks
+        are edge cases (text fully offscreen), which would make a pixel-
+        diff assertion flaky regardless of correctness."""
+
+    async def _render_via_real_loop(
+        self, *, text_align, animation, n_ticks, stop_after=None
+    ):
+        from led_ticker.backends.headless import HeadlessCanvas
+
+        w = _DummyImage(
+            text="HI",
+            animation=animation,
+            text_align=text_align,
+            font_color=(255, 255, 255),
+        )
+        real = HeadlessCanvas(width=32, height=16)
+        frame = mock.Mock()
+        frame.swap.return_value = real
+
+        if stop_after is None:
+            with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+                await w._play_with_text(real, frame, n_ticks=n_ticks)
+        else:
+            calls = {"n": 0}
+
+            async def _counting_sleep(*_a, **_kw):
+                calls["n"] += 1
+                if calls["n"] >= stop_after:
+                    raise self._StopMarquee
+
+            with (
+                mock.patch("asyncio.sleep", side_effect=_counting_sleep),
+                pytest.raises(self._StopMarquee),
+            ):
+                await w._play_with_text(real, frame, n_ticks=n_ticks)
+        return self._lit(real)
+
+    async def test_lens_flows_through_real_play_loop_static_align(self):
+        """Static text_align keeps n_ticks exact (no marquee floor) — one
+        tick, one `_render_tick` call, through the real per-tick loop."""
+        lit_lensed = await self._render_via_real_loop(
+            text_align="left", animation=self._FakeLens(), n_ticks=1
+        )
+        lit_plain = await self._render_via_real_loop(
+            text_align="left", animation=None, n_ticks=1
+        )
+        assert lit_lensed, "lensed real-loop render produced no pixels"
+        assert lit_plain, "plain real-loop render produced no pixels"
+        assert lit_lensed != lit_plain, (
+            "lens must flow from the animation's AnimationFrame through "
+            "the real _play_with_text loop into _render_tick (static align)"
+        )
+
+    async def test_lens_flows_through_real_play_loop_scroll_over(self):
+        """Same pin, but for the scroll_over dispatch branch — scrolling
+        widgets go through the marquee-floor-extended per-tick loop.
+        Stops mid-scroll (tick 20) so the compared frame is a KNOWN
+        on-canvas position rather than the marquee's offscreen edges."""
+        lit_lensed = await self._render_via_real_loop(
+            text_align="scroll_over",
+            animation=self._FakeLens(),
+            n_ticks=1,
+            stop_after=20,
+        )
+        lit_plain = await self._render_via_real_loop(
+            text_align="scroll_over", animation=None, n_ticks=1, stop_after=20
+        )
+        assert lit_lensed, "lensed real-loop render produced no pixels"
+        assert lit_plain, "plain real-loop render produced no pixels"
+        assert lit_lensed != lit_plain, (
+            "lens must flow from the animation's AnimationFrame through "
+            "the real _play_with_text loop into _render_tick (scroll_over)"
         )

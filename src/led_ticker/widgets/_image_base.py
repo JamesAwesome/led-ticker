@@ -25,6 +25,7 @@ methods and the base class picks.
 """
 
 import asyncio
+import logging
 from enum import StrEnum
 from typing import Any
 
@@ -41,6 +42,7 @@ from led_ticker.fonts import (
     font_line_height_logical,
 )
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
+from led_ticker.lens_render import LensTextRenderer
 from led_ticker.pixel_emoji import has_renderable_emoji
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled
 from led_ticker.sources import TokenizedField, get_data_registry
@@ -254,6 +256,15 @@ class _BaseImageWidget(FrameAwareBase):
     # lifetime); avoids re-running has_renderable_emoji per tick.
     _has_emoji_cached: bool = attrs.field(init=False, default=False)
 
+    # Stationary-lens renderer (fisheye spec §2-§3): owns the construct-
+    # once strip buffer + blit wrapper. Shared verbatim with the message
+    # widget via `led_ticker.lens_render.LensTextRenderer` — one instance
+    # per widget (the single-row text overlay is the only lens surface).
+    _lens_renderer: LensTextRenderer = attrs.field(init=False, factory=LensTextRenderer)
+    # Guard for the hires-font lens warning (scale-1 unwarped fallback,
+    # validate rule 64): warn once, then draw the text normally.
+    _warned_hires_lens: bool = attrs.field(init=False, default=False)
+
     # ------------------------------------------------------------------
     # Inline-value-token state (parallel to TickerMessage / TwoRowMessage).
     # One TokenizedField per text field; `_resolved_*` hold the latest
@@ -395,18 +406,22 @@ class _BaseImageWidget(FrameAwareBase):
                 "Use text_align='scroll_over' for marquee on a fullscreen image."
             )
 
-        # Animation field validation (single-row typewriter only).
-        # All three checks raise at config-load so the user sees the
-        # conflict immediately instead of getting a silent surprise
-        # on the panel. Bottom_text check fires first because two-row
-        # mode is the most likely accidental conflict.
+        # Animation field validation. Single-row only. Checks raise at
+        # config-load so the user sees the conflict immediately instead
+        # of getting a silent surprise on the panel. Bottom_text check
+        # fires first because two-row mode is the most likely accidental
+        # conflict. `emits_lens` (duck-typed marker) distinguishes a
+        # stationary-fisheye-lens animation from a typewriter: the lens
+        # IS a scrolling warp, so it KEEPS the scroll modes while
+        # typewriter refuses them.
+        emits_lens = getattr(self.animation, "emits_lens", False)
         if self.animation is not None:
             if self.bottom_text:
                 raise ValueError(
                     "animation is not supported in two-row mode "
                     "(set on a single-row image widget; remove bottom_text)"
                 )
-            if self.text_align in ("scroll", "scroll_over"):
+            if not emits_lens and self.text_align in ("scroll", "scroll_over"):
                 raise ValueError(
                     f"animation is not compatible with "
                     f"text_align={self.text_align!r} "
@@ -416,8 +431,18 @@ class _BaseImageWidget(FrameAwareBase):
             if not self.text:
                 raise ValueError(
                     "animation requires non-empty text "
-                    "(typewriter has nothing to type out)"
+                    "(the animation has no text to act on)"
                 )
+            # Lens-only refusals. The lens bulge is symmetric about the
+            # band center, so a non-center valign is undefined; and the
+            # continuous warp has no wrap-cycle semantics.
+            if emits_lens and self.text_valign != "center":
+                raise ValueError(
+                    "a lens animation requires text_valign='center' — the "
+                    "lens bulge is symmetric about the band center"
+                )
+            if emits_lens and self.text_wrap:
+                raise ValueError("a lens animation is not compatible with text_wrap")
 
         # text_wrap validation. Wrap is a marquee variation, so it
         # only makes sense with the scrolling alignments. It also
@@ -814,14 +839,33 @@ class _BaseImageWidget(FrameAwareBase):
         and reads `.visible_text` from the returned `AnimationFrame`.
         cursor position is controlled via `text_align`.
         """
-        display = self._resolved_text_single
+        frame = self._anim_frame(frame_count, canvas)
+        if frame is None:
+            return self._resolved_text_single
+        return frame.visible_text
+
+    def _anim_frame(self, frame_count: int, canvas: Canvas) -> Any | None:
+        """Return the animation's `AnimationFrame` for this tick, or
+        `None` when no animation is configured. The single fetch point
+        for both the visible-text slice (`_visible_text`) and the
+        stationary-lens spec (`_active_lens`) so a tick never asks the
+        animation twice for divergent state."""
         if self.animation is None:
-            return display
+            return None
+        display = self._resolved_text_single
         text_width = self._measure_text(canvas)
-        anim_frame = self.animation.frame_for(
-            frame_count, display, canvas.width, text_width
-        )
-        return anim_frame.visible_text
+        return self.animation.frame_for(frame_count, display, canvas.width, text_width)
+
+    def _active_lens(self, canvas: Canvas) -> Any | None:
+        """The `LensSpec` the animation emits this tick, or `None`.
+
+        Fast-exits when the animation isn't lens-capable (the duck-typed
+        `emits_lens` marker) so the typewriter / no-animation paths never
+        pay for an extra frame fetch."""
+        if not getattr(self.animation, "emits_lens", False):
+            return None
+        frame = self._anim_frame(self.frame_for("animation"), canvas)
+        return getattr(frame, "lens", None) if frame is not None else None
 
     def _measure_text(self, canvas: Canvas) -> int:
         # Use the resolved display string (token-substituted). For non-token
@@ -957,6 +1001,7 @@ class _BaseImageWidget(FrameAwareBase):
         baseline_y: int,
         color: Any,
         text_override: str | None = None,
+        hires_downscale: float = 1.0,
     ) -> int:
         """Route to draw_with_emoji when text contains slugs; otherwise
         plain BDF/HiresFont rasterizer. Emoji's 8-px sprite is anchored
@@ -1008,6 +1053,7 @@ class _BaseImageWidget(FrameAwareBase):
                 text,
                 frame=self.frame_for("font_color"),
                 total_chars=full_total_chars,
+                hires_downscale=hires_downscale,
             )
         # Plain-text per-char path: rainbow / gradient iterate chars so
         # each character renders with its own hue. Mirrors
@@ -1133,6 +1179,60 @@ class _BaseImageWidget(FrameAwareBase):
             return canvas
         return ScaledCanvas(canvas, scale=scale, content_height=canvas.height // scale)
 
+    def _lensed_or_plain_draw(
+        self,
+        text_canvas: Canvas,
+        lens: Any | None,
+        x: int,
+        baseline_y: int,
+        provider: Any,
+        text_override: str | None = None,
+    ) -> None:
+        """Paint the overlay text either normally or through the
+        stationary fisheye lens onto ``text_canvas``.
+
+        When ``lens`` is None the call is byte-identical to the pre-lens
+        `_draw_text` path. When set, the text is rasterized FRESH into a
+        render-resolution strip (no snapshot — colors stay live) and
+        inverse-mapped via the shared `LensTextRenderer`, which derives
+        its geometry from ``text_canvas`` (block_scale / logical_scale
+        already baked in) so `font_size` composes with no special-casing.
+        The blit lands on ``text_canvas`` in place of the plain draw, so
+        the caller's paint ORDER around this call (skip-black, border) is
+        untouched — the border keeps its existing position and stays
+        unwarped by construction (it never routes through the strip)."""
+        if lens is None:
+            self._draw_text(text_canvas, x, baseline_y, provider, text_override)
+            return
+
+        def _paint_strip_adapter(
+            strip_target: Any,
+            x_logical: int,
+            strip_baseline: int,
+            hires_downscale: float,
+        ) -> None:
+            # `text_y_offset` is pre-folded into the widget's normal
+            # `baseline_y`, but the renderer computes its own center-
+            # anchored strip baseline — re-apply the offset here so the
+            # lensed text honors the same vertical nudge (message parity).
+            self._draw_text(
+                strip_target,
+                x_logical,
+                strip_baseline + self.text_y_offset,
+                provider,
+                text_override=text_override,
+                hires_downscale=hires_downscale,
+            )
+
+        self._lens_renderer.draw(
+            text_canvas,
+            lens,
+            font=self.font,
+            cursor_pos=x,
+            owner_name=type(self).__name__,
+            paint_strip=_paint_strip_adapter,
+        )
+
     def _render_tick(
         self,
         canvas: Canvas,
@@ -1141,6 +1241,7 @@ class _BaseImageWidget(FrameAwareBase):
         baseline_y: int,
         text_x_left: int,
         text_x_right: int,
+        lens: Any | None = None,
     ) -> None:
         """Compose one frame: reset canvas (Clear or Fill bg) + paint
         image + paint border + paint text in the right order for the
@@ -1149,8 +1250,31 @@ class _BaseImageWidget(FrameAwareBase):
         where text paints on top of image. In skip-black scroll mode
         text walks BEHIND the image silhouette (existing semantics);
         border lands LAST in that path so it stays visible over both
-        image silhouette and any scrolled text at the panel edges."""
+        image silhouette and any scrolled text at the panel edges.
+
+        `lens` (a `LensSpec` or None) routes the overlay text through the
+        stationary fisheye lens. It's derived by the caller from the
+        animation frame (default None); tests may pass it directly."""
         reset_canvas(canvas, self.bg_color)
+
+        # Hires-at-scale-1 fallback (validate rule 64, message parity):
+        # a bare (unscaled) canvas can't warp real-pixel hires glyphs, so
+        # warn once and fall back to the normal unwarped draw. Gate on the
+        # TEXT canvas the overlay draws to.
+        if (
+            lens is not None
+            and isinstance(self.font, _HiresFont)
+            and getattr(text_canvas, "scale", 1) == 1
+        ):
+            if not self._warned_hires_lens:
+                logging.warning(
+                    "%s: fisheye lens ignored — hires fonts don't warp on "
+                    "scale-1 displays (see validate rule 64); the text draws "
+                    "normally. Use a BDF font, or a scaled (bigsign) display.",
+                    type(self).__name__,
+                )
+                self._warned_hires_lens = True
+            lens = None
 
         # Pass the provider (not a materialized Color) so per-char
         # effects survive emoji boundaries. _draw_text materializes
@@ -1159,7 +1283,9 @@ class _BaseImageWidget(FrameAwareBase):
         provider = self.font_color
 
         if self.text_align == "scroll":
-            self._draw_text(text_canvas, scroll_pos, baseline_y, provider)
+            self._lensed_or_plain_draw(
+                text_canvas, lens, scroll_pos, baseline_y, provider
+            )
             self._paint_skip_black(canvas)
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
@@ -1167,7 +1293,9 @@ class _BaseImageWidget(FrameAwareBase):
             self._paint_image(canvas)
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
-            self._draw_text(text_canvas, scroll_pos, baseline_y, provider)
+            self._lensed_or_plain_draw(
+                text_canvas, lens, scroll_pos, baseline_y, provider
+            )
         else:
             self._paint_image(canvas)
             if self.border is not None:
@@ -1194,8 +1322,9 @@ class _BaseImageWidget(FrameAwareBase):
             # computed against the FULL text width by the caller —
             # we only override the rendered string here.
             text_override = self._visible_text(self.frame_for("animation"), text_canvas)
-            self._draw_text(
+            self._lensed_or_plain_draw(
                 text_canvas,
+                lens,
                 text_x,
                 baseline_y,
                 provider,
@@ -1574,6 +1703,12 @@ class _BaseImageWidget(FrameAwareBase):
                     cycle_width,
                 )
             else:
+                # A lens-capable animation warps the overlay text this
+                # tick; derive the spec ONCE (no-op for typewriter / no
+                # animation) and thread it into the render branch. The
+                # wrap-mode branch above never lenses (validation refuses
+                # `text_wrap` on a lens animation).
+                lens = self._active_lens(text_canvas)
                 self._render_tick(
                     canvas,
                     text_canvas,
@@ -1581,6 +1716,7 @@ class _BaseImageWidget(FrameAwareBase):
                     baseline_y,
                     text_x_left,
                     text_x_right,
+                    lens=lens,
                 )
             canvas = frame.swap(canvas)
             # Follow the new back-buffer so next tick paints to the

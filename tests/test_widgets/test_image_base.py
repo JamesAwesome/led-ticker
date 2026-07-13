@@ -3467,3 +3467,146 @@ class TestImageFisheyeLens:
             "lens must flow from the animation's AnimationFrame through "
             "the real _play_with_text loop into _render_tick (scroll_over)"
         )
+
+    # ---- text_override parity across paint-order branches (Fix 4) ------
+    #
+    # `_render_tick`'s static (`else`) branch has always forwarded
+    # `text_override` to `_lensed_or_plain_draw`; the `scroll` and
+    # `scroll_over` branches did not, even though the parameter is
+    # threaded into `_render_tick` from the exact same per-tick
+    # `_anim_frame` fetch for every alignment. `flair.fisheye` (the only
+    # shipping lens animation) always returns `visible_text=full_text`,
+    # so this was invisible in practice — but the api-reference docs
+    # claim gif/image "behave identically" to the message-widget lens
+    # path, which DOES honor a slicing `visible_text`. A hypothetical
+    # (or future) lens animation that slices text would silently render
+    # the full string instead of the slice on scroll/scroll_over aligns.
+
+    class _SlicingLens:
+        """Duck-typed lens animation whose `visible_text` is a 1-char
+        slice of the full text — unlike `_FakeLens`, which always
+        returns the full string (matching flair.fisheye's real
+        behavior). Exercises the forwarding path specifically."""
+
+        emits_lens = True
+        restart_on_visit = False
+
+        def __init__(self, spec):
+            self._spec = spec
+
+        def frame_for(self, frame, full_text, canvas_width, text_width):
+            from led_ticker.animations import AnimationFrame
+
+            return AnimationFrame(visible_text=full_text[:1], lens=self._spec)
+
+        def frames_to_rest(self, frame, total_chars):
+            return 0
+
+    def test_scroll_over_forwards_text_override_slice(self):
+        """scroll_over: a lens animation that slices `visible_text` must
+        have the SLICE rendered (fewer lit pixels than the full string),
+        not the full text."""
+        from led_ticker.colors import RGB_WHITE
+
+        spec = self._spec()
+        w = _DummyImage(
+            text="HELLO WORLD",
+            animation=self._SlicingLens(spec),
+            text_align="scroll_over",
+            font_color=RGB_WHITE,
+        )
+        canvas, real = self._scaled()
+        baseline = w._baseline_y(canvas)
+
+        anim_frame = w._anim_frame(0, canvas)
+        assert anim_frame is not None
+        assert anim_frame.visible_text == "H", (
+            "test setup: the slicing lens must actually slice to 1 char"
+        )
+
+        # Sliced render: the animation's real visible_text override.
+        w._render_tick(
+            canvas,
+            canvas,
+            0,
+            baseline,
+            2,
+            60,
+            lens=anim_frame.lens,
+            text_override=anim_frame.visible_text,
+        )
+        lit_sliced = self._lit(real)
+
+        # Full-text render for comparison: same lens, full-text override.
+        canvas2, real2 = self._scaled()
+        w._render_tick(
+            canvas2,
+            canvas2,
+            0,
+            baseline,
+            2,
+            60,
+            lens=anim_frame.lens,
+            text_override="HELLO WORLD",
+        )
+        lit_full = self._lit(real2)
+
+        assert lit_sliced, "sliced render produced no pixels"
+        assert lit_full, "full-text render produced no pixels"
+        assert len(lit_sliced) < len(lit_full), (
+            "text_override slice was not forwarded through the scroll_over "
+            "_render_tick branch — rendered pixel count should shrink when "
+            "only 1 char is visible"
+        )
+
+    def test_scroll_forwards_text_override_slice(self):
+        """`scroll` mode (text-behind-image-silhouette): same forwarding
+        pin as scroll_over, mirrored for the other scroll branch."""
+        from led_ticker.colors import RGB_WHITE
+
+        spec = self._spec()
+        w = _DummyImage(
+            text="HELLO WORLD",
+            animation=self._SlicingLens(spec),
+            text_align="scroll",
+            font_color=RGB_WHITE,
+        )
+        canvas, real = self._scaled()
+        baseline = w._baseline_y(canvas)
+
+        anim_frame = w._anim_frame(0, canvas)
+        assert anim_frame is not None
+        assert anim_frame.visible_text == "H"
+
+        w._render_tick(
+            canvas,
+            canvas,
+            0,
+            baseline,
+            2,
+            60,
+            lens=anim_frame.lens,
+            text_override=anim_frame.visible_text,
+        )
+        lit_sliced = self._lit(real)
+
+        canvas2, real2 = self._scaled()
+        w._render_tick(
+            canvas2,
+            canvas2,
+            0,
+            baseline,
+            2,
+            60,
+            lens=anim_frame.lens,
+            text_override="HELLO WORLD",
+        )
+        lit_full = self._lit(real2)
+
+        assert lit_sliced, "sliced render produced no pixels"
+        assert lit_full, "full-text render produced no pixels"
+        assert len(lit_sliced) < len(lit_full), (
+            "text_override slice was not forwarded through the scroll "
+            "_render_tick branch — rendered pixel count should shrink when "
+            "only 1 char is visible"
+        )

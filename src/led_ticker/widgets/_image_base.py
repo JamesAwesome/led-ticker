@@ -1282,7 +1282,12 @@ class _BaseImageWidget(FrameAwareBase):
 
         if self.text_align == "scroll":
             self._lensed_or_plain_draw(
-                text_canvas, lens, scroll_pos, baseline_y, provider
+                text_canvas,
+                lens,
+                scroll_pos,
+                baseline_y,
+                provider,
+                text_override=text_override,
             )
             self._paint_skip_black(canvas)
             if self.border is not None:
@@ -1292,7 +1297,12 @@ class _BaseImageWidget(FrameAwareBase):
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
             self._lensed_or_plain_draw(
-                text_canvas, lens, scroll_pos, baseline_y, provider
+                text_canvas,
+                lens,
+                scroll_pos,
+                baseline_y,
+                provider,
+                text_override=text_override,
             )
         else:
             self._paint_image(canvas)

@@ -3313,3 +3313,61 @@ class TestImageFisheyeLens:
         lit_l = self._lit(real_l)
         assert lit_l, "emoji+lens render produced no pixels"
         assert lit_l != self._lit(real_u), "lens did not alter the emoji render"
+
+    async def test_static_align_fetches_frame_once_per_tick(self):
+        """Single-fetch pin (reviewer Important): with a lens animation +
+        static text_align, `frame_for` must run exactly ONCE per tick —
+        the loop derives BOTH the lens and the visible-text override from
+        one `_anim_frame` fetch, and `_render_tick`'s static branch must
+        not fetch again. Drives one real tick (real `_render_tick`)."""
+        from led_ticker.backends.headless import HeadlessCanvas
+
+        fake = self._FakeLens()
+        calls = [0]
+        orig_frame_for = fake.frame_for
+
+        def counting_frame_for(frame, full_text, canvas_width, text_width):
+            calls[0] += 1
+            return orig_frame_for(frame, full_text, canvas_width, text_width)
+
+        fake.frame_for = counting_frame_for  # type: ignore[method-assign]
+
+        w = _DummyImage(text="HI", animation=fake, text_align="left")
+        real = HeadlessCanvas(width=160, height=16)
+        frame = mock.Mock()
+        frame.swap.return_value = HeadlessCanvas(width=160, height=16)
+
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await w._play_with_text(real, frame, n_ticks=1)
+
+        assert calls[0] == 1, (
+            f"animation.frame_for ran {calls[0]} times in one tick — the "
+            f"AnimationFrame must be fetched exactly once (lens + "
+            f"visible_text derive from the same frame)"
+        )
+
+    def test_text_y_offset_composes_with_lens(self):
+        """`text_y_offset=2` + lens shifts the lensed output (applied once
+        on the strip baseline — no double-application, no crash)."""
+        from led_ticker.colors import RGB_WHITE
+
+        def _render(offset):
+            w = _DummyImage(
+                text="HELLO",
+                animation=self._FakeLens(),
+                text_align="scroll_over",
+                text_y_offset=offset,
+                font_color=RGB_WHITE,
+            )
+            canvas, real = self._scaled()
+            baseline = w._baseline_y(canvas)
+            w._render_tick(canvas, canvas, 0, baseline, 2, 60, lens=self._spec())
+            return self._lit(real)
+
+        lit_0 = _render(0)
+        lit_2 = _render(2)
+        assert lit_0, "offset=0 lensed render produced no pixels"
+        assert lit_2, "offset=2 lensed render produced no pixels"
+        assert lit_0 != lit_2, (
+            "text_y_offset=2 must shift the lensed output vs offset=0"
+        )

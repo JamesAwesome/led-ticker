@@ -847,25 +847,16 @@ class _BaseImageWidget(FrameAwareBase):
     def _anim_frame(self, frame_count: int, canvas: Canvas) -> Any | None:
         """Return the animation's `AnimationFrame` for this tick, or
         `None` when no animation is configured. The single fetch point
-        for both the visible-text slice (`_visible_text`) and the
-        stationary-lens spec (`_active_lens`) so a tick never asks the
-        animation twice for divergent state."""
+        for both the visible-text slice and the stationary-lens spec —
+        `_play_with_text`'s per-tick loop calls this ONCE and derives
+        both from the same frame, so a tick never asks the animation
+        twice for divergent state (and stateful `frame_for`
+        implementations aren't double-advanced)."""
         if self.animation is None:
             return None
         display = self._resolved_text_single
         text_width = self._measure_text(canvas)
         return self.animation.frame_for(frame_count, display, canvas.width, text_width)
-
-    def _active_lens(self, canvas: Canvas) -> Any | None:
-        """The `LensSpec` the animation emits this tick, or `None`.
-
-        Fast-exits when the animation isn't lens-capable (the duck-typed
-        `emits_lens` marker) so the typewriter / no-animation paths never
-        pay for an extra frame fetch."""
-        if not getattr(self.animation, "emits_lens", False):
-            return None
-        frame = self._anim_frame(self.frame_for("animation"), canvas)
-        return getattr(frame, "lens", None) if frame is not None else None
 
     def _measure_text(self, canvas: Canvas) -> int:
         # Use the resolved display string (token-substituted). For non-token
@@ -1242,6 +1233,7 @@ class _BaseImageWidget(FrameAwareBase):
         text_x_left: int,
         text_x_right: int,
         lens: Any | None = None,
+        text_override: str | None = None,
     ) -> None:
         """Compose one frame: reset canvas (Clear or Fill bg) + paint
         image + paint border + paint text in the right order for the
@@ -1253,8 +1245,14 @@ class _BaseImageWidget(FrameAwareBase):
         image silhouette and any scrolled text at the panel edges.
 
         `lens` (a `LensSpec` or None) routes the overlay text through the
-        stationary fisheye lens. It's derived by the caller from the
-        animation frame (default None); tests may pass it directly."""
+        stationary fisheye lens; `text_override` is the animation's
+        visible-text slice for this tick. `_play_with_text`'s per-tick
+        loop derives BOTH from a single `_anim_frame` fetch and passes
+        them here so the static branch below doesn't call `frame_for` a
+        second time (stateful animations must see exactly one call per
+        tick). When `text_override` is None with an animation set (direct
+        callers / tests), the static branch falls back to fetching the
+        frame itself — same behavior as the loop, just self-contained."""
         reset_canvas(canvas, self.bg_color)
 
         # Hires-at-scale-1 fallback (validate rule 64, message parity):
@@ -1301,27 +1299,35 @@ class _BaseImageWidget(FrameAwareBase):
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
             text_x = text_x_left if self.text_align == "left" else text_x_right
-            # Typewriter resolution freeze (I3): on the FIRST tick of a
-            # typewriter reveal, resolve once and lock so the sliced string
-            # length stays stable for the whole reveal. Mirrors
-            # TickerMessage's `_anim_resolution_lock` approach. The lock
-            # clears in `reset_frame()` (visit entry) so the next visit
-            # re-resolves from the current source value.
-            if (
-                self.animation is not None
-                and self._token_text is not None
-                and self._token_text.has_tokens
-                and not self._anim_resolution_lock
-            ):
-                self._resolve_overlay_text(locked=False)
-                self._anim_resolution_lock = True
-            # Apply animation to the visible text. `_visible_text`
-            # returns the display text when animation is None (no extra
-            # work for non-animated widgets) and the typewriter
-            # slice when set. Layout (text_x, baseline_y) is already
-            # computed against the FULL text width by the caller —
-            # we only override the rendered string here.
-            text_override = self._visible_text(self.frame_for("animation"), text_canvas)
+            if text_override is None:
+                # Direct-caller fallback: the per-tick loop passes
+                # `text_override` from its single `_anim_frame` fetch, so
+                # this branch fires only for callers that invoke
+                # `_render_tick` standalone (tests, the static fast path).
+                #
+                # Typewriter resolution freeze (I3): on the FIRST tick of a
+                # typewriter reveal, resolve once and lock so the sliced
+                # string length stays stable for the whole reveal. Mirrors
+                # TickerMessage's `_anim_resolution_lock` approach. The lock
+                # clears in `reset_frame()` (visit entry) so the next visit
+                # re-resolves from the current source value.
+                if (
+                    self.animation is not None
+                    and self._token_text is not None
+                    and self._token_text.has_tokens
+                    and not self._anim_resolution_lock
+                ):
+                    self._resolve_overlay_text(locked=False)
+                    self._anim_resolution_lock = True
+                # Apply animation to the visible text. `_visible_text`
+                # returns the display text when animation is None (no extra
+                # work for non-animated widgets) and the typewriter
+                # slice when set. Layout (text_x, baseline_y) is already
+                # computed against the FULL text width by the caller —
+                # we only override the rendered string here.
+                text_override = self._visible_text(
+                    self.frame_for("animation"), text_canvas
+                )
             self._lensed_or_plain_draw(
                 text_canvas,
                 lens,
@@ -1703,12 +1709,35 @@ class _BaseImageWidget(FrameAwareBase):
                     cycle_width,
                 )
             else:
-                # A lens-capable animation warps the overlay text this
-                # tick; derive the spec ONCE (no-op for typewriter / no
-                # animation) and thread it into the render branch. The
-                # wrap-mode branch above never lenses (validation refuses
-                # `text_wrap` on a lens animation).
-                lens = self._active_lens(text_canvas)
+                # Single AnimationFrame fetch per tick: derive BOTH the
+                # visible-text override and the lens spec from ONE
+                # `frame_for` call, then thread them into `_render_tick`
+                # (whose static branch skips its own fetch when the
+                # override is supplied). Stateful animations must see
+                # exactly one `frame_for` call per tick. The wrap-mode
+                # branch above never animates (validation refuses
+                # scroll aligns for typewriter and `text_wrap` for lens).
+                lens = None
+                text_override = None
+                if self.animation is not None:
+                    # Typewriter resolution freeze (I3) — must engage
+                    # BEFORE the fetch, since the frame slices the
+                    # resolved string. Same block as `_render_tick`'s
+                    # direct-caller fallback; lock-guarded so it runs
+                    # once per reveal whichever site fires first.
+                    if (
+                        self._token_text is not None
+                        and self._token_text.has_tokens
+                        and not self._anim_resolution_lock
+                    ):
+                        self._resolve_overlay_text(locked=False)
+                        self._anim_resolution_lock = True
+                    anim_frame = self._anim_frame(
+                        self.frame_for("animation"), text_canvas
+                    )
+                    if anim_frame is not None:
+                        text_override = anim_frame.visible_text
+                        lens = getattr(anim_frame, "lens", None)
                 self._render_tick(
                     canvas,
                     text_canvas,
@@ -1717,6 +1746,7 @@ class _BaseImageWidget(FrameAwareBase):
                     text_x_left,
                     text_x_right,
                     lens=lens,
+                    text_override=text_override,
                 )
             canvas = frame.swap(canvas)
             # Follow the new back-buffer so next tick paints to the

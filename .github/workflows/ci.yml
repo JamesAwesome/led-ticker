@@ -155,6 +155,9 @@ jobs:
       - name: Lint (prettier --check + astro check)
         working-directory: docs/site
         run: pnpm run lint
+      - name: Test (Pages Function middleware)
+        working-directory: docs/site
+        run: pnpm run test
       - name: Build + verify llms.txt export
         working-directory: docs/site
         run: pnpm run build && pnpm run check:llms

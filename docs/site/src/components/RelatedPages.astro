@@ -1,4 +1,6 @@
 ---
+import { relatedHref, relatedLabel } from "../utils/related-pages.mjs";
+
 interface Props {
   slugs: string[];
 }
@@ -11,7 +13,7 @@ const { slugs } = Astro.props;
     {
       slugs.map((s) => (
         <li>
-          <a href={`/${s}/`}>{s}</a>
+          <a href={relatedHref(s)}>{relatedLabel(s)}</a>
         </li>
       ))
     }

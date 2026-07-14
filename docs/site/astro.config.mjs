@@ -1,12 +1,26 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import sitemap from "@astrojs/sitemap";
 import starlightLlmsTxt from "starlight-llms-txt";
 import remarkGfm from "remark-gfm";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import structuredData from "./src/structured-data.json";
+import { buildLastmodMap, lastmodForUrl } from "./scripts/git-lastmod.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Sitemap <lastmod> from git history (SEO: helps Google prioritize recrawls
+// on a young domain). Needs full history — the CI docs jobs check out with
+// fetch-depth: 0. If git is unavailable the sitemap simply omits lastmod.
+const SITE_URL = "https://docs.ledticker.dev";
+const CONTENT_DIR = "docs/site/src/content/docs";
+let lastmodMap = new Map();
+try {
+  lastmodMap = buildLastmodMap(path.resolve(__dirname, "../.."), CONTENT_DIR);
+} catch (err) {
+  console.warn(`[sitemap] git lastmod unavailable: ${err.message}`);
+}
 
 export default defineConfig({
   // Custom domain. Cloudflare Pages also serves preview deploys at
@@ -41,6 +55,14 @@ export default defineConfig({
     },
   },
   integrations: [
+    // Providing our own sitemap integration makes Starlight skip adding its
+    // default one, so the serialize hook below is the single sitemap source.
+    sitemap({
+      serialize(item) {
+        const lastmod = lastmodForUrl(item.url, lastmodMap, SITE_URL, CONTENT_DIR);
+        return lastmod ? { ...item, lastmod } : item;
+      },
+    }),
     starlight({
       plugins: [
         starlightLlmsTxt({

@@ -1,0 +1,23 @@
+# Cloudflare Pages custom headers (copied verbatim into dist/ by Astro).
+#
+# /_astro/* files carry a content hash in the filename, so they are immutable
+# by construction — cache for a year. Demo/preview media is stable between
+# re-renders; a day of edge/browser caching is safe (default was 4 hours).
+
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/demos/*
+  Cache-Control: public, max-age=86400
+
+/demos-long/*
+  Cache-Control: public, max-age=86400
+
+/demos-pinned/*
+  Cache-Control: public, max-age=86400
+
+/emoji/*
+  Cache-Control: public, max-age=86400
+
+/panel-test/*
+  Cache-Control: public, max-age=86400

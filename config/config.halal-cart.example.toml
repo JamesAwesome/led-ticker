@@ -1,0 +1,112 @@
+# requires-plugins: led-ticker-flair
+# Install via config/requirements-plugins.txt (or the web UI Store), then restart.
+# See https://docs.ledticker.dev/plugins/
+#
+# ===========================================================================
+#  HALAL CART — bigsign (Pi 5, 256×64)
+# ===========================================================================
+# An imitation NYC halal-cart LED sign. The whole point is FLASHING: saturated
+# red + turmeric-gold + rainbow, glowing marquee bulbs, fireworks between every
+# section, a fisheye "HALAL FOOD" banner, and a lottery-ball menu draw. Runs the
+# way a Midtown cart sign does at 2am — loud, bright, never still.
+#
+# Palette:  halal-red [230,40,30] · turmeric-gold [255,190,0] · cream [255,244,214]
+# Theme:    flashing, animation, rainbows, flair.
+# ===========================================================================
+
+# --- Display + RP1 tuning (matches config.bigsign.example.toml) --------------
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 70
+gpio_slowdown = 3
+hardware_mapping = "adafruit-hat"
+default_scale = 4
+pwm_bits = 8
+
+[title]
+delay = 3
+
+# Fireworks burst between every section (the big flashy reveal); a white
+# color-flash punches between widgets inside a section.
+[transitions]
+default = "color_flash"
+duration = 0.6
+easing = "ease_in_out"
+between_sections = "flair.fireworks"
+
+# ===========================================================================
+#  1 · HALAL FOOD — rainbow marquee bulging through a fisheye lens
+# ===========================================================================
+[[playlist.section]]
+mode = "one_at_a_time"
+hold_time = 10
+
+[[playlist.section.widget]]
+type = "message"
+text = "★ HALAL FOOD ★ GYRO ★ CHICKEN OVER RICE ★ FALAFEL ★"
+font_color = "rainbow"
+animation = "flair.fisheye"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+# ===========================================================================
+#  2 · THE DRAW — lottery balls roll in spelling the menu
+# ===========================================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+entry_transition = "dissolve"
+
+[[playlist.section.widget]]
+type = "flair.lottery"
+words = ["HALAL", "GYRO", "RICE"]
+ball_style = "classic"
+colors = [[230, 40, 30], [255, 190, 0], [255, 244, 214]]
+choreography = "roll_through"
+border = "rainbow"
+
+# ===========================================================================
+#  3 · CHICKEN OVER RICE — gold shimmer held over a rainbow scroll
+# ===========================================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "CHICKEN"
+bottom_text = "over rice • white sauce • hot sauce • $8"
+top_color = {style = "shimmer", base = "gold", shimmer = "white", speed = 18.0, pause = 0.5}
+top_align = "center"
+bottom_color = "rainbow"
+border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
+
+# ===========================================================================
+#  4 · OPEN 24 HOURS — spins in, marquee bulbs chasing, colors cycling
+# ===========================================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+entry_transition = "flair.spinout"
+
+[[playlist.section.widget]]
+type = "message"
+text = "OPEN 24 HOURS"
+font_color = "color_cycle"
+animation = "flair.propeller"
+border = {style = "lightbulbs", mode = "chase", lit_color = "rainbow", chase_density = 3}
+
+# ===========================================================================
+#  5 · THE MENU — full rainbow crawl of everything on the cart
+# ===========================================================================
+[[playlist.section]]
+mode = "ticker"
+
+[[playlist.section.widget]]
+type = "message"
+text = "GYRO • CHICKEN OVER RICE • LAMB OVER RICE • FALAFEL • SHAWARMA • COMBO PLATTER • WHITE SAUCE • HOT SAUCE • $8 CASH ONLY"
+font_color = "rainbow"
+border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}

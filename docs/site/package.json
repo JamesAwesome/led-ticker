@@ -19,6 +19,7 @@
     "check:llms": "node scripts/check-llms.mjs"
   },
   "dependencies": {
+    "@astrojs/sitemap": "^3.7.3",
     "@astrojs/starlight": "^0.41.3",
     "astro": "^7.0.7",
     "marked": "^18.0.6",

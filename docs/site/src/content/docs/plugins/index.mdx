@@ -1,6 +1,6 @@
 ---
 title: Plugins
-description: Extend led-ticker with external plugins — widgets, transitions, emojis, fonts, and lifecycle hooks — installed via a requirements file and auto-registered at startup.
+description: Extend led-ticker with plugins — widgets, transitions, emojis, fonts, and lifecycle hooks — installed via a requirements file and auto-registered at startup.
 ---
 
 Plugins extend led-ticker without forking core. A plugin is a small Python package that registers extra **widgets, transitions, color providers, animations, borders, easings, emojis, fonts, or lifecycle hooks** through led-ticker's public plugin API. The flagship example is the [pool water-temperature widget](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/pool), which lives in the led-ticker-plugins monorepo and contributes `type = "pool.monitor"`.

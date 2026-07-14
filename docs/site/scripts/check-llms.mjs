@@ -50,6 +50,9 @@ for (const slug of EXPECTED_SETS) {
   if (!entry.includes(`/_llms-txt/${slug}.txt`))
     errors.push(`llms.txt does not list the "${slug}" documentation set`);
 }
+for (const std of ["/llms-small.txt", "/llms-full.txt"]) {
+  if (!entry.includes(std)) errors.push(`llms.txt does not list the standard set ${std}`);
+}
 
 // --- each custom set exists, is non-empty, and contains its marker page ---
 // Markers verified against the live export on 2026-07-14.

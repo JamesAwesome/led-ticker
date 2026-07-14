@@ -108,6 +108,8 @@ export default defineConfig({
               label: "Configuration",
               description:
                 "config structure, display modes, colors, fonts, value tokens, validation, and using plugins",
+              // Enumerated (per-set negation isn't expressible): new concepts/ pages
+              // must be added here — llms-small picks them up automatically via exclude.
               paths: [
                 "concepts/animations",
                 "concepts/borders",

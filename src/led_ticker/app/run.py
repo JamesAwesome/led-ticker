@@ -272,6 +272,26 @@ async def _idle_when_all_scheduled_out(
     return True
 
 
+def _on_display_dark_transition(
+    was_dark: bool, now_dark: bool
+) -> tuple[None, int, None] | None:
+    """Reset outgoing-transition tracking on the False->True (panel just
+    went dark) transition. Without this, the morning wake's entry
+    transition would draw yesterday evening's `last_widget` at full
+    brightness as the outgoing frame — a stale, unrelated widget flashing
+    on wake. Returns the (last_widget, last_scroll_pos, last_bg_color)
+    reset triple to assign when the transition just happened, else None
+    (caller keeps its prior values unchanged). `last_scale` /
+    `last_content_height` are wrapper geometry, not content — deliberately
+    left untouched; `_entry_transition_active` already treats
+    `last_widget is None` as "no entry transition" (boot behavior), so
+    resetting `last_widget` alone is sufficient to suppress the stale
+    outgoing frame."""
+    if was_dark or not now_dark:
+        return None
+    return None, 0, None
+
+
 def _section_has_content(
     title: Any, widgets: list[Any], breaker: Any
 ) -> tuple[bool, list[Any]]:
@@ -979,9 +999,13 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                     )
                     if _idled:
                         continue
+                    _was_dark = _display_dark
                     _display_dark = await _idle_when_all_scheduled_out(
                         led_frame, _any_section_ran, _display_dark
                     )
+                    _dark_reset = _on_display_dark_transition(_was_dark, _display_dark)
+                    if _dark_reset is not None:
+                        last_widget, last_scroll_pos, last_bg_color = _dark_reset
                     _any_section_ran = False
                     for section_index, section in enumerate(config.sections):
                         # Per-section reload check: caps reload latency at one

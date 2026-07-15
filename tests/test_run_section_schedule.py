@@ -8,6 +8,7 @@ from unittest.mock import Mock
 
 from led_ticker.app.run import (
     _idle_when_all_scheduled_out,
+    _on_display_dark_transition,
     _section_has_content,
     _section_schedule_active,
 )
@@ -101,6 +102,28 @@ class TestIdleWhenAllScheduledOut:
         frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
         assert caplog.text == ""
         assert slept == [1.0]
+
+
+class TestOnDisplayDarkTransition:
+    """Fix A (2026-07-15): the False->True (panel just went dark) transition
+    must reset outgoing-transition tracking state, so the morning wake's
+    entry transition doesn't draw yesterday evening's last_widget at full
+    brightness as the outgoing frame."""
+
+    def test_wake_to_dark_returns_reset_triple(self):
+        assert _on_display_dark_transition(False, True) == (None, 0, None)
+
+    def test_still_dark_returns_none(self):
+        # was_dark=True, now_dark=True: no transition, no reset.
+        assert _on_display_dark_transition(True, True) is None
+
+    def test_dark_to_wake_returns_none(self):
+        # was_dark=True, now_dark=False: waking, not going dark — no reset
+        # (the widget currently active IS the correct outgoing content).
+        assert _on_display_dark_transition(True, False) is None
+
+    def test_never_dark_returns_none(self):
+        assert _on_display_dark_transition(False, False) is None
 
 
 class _Widget:

@@ -1,0 +1,89 @@
+# Plugin dependencies: none — built-in (core) source types & widgets only.
+
+# led-ticker colored value token example — smallsign (160×16 canvas).
+#
+# Demonstrates the [[source]] `color` field: give a source its own color and
+# its :id: token renders in that color everywhere it appears, while the
+# surrounding literal text keeps the widget's own font_color. `color` accepts
+# the same forms as font_color — [r,g,b], a string shorthand ("rainbow" /
+# "color_cycle" / "shimmer"), or an inline table.
+#
+# This release: `message` widgets only (two_row / gif / image text overlay
+# are a planned follow-up). Full guide:
+# https://docs.ledticker.dev/concepts/value-tokens/#token-color
+#
+# Sections:
+#   1. Baseline composition — blue label text, green token value
+#   2. Host font_color = "rainbow" sweeps the literal text while the token
+#      itself stays fixed in the source's color
+#   3. Control — a source with NO `color` inherits the host's font_color,
+#      exactly as before this feature shipped
+#
+# Validate with: led-ticker validate config/config.colored-token.example.toml
+
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 60
+gpio_slowdown = 2
+hardware_mapping = "adafruit-hat"
+
+[title]
+delay = 3
+
+[transitions]
+default = "cut"
+duration = 0.3
+between_sections = "cut"
+
+# --- Value tokens ---
+
+[[source]]
+id = "studio.status"
+type = "static"
+value = "OPEN"
+color = [0, 220, 90]              # green — colors the token only
+
+[[source]]
+id = "studio.tagline"
+type = "static"
+value = "Breathe. Move. Rise."    # no `color` — inherits the host's font_color
+
+# ---------------------------------------------------------------------------
+# 1. Baseline composition: blue label text, green token value.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "Firebird Yoga: :studio.status:"
+font_color = [80, 140, 255]       # blue — colors everything except the token
+
+# ---------------------------------------------------------------------------
+# 2. Host font_color = "rainbow" keeps sweeping the literal text while the
+#    token stays fixed in its own green.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "Status: :studio.status: today"
+font_color = "rainbow"
+
+# ---------------------------------------------------------------------------
+# 3. Control — a source with no `color` inherits the host's font_color, same
+#    as any token before this feature shipped.
+# ---------------------------------------------------------------------------
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6.0
+
+[[playlist.section.widget]]
+type = "message"
+text = ":studio.tagline:"
+font_color = [255, 183, 3]        # amber — applies to the whole string, token included

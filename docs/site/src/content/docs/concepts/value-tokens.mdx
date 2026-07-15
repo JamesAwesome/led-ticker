@@ -78,6 +78,35 @@ font_color = [255, 183, 3]`}
 
 Tokens compose with everything else on the widget — `font_color = "rainbow"`, `animation = "typewriter"`, `border = "rainbow"`, inline emoji. The token is substituted before layout, so the rest of the pipeline sees a plain string.
 
+## Token color
+
+A `[[source]]` block can carry its own `color`. When it does, the value substituted for its `:id:` token renders in that color, while the literal text around it keeps rendering in the widget's own `font_color` — the two compose in one line.
+
+<TomlExample
+  title="A colored token composed with a plain font_color"
+  code={`[[source]]
+id = "studio.status"
+type = "static"
+value = "OPEN"
+color = [0, 220, 90]          # green — colors the token only
+
+[[playlist.section.widget]]
+type = "message"
+text = "Firebird Yoga: :studio.status:"
+font_color = [80, 140, 255] # blue — colors everything else`}
+/>
+
+`Firebird Yoga: ` renders blue (the widget's `font_color`); `OPEN` renders green (the source's `color`). `color` accepts the same forms as `font_color`: a constant `[r, g, b]`, a string shorthand (`"rainbow"`, `"color_cycle"`, `"shimmer"`), or an inline table (`{style = "gradient", from = [...], to = [...]}`, or a plugin-contributed style such as `{style = "stocks.trend", symbol = "AAPL"}`). A source with no `color` field behaves exactly as before — its token inherits whatever color the host widget is already using.
+
+Token colors compose with a per-character host color too: a message with `font_color = "rainbow"` and a colored token keeps sweeping the rainbow across its literal text while the token itself stays fixed in the source's color.
+
+**This release: `message` widgets only.** `two_row` and the text overlay on `gif`/`image` widgets don't read a source's `color` yet — a token there always renders in the widget's own color, regardless of what the source declares. Support for those is a planned follow-up.
+
+Two honest scope boundaries, both narrow:
+
+- **A `flair.fisheye` lens drops token colors.** Under [`animation = "flair.fisheye"`](/concepts/animations/#flairfisheye-flair-pack), the whole message renders in the widget's `font_color` — a source's `color` isn't applied while the text is passing through the lens.
+- **A `typewriter` reveal with inline emoji delays token color until fully revealed.** With `animation = "typewriter"`, a message that mixes a colored token with a `:slug:` emoji renders the token in the host's `font_color` while the reveal is in progress, then switches to the source's color once the whole message is on screen. (A typewriter reveal with no inline emoji colors the token correctly the whole time.)
+
 ## The three source types
 
 ### `clock` — live wall-clock time

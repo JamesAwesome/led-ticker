@@ -61,6 +61,27 @@ def test_malformed_section_schedule_raises_with_location(tmp_path):
         )
 
 
+def test_unquoted_toml_time_raises_friendly_value_error(tmp_path):
+    """Fix F.6 (2026-07-15): `start = 09:00:00` (unquoted) parses as a TOML
+    local-time literal (`datetime.time`), not a string — `to_minutes`
+    rejects non-str input, and `parse_visibility_schedule` must raise the
+    friendly location-prefixed ValueError, not let a TypeError leak out.
+
+    Note: bare `09:00` (no seconds) isn't valid TOML local-time syntax at
+    all — tomllib itself raises TOMLDecodeError ("Unclosed inline table")
+    before reaching our code, verified interactively before writing this
+    test. `09:00:00` is the minimal unquoted repro that actually reaches
+    `parse_visibility_schedule`.
+    """
+    with pytest.raises(ValueError, match=r"section\[0\]\.schedule.*is not a valid"):
+        load_config(
+            _write(
+                tmp_path,
+                section_extra='schedule = { start = 09:00:00, end = "17:00" }',
+            )
+        )
+
+
 def test_brightness_tz_falls_back_to_display_timezone():
     from led_ticker.app.run import _schedule_tz_name
     from led_ticker.config import DisplayConfig, ScheduleConfig

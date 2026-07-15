@@ -16,7 +16,7 @@ _DAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")  # index == datetime.w
 _HHMM = re.compile(r"^([0-9]{2}):([0-9]{2})$")
 
 
-def to_minutes(hhmm: str) -> int | None:
+def to_minutes(hhmm: str | None) -> int | None:
     """Minutes since midnight for a zero-padded 'HH:MM' (0–23/0–59), else None."""
     if not isinstance(hhmm, str):
         return None

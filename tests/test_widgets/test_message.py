@@ -658,6 +658,203 @@ class TestTickerMessageInlineTokens:
         assert w._resolved_text == "HI"
 
 
+class TestColoredTokens:
+    """Per-token color: a `:id:` token renders in its source-declared
+    `.color` while surrounding literal text keeps the host `font_color`.
+    The override is indexed by VISIBLE TEXT-CHAR position (emoji slugs
+    excluded) so it aligns with `draw_with_emoji`'s `char_index` and
+    `draw_text_per_char`'s `idx`. Composes with host per-char providers,
+    is byte-identical when no source declares a color, and never changes
+    geometry."""
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for src in sources:
+            src.refresh()
+            reg.add(src)
+        set_data_registry(reg)
+        return reg
+
+    @staticmethod
+    def _stub(width=160, height=16):
+        from rgbmatrix import _StubCanvas
+
+        return _StubCanvas(width=width, height=height)
+
+    @staticmethod
+    def _colored_source(value, rgb):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="x", value=value)
+        src.color = _ConstantColor(Color(*rgb))
+        return src
+
+    def test_token_chars_use_source_color_literal_uses_host(self):
+        """Token 'AB :x:' with host green + source-red token: 'AB ' pixels
+        are green (host), the '99' token pixels are red (source), and the
+        literal run is strictly LEFT of the token run (index alignment on
+        the whole-string→per-char forced path)."""
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+        w = TickerMessage(text="AB :x:", font_color=host, center=False)
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert host in colors, "literal 'AB' should render in host green"
+        assert tok in colors, "token '99' should render in source red"
+        assert colors <= {host, tok}, f"only host+token colors expected; got {colors!r}"
+        # 'AB ' is left of '99' -> the RED (token) pixels are all to the
+        # right of the GREEN (literal) pixels: proves the override maps
+        # the trailing token chars, not the leading literal chars.
+        green_xs = [x for (x, _y), v in lit.items() if v == host]
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert max(green_xs) < min(red_xs), (
+            f"literal (green) must be left of token (red); "
+            f"green max={max(green_xs)} red min={min(red_xs)}"
+        )
+        # Control: literal chars are unchanged reference is left to the
+        # byte-identical test; here confirm no host-color leaked onto the
+        # token by proving no green pixel sits at/after the token start.
+        assert not any(x >= min(red_xs) for x in green_xs)
+
+    def test_no_color_source_is_byte_identical(self):
+        """A colorless token renders the EXACT same pixels as the literal
+        substituted text with no token at all — the `token_override is
+        None` path leaves the three color branches untouched."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        self._registry(StaticSource(id="x", value="99"))  # no .color
+        w = TickerMessage(text="AB :x:", font_color=host, center=False)
+        c_tok = self._stub()
+        w.draw(c_tok)
+
+        # Control: a literal, tokenless message of the substituted string.
+        # This is guaranteed to run the pre-feature code path (has_tokens
+        # is False), so equal pixels == byte-identical.
+        self._registry()  # empty registry
+        control = TickerMessage(text="AB 99", font_color=host, center=False)
+        c_lit = self._stub()
+        control.draw(c_lit)
+
+        assert c_tok.count_nonzero() > 0
+        assert c_tok._pixels == c_lit._pixels, (
+            "a colorless token must render byte-identically to the literal text"
+        )
+
+    def test_colored_token_with_host_rainbow(self):
+        """Host `rainbow` (per-char) composes with a red token: the literal
+        chars vary in hue (rainbow) while the token chars are ALL red — the
+        override wins per-char over the host provider."""
+        from led_ticker.color_providers import Rainbow
+        from led_ticker.widgets.message import TickerMessage
+
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+        w = TickerMessage(text="AB :x:", font_color=Rainbow(), center=False)
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert red_xs, "token '99' should render red under a rainbow host"
+        # Literal 'AB' varies: at least two distinct non-token hues.
+        non_tok = {v for v in lit.values() if v != tok}
+        assert len(non_tok) >= 2, (
+            f"literal chars should carry varied rainbow hues; got {non_tok!r}"
+        )
+        # And the rainbow never coincidentally produced the exact token red
+        # (Rainbow is full-value HSV; 200-valued red can't appear).
+        assert tok not in non_tok
+
+    def test_colored_token_mixed_with_emoji(self):
+        """INDEX-ALIGNMENT TRIPWIRE. 'A :x: :sun:' with a red token and an
+        inline emoji: the ONLY pixels that differ between a colored-token
+        render and a colorless render are the token chars (green→red). The
+        `:sun:` sprite pixels are byte-identical — proving the override
+        (which skips emoji segments) stays aligned with `draw_with_emoji`'s
+        emoji-excluding `char_index`."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        black = (0, 0, 0)
+
+        def render(with_color):
+            src = (
+                self._colored_source("99", tok)
+                if with_color
+                else StaticSource(id="x", value="99")
+            )
+            self._registry(src)
+            w = TickerMessage(text="A :x: :sun:", font_color=host, center=False)
+            c = self._stub()
+            w.draw(c)
+            # Confirm the emoji path actually fired for this message.
+            assert w._has_emoji is True
+            return dict(c._pixels)
+
+        pw = render(with_color=False)  # token green (host), like literal
+        pc = render(with_color=True)  # token red
+
+        diff = {
+            xy for xy in set(pw) | set(pc) if pw.get(xy, black) != pc.get(xy, black)
+        }
+        assert diff, "the colored token must change some pixels (green→red)"
+        # Every differing pixel is a token char: green in the colorless
+        # render, red in the colored one. Nothing else moved — not 'A ',
+        # not the sun sprite.
+        for xy in diff:
+            assert pw.get(xy) == host and pc.get(xy) == tok, (
+                f"unexpected diff at {xy}: {pw.get(xy)!r} -> {pc.get(xy)!r} "
+                f"(only the token chars should change color)"
+            )
+        # The sun sprite rendered (pixels that are neither host green nor
+        # black) and is byte-identical across both renders.
+        sprite = {xy for xy, v in pw.items() if v not in (host, black)}
+        assert sprite, "the :sun: sprite should have rendered"
+        assert not (sprite & diff), (
+            "emoji sprite pixels must be identical with and without a colored token"
+        )
+        for xy in sprite:
+            assert pc.get(xy) == pw.get(xy)
+
+    def test_width_unchanged_with_color(self):
+        """Color never changes geometry: `draw()`'s returned cursor_pos is
+        identical with and without a source color."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+
+        def cursor(with_color):
+            src = (
+                self._colored_source("99", tok)
+                if with_color
+                else StaticSource(id="x", value="99")
+            )
+            self._registry(src)
+            w = TickerMessage(text="AB :x:", font_color=host, center=False)
+            _, cp = w.draw(self._stub())
+            return cp
+
+        assert cursor(with_color=True) == cursor(with_color=False)
+
+
 class TestTickerCountdownColorProvider:
     def test_constructor_wraps_raw_color_in_constant_provider(self):
         from datetime import date

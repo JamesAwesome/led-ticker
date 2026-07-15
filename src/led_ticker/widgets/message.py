@@ -38,6 +38,35 @@ def _coerce_font_color(value: Any) -> ColorProvider:
     return value
 
 
+def _build_token_color_override(
+    segments: list[tuple[Any, Any, bool]], frame: int
+) -> list[Any] | None:
+    """Return a per-visible-text-char list of ``Color``-or-``None`` from
+    token ``segments``, or ``None`` if no segment carries a color.
+
+    ``None`` is the common path: callers then skip the override entirely
+    and the existing color branches run byte-identically. Emoji segments
+    contribute NO text-char positions (they render as sprites), so the
+    override index aligns exactly with ``draw_with_emoji``'s ``char_index``
+    and ``draw_text_per_char``'s ``idx`` — both of which also exclude emoji
+    slugs. A token's provider is whole-string (materialized once at
+    ``color_for(frame, 0, 1)``) and applied to each of its value chars;
+    literal runs contribute ``None`` so the host ``font_color`` shows.
+    """
+    if not any(color is not None for _text, color, _emoji in segments):
+        return None
+    override: list[Any] = []
+    for text, color, is_emoji in segments:
+        if is_emoji:
+            continue  # sprite: not a text-char position
+        if color is None:
+            override.extend([None] * len(text))
+        else:
+            c = color.color_for(frame, 0, 1)  # whole-string token provider
+            override.extend([c] * len(text))
+    return override
+
+
 @register("message")
 @attrs.define
 class TickerMessage(FrameAwareBase):
@@ -350,6 +379,21 @@ class TickerMessage(FrameAwareBase):
             rotate_surface.target if rotate_surface is not None else canvas
         )
 
+        # Per-token color override (inline-value-token feature). When any
+        # `:id:` token declares a `color` on its source, build a
+        # per-visible-text-char list of Color-or-None so token chars render
+        # in the source color while literal chars keep `provider`. `None`
+        # (no colored token) leaves all three branches byte-identical.
+        # Indexed over `full_text`'s text chars from 0 — a typewriter
+        # `visible_text` is a prefix slice, so the 0-based indices still
+        # align (branch reads are guarded by `idx < len(token_override)`).
+        token_override: list[Any] | None = None
+        if self._token is not None and self._token.has_tokens:
+            token_override = _build_token_color_override(
+                self._token.resolve_segments(get_data_registry()),
+                self.frame_for("font_color"),
+            )
+
         # Run the text paint branches only when we are either on a live
         # (non-rotating) draw or on the FIRST rotating frame of a spin
         # (_snapshot_needed). On subsequent rotating frames (_snapshot_needed
@@ -370,6 +414,15 @@ class TickerMessage(FrameAwareBase):
                 # more chars reveal — char N's hue at frame=t is the same
                 # hue char N will have when typewriter completes. Mirrors
                 # the image-widget contract in `_BaseImageWidget._draw_text`.
+                # When a colored token is present, forward a per-char
+                # override (indexed by the SAME emoji-excluding text-char
+                # position `draw_with_emoji` uses). None => default path,
+                # byte-identical to every existing caller.
+                emoji_override = (
+                    (lambda i, _ov=token_override: _ov[i] if i < len(_ov) else None)
+                    if token_override is not None
+                    else None
+                )
                 cursor_pos += draw_with_emoji(
                     draw_canvas,
                     self.font,
@@ -380,6 +433,7 @@ class TickerMessage(FrameAwareBase):
                     y_offset=y_offset,
                     frame=self.frame_for("font_color"),
                     total_chars=count_text_chars(full_text),
+                    color_override=emoji_override,
                 )
             elif provider.per_char:
                 # Per-char rendering: iterate visible_text, draw each char
@@ -392,29 +446,70 @@ class TickerMessage(FrameAwareBase):
                 # hue char N will have at completion, not a hue
                 # compressed to the visible slice. Mirrors the image-
                 # widget contract in `_BaseImageWidget._draw_text`.
+                # Override wins per-char over the host provider when a
+                # colored token overlaps; None entries defer to the provider.
+                frame_fc = self.frame_for("font_color")
+
+                def _per_char_color(
+                    idx: int,
+                    total: int,
+                    _ov: list[Any] | None = token_override,
+                    _p: ColorProvider = provider,
+                    _f: int = frame_fc,
+                ) -> Any:
+                    if _ov is not None and idx < len(_ov) and _ov[idx] is not None:
+                        return _ov[idx]
+                    return _p.color_for(_f, idx, total)
+
                 cursor_pos += draw_text_per_char(
                     draw_canvas,
                     self.font,
                     cursor_pos,
                     baseline_y + y_offset,
                     visible_text,
-                    lambda idx, total: provider.color_for(
-                        self.frame_for("font_color"), idx, total
-                    ),
+                    _per_char_color,
                     total_chars=len(full_text),
                 )
             else:
-                color = provider.color_for(
-                    self.frame_for("font_color"), 0, len(visible_text)
-                )
-                cursor_pos += draw_text(
-                    draw_canvas,
-                    self.font,
-                    cursor_pos,
-                    baseline_y + y_offset,
-                    color,
-                    visible_text,
-                )
+                frame_fc = self.frame_for("font_color")
+                if token_override is not None:
+                    # A colored token forces the per-char path even for a
+                    # whole-string/constant host color so the override can
+                    # win on individual chars; literal chars keep the host
+                    # constant. Geometry is unchanged (BDF per-char advance
+                    # sums to the whole-string advance; hires ceil-divides
+                    # once — same contract as the per-char branch above).
+                    host_const = provider.color_for(frame_fc, 0, len(visible_text))
+
+                    def _ws_color(
+                        idx: int,
+                        total: int,
+                        _ov: list[Any] = token_override,
+                        _h: Any = host_const,
+                    ) -> Any:
+                        if idx < len(_ov) and _ov[idx] is not None:
+                            return _ov[idx]
+                        return _h
+
+                    cursor_pos += draw_text_per_char(
+                        draw_canvas,
+                        self.font,
+                        cursor_pos,
+                        baseline_y + y_offset,
+                        visible_text,
+                        _ws_color,
+                        total_chars=len(full_text),
+                    )
+                else:
+                    color = provider.color_for(frame_fc, 0, len(visible_text))
+                    cursor_pos += draw_text(
+                        draw_canvas,
+                        self.font,
+                        cursor_pos,
+                        baseline_y + y_offset,
+                        color,
+                        visible_text,
+                    )
         cursor_pos += end_padding
 
         if rotate_surface is not None:

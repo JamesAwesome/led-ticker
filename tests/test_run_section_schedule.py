@@ -65,7 +65,13 @@ class TestIdleWhenAllScheduledOut:
         assert dark is False
         assert caplog.text == ""
 
-    def test_transition_to_dark_blanks_once_and_logs(self, caplog):
+    def test_transition_to_dark_blanks_once_and_logs(self, caplog, monkeypatch):
+        slept = []
+
+        async def _fake_sleep(s):
+            slept.append(s)
+
+        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
         frame = _frame()
         with caplog.at_level(logging.INFO):
             dark = asyncio.run(_idle_when_all_scheduled_out(frame, False, False))
@@ -73,14 +79,28 @@ class TestIdleWhenAllScheduledOut:
         frame.get_clean_canvas.assert_called_once()
         frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
         assert "panel dark" in caplog.text
+        assert slept == [1.0]
 
-    def test_already_dark_does_not_reblank(self, caplog):
+    def test_already_dark_reswaps_every_iteration(self, caplog, monkeypatch):
+        """Fix B (2026-07-15): the dark path must keep swapping a clean
+        canvas every iteration (not just once at the dark transition) so
+        overlay hooks (busy_light) keep compositing and the status board's
+        swap_count liveness counter keeps advancing all night. Logging
+        stays transition-only — quiet here since already dark."""
+        slept = []
+
+        async def _fake_sleep(s):
+            slept.append(s)
+
+        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
         frame = _frame()
         with caplog.at_level(logging.INFO):
             dark = asyncio.run(_idle_when_all_scheduled_out(frame, False, True))
         assert dark is True
-        frame.get_clean_canvas.assert_not_called()
+        frame.get_clean_canvas.assert_called_once()
+        frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
         assert caplog.text == ""
+        assert slept == [1.0]
 
 
 class _Widget:
@@ -217,7 +237,14 @@ class TestWidgetLevelAllOutIdleWiring:
     same as the pre-existing section-level gate — instead of leaving
     `_any_section_ran = True` and the panel on its last drawn frame."""
 
-    def test_all_widgets_scheduled_out_drives_blank_and_idle(self, caplog):
+    def test_all_widgets_scheduled_out_drives_blank_and_idle(self, caplog, monkeypatch):
+        slept = []
+
+        async def _fake_sleep(s):
+            slept.append(s)
+
+        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
+
         widget = _Widget()
         bind_schedule(widget, cast(VisibilitySchedule, _InactiveSchedule()))
 
@@ -238,6 +265,7 @@ class TestWidgetLevelAllOutIdleWiring:
         frame.get_clean_canvas.assert_called_once()
         frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
         assert "panel dark" in caplog.text
+        assert slept == [1.0]
 
     def test_widget_becoming_active_again_wakes_the_panel(self, caplog):
         widget = _Widget()

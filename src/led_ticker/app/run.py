@@ -252,8 +252,11 @@ async def _idle_when_all_scheduled_out(
     """When EVERY section sat outside its schedule window this cycle, blank
     the panel (a closed storefront going dark is correct behavior, not a
     freeze) and idle 1s so the outer loop's reload/restart checks stay
-    responsive. Blanks and logs only on the dark/wake TRANSITIONS — never
-    per iteration. Returns the new dark state."""
+    responsive. Re-blanks at 1 Hz so overlay hooks (e.g. busy_light, which
+    composites inside `frame.swap()`) keep compositing and the status
+    board's `swap_count` liveness counter keeps advancing all night — logs
+    only on the dark/wake TRANSITIONS, never per iteration. Returns the new
+    dark state."""
     if any_section_ran:
         if was_dark:
             logging.info("schedule: a section is active again — panel waking")
@@ -262,9 +265,9 @@ async def _idle_when_all_scheduled_out(
         logging.info(
             "schedule: every section is outside its schedule window — panel dark"
         )
-        canvas = led_frame.get_clean_canvas()
-        canvas = led_frame.swap(canvas)  # constraint #1: capture the swap return
-        del canvas  # next cycle re-fetches a clean canvas; nothing draws meanwhile
+    canvas = led_frame.get_clean_canvas()
+    canvas = led_frame.swap(canvas)  # constraint #1: capture the swap return
+    del canvas  # next cycle re-fetches a clean canvas; nothing draws meanwhile
     await asyncio.sleep(1.0)
     return True
 

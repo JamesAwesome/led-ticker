@@ -82,6 +82,13 @@ bottom_text = "over rice • white sauce • hot sauce • $8"
 top_color = {style = "shimmer", base = "gold", shimmer = "white", speed = 18.0, pause = 0.5}
 top_align = "center"
 bottom_color = "rainbow"
+# Hi-res Inter, band-limited: a bigger top row for the held "CHICKEN".
+top_row_height = 10
+top_font = "Inter-Bold"
+top_font_size = 30
+bottom_font = "Inter-Regular"
+bottom_font_size = 18
+bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
 
 # ===========================================================================
@@ -96,6 +103,8 @@ entry_transition = "flair.spinout"
 type = "message"
 text = "OPEN 24 HOURS"
 font_color = "color_cycle"
+font = "Inter-Bold"
+font_size = 44
 animation = "flair.propeller"
 border = {style = "lightbulbs", mode = "chase", lit_color = "rainbow", chase_density = 3}
 
@@ -109,4 +118,6 @@ mode = "ticker"
 type = "message"
 text = "GYRO • CHICKEN OVER RICE • LAMB OVER RICE • FALAFEL • SHAWARMA • COMBO PLATTER • WHITE SAUCE • HOT SAUCE • $8 CASH ONLY"
 font_color = "rainbow"
+font = "Inter-Bold"
+font_size = 44
 border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}

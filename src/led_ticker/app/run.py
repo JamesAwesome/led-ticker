@@ -151,9 +151,19 @@ async def _supervised_schedule(
             logging.exception("schedule: failed to reset brightness to base")
 
 
+def _schedule_tz_name(display: Any) -> str:
+    """Brightness-scheduler timezone: its own field wins (back-compat),
+    else the sign-wide [display] timezone, else "" (system local)."""
+    return display.schedule.timezone or display.timezone
+
+
 async def _respawn_schedule(old_task: Any, config: Any, led_frame: Any) -> Any:
     """Cancel the running schedule ticker (if any) and start a fresh one from the
     new config. Disabled -> set brightness to the new base and return None."""
+    from led_ticker.schedule import set_schedule_timezone  # noqa: PLC0415
+
+    set_schedule_timezone(config.display.timezone)
+
     if old_task is not None:
         old_task.cancel()
         await asyncio.sleep(0)  # let the old ticker observe the cancel before respawn
@@ -165,7 +175,7 @@ async def _respawn_schedule(old_task: Any, config: Any, led_frame: Any) -> Any:
             _supervised_schedule(
                 led_frame,
                 sched,
-                config.display.schedule.timezone,
+                _schedule_tz_name(config.display),
                 config.display.brightness,
             )
         )

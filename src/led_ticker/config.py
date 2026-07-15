@@ -69,6 +69,10 @@ class DisplayConfig:
     # Rendering backend: "rgbmatrix" (hardware) or "headless" (no panel required).
     # Plugins may register additional backends via led_ticker.backends.register_backend.
     backend: str = "rgbmatrix"
+    # One clock for ALL schedules (widget/section visibility + brightness).
+    # IANA name (zoneinfo), e.g. "America/New_York"; empty = system local.
+    # display.schedule.timezone (brightness) remains a back-compat override.
+    timezone: str = ""
     schedule: ScheduleConfig = field(default_factory=ScheduleConfig)
 
 
@@ -149,6 +153,11 @@ class SectionConfig:
     # Optional section-level background color. Widgets that omit bg_color
     # inherit this value via _build_widget's default_bg_color parameter.
     bg_color: tuple[int, int, int] | None = None
+    # Section-level visibility schedule (core `schedule = {...}` — start/end
+    # HH:MM + optional days). None = always shown. Parsed STRICTLY at load
+    # (parse_visibility_schedule); evaluated once per playlist cycle in
+    # app/run.py's section loop.
+    schedule: Any | None = None
     # Engine scroll cadence in milliseconds per pixel-step. None falls
     # back to the engine default (50 ms = 1 logical pixel per engine
     # tick). Lowering to 30-40 ms speeds up dense RSS feeds or
@@ -748,6 +757,14 @@ def load_config(path: Path) -> AppConfig:
                     "count to play_count on the gif widget."
                 ),
             )
+        section_schedule = None
+        if "schedule" in section_raw:
+            from led_ticker.schedule import parse_visibility_schedule
+
+            section_schedule = parse_visibility_schedule(
+                section_raw["schedule"], location=f"section[{i}].schedule"
+            )
+
         section = SectionConfig(
             mode=raw_mode,
             title=section_raw.get("title"),
@@ -759,6 +776,7 @@ def load_config(path: Path) -> AppConfig:
             hold_time_specified=("hold_time" in section_raw),
             continuous_scroll=section_raw.get("continuous_scroll", False),
             bg_color=bg_color,
+            schedule=section_schedule,
             separator=section_raw.get("separator"),
             separator_font=section_raw.get("separator_font"),
             separator_color=section_raw.get("separator_color"),

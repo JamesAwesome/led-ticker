@@ -1595,6 +1595,13 @@ def _list_section_fields() -> str:
             "default: [transitions].duration",
             "duration for transitions within this section",
         ),
+        (
+            "schedule",
+            '{start = "HH:MM", end = "HH:MM", days = [...]}',
+            "default: none (always shown)",
+            "show this section only during the time window (core-owned; start >"
+            " end wraps overnight) — see /concepts/scheduling/",
+        ),
     ]
 
     lines: list[str] = ["Fields for [[playlist.section]]:", ""]

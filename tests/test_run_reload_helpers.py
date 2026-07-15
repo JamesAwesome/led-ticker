@@ -16,10 +16,12 @@ def _frame():
     return SimpleNamespace(brightness=100)
 
 
-def _cfg(*, enabled, brightness=100, tz="UTC"):
+def _cfg(*, enabled, brightness=100, tz="UTC", display_tz=""):
     sched = SimpleNamespace(enabled=enabled, timezone=tz, windows=[])
     return SimpleNamespace(
-        display=SimpleNamespace(schedule=sched, brightness=brightness)
+        display=SimpleNamespace(
+            schedule=sched, brightness=brightness, timezone=display_tz
+        )
     )
 
 

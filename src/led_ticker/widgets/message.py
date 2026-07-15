@@ -42,6 +42,7 @@ def _build_token_color_override(
     segments: list[tuple[Any, Any, bool]],
     visible_text: str,
     frame: int,
+    has_emoji: bool,
 ) -> list[Any] | None:
     """Return a per-visible-text-char list of ``Color``-or-``None`` aligned
     to ``draw_with_emoji``'s emoji-excluding ``char_index`` space for the
@@ -70,12 +71,16 @@ def _build_token_color_override(
          materialized color and everything else is ``None``.
       2. Prefix it to ``len(visible_text)`` (``visible_text`` is a prefix of
          the flat string under typewriter, equal otherwise).
-      3. Re-walk ``_parse_segments(visible_text)`` tracking a flat-string
-         offset: a text run appends its ``raw_colors`` slice; an emoji /
-         uemoji run is SKIPPED (no text-char position). The offset advances
-         by the run's flat-string span — ``len(value) + 2`` for a ``:slug:``
-         emoji (the colons survive in the flat string; ``_parse_segments``
-         strips them from ``value``) and ``len(value)`` for text / uemoji.
+      3. If ``has_emoji`` (the raw template has emoji, so the draw goes through
+         ``draw_with_emoji``): re-walk ``_parse_segments(visible_text)`` tracking
+         a flat-string offset — a text run appends its ``raw_colors`` slice; an
+         emoji / uemoji run is SKIPPED (no text-char position). The offset
+         advances by the run's flat-string span — ``len(value) + 2`` for a
+         ``:slug:`` emoji (the colons survive in the flat string;
+         ``_parse_segments`` strips them from ``value``) and ``len(value)`` for
+         text / uemoji. Otherwise (non-emoji draw path renders every char
+         literally): the override is ``raw_colors`` as-is — an emoji slug
+         embedded in a token VALUE is drawn literally there and must NOT skip.
 
     A token's provider is whole-string (materialized once at
     ``color_for(frame, 0, 1)``) and applied to each of its value chars.
@@ -98,6 +103,17 @@ def _build_token_color_override(
     rc = raw_colors[: len(visible_text)]
     if len(rc) < len(visible_text):
         rc = rc + [None] * (len(visible_text) - len(rc))
+
+    # The override's char space must match the DRAW PATH's. `_has_emoji`
+    # (computed from the RAW template) selects the path: the emoji branch
+    # (`draw_with_emoji`) renders emoji slugs / uemoji as sprites (0 text-chars)
+    # via `_parse_segments`, so the override must skip them (the re-walk below).
+    # The non-emoji branches (`draw_text_per_char` / `draw_text`) render EVERY
+    # visible char literally, so the override is `rc` as-is — an emoji slug
+    # embedded in a TOKEN VALUE is drawn as literal characters there and must
+    # NOT be skipped (else later chars mis-align).
+    if not has_emoji:
+        return rc
 
     override: list[Any] = []
     offset = 0
@@ -461,7 +477,7 @@ class TickerMessage(FrameAwareBase):
                 else self._token.resolve_segments(get_data_registry())
             )
             token_override = _build_token_color_override(
-                segments, visible_text, self.frame_for("font_color")
+                segments, visible_text, self.frame_for("font_color"), self._has_emoji
             )
 
         # Run the text paint branches only when we are either on a live

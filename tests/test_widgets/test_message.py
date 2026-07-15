@@ -1067,6 +1067,51 @@ class TestColoredTokens:
             "the :taco: sprite inside the token value should have rendered as a sprite"
         )
 
+    def test_emoji_in_value_without_template_emoji_colors_whole_value(self):
+        """GATE REGRESSION (`_has_emoji`-path mismatch). A colored token whose
+        VALUE contains an emoji slug, in a message with NO emoji in the RAW
+        template -> `_has_emoji` is False -> the NON-emoji per-char path draws
+        EVERY char literally (the ':taco:' shows as literal glyphs, not a
+        sprite). The override must color the WHOLE value; the emoji-excluding
+        re-walk (correct only for the emoji branch) must be GATED OFF here.
+
+        FAILS if the re-walk runs unconditionally: `_parse_segments('P:taco:9Z')`
+        skips ':taco:', so only the stray ':' reds and the '9' loses its color."""
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        black = (0, 0, 0)
+        self._registry(self._colored_source(":taco:9", tok))
+
+        w = TickerMessage(text="P:x:Z", font_color=host, center=False)
+        assert w._has_emoji is False  # no emoji in the RAW template
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != black}
+        colors = set(lit.values())
+        # No template emoji -> everything literal -> only host + token colors.
+        assert colors <= {host, tok}, (
+            f"unexpected sprite/other color on the non-emoji path: "
+            f"{colors - {host, tok}!r}"
+        )
+        assert tok in colors, "the token value must render in the token color"
+        # 'Z' (rightmost glyph) stays host.
+        max_x = max(x for (x, _y) in lit)
+        assert {v for (x, _y), v in lit.items() if x == max_x} == {host}, (
+            "trailing 'Z' must stay host"
+        )
+        # The WHOLE ':taco:9' value is red -> red spans many columns. A mis-aligned
+        # re-walk (skipping the value-embedded ':taco:') would red only the single
+        # ':' glyph (a few columns).
+        red_cols = {x for (x, _y), v in lit.items() if v == tok}
+        assert len(red_cols) > 10, (
+            f"the whole token value must render red; only {len(red_cols)} red "
+            "columns means the emoji-excluding re-walk wrongly skipped a "
+            "value-embedded slug on the non-emoji path"
+        )
+
     def test_typewriter_colorizes_token_during_reveal_past_emoji(self):
         """TYPEWRITER NOW COLORIZES DURING REVEAL (the fix replaces the old
         drift guard). ':sun: :x:' with host green + red '99'. full_text is

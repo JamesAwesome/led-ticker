@@ -135,3 +135,41 @@ def test_no_title_schedule_error_on_happy_path_config():
     assert not any(
         "title" in i.location and "schedule" in i.message for i in res.errors
     )
+
+
+# ---------------------------------------------------------------------------
+# Fix E: the blank sweep must respect a present title. `run._section_has_content`
+# treats ANY title dict as content regardless of the widget rotation — the
+# static sweep must mirror that or it warns "blank" for windows that are, in
+# fact, showing the section's title.
+# ---------------------------------------------------------------------------
+
+_SECTION_WITH_TITLE_ALL_WIDGETS_OUT = """
+[[playlist.section]]
+mode = "slideshow"
+
+[playlist.section.title]
+type = "message"
+text = "Always Visible"
+
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+schedule = { start = "09:00", end = "17:00" }
+"""
+
+_SECTION_NO_TITLE_ALL_WIDGETS_OUT = SECTION.format(
+    section_extra="",
+    widget_extra='schedule = { start = "09:00", end = "17:00" }',
+)
+
+
+def test_title_present_with_all_widgets_scheduled_out_suppresses_blank_warning():
+    res = _run(sections=[_SECTION_WITH_TITLE_ALL_WIDGETS_OUT])
+    assert not any("blank" in i.message for i in res.warnings)
+
+
+def test_same_section_without_title_still_warns_blank():
+    # Same widget-level schedule, no title: the section IS blank 17:00-09:00.
+    res = _run(sections=[_SECTION_NO_TITLE_ALL_WIDGETS_OUT])
+    assert any("blank" in i.message for i in res.warnings)

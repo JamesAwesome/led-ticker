@@ -2367,6 +2367,14 @@ def _check_blank_intervals(config: AppConfig) -> list[ValidationIssue]:
                 minutes, weekday
             ):
                 continue
+            # A title always counts as content — it renders regardless of
+            # the widget rotation (mirrors run._section_has_content's
+            # `if title: return True, []`, the engine's actual predicate:
+            # ANY built title object is truthy, even one with empty text).
+            # Without this, the sweep could warn "blank" for a window where
+            # a title-only section is in fact showing its title.
+            if section.title is not None:
+                return True
             wscheds = per_section_widget_scheds.get(i, [])
             if (
                 per_section_all_scheduled[i]

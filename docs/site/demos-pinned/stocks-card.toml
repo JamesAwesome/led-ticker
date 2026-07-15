@@ -1,0 +1,18 @@
+# render-duration: 12
+# DEMO-mode, render-safe (no pixel_mapper). Wide 256x64 -> auto-selects the card. Symbol: DKS.
+[display]
+rows = 64
+cols = 64
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 5
+
+[[playlist.section.widget]]
+type = "stocks.ticker"
+symbols = ["DKS", "MSFT", "NVDA", "TSLA"]
+demo = true
+update_interval = 1

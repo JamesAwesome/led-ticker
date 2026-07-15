@@ -1,0 +1,52 @@
+# render-duration: 16
+# DEMO-mode, wide. Everyday content + live markets in one rotation: a welcome
+# message (held), the stock card (slideshow), and a two_row where the bottom row
+# is an embedded price colored by trend (per-row bottom_color = stocks.trend).
+[display]
+rows = 64
+cols = 64
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[source]]
+id = "stocks.dks"
+type = "stocks.quote"
+symbol = "DKS"
+interval = 1
+format = "{price} {pct}"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3
+[[playlist.section.widget]]
+type = "message"
+text = "MARKETS TODAY"
+font = "Inter-Bold"
+font_size = 40
+font_threshold = 80
+font_color = [255, 183, 3]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4
+[[playlist.section.widget]]
+type = "stocks.ticker"
+symbols = ["DKS"]
+demo = true
+update_interval = 1
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "DKS"
+top_font = "Inter-Bold"
+top_font_size = 24
+top_color = [255, 255, 255]
+bottom_text = ":stocks.dks:"
+bottom_font = "Inter-Bold"
+bottom_font_size = 24
+bottom_font_threshold = 80
+bottom_color = {style = "stocks.trend", symbol = "DKS"}

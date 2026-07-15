@@ -1,0 +1,30 @@
+# render-duration: 8
+# DEMO-mode, wide 256x64. The :stocks.dks: token renders in the source's `color`
+# (stocks.trend) while "DKS " keeps the message font_color -> mixed colors on one
+# hi-res line. Needs led-ticker-core >= 4.14.0 (colored value tokens).
+[display]
+rows = 64
+cols = 64
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[source]]
+id = "stocks.dks"
+type = "stocks.quote"
+symbol = "DKS"
+interval = 1
+format = "{price} {pct}"
+color = {style = "stocks.trend", symbol = "DKS"}
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+
+[[playlist.section.widget]]
+type = "message"
+text = "DKS :stocks.dks:"
+font = "Inter-Bold"
+font_size = 44
+font_threshold = 80
+font_color = [255, 255, 255]

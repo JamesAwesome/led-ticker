@@ -51,6 +51,7 @@ from led_ticker.ticker import (
     _displayable,
     _expand_sources,
     _maybe_wrap,
+    _schedule_active,
 )
 from led_ticker.transitions import Transition, run_transition
 from led_ticker.widget import _build_sink, run_monitor_loop, spawn_tracked
@@ -510,10 +511,14 @@ def _entry_transition_active(
     outgoing widget: a cached `last_widget` that has since gone out of range (e.g. a
     countdown that crossed its date between sections) must NOT render as the
     transition's outgoing frame — that would briefly flash the negative count the
-    visibility filter otherwise hides."""
+    visibility filter otherwise hides. Same reasoning applies to a `last_widget`
+    whose bound `schedule = {...}` has gone inactive between sections — without
+    this conjunct it would still flash as the transition's outgoing frame even
+    though `_expand_sources` has already excluded it from the rotation."""
     return (
         last_widget is not None
         and _displayable(last_widget)
+        and _schedule_active(last_widget)
         and first_widget is not None
         and entry_trans is not None
     )

@@ -713,6 +713,20 @@ class TestSwapAndScrollContinuous:
             f"continuous=True must skip hold_time sleeps; sleep_calls={sleep_calls}"
         )
 
+    async def test_continuous_fits_still_holds(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        # continuous=True + a fits-width widget must take the `elif continuous:`
+        # hold branch (preserving the original else-branch behavior after the
+        # measure-at-lock restructure) rather than falling through to nothing.
+        widget = make_widget(content_width=40)  # fits the 160-wide canvas
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(
+            canvas, widget, hold_time=0.05, continuous=True
+        )
+        assert scroll_pos == 0  # fits -> never scrolls
+        assert widget.draw.call_count >= 2  # entry draw + at least one hold tick
+
     async def test_non_continuous_includes_holds(
         self, canvas, mock_frame, make_widget, monkeypatch
     ):

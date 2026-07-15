@@ -68,11 +68,6 @@ class _Window(TimeWindow):
     brightness: int
 
 
-def _window_active(w: TimeWindow, minutes: int, weekday: int) -> bool:
-    """Thin delegate kept for existing call sites/tests."""
-    return w.active_at(minutes, weekday)
-
-
 @attrs.define(frozen=True)
 class Scheduler:
     windows: tuple[_Window, ...]
@@ -112,7 +107,7 @@ class Scheduler:
         """Index of the last matching window (last-wins), or None."""
         winner: int | None = None
         for i, w in enumerate(self.windows):
-            if _window_active(w, minutes, weekday):
+            if w.active_at(minutes, weekday):
                 winner = i
         return winner
 
@@ -158,7 +153,7 @@ def unreachable_window_indices(cfg) -> list[int]:
         for minutes in range(1440):
             winner_orig: int | None = None
             for orig_idx, w in indexed_windows:
-                if _window_active(w, minutes, weekday):
+                if w.active_at(minutes, weekday):
                     has_active.add(orig_idx)
                     winner_orig = orig_idx
             if winner_orig is not None:

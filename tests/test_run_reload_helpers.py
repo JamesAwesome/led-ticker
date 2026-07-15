@@ -607,8 +607,10 @@ async def test_scheduled_out_section_reaches_dark_path_via_run_loop(
     """(b) The complementary wiring proof: a section with no title and no
     widgets, run through the REAL run() loop (not the hand-simulated
     `_idle_when_all_scheduled_out` unit tests), must actually reach the
-    dark path on the following cycle's idle check — "panel dark" logged,
-    a clean canvas fetched and swapped."""
+    dark path — "panel dark" logged, a clean canvas fetched and swapped —
+    once the debounce (deep-dive-2 Fix 1: the FIRST all-out cycle is a
+    no-op debounce; only the SECOND consecutive all-out cycle commits)
+    has run its course."""
     import logging
     from unittest import mock
 
@@ -632,7 +634,18 @@ async def test_scheduled_out_section_reaches_dark_path_via_run_loop(
 
     async def _spy(*, config, **kwargs):
         calls["n"] += 1
-        if calls["n"] >= 4:
+        # Reload checks fire twice per cycle (outer top + one per section;
+        # this config has exactly one section): call 1 = cycle-1 outer top,
+        # call 2 = cycle-1 section. Cycle 1's idle check (before call 1's
+        # section pass) is quiet (initial any_section_ran=True); the
+        # section itself has no content, so any_section_ran is False
+        # entering cycle 2. Call 3 = cycle-2 outer top; cycle 2's idle
+        # check is the debounce no-op (first all-out cycle). Call 4 =
+        # cycle-2 section, again no content. Call 5 = cycle-3 outer top;
+        # cycle 3's idle check is the REAL dark commit (second consecutive
+        # all-out cycle) — fetch + blank + "panel dark" log happen between
+        # calls 5 and 6, so stopping at call 6 observes it.
+        if calls["n"] >= 6:
             raise _StopApp("observed dark path")
         return None
 
@@ -664,6 +677,108 @@ async def test_scheduled_out_section_reaches_dark_path_via_run_loop(
     assert any("panel dark" in r.getMessage() for r in caplog.records)
     frame.get_clean_canvas.assert_called()
     frame.swap.assert_any_call(frame.get_clean_canvas.return_value)
+
+
+# ---------------------------------------------------------------------------
+# Deep-dive-2 Fix 3 (2026-07-15): a hot-reload landing a zero-section config
+# WHILE the panel is dark must not stop the swap loop. `_idle_on_empty_
+# playlist` returning `_idled=True` used to `continue` before the dark-idle
+# canvas got a chance to cycle — swaps (and anything riding on them, like
+# busy_light and the status board's swap_count liveness counter) stalled
+# for as long as the playlist stayed empty.
+# ---------------------------------------------------------------------------
+
+
+async def test_reload_to_empty_playlist_while_dark_keeps_cycling_swap(
+    monkeypatch, caplog
+):
+    """Once the panel has committed to the dark state (past the debounce),
+    a reload to a zero-section config must keep swapping the SAME dark
+    canvas once per idled iteration — and must NOT fetch a new clean
+    canvas."""
+    import logging
+    from unittest import mock
+
+    from led_ticker.config import (
+        AppConfig,
+        DisplayConfig,
+        SectionConfig,
+        TransitionConfig,
+    )
+
+    cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[SectionConfig(mode="slideshow", title=None, widgets=[])],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    empty_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    reload_result = run_mod._ReloadResult(
+        config=empty_cfg,
+        default_section_trans=None,
+        schedule_task=None,
+        source_refresh_task=None,
+    )
+
+    class _StopApp(Exception):
+        pass
+
+    calls = {"n": 0}
+
+    async def _spy(*, config, **kwargs):
+        calls["n"] += 1
+        n = calls["n"]
+        # Calls 1-6 replay the debounce -> real dark commit sequence from
+        # test_scheduled_out_section_reaches_dark_path_via_run_loop (cycles
+        # 1-3, each with one outer-top + one section-level reload check).
+        # Call 7 (cycle 4's outer-top check) lands the zero-section config
+        # WHILE the panel is already dark — this is the scenario under
+        # test. Calls 8+ are cycle 5+'s outer-top checks (config already
+        # empty, no section-level checks fire since the section loop is
+        # never entered); we let two of those idled-while-dark iterations
+        # happen before stopping.
+        if n == 7:
+            return reload_result
+        if n >= 9:
+            raise _StopApp("observed post-reload idled-while-dark cycles")
+        return None
+
+    # NOTE: asyncio.sleep is deliberately NOT patched (see the sibling
+    # tests above) — this path's real sleeps are on the critical path and
+    # harmless to let run for real.
+    monkeypatch.setattr(
+        run_mod, "_detect_and_apply_reload", mock.AsyncMock(side_effect=_spy)
+    )
+
+    frame = mock.Mock(
+        **{
+            "get_clean_canvas.return_value": mock.Mock(height=16, width=160),
+            "overlay_hooks": [],
+        }
+    )
+
+    with (
+        mock.patch.object(run_mod, "load_config", return_value=cfg),
+        mock.patch.object(run_mod, "build_frame_from_config", return_value=frame),
+        mock.patch.object(run_mod, "_configure_user_font_dir"),
+        caplog.at_level(logging.INFO),
+        pytest.raises(_StopApp),
+    ):
+        await run_mod.run(Path("ignored.toml"))
+
+    # Exactly one fetch (the real dark commit, cycle 3) across the whole
+    # sequence, including the post-reload idled-while-dark cycles.
+    frame.get_clean_canvas.assert_called_once()
+    # Swap ran for: the real dark commit (1) + two idled-while-dark cycles
+    # after the reload landed the empty playlist (2) = 3 total.
+    assert frame.swap.call_count == 3
+    assert any("panel dark" in r.getMessage() for r in caplog.records)
+    assert any(
+        "no sections" in r.getMessage() for r in caplog.records
+    )  # empty-playlist warning still fires
 
 
 # ---------------------------------------------------------------------------

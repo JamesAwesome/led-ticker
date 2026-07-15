@@ -25,11 +25,15 @@
 #
 # DARK-PATH CHECK (manual, via hot-reload): edit section 1 so BOTH widgets use
 # the SAME half-day window that does NOT match the current time, and comment
-# out sections 2–4. Within one cycle the panel must go DARK (blank, not
-# stale/frozen) and the log must show ONE line:
+# out sections 2–4. Within two playlist cycles (~2s — the panel debounces one
+# all-out cycle before committing, so a content flap doesn't leak a
+# framebuffer) the panel must go DARK (blank, not stale/frozen) and the log
+# must show ONE line:
 #   "schedule: every section is outside its schedule window — panel dark"
-# Revert, and it must wake with "... — panel waking". A frozen last frame or
-# log spam per second means the all-scheduled-out idle regressed.
+# Revert, and it must wake with:
+#   "schedule: panel waking — re-checking sections"
+# A frozen last frame or log spam per second means the all-scheduled-out idle
+# regressed.
 
 [display]
 rows = 32

@@ -981,6 +981,132 @@ class TestColoredTokens:
             "suppress partial emoji-present frames"
         )
 
+    def test_frozen_segments_prevent_trailing_literal_leak(self):
+        """M1 REGRESSION. The override must be built from the FROZEN
+        `resolve_segments` snapshot, not a live re-resolve. Layout 'P:x:Z'
+        with a red token and a trailing literal 'Z': the resolution is frozen
+        at the OLD value '9' (full_text 'P9Z') while the live source grows to
+        '99' under the freeze. A LIVE re-resolve yields a 4-char flat 'P99Z'
+        whose red region, prefix-clipped to the frozen 3-char string, slides
+        one char right and paints the trailing 'Z' red. Using the frozen
+        snapshot keeps the override 'P9Z'-length, so 'Z' stays host-green.
+
+        FAILS (Z renders red) if `draw()` builds the override from
+        `self._token.resolve_segments(get_data_registry())` (live) instead of
+        `self._resolved_segments` (frozen)."""
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        src = self._colored_source("9", tok)  # OLD value, one digit
+        self._registry(src)
+
+        w = TickerMessage(text="P:x:Z", font_color=host, center=False)
+        # Seed the frozen snapshot from the OLD value ('P9Z').
+        w.draw(self._stub())
+
+        # Grow the live source UNDER the freeze: value gains a digit and the
+        # version bumps, but resolution is locked so the widget keeps 'P9Z'.
+        w._resolution_locked = True
+        src.value = "99"
+        src.refresh()
+
+        c = self._stub()
+        w.draw(c)
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert tok in colors, "the '9' token must still colorize red (test not vacuous)"
+        assert colors <= {host, tok}, f"only host+token colors expected; got {colors!r}"
+        # 'Z' is the rightmost glyph — its columns must be host-green. Under a
+        # LIVE re-resolve the drifted red would paint here.
+        max_x = max(x for (x, _y) in lit)
+        rightmost = {v for (x, _y), v in lit.items() if x == max_x}
+        assert rightmost == {host}, (
+            f"trailing literal 'Z' must stay host-green; the frozen snapshot "
+            f"was bypassed and a grown value leaked token color. got {rightmost!r}"
+        )
+
+    def test_emoji_inside_token_value_counts_as_sprite(self):
+        """M2 REGRESSION. A token whose VALUE contains an emoji slug:
+        ':sun: :x:Z' with source '99' replaced by ':taco:9' (red). The
+        resolved string is ':sun: :taco:9Z' — `draw_with_emoji` re-parses it
+        and renders BOTH `:sun:` (raw) and `:taco:` (from the value) as
+        sprites that consume ZERO text-char positions. The override must count
+        via the SAME parser, so only '9' takes the token color and the
+        trailing 'Z' keeps the host color.
+
+        FAILS (Z renders red) if the override counts the token span as
+        `len(':taco:9')` text-chars: the phantom `:taco:` positions shift the
+        red one char right onto 'Z'."""
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        black = (0, 0, 0)
+        self._registry(self._colored_source(":taco:9", tok))
+
+        w = TickerMessage(text=":sun: :x:Z", font_color=host, center=False)
+        assert w._has_emoji is True
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert tok in colors, "the '9' inside the token value must render red"
+        # 'Z' is the rightmost glyph; a mis-count would paint it red.
+        max_x = max(x for (x, _y) in lit)
+        rightmost = {v for (x, _y), v in lit.items() if x == max_x}
+        assert rightmost == {host}, (
+            f"trailing 'Z' must stay host-green; an emoji inside the token "
+            f"value was mis-counted as text chars. got {rightmost!r}"
+        )
+        # The `:taco:` sprite (from the value) rendered as real sprite pixels —
+        # neither host green, token red, nor black.
+        sprite = {v for v in colors if v not in (host, tok, black)}
+        assert sprite, (
+            "the :taco: sprite inside the token value should have rendered as a sprite"
+        )
+
+    def test_typewriter_colorizes_token_during_reveal_past_emoji(self):
+        """TYPEWRITER NOW COLORIZES DURING REVEAL (the fix replaces the old
+        drift guard). ':sun: :x:' with host green + red '99'. full_text is
+        ':sun: 99' (8 chars). A frame revealing ':sun: 9' (past the emoji,
+        into the token) colorizes the visible '9' RED — the override is scoped
+        to the actual `visible_text` and emoji-aware, so it no longer defers
+        token color for partial emoji-present frames. The earlier cut-slug
+        frame (':su') still shows NO leak."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+
+        def render_at(frame):
+            # frames_per_char=1, chars_per_frame=1 -> chars_visible == frame+1.
+            w = TickerMessage(
+                text=":sun: :x:",
+                font_color=host,
+                center=False,
+                animation=Typewriter(frames_per_char=1, chars_per_frame=1),
+            )
+            assert w._has_emoji is True
+            w._frame_count = frame
+            c = self._stub()
+            w.draw(c)
+            return {v for v in c._pixels.values() if v != (0, 0, 0)}
+
+        # frame=6 reveals 7 chars ':sun: 9' — the token's first digit is on
+        # screen and MUST be token-red (colorizes mid-reveal).
+        assert tok in render_at(6), (
+            "a token char revealed past its leading emoji must colorize during "
+            "the reveal (no longer deferred until fully revealed)"
+        )
+        # frame=2 reveals 3 chars ':su' — a cut slug, no token color may leak.
+        assert render_at(2) <= {host}, (
+            f"the cut-slug reveal frame must be host-green only; got {render_at(2)!r}"
+        )
+
 
 class TestTickerCountdownColorProvider:
     def test_constructor_wraps_raw_color_in_constant_provider(self):

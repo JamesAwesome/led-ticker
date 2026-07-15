@@ -39,31 +39,76 @@ def _coerce_font_color(value: Any) -> ColorProvider:
 
 
 def _build_token_color_override(
-    segments: list[tuple[Any, Any, bool]], frame: int
+    segments: list[tuple[Any, Any, bool]],
+    visible_text: str,
+    frame: int,
 ) -> list[Any] | None:
-    """Return a per-visible-text-char list of ``Color``-or-``None`` from
-    token ``segments``, or ``None`` if no segment carries a color.
+    """Return a per-visible-text-char list of ``Color``-or-``None`` aligned
+    to ``draw_with_emoji``'s emoji-excluding ``char_index`` space for the
+    ACTUAL ``visible_text`` being drawn, or ``None`` if no token carries a
+    color.
 
-    ``None`` is the common path: callers then skip the override entirely
-    and the existing color branches run byte-identically. Emoji segments
-    contribute NO text-char positions (they render as sprites), so the
-    override index aligns exactly with ``draw_with_emoji``'s ``char_index``
-    and ``draw_text_per_char``'s ``idx`` — both of which also exclude emoji
-    slugs. A token's provider is whole-string (materialized once at
-    ``color_for(frame, 0, 1)``) and applied to each of its value chars;
-    literal runs contribute ``None`` so the host ``font_color`` shows.
+    ``segments`` is the FROZEN ``resolve_segments`` snapshot (typed spans of
+    the flat resolved string) — see ``TickerMessage._resolved_segments``.
+    Using the snapshot (not a live re-resolve) keeps the override the same
+    length as ``full_text`` / ``visible_text`` when resolution is frozen
+    (scroll / transition / typewriter), so a value that changes length under
+    the freeze can't shift a trailing literal into the token color (M1).
+
+    ``None`` is the common path: callers then skip the override entirely and
+    the existing color branches run byte-identically.
+
+    Alignment (M2): the override must land in the SAME char-index space
+    ``draw_with_emoji`` uses, which re-parses ``visible_text`` with
+    ``_parse_segments`` and renders ANY emoji slug or Unicode-emoji run
+    (INCLUDING ones that appear inside a token's resolved VALUE, e.g. a
+    source that yields ``:taco:9``) as a sprite that consumes zero text-char
+    positions. We therefore:
+
+      1. Build ``raw_colors`` one entry per char of the flat resolved string
+         (from ``segments``), so colored-token value chars carry the
+         materialized color and everything else is ``None``.
+      2. Prefix it to ``len(visible_text)`` (``visible_text`` is a prefix of
+         the flat string under typewriter, equal otherwise).
+      3. Re-walk ``_parse_segments(visible_text)`` tracking a flat-string
+         offset: a text run appends its ``raw_colors`` slice; an emoji /
+         uemoji run is SKIPPED (no text-char position). The offset advances
+         by the run's flat-string span — ``len(value) + 2`` for a ``:slug:``
+         emoji (the colons survive in the flat string; ``_parse_segments``
+         strips them from ``value``) and ``len(value)`` for text / uemoji.
+
+    A token's provider is whole-string (materialized once at
+    ``color_for(frame, 0, 1)``) and applied to each of its value chars.
     """
-    if not any(color is not None for _text, color, _emoji in segments):
-        return None
-    override: list[Any] = []
-    for text, color, is_emoji in segments:
-        if is_emoji:
-            continue  # sprite: not a text-char position
+    from led_ticker.pixel_emoji import _parse_segments  # noqa: PLC0415
+
+    raw_colors: list[Any] = []
+    has_color = False
+    for text, color, _is_emoji in segments:
         if color is None:
-            override.extend([None] * len(text))
+            raw_colors.extend([None] * len(text))
         else:
+            has_color = True
             c = color.color_for(frame, 0, 1)  # whole-string token provider
-            override.extend([c] * len(text))
+            raw_colors.extend([c] * len(text))
+    if not has_color:
+        return None
+
+    # Align to the drawn prefix; pad with None if somehow shorter.
+    rc = raw_colors[: len(visible_text)]
+    if len(rc) < len(visible_text):
+        rc = rc + [None] * (len(visible_text) - len(rc))
+
+    override: list[Any] = []
+    offset = 0
+    for seg_type, value in _parse_segments(visible_text):
+        if seg_type == "text":
+            override.extend(rc[offset : offset + len(value)])
+            offset += len(value)
+        elif seg_type == "emoji":
+            offset += len(value) + 2  # `:` + slug + `:` in the flat string
+        else:  # uemoji: raw codepoints, no colons
+            offset += len(value)
     return override
 
 
@@ -108,6 +153,15 @@ class TickerMessage(FrameAwareBase):
     # byte-identical to today (every token step is gated on it).
     _token: TokenizedField | None = attrs.field(init=False, default=None)
     _resolved_text: str = attrs.field(init=False, default="")
+    # Frozen snapshot of `resolve_segments` taken at the SAME registry read
+    # as `_resolved_text`. The colored-token override is built from this (not
+    # a live re-resolve) so its length stays consistent with the frozen
+    # `_resolved_text` — a value that changes length under a scroll /
+    # transition / typewriter freeze can't skew the override off the rendered
+    # text (M1). None until the first resolve of a token widget.
+    _resolved_segments: list[tuple[Any, Any, bool]] | None = attrs.field(
+        init=False, default=None
+    )
     # True for the duration of a typewriter reveal so resolution stays
     # frozen across the reveal (stable slice length + stable per-char
     # hue anchor). Cleared at visit reset and when the reveal completes.
@@ -150,12 +204,16 @@ class TickerMessage(FrameAwareBase):
             return self.text
         frozen = self._resolution_locked or self._anim_resolution_lock
         if not frozen:
-            resolved, changed = self._token.resolve(get_data_registry())
+            # Read segments from the SAME registry object as resolve() so the
+            # override snapshot can't diverge from the resolved string.
+            registry = get_data_registry()
+            resolved, changed = self._token.resolve(registry)
             if changed:
                 # Invalidate the width cache so the next measure
                 # re-decides hold-vs-scroll / re-centers (held re-center).
                 self._content_width = -1
             self._resolved_text = resolved
+            self._resolved_segments = self._token.resolve_segments(registry)
         return self._resolved_text
 
     def resolve_tokens_now(self) -> None:
@@ -166,8 +224,10 @@ class TickerMessage(FrameAwareBase):
         is locked for the scroll loop. No-op for non-token widgets."""
         if self._token is None or not self._token.has_tokens:
             return
-        resolved, _ = self._token.resolve(get_data_registry())
+        registry = get_data_registry()
+        resolved, _ = self._token.resolve(registry)
         self._resolved_text = resolved
+        self._resolved_segments = self._token.resolve_segments(registry)
         self._content_width = -1
 
     def _effect_total_chars(self, attr_name: str) -> int:
@@ -384,33 +444,25 @@ class TickerMessage(FrameAwareBase):
         # per-visible-text-char list of Color-or-None so token chars render
         # in the source color while literal chars keep `provider`. `None`
         # (no colored token) leaves all three branches byte-identical.
-        # Indexed over `full_text`'s text chars from 0 — a typewriter
-        # `visible_text` is a prefix slice, so the 0-based indices still
-        # align (branch reads are guarded by `idx < len(token_override)`).
+        #
+        # Built from the FROZEN `_resolved_segments` snapshot (M1) and scoped
+        # to the ACTUAL `visible_text` with emoji-aware char counting (M2) so
+        # the override lands in `draw_with_emoji`'s exact emoji-excluding
+        # `char_index` space — for both the full string and a typewriter
+        # prefix. This makes the old typewriter/emoji drift guard unnecessary:
+        # a cut slug (`":su"`) now parses as a text run that reads the None
+        # colors the `:sun:` segment contributed, so no leak — and a token
+        # revealed past its leading emoji colorizes correctly mid-reveal.
         token_override: list[Any] | None = None
         if self._token is not None and self._token.has_tokens:
-            token_override = _build_token_color_override(
-                self._token.resolve_segments(get_data_registry()),
-                self.frame_for("font_color"),
+            segments = (
+                self._resolved_segments
+                if self._resolved_segments is not None
+                else self._token.resolve_segments(get_data_registry())
             )
-            # Drift guard: a typewriter reveal can slice `visible_text` to a
-            # raw PREFIX that CUTS an inline emoji slug (e.g. ":su" from
-            # ":sun:"). `draw_with_emoji` then reparses those partial-slug
-            # chars as LITERAL text, advancing its char_index over them — but
-            # the override was built over `full_text` with the whole emoji
-            # slug SKIPPED (0 positions). The emoji-excluding indices drift and
-            # the partial-slug chars would render in the TOKEN color instead of
-            # the host color. Gate the override OFF for these partial
-            # emoji-present frames; the token colorizes correctly once the
-            # message is fully revealed (visible_text == full_text). The
-            # non-emoji typewriter case has no slug to cut — its prefix indices
-            # stay aligned, so colored tokens keep working there.
-            if (
-                self.animation is not None
-                and self._has_emoji
-                and visible_text != full_text
-            ):
-                token_override = None
+            token_override = _build_token_color_override(
+                segments, visible_text, self.frame_for("font_color")
+            )
 
         # Run the text paint branches only when we are either on a live
         # (non-rotating) draw or on the FIRST rotating frame of a spin

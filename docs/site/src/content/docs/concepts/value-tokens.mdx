@@ -102,10 +102,11 @@ Token colors compose with a per-character host color too: a message with `font_c
 
 **This release: `message` widgets only.** `two_row` and the text overlay on `gif`/`image` widgets don't read a source's `color` yet — a token there always renders in the widget's own color, regardless of what the source declares. Support for those is a planned follow-up.
 
-Two honest scope boundaries, both narrow:
+One honest scope boundary, narrow:
 
 - **A `flair.fisheye` lens drops token colors.** Under [`animation = "flair.fisheye"`](/concepts/animations/#flairfisheye-flair-pack), the whole message renders in the widget's `font_color` — a source's `color` isn't applied while the text is passing through the lens.
-- **A `typewriter` reveal with inline emoji delays token color until fully revealed.** With `animation = "typewriter"`, a message that mixes a colored token with a `:slug:` emoji renders the token in the host's `font_color` while the reveal is in progress, then switches to the source's color once the whole message is on screen. (A typewriter reveal with no inline emoji colors the token correctly the whole time.)
+
+A `typewriter` reveal colors tokens correctly the whole time, including when the message mixes a colored token with inline `:slug:` emoji — each token character takes the source's color as soon as it appears on screen.
 
 ## The three source types
 

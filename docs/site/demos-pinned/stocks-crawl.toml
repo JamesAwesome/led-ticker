@@ -1,0 +1,16 @@
+# render-duration: 14
+# DEMO-mode. Small 160x16 bar -> auto-selects the scrolling crawl. Symbol: DKS.
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 60
+
+[[playlist.section]]
+mode = "ticker"
+
+[[playlist.section.widget]]
+type = "stocks.ticker"
+symbols = ["DKS", "MSFT", "NVDA", "TSLA"]
+demo = true
+update_interval = 1

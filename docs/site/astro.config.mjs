@@ -269,6 +269,7 @@ export default defineConfig({
                 { label: "baseball.scores", link: "/widgets/mlb/" },
                 { label: "baseball.standings", link: "/widgets/mlb_standings/" },
                 { label: "crypto.coingecko", link: "/widgets/crypto-coingecko/" },
+                { label: "stocks.ticker", link: "/widgets/stocks/" },
                 { label: "pool", link: "/widgets/pool/" },
                 { label: "calendar.events", link: "/widgets/calendar/" },
                 { label: "rss.feed", link: "/widgets/rss_feed/" },

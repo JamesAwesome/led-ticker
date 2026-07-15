@@ -105,6 +105,47 @@ class TestIsActive:
         assert s.is_active() is True
 
 
+class TestIsActiveConsultsConfiguredTimezone:
+    """Fix F.1a (2026-07-15): with no `now` arg, `is_active()` must actually
+    CONSULT `datetime.now(_SCHEDULE_TZ)` — the tz set via
+    `set_schedule_timezone` — not just happen to agree with system local
+    time. Mutation-proof via a recording `datetime` subclass so a change
+    that drops the `tz=` argument (e.g. `datetime.now()`) is caught even
+    when the test machine happens to be in the configured zone."""
+
+    def test_inside_window_consults_now_with_schedule_tz(self, monkeypatch):
+        recorded = {}
+
+        class _Fixed(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                recorded["tz"] = tz
+                return cls(2026, 7, 15, 12, 0, tzinfo=tz)  # inside 09:00-17:00
+
+        monkeypatch.setattr(schedule, "datetime", _Fixed)
+        set_schedule_timezone("America/New_York")
+        s = parse_visibility_schedule({"start": "09:00", "end": "17:00"}, location="w")
+        assert s.is_active() is True
+        assert recorded["tz"] is schedule._SCHEDULE_TZ
+        assert str(recorded["tz"]) == "America/New_York"
+
+    def test_outside_window_consults_now_with_schedule_tz(self, monkeypatch):
+        recorded = {}
+
+        class _Fixed(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                recorded["tz"] = tz
+                return cls(2026, 7, 15, 20, 0, tzinfo=tz)  # outside 09:00-17:00
+
+        monkeypatch.setattr(schedule, "datetime", _Fixed)
+        set_schedule_timezone("America/New_York")
+        s = parse_visibility_schedule({"start": "09:00", "end": "17:00"}, location="w")
+        assert s.is_active() is False
+        assert recorded["tz"] is schedule._SCHEDULE_TZ
+        assert str(recorded["tz"]) == "America/New_York"
+
+
 class TestSetScheduleTimezone:
     def test_valid_zone_is_set(self):
         set_schedule_timezone("America/New_York")
@@ -175,3 +216,23 @@ class TestBindingRegistry:
         s = _sched()
         bind_schedule(w, s)
         assert schedule_for(w) is s
+
+    def test_stale_ref_entry_treated_as_unbound(self):
+        """Fix F.5 (2026-07-15): `schedule_for` guards against an id() reuse
+        where the weakref no longer resolves to the queried widget (a stale
+        entry) — inject a mismatched entry directly (bypassing the normal
+        `bind_schedule` weakref-callback wiring) and confirm the ref()
+        mismatch check (`schedule_for`'s `if ref() is not widget`) rejects
+        it rather than returning the stale schedule."""
+
+        class W:
+            pass
+
+        w = W()
+        sched = _sched()
+        key = id(w)
+        schedule._BINDINGS[key] = (lambda: object(), sched)
+        try:
+            assert schedule_for(w) is None
+        finally:
+            schedule._BINDINGS.pop(key, None)

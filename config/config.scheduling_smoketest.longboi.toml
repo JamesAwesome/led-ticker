@@ -1,9 +1,10 @@
 # Plugin dependencies: none — built-in (core) widgets & transitions only.
 
-# Visibility-scheduling smoke-test — bigsign (256×64 canvas)
+# Visibility-scheduling smoke-test — longboi (512×64 canvas), Docker
 #
+# 4× Muen P2 128×64 panels chained horizontally = 512×64 physical.
 # Hardware validation for widget/section `schedule = {...}` (PR #391) on the
-# bigsign / longboi. Every check below uses complementary AM/PM half-day
+# longboi. Every check below uses complementary AM/PM half-day
 # windows (00:00–12:00 vs 12:00–00:00), so the config is observable at ANY
 # time of day: exactly ONE widget of each pair matches your wall clock.
 #
@@ -17,8 +18,12 @@
 # must print "visibility schedules evaluate at HH:MM (America/New_York)" with
 # a time that matches a wall clock in that zone — if it shows UTC-ish drift,
 # fix the container TZ / [display] timezone before trusting anything below.
+# (Docker containers default to UTC — this config pins [display] timezone,
+# so the note must show America/New_York wall time regardless.)
 #
-# Usage: cp config/config.scheduling_smoketest.toml config/config.toml
+# Usage:
+#   cp config/config.scheduling_smoketest.longboi.toml config/config.toml
+#   docker compose up
 #
 # DARK-PATH CHECK (manual, via hot-reload): edit section 1 so BOTH widgets use
 # the SAME half-day window that does NOT match the current time, and comment
@@ -29,17 +34,17 @@
 # log spam per second means the all-scheduled-out idle regressed.
 
 [display]
-rows = 32
-cols = 64
-chain_length = 8
-parallel = 1
-# Vertical-serpentine 2×4 panel map. See https://docs.ledticker.dev/hardware/bigsign/
-pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+rows = 64
+cols = 128
+chain_length = 4
 brightness = 60
 default_scale = 4
 hardware_mapping = "adafruit-hat"
-gpio_slowdown = 3
-pwm_bits = 8
+panel_type = "FM6126A"
+led_rgb_sequence = "BRG"
+gpio_slowdown = 5
+pwm_bits = 7
+limit_refresh_rate_hz = 100
 # One clock for ALL schedules (visibility + brightness). Every window below is
 # evaluated in this zone, not the container's TZ (usually UTC in Docker).
 timezone = "America/New_York"

@@ -1,0 +1,168 @@
+# Plugin dependencies: none — built-in (core) widgets & transitions only.
+
+# Visibility-scheduling smoke-test — bigsign (256×64 canvas)
+#
+# Hardware validation for widget/section `schedule = {...}` (PR #391) on the
+# bigsign / longboi. Every check below uses complementary AM/PM half-day
+# windows (00:00–12:00 vs 12:00–00:00), so the config is observable at ANY
+# time of day: exactly ONE widget of each pair matches your wall clock.
+#
+# THE KEY CHECK is section 1: of "AM WIDGET" / "PM WIDGET", the one matching
+# the panel's local clock must show and the other must NEVER appear across
+# repeated playlist cycles. If both show, the widget gate is broken; if
+# neither shows, the panel should be reading section 2/3 content instead
+# (an empty rotation would mean the gate dropped both — also broken).
+#
+# Before running: `led-ticker validate config/config.scheduling_smoketest.toml`
+# must print "visibility schedules evaluate at HH:MM (America/New_York)" with
+# a time that matches a wall clock in that zone — if it shows UTC-ish drift,
+# fix the container TZ / [display] timezone before trusting anything below.
+#
+# Usage: cp config/config.scheduling_smoketest.toml config/config.toml
+#
+# DARK-PATH CHECK (manual, via hot-reload): edit section 1 so BOTH widgets use
+# the SAME half-day window that does NOT match the current time, and comment
+# out sections 2–4. Within one cycle the panel must go DARK (blank, not
+# stale/frozen) and the log must show ONE line:
+#   "schedule: every section is outside its schedule window — panel dark"
+# Revert, and it must wake with "... — panel waking". A frozen last frame or
+# log spam per second means the all-scheduled-out idle regressed.
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+# Vertical-serpentine 2×4 panel map. See https://docs.ledticker.dev/hardware/bigsign/
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+gpio_slowdown = 3
+pwm_bits = 8
+# One clock for ALL schedules (visibility + brightness). Every window below is
+# evaluated in this zone, not the container's TZ (usually UTC in Docker).
+timezone = "America/New_York"
+
+[title]
+delay = 5
+
+[transitions]
+default = "cut"
+duration = 0.5
+easing = "ease_out"
+between_sections = "cut"
+
+# --- 1. WIDGET-level gate (THE key check): AM/PM pair in one section ---
+# Exactly one of these two shows, matching the wall clock in [display]
+# timezone. The pair is gapless (complementary windows, no days filter), so
+# this section always has content and validate reports no blank intervals.
+
+[[playlist.section]]
+mode = "slideshow"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "AM WIDGET 00:00-12:00"
+font = "Inter-Regular"
+font_size = 24
+font_threshold = 80
+font_color = [0, 255, 0]
+schedule = { start = "00:00", end = "12:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "PM WIDGET 12:00-00:00"
+font = "Inter-Regular"
+font_size = 24
+font_threshold = 80
+font_color = [255, 120, 0]
+schedule = { start = "12:00", end = "00:00" }
+
+# --- 2. SECTION-level gate: two whole sections, complementary windows ---
+# Exactly one of "SECTION AM" / "SECTION PM" appears per playlist cycle; the
+# other section is skipped at the section seam (DEBUG log: "section N
+# skipped: outside its schedule window").
+
+[[playlist.section]]
+mode = "slideshow"
+content_height = 16
+hold_time = 8
+loop_count = 1
+schedule = { start = "00:00", end = "12:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "SECTION AM"
+font = "Inter-Regular"
+font_size = 24
+font_threshold = 80
+font_color = "rainbow"
+
+[[playlist.section]]
+mode = "slideshow"
+content_height = 16
+hold_time = 8
+loop_count = 1
+schedule = { start = "12:00", end = "00:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "SECTION PM"
+font = "Inter-Regular"
+font_size = 24
+font_threshold = 80
+font_color = "rainbow"
+
+# --- 3. AND-composition: schedule × should_display (countdown) ---
+# The countdown hides itself past its date (should_display) AND outside its
+# window (schedule). With a far-future date + an always-active gapless window
+# split across the pair below, exactly one of the two shows — same AM/PM rule
+# as section 1, but on a widget that ALSO has its own visibility logic.
+
+[[playlist.section]]
+mode = "slideshow"
+content_height = 16
+hold_time = 8
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "AM COUNT 2030"
+countdown_date = "2030-01-01"
+font = "Inter-Regular"
+font_size = 24
+font_threshold = 80
+font_color = [0, 200, 255]
+schedule = { start = "00:00", end = "12:00" }
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "PM COUNT 2030"
+countdown_date = "2030-01-01"
+font = "Inter-Regular"
+font_size = 24
+font_threshold = 80
+font_color = [0, 200, 255]
+schedule = { start = "12:00", end = "00:00" }
+
+# --- 4. Unscheduled control: must show EVERY cycle regardless of time ---
+# If this ever disappears, the gate is dropping unscheduled widgets (the
+# "no binding = always shown" contract broke).
+
+[[playlist.section]]
+mode = "slideshow"
+content_height = 16
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "ALWAYS ON (no schedule)"
+font = "Inter-Regular"
+font_size = 24
+font_threshold = 80
+font_color = [255, 255, 255]

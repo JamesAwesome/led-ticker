@@ -758,12 +758,14 @@ async def validate_widget_cfg(
         _msg, _suggested_fix = _crypto_migration
         raise MigrationError(_msg, suggested_fix=_suggested_fix)
     cls = get_widget_class(widget_type)
-    _run_validate_config(cls, widget_cfg, widget_type)
 
     # `schedule` is a HARD-RESERVED core field (visibility scheduling —
-    # docs /concepts/scheduling/). Popped here so it never reaches a widget
-    # constructor, and rejected on any widget class that declares its own
-    # `schedule` field so the TOML key has exactly one meaning everywhere.
+    # docs /concepts/scheduling/). Popped here — BEFORE `_run_validate_config`
+    # runs a plugin's `validate_config` hook — so it never reaches a widget
+    # constructor NOR a plugin's own validation (a strict "reject unknown
+    # keys" hook would otherwise choke on it), and rejected on any widget
+    # class that declares its own `schedule` field so the TOML key has
+    # exactly one meaning everywhere.
     if _widget_declares_field(cls, "schedule"):
         raise ValueError(
             f"widget type={widget_type!r} declares a 'schedule' field, but "
@@ -775,6 +777,8 @@ async def validate_widget_cfg(
         parse_visibility_schedule(
             schedule_value, location=f"widget type={widget_type!r} schedule"
         )
+
+    _run_validate_config(cls, widget_cfg, widget_type)
 
     _coerce_widget_cfg(widget_cfg, coercion_collector)
 

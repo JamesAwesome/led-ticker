@@ -70,3 +70,27 @@ def test_cache_key_includes_schedule():
     b = {**base, "schedule": {"start": "10:00", "end": "17:00"}}
     assert _cache_key(a) != _cache_key(b)
     assert _cache_key(base) != _cache_key(a)
+
+
+def test_plugin_validate_config_never_sees_schedule(monkeypatch):
+    """`schedule` is popped + reserved BEFORE `_run_validate_config` runs a
+    widget class's `validate_config` hook. A strict plugin hook that rejects
+    unknown keys must not choke on the core-reserved `schedule` field —
+    it should never be handed the key at all."""
+
+    @attrs.define
+    class _StrictWidget:
+        text: str = ""
+
+        @classmethod
+        def validate_config(cls, cfg):
+            return [f"unknown key: {k}" for k in cfg if k not in ("text",)]
+
+    monkeypatch.setitem(_WIDGET_REGISTRY, "_strict_test", _StrictWidget)
+    cfg = {
+        "type": "_strict_test",
+        "text": "hi",
+        "schedule": dict(SCHED),
+    }
+    asyncio.run(validate_widget_cfg(cfg, session=None))
+    assert "schedule" not in cfg

@@ -45,6 +45,24 @@ async def test_respawn_schedule_enabled_spawns_and_cancels_old():
     task.cancel()
 
 
+async def test_respawn_schedule_sets_module_clock_from_display_timezone():
+    """Fix F.1b (2026-07-15): _respawn_schedule must call
+    schedule.set_schedule_timezone with [display] timezone (not the
+    brightness-scheduler's own [display.schedule] timezone) so visibility
+    schedules pick up a hot-reloaded (or boot-time) timezone change. Uses
+    the real led_ticker.schedule module clock — reset in a finally so this
+    test doesn't leak global state into later tests."""
+    import led_ticker.schedule as _schedule_mod
+
+    frame = _frame()
+    cfg = _cfg(enabled=False, display_tz="America/Chicago")
+    try:
+        await run_mod._respawn_schedule(None, cfg, frame)
+        assert str(_schedule_mod._SCHEDULE_TZ) == "America/Chicago"
+    finally:
+        _schedule_mod.set_schedule_timezone("")
+
+
 async def test_build_widget_guarded_skips_on_build_error(monkeypatch):
     async def boom(*a, **k):
         raise ValueError("bad widget cfg")

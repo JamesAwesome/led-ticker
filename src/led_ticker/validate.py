@@ -2417,6 +2417,46 @@ def _check_blank_intervals(config: AppConfig) -> list[ValidationIssue]:
     ]
 
 
+def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
+    """Warn when a section combines a section-level `schedule = {...}` with
+    `loop_count = 0` (cycles forever).
+
+    `ticker._build_ticker_iter`'s `cycle_with_refresh` only exits when a
+    pass's widget expansion comes back empty — a forever section never
+    reaches that exit, so the SECTION-level schedule (checked once, at
+    `run.py`'s section entry) is never re-checked afterward: the section
+    keeps showing past its `end` time, silently no-op'ing the feature
+    `_check_blank_intervals` promises darkness for. Widget-level
+    `schedule = {...}` is unaffected — `_expand_sources` re-evaluates it
+    every pass regardless of loop_count."""
+    issues: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        if section.schedule is not None and section.loop_count == 0:
+            issues.append(
+                ValidationIssue(
+                    rule=None,
+                    location=f"section[{i}]",
+                    message=(
+                        "this section has a schedule but loop_count = 0 "
+                        "(cycles forever) — the section-level schedule is "
+                        "only checked when the section is ENTERED; a "
+                        "forever-cycling section never re-checks it "
+                        "afterward, so the section keeps showing past "
+                        "`end` instead of going dark."
+                    ),
+                    fix=(
+                        "Use a finite loop_count (>= 1) so the schedule is "
+                        "re-checked between playlist cycles, or gate "
+                        "individual widgets with their own "
+                        "`schedule = {...}` instead (re-checked every pass "
+                        "regardless of loop_count)."
+                    ),
+                    severity="warning",
+                )
+            )
+    return issues
+
+
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     """Warn when a held top row is wider than the logical canvas.
 
@@ -3062,6 +3102,7 @@ async def validate_config(
         _check_schedule(config)
         + _check_display_timezone(config)
         + _check_blank_intervals(config)
+        + _check_forever_section_schedule(config)
     )
     errors.extend(i for i in _sched_issues if i.severity == "error")
     warnings.extend(i for i in _sched_issues if i.severity == "warning")

@@ -173,3 +173,70 @@ def test_same_section_without_title_still_warns_blank():
     # Same widget-level schedule, no title: the section IS blank 17:00-09:00.
     res = _run(sections=[_SECTION_NO_TITLE_ALL_WIDGETS_OUT])
     assert any("blank" in i.message for i in res.warnings)
+
+
+# ---------------------------------------------------------------------------
+# Fix D: `loop_count = 0` (forever) + a section-level `schedule` never
+# re-checks the schedule after entry, so `validate` warns.
+# ---------------------------------------------------------------------------
+
+
+def _forever_scheduled_message(res):
+    return [i.message for i in res.warnings if i.location == "section[0]"]
+
+
+def test_forever_section_with_schedule_warns():
+    res = _run(
+        sections=[
+            SECTION.format(
+                section_extra=(
+                    'loop_count = 0\nschedule = { start = "09:00", end = "17:00" }'
+                ),
+                widget_extra="",
+            )
+        ]
+    )
+    msgs = _forever_scheduled_message(res)
+    assert any("loop_count = 0" in m and "cycles forever" in m for m in msgs)
+
+
+def test_finite_loop_count_section_with_schedule_does_not_warn():
+    res = _run(
+        sections=[
+            SECTION.format(
+                section_extra=(
+                    'loop_count = 1\nschedule = { start = "09:00", end = "17:00" }'
+                ),
+                widget_extra="",
+            )
+        ]
+    )
+    assert not any("cycles forever" in m for m in _forever_scheduled_message(res))
+
+
+def test_default_loop_count_section_with_schedule_does_not_warn():
+    # loop_count omitted -> default 1 (finite), not 0 (forever).
+    res = _run(
+        sections=[
+            SECTION.format(
+                section_extra='schedule = { start = "09:00", end = "17:00" }',
+                widget_extra="",
+            )
+        ]
+    )
+    assert not any("cycles forever" in m for m in _forever_scheduled_message(res))
+
+
+def test_forever_section_with_only_widget_level_schedule_does_not_warn():
+    # loop_count = 0 with NO section-level schedule (widget-level schedule
+    # only, which _expand_sources re-checks every pass regardless of
+    # loop_count) must not trip this rule.
+    res = _run(
+        sections=[
+            SECTION.format(
+                section_extra="loop_count = 0",
+                widget_extra='schedule = { start = "09:00", end = "17:00" }',
+            )
+        ]
+    )
+    assert not any("cycles forever" in m for m in _forever_scheduled_message(res))

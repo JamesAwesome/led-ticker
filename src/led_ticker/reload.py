@@ -87,8 +87,13 @@ async def load_and_validate(path: Path) -> tuple[Any, list[str], bool]:
 
 # The ONLY hot-reloadable [display] fields. Everything else feeds the frame at build
 # time (built once, root dropped) and is restart-required. brightness is a live
-# matrix setter; schedule is driven by the schedule ticker; hot_reload is meta.
-RELOADABLE_DISPLAY_FIELDS = frozenset({"schedule", "hot_reload", "brightness"})
+# matrix setter; schedule is driven by the schedule ticker; hot_reload is meta;
+# timezone is re-applied on every reload via `respawn_schedule` -> `_respawn_schedule`,
+# which calls `set_schedule_timezone` (visibility-schedule clock) and rebuilds the
+# brightness scheduler (`_schedule_tz_name`) — both live every applied reload.
+RELOADABLE_DISPLAY_FIELDS = frozenset(
+    {"schedule", "hot_reload", "brightness", "timezone"}
+)
 
 # Top-level TOML keys that core's own load_config() reads. Any other top-level
 # key is a plugin-owned block (e.g. [storefront]) that a plugin captured at

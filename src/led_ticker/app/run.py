@@ -1316,13 +1316,22 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         # to the container's last current story; if the container
                         # is currently empty, keep the previous last_widget (the
                         # next transition will use whatever was last on-screen).
+                        # A title fallback applies even when `widgets` is
+                        # non-empty: if every widget's rotation is currently
+                        # empty (all scheduled out / empty containers) but the
+                        # section has a title, the title — not a stale
+                        # earlier-section last_widget — is what's actually on
+                        # screen, so it must be what the next entry transition
+                        # renders as outgoing.
                         if widgets:
                             expanded = _expand_sources(widgets, render_breaker)
                             if expanded:
                                 last_widget = expanded[-1]
-                            # else: container is empty this cycle — keep prior
-                            # last_widget so the next transition still has a real
-                            # widget to render as outgoing.
+                            elif title:
+                                last_widget = title
+                            # else: empty container this cycle — keep prior
+                            # last_widget so the next transition still has a
+                            # real widget to render as outgoing.
                         elif title:
                             last_widget = title
             finally:

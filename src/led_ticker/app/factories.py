@@ -987,6 +987,20 @@ async def _build_title(
             fix_replacement_key="font_color",
         )
 
+    # Titles route through `_build_widget` (so a `schedule` table would
+    # validate + bind), but the ENGINE never gates titles through
+    # `_expand_sources` — titles bypass the visibility-schedule check
+    # entirely, so a bound schedule would silently do nothing. Titles are
+    # not schedulable in v1: raise loudly here rather than let a config
+    # author's schedule = {...} on a title be silently ignored.
+    if "schedule" in cfg:
+        raise ValueError(
+            "[playlist.section.title] does not support 'schedule' — section "
+            "titles are not schedulable in v1 (they bypass the engine's "
+            "visibility gate). Schedule the section instead: add "
+            "schedule = {...} to the [[playlist.section]] table."
+        )
+
     return await _build_widget(
         cfg,
         session=session,

@@ -658,6 +658,501 @@ class TestTickerMessageInlineTokens:
         assert w._resolved_text == "HI"
 
 
+class TestColoredTokens:
+    """Per-token color: a `:id:` token renders in its source-declared
+    `.color` while surrounding literal text keeps the host `font_color`.
+    The override is indexed by VISIBLE TEXT-CHAR position (emoji slugs
+    excluded) so it aligns with `draw_with_emoji`'s `char_index` and
+    `draw_text_per_char`'s `idx`. Composes with host per-char providers,
+    is byte-identical when no source declares a color, and never changes
+    geometry."""
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for src in sources:
+            src.refresh()
+            reg.add(src)
+        set_data_registry(reg)
+        return reg
+
+    @staticmethod
+    def _stub(width=160, height=16):
+        from rgbmatrix import _StubCanvas
+
+        return _StubCanvas(width=width, height=height)
+
+    @staticmethod
+    def _colored_source(value, rgb):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="x", value=value)
+        src.color = _ConstantColor(Color(*rgb))
+        return src
+
+    def test_token_chars_use_source_color_literal_uses_host(self):
+        """Token 'AB :x:' with host green + source-red token: 'AB ' pixels
+        are green (host), the '99' token pixels are red (source), and the
+        literal run is strictly LEFT of the token run (index alignment on
+        the whole-string→per-char forced path)."""
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+        w = TickerMessage(text="AB :x:", font_color=host, center=False)
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert host in colors, "literal 'AB' should render in host green"
+        assert tok in colors, "token '99' should render in source red"
+        assert colors <= {host, tok}, f"only host+token colors expected; got {colors!r}"
+        # 'AB ' is left of '99' -> the RED (token) pixels are all to the
+        # right of the GREEN (literal) pixels: proves the override maps
+        # the trailing token chars, not the leading literal chars.
+        green_xs = [x for (x, _y), v in lit.items() if v == host]
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert max(green_xs) < min(red_xs), (
+            f"literal (green) must be left of token (red); "
+            f"green max={max(green_xs)} red min={min(red_xs)}"
+        )
+        # Control: literal chars are unchanged reference is left to the
+        # byte-identical test; here confirm no host-color leaked onto the
+        # token by proving no green pixel sits at/after the token start.
+        assert not any(x >= min(red_xs) for x in green_xs)
+
+    def test_no_color_source_is_byte_identical(self):
+        """A colorless token renders the EXACT same pixels as the literal
+        substituted text with no token at all — the `token_override is
+        None` path leaves the three color branches untouched."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        self._registry(StaticSource(id="x", value="99"))  # no .color
+        w = TickerMessage(text="AB :x:", font_color=host, center=False)
+        c_tok = self._stub()
+        w.draw(c_tok)
+
+        # Control: a literal, tokenless message of the substituted string.
+        # This is guaranteed to run the pre-feature code path (has_tokens
+        # is False), so equal pixels == byte-identical.
+        self._registry()  # empty registry
+        control = TickerMessage(text="AB 99", font_color=host, center=False)
+        c_lit = self._stub()
+        control.draw(c_lit)
+
+        assert c_tok.count_nonzero() > 0
+        assert c_tok._pixels == c_lit._pixels, (
+            "a colorless token must render byte-identically to the literal text"
+        )
+
+    def test_colored_token_with_host_rainbow(self):
+        """Host `rainbow` (per-char) composes with a red token: the literal
+        chars vary in hue (rainbow) while the token chars are ALL red — the
+        override wins per-char over the host provider."""
+        from led_ticker.color_providers import Rainbow
+        from led_ticker.widgets.message import TickerMessage
+
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+        w = TickerMessage(text="AB :x:", font_color=Rainbow(), center=False)
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert red_xs, "token '99' should render red under a rainbow host"
+        # Literal 'AB' varies: at least two distinct non-token hues.
+        non_tok = {v for v in lit.values() if v != tok}
+        assert len(non_tok) >= 2, (
+            f"literal chars should carry varied rainbow hues; got {non_tok!r}"
+        )
+        # And the rainbow never coincidentally produced the exact token red
+        # (Rainbow is full-value HSV; 200-valued red can't appear).
+        assert tok not in non_tok
+
+    def test_colored_token_mixed_with_emoji(self):
+        """INDEX-ALIGNMENT TRIPWIRE. 'A :x: :sun:' with a red token and an
+        inline emoji: the ONLY pixels that differ between a colored-token
+        render and a colorless render are the token chars (green→red). The
+        `:sun:` sprite pixels are byte-identical — proving the override
+        (which skips emoji segments) stays aligned with `draw_with_emoji`'s
+        emoji-excluding `char_index`."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        black = (0, 0, 0)
+
+        def render(with_color):
+            src = (
+                self._colored_source("99", tok)
+                if with_color
+                else StaticSource(id="x", value="99")
+            )
+            self._registry(src)
+            w = TickerMessage(text="A :x: :sun:", font_color=host, center=False)
+            c = self._stub()
+            w.draw(c)
+            # Confirm the emoji path actually fired for this message.
+            assert w._has_emoji is True
+            return dict(c._pixels)
+
+        pw = render(with_color=False)  # token green (host), like literal
+        pc = render(with_color=True)  # token red
+
+        diff = {
+            xy for xy in set(pw) | set(pc) if pw.get(xy, black) != pc.get(xy, black)
+        }
+        assert diff, "the colored token must change some pixels (green→red)"
+        # Every differing pixel is a token char: green in the colorless
+        # render, red in the colored one. Nothing else moved — not 'A ',
+        # not the sun sprite.
+        for xy in diff:
+            assert pw.get(xy) == host and pc.get(xy) == tok, (
+                f"unexpected diff at {xy}: {pw.get(xy)!r} -> {pc.get(xy)!r} "
+                f"(only the token chars should change color)"
+            )
+        # The sun sprite rendered (pixels that are neither host green nor
+        # black) and is byte-identical across both renders.
+        sprite = {xy for xy, v in pw.items() if v not in (host, black)}
+        assert sprite, "the :sun: sprite should have rendered"
+        assert not (sprite & diff), (
+            "emoji sprite pixels must be identical with and without a colored token"
+        )
+        for xy in sprite:
+            assert pc.get(xy) == pw.get(xy)
+
+    def test_width_unchanged_with_color(self):
+        """Color never changes geometry: `draw()`'s returned cursor_pos is
+        identical with and without a source color."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+
+        def cursor(with_color):
+            src = (
+                self._colored_source("99", tok)
+                if with_color
+                else StaticSource(id="x", value="99")
+            )
+            self._registry(src)
+            w = TickerMessage(text="AB :x:", font_color=host, center=False)
+            _, cp = w.draw(self._stub())
+            return cp
+
+        assert cursor(with_color=True) == cursor(with_color=False)
+
+    def test_emoji_before_token_skip_alignment(self):
+        """SKIP-ALIGNMENT TEETH. Emoji BEFORE a colored token: ':sun: :x:'
+        with host green + source-red '99'. The override skips the emoji
+        segment entirely (contributing 0 text-char positions), so it stays
+        aligned with `draw_with_emoji`'s emoji-excluding `char_index`: the
+        '99' token chars are source-red while the `:sun:` sprite is
+        byte-identical to a colorless render.
+
+        Unlike `test_colored_token_mixed_with_emoji` (emoji AFTER the token,
+        where an over-length override is harmless — the phantom entries fall
+        past the consumed indices), the emoji here comes BEFORE the token, so
+        its skipped positions are load-bearing. This FAILS if
+        `_build_token_color_override` appended `[None]*len(":sun:")` for the
+        emoji instead of skipping it: the 5 phantom None positions would shift
+        '99' off its red override entries and the token would render GREEN
+        (host) — no green->red diff, and no red in the render."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        black = (0, 0, 0)
+
+        def render(with_color):
+            src = (
+                self._colored_source("99", tok)
+                if with_color
+                else StaticSource(id="x", value="99")
+            )
+            self._registry(src)
+            w = TickerMessage(text=":sun: :x:", font_color=host, center=False)
+            c = self._stub()
+            w.draw(c)
+            assert w._has_emoji is True  # emoji path must fire
+            return dict(c._pixels)
+
+        pw = render(with_color=False)  # token green (host), like literal
+        pc = render(with_color=True)  # token red
+
+        # The token '99' renders in source red — the load-bearing teeth:
+        # under a non-skipping builder these chars would stay host-green.
+        assert tok in set(pc.values()), (
+            "token '99' must render in source red (skip-alignment); a "
+            "non-skipping override would shift the red off '99' and leave it green"
+        )
+
+        # Only the token chars differ green->red; the :sun: sprite is
+        # byte-identical across the colored / colorless renders.
+        diff = {
+            xy for xy in set(pw) | set(pc) if pw.get(xy, black) != pc.get(xy, black)
+        }
+        assert diff, "the colored token must change some pixels (green->red)"
+        for xy in diff:
+            assert pw.get(xy) == host and pc.get(xy) == tok, (
+                f"unexpected diff at {xy}: {pw.get(xy)!r} -> {pc.get(xy)!r} "
+                f"(only the token chars should change color)"
+            )
+        # The :sun: sprite (pixels that are neither host green nor black) is
+        # byte-identical with and without the colored token.
+        sprite = {xy for xy, v in pw.items() if v not in (host, black)}
+        assert sprite, "the :sun: sprite should have rendered"
+        assert not (sprite & diff), (
+            "emoji sprite pixels must be identical with and without a colored token"
+        )
+        for xy in sprite:
+            assert pc.get(xy) == pw.get(xy)
+
+    def test_typewriter_cut_emoji_slug_no_token_color_leak(self):
+        """DRIFT-GUARD TEETH (the fix). Typewriter + emoji-before-token:
+        ':sun: :x:' with host green + source-red '99'. A mid-reveal frame
+        slices `visible_text` to ':su' — a CUT emoji slug. `draw_with_emoji`
+        reparses ':su' as 3 literal chars, so its char_index runs 0,1,2 over
+        chars the emoji-skipping override never accounted for. WITHOUT the
+        gate, override[1]/override[2] (the red '99' entries) would leak onto
+        's'/'u'. WITH the gate the override is dropped for this partial
+        emoji-present frame, so every visible char is host-green — no red.
+
+        The token DOES colorize once the message is fully revealed
+        (visible_text == full_text): the gate only suppresses partial frames."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+
+        # frames_per_char=1, chars_per_frame=1 -> chars_visible == frame+1.
+        # full_text is ":sun: 99" (8 chars): frame=2 reveals 3 -> ":su"
+        # (the cut-slug frame); frame=7 reveals all 8 -> full ":sun: 99".
+        w = TickerMessage(
+            text=":sun: :x:",
+            font_color=host,
+            center=False,
+            animation=Typewriter(frames_per_char=1, chars_per_frame=1),
+        )
+        assert w._has_emoji is True
+
+        # Partial cut-slug frame: no token-red may appear.
+        w._frame_count = 2
+        c = self._stub()
+        w.draw(c)
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        assert lit, "the ':su' reveal frame must render some pixels"
+        assert tok not in set(lit.values()), (
+            "token color leaked onto a typewriter-cut emoji slug — the "
+            "override drifted off draw_with_emoji's char_index"
+        )
+        assert set(lit.values()) <= {host}, (
+            f"partial reveal must be host-green only; got {set(lit.values())!r}"
+        )
+
+        # Full reveal: the gate no longer applies, so the token IS red again.
+        w2 = TickerMessage(
+            text=":sun: :x:",
+            font_color=host,
+            center=False,
+            animation=Typewriter(frames_per_char=1, chars_per_frame=1),
+        )
+        w2._frame_count = 7
+        c2 = self._stub()
+        w2.draw(c2)
+        full_colors = {v for v in c2._pixels.values() if v != (0, 0, 0)}
+        assert tok in full_colors, (
+            "at full reveal the token must colorize — the gate should only "
+            "suppress partial emoji-present frames"
+        )
+
+    def test_frozen_segments_prevent_trailing_literal_leak(self):
+        """M1 REGRESSION. The override must be built from the FROZEN
+        `resolve_segments` snapshot, not a live re-resolve. Layout 'P:x:Z'
+        with a red token and a trailing literal 'Z': the resolution is frozen
+        at the OLD value '9' (full_text 'P9Z') while the live source grows to
+        '99' under the freeze. A LIVE re-resolve yields a 4-char flat 'P99Z'
+        whose red region, prefix-clipped to the frozen 3-char string, slides
+        one char right and paints the trailing 'Z' red. Using the frozen
+        snapshot keeps the override 'P9Z'-length, so 'Z' stays host-green.
+
+        FAILS (Z renders red) if `draw()` builds the override from
+        `self._token.resolve_segments(get_data_registry())` (live) instead of
+        `self._resolved_segments` (frozen)."""
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        src = self._colored_source("9", tok)  # OLD value, one digit
+        self._registry(src)
+
+        w = TickerMessage(text="P:x:Z", font_color=host, center=False)
+        # Seed the frozen snapshot from the OLD value ('P9Z').
+        w.draw(self._stub())
+
+        # Grow the live source UNDER the freeze: value gains a digit and the
+        # version bumps, but resolution is locked so the widget keeps 'P9Z'.
+        w._resolution_locked = True
+        src.value = "99"
+        src.refresh()
+
+        c = self._stub()
+        w.draw(c)
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert tok in colors, "the '9' token must still colorize red (test not vacuous)"
+        assert colors <= {host, tok}, f"only host+token colors expected; got {colors!r}"
+        # 'Z' is the rightmost glyph — its columns must be host-green. Under a
+        # LIVE re-resolve the drifted red would paint here.
+        max_x = max(x for (x, _y) in lit)
+        rightmost = {v for (x, _y), v in lit.items() if x == max_x}
+        assert rightmost == {host}, (
+            f"trailing literal 'Z' must stay host-green; the frozen snapshot "
+            f"was bypassed and a grown value leaked token color. got {rightmost!r}"
+        )
+
+    def test_emoji_inside_token_value_counts_as_sprite(self):
+        """M2 REGRESSION. A token whose VALUE contains an emoji slug:
+        ':sun: :x:Z' with source '99' replaced by ':taco:9' (red). The
+        resolved string is ':sun: :taco:9Z' — `draw_with_emoji` re-parses it
+        and renders BOTH `:sun:` (raw) and `:taco:` (from the value) as
+        sprites that consume ZERO text-char positions. The override must count
+        via the SAME parser, so only '9' takes the token color and the
+        trailing 'Z' keeps the host color.
+
+        FAILS (Z renders red) if the override counts the token span as
+        `len(':taco:9')` text-chars: the phantom `:taco:` positions shift the
+        red one char right onto 'Z'."""
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        black = (0, 0, 0)
+        self._registry(self._colored_source(":taco:9", tok))
+
+        w = TickerMessage(text=":sun: :x:Z", font_color=host, center=False)
+        assert w._has_emoji is True
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert tok in colors, "the '9' inside the token value must render red"
+        # 'Z' is the rightmost glyph; a mis-count would paint it red.
+        max_x = max(x for (x, _y) in lit)
+        rightmost = {v for (x, _y), v in lit.items() if x == max_x}
+        assert rightmost == {host}, (
+            f"trailing 'Z' must stay host-green; an emoji inside the token "
+            f"value was mis-counted as text chars. got {rightmost!r}"
+        )
+        # The `:taco:` sprite (from the value) rendered as real sprite pixels —
+        # neither host green, token red, nor black.
+        sprite = {v for v in colors if v not in (host, tok, black)}
+        assert sprite, (
+            "the :taco: sprite inside the token value should have rendered as a sprite"
+        )
+
+    def test_emoji_in_value_without_template_emoji_colors_whole_value(self):
+        """GATE REGRESSION (`_has_emoji`-path mismatch). A colored token whose
+        VALUE contains an emoji slug, in a message with NO emoji in the RAW
+        template -> `_has_emoji` is False -> the NON-emoji per-char path draws
+        EVERY char literally (the ':taco:' shows as literal glyphs, not a
+        sprite). The override must color the WHOLE value; the emoji-excluding
+        re-walk (correct only for the emoji branch) must be GATED OFF here.
+
+        FAILS if the re-walk runs unconditionally: `_parse_segments('P:taco:9Z')`
+        skips ':taco:', so only the stray ':' reds and the '9' loses its color."""
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        black = (0, 0, 0)
+        self._registry(self._colored_source(":taco:9", tok))
+
+        w = TickerMessage(text="P:x:Z", font_color=host, center=False)
+        assert w._has_emoji is False  # no emoji in the RAW template
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != black}
+        colors = set(lit.values())
+        # No template emoji -> everything literal -> only host + token colors.
+        assert colors <= {host, tok}, (
+            f"unexpected sprite/other color on the non-emoji path: "
+            f"{colors - {host, tok}!r}"
+        )
+        assert tok in colors, "the token value must render in the token color"
+        # 'Z' (rightmost glyph) stays host.
+        max_x = max(x for (x, _y) in lit)
+        assert {v for (x, _y), v in lit.items() if x == max_x} == {host}, (
+            "trailing 'Z' must stay host"
+        )
+        # The WHOLE ':taco:9' value is red -> red spans many columns. A mis-aligned
+        # re-walk (skipping the value-embedded ':taco:') would red only the single
+        # ':' glyph (a few columns).
+        red_cols = {x for (x, _y), v in lit.items() if v == tok}
+        assert len(red_cols) > 10, (
+            f"the whole token value must render red; only {len(red_cols)} red "
+            "columns means the emoji-excluding re-walk wrongly skipped a "
+            "value-embedded slug on the non-emoji path"
+        )
+
+    def test_typewriter_colorizes_token_during_reveal_past_emoji(self):
+        """TYPEWRITER NOW COLORIZES DURING REVEAL (the fix replaces the old
+        drift guard). ':sun: :x:' with host green + red '99'. full_text is
+        ':sun: 99' (8 chars). A frame revealing ':sun: 9' (past the emoji,
+        into the token) colorizes the visible '9' RED — the override is scoped
+        to the actual `visible_text` and emoji-aware, so it no longer defers
+        token color for partial emoji-present frames. The earlier cut-slug
+        frame (':su') still shows NO leak."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+
+        def render_at(frame):
+            # frames_per_char=1, chars_per_frame=1 -> chars_visible == frame+1.
+            w = TickerMessage(
+                text=":sun: :x:",
+                font_color=host,
+                center=False,
+                animation=Typewriter(frames_per_char=1, chars_per_frame=1),
+            )
+            assert w._has_emoji is True
+            w._frame_count = frame
+            c = self._stub()
+            w.draw(c)
+            return {v for v in c._pixels.values() if v != (0, 0, 0)}
+
+        # frame=6 reveals 7 chars ':sun: 9' — the token's first digit is on
+        # screen and MUST be token-red (colorizes mid-reveal).
+        assert tok in render_at(6), (
+            "a token char revealed past its leading emoji must colorize during "
+            "the reveal (no longer deferred until fully revealed)"
+        )
+        # frame=2 reveals 3 chars ':su' — a cut slug, no token color may leak.
+        assert render_at(2) <= {host}, (
+            f"the cut-slug reveal frame must be host-green only; got {render_at(2)!r}"
+        )
+
+
 class TestTickerCountdownColorProvider:
     def test_constructor_wraps_raw_color_in_constant_provider(self):
         from datetime import date

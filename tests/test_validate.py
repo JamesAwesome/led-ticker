@@ -3681,6 +3681,42 @@ class TestRule56Sources:
             f"valid clock source should not trigger rule 56; got: {rule_56}"
         )
 
+    async def test_invalid_source_color_is_error(self, conf):
+        """A [[source]] `color` that fails `_coerce_color_provider` (e.g. an
+        out-of-range RGB component) → rule-56 error."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "mytoken"
+            type = "static"
+            value = "hello"
+            color = [300, 0, 0]
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 error for invalid source color; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "color" in rule_56[0].message
+
+    async def test_valid_source_color_no_error(self, conf):
+        """A valid [[source]] `color` produces no rule-56 error."""
+        cfg = _SOURCE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            id = "mytoken"
+            type = "static"
+            value = "hello"
+            color = [1, 2, 3]
+            """)
+        result = await validate_config(conf(cfg))
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56 == [], (
+            f"valid source color should not trigger rule 56; got: {rule_56}"
+        )
+
     async def test_no_undeclared_token_warning(self, conf):
         """A widget text referencing an undeclared :token: produces NO rule-56 error.
 

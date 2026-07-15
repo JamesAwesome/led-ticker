@@ -23,6 +23,7 @@ Two resolutions are supported:
 
 import functools
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -2875,6 +2876,7 @@ def draw_with_emoji(
     frame: int = 0,
     total_chars: int | None = None,
     hires_downscale: float = 1.0,
+    color_override: Callable[[int], Any] | None = None,
 ) -> int:
     """Draw text with inline emoji. Returns pixels advanced.
 
@@ -2918,6 +2920,15 @@ def draw_with_emoji(
     caller that sets it (< 1.0): its strip is at render_scale, so a native
     sprite would be scale/render_scale times too tall and clip against the
     strip top. Lo-res sprites and BDF text are unaffected.
+
+    `color_override` (default None) maps a GLOBAL text-char index (the
+    same `char_index` space as the per-char provider above, excluding
+    emoji slugs) to a `Color`, or `None` to defer to `color`. When set,
+    text segments always render per-char (even for a whole-string/
+    constant `color`) so the override can win on individual characters.
+    Default `None` is byte-identical to every existing caller — the
+    override is not consulted and the original per-char / whole-string
+    branches run unchanged.
     """
     segments = _parse_segments(text)
     total: int = 0
@@ -3012,19 +3023,36 @@ def draw_with_emoji(
             prev_was_text = False
         else:
             seg_x = int(cursor_pos + total)
-            if per_char:
+            if per_char or color_override is not None:
                 # Per-char rendering with the global char index so the
                 # rainbow / gradient sweeps continuously across emoji
                 # boundaries. The shared helper handles the HiresFont
                 # real-pixel cursor tracking that avoids per-char
-                # ceil-divide drift.
+                # ceil-divide drift. `color_override` (if set) is
+                # consulted first per char; it forces this branch even
+                # for a whole-string/constant `color` so individual
+                # chars can be overridden.
+                def _cf(
+                    idx: int,
+                    tot: int,
+                    _co: Callable[[int], Any] | None = color_override,
+                    _c: Any = color,
+                    _f: int = frame,
+                    _ip: bool = is_provider,
+                ) -> Any:
+                    if _co is not None:
+                        oc = _co(idx)
+                        if oc is not None:
+                            return oc
+                    return _c.color_for(_f, idx, tot) if _ip else _c
+
                 total += draw_text_per_char(
                     canvas,
                     font,
                     seg_x,
                     y + y_offset,
                     value,
-                    lambda idx, tot: color.color_for(frame, idx, tot),
+                    _cf,
                     char_offset=char_index,
                     total_chars=total_text_chars,
                 )

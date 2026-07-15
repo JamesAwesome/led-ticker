@@ -1417,44 +1417,52 @@ def build_source(cfg: SourceConfig, session: Any = None) -> DataSource:
       + remaining cfg.raw keys as generic kwargs (location, format, placeholder, …).
     """
     cls = get_source_class(cfg.type)
+    # Drop keys that are injected or reserved on PolledDataSource / DataSource so
+    # a [[source]] block that happens to contain a key with one of these names
+    # can't collide with or override the injected constructor arg.
+    # - "id"/"type"/"interval": already excluded (framework fields)
+    # - "session": injected by build_source; a config key named "session" would
+    #   produce "multiple values for keyword argument 'session'"
+    # - "polled"/"current"/"version": DataSource base attrs; a config key with
+    #   these names would bypass the attrs init contract
+    # - "color": coerced separately below (source.color), not a constructor kwarg
+    _RESERVED = {
+        "id",
+        "type",
+        "interval",  # framework fields
+        "session",
+        "polled",
+        "current",
+        "version",  # injected / base attrs
+        "color",  # coerced post-construction
+    }
     if issubclass(cls, PolledDataSource):
         # Generic kwarg passthrough for plugin polled sources: id + injected
         # session/interval + the remaining [[source]] kwargs (location, format,
         # placeholder, …). Drop reserved keys so they don't collide.
-        # Drop keys that are injected or reserved on PolledDataSource / DataSource so
-        # a [[source]] block that happens to contain a key with one of these names
-        # can't collide with or override the injected constructor arg.
-        # - "id"/"type"/"interval": already excluded (framework fields)
-        # - "session": injected by build_source; a config key named "session" would
-        #   produce "multiple values for keyword argument 'session'"
-        # - "polled"/"current"/"version": DataSource base attrs; a config key with
-        #   these names would bypass the attrs init contract
-        _RESERVED = {
-            "id",
-            "type",
-            "interval",  # framework fields
-            "session",
-            "polled",
-            "current",
-            "version",  # injected / base attrs
-        }
         kwargs = {k: v for k, v in cfg.raw.items() if k not in _RESERVED}
-        return cls(
+        source = cls(
             id=cfg.id,
             session=session,
             interval=cfg.raw.get("interval", 1800),
             **kwargs,
         )
-    if cls in (ClockSource, DateSource):
-        return cls(
+    elif cls in (ClockSource, DateSource):
+        source = cls(
             id=cfg.id,
             fmt=cfg.raw.get("format", "%H:%M"),
             tz=cfg.raw.get("timezone"),
         )
-    if cls is StaticSource:
-        return cls(id=cfg.id, value=cfg.raw.get("value", ""))
-    # Generic fallback for future core types that only need id= (rare).
-    return cls(id=cfg.id)
+    elif cls is StaticSource:
+        source = cls(id=cfg.id, value=cfg.raw.get("value", ""))
+    else:
+        # Generic fallback for future core types that only need id= (rare).
+        source = cls(id=cfg.id)
+
+    raw_color = cfg.raw.get("color")
+    if raw_color is not None:
+        source.color = _coerce_color_provider(raw_color, "source color")
+    return source
 
 
 def _list_section_fields() -> str:

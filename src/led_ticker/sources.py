@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 import attrs
 
+from led_ticker.color_providers import ColorProvider
 from led_ticker.pixel_emoji import EMOJI_PATTERN, is_emoji_slug
 from led_ticker.widget import run_monitor_loop, spawn_tracked
 
@@ -31,6 +32,10 @@ class DataSource:
     polled: bool = attrs.field(default=False, kw_only=True)
     current: str = attrs.field(default="", init=False)
     version: int = attrs.field(default=0, init=False)
+    # Optional presentation: a color provider for THIS source's inline token.
+    # Set post-construction by build_source from the [[source]] `color` field.
+    # None => the token inherits the host widget's font_color (today's behavior).
+    color: ColorProvider | None = attrs.field(default=None, init=False)
 
     def compute(self) -> str:
         raise NotImplementedError
@@ -273,3 +278,34 @@ class TokenizedField:
         changed = new_text != self._cached
         self._cached = new_text
         return self._cached, changed
+
+    def resolve_segments(
+        self, registry: DataRegistry
+    ) -> list[tuple[str, ColorProvider | None, bool]]:
+        """Typed spans of the resolved text: (text, color, is_emoji).
+
+        Literal runs -> (text, None, False). A `:id:` token -> (value,
+        source.color, False). An emoji slug -> (":slug:", None, True). The
+        concatenation of the texts equals `resolve()`'s flat string.
+        Colors are read live from `registry.get(id).color`.
+        """
+        segments: list[tuple[str, ColorProvider | None, bool]] = []
+        last = 0
+        for m in EMOJI_PATTERN.finditer(self._raw):
+            if m.start() > last:
+                segments.append((self._raw[last : m.start()], None, False))
+            slug = m.group()[1:-1]
+            if is_emoji_slug(slug):
+                segments.append((m.group(), None, True))
+            else:
+                src = registry.get(slug)
+                if src is not None:
+                    segments.append((src.current, src.color, False))
+                else:
+                    segments.append((m.group(), None, False))
+            last = m.end()
+        if last < len(self._raw):
+            segments.append((self._raw[last:], None, False))
+        if not segments:
+            segments.append((self._raw, None, False))
+        return segments

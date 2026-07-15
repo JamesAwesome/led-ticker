@@ -38,6 +38,96 @@ def _coerce_font_color(value: Any) -> ColorProvider:
     return value
 
 
+def _build_token_color_override(
+    segments: list[tuple[Any, Any, bool]],
+    visible_text: str,
+    frame: int,
+    has_emoji: bool,
+) -> list[Any] | None:
+    """Return a per-visible-text-char list of ``Color``-or-``None`` aligned
+    to ``draw_with_emoji``'s emoji-excluding ``char_index`` space for the
+    ACTUAL ``visible_text`` being drawn, or ``None`` if no token carries a
+    color.
+
+    ``segments`` is the FROZEN ``resolve_segments`` snapshot (typed spans of
+    the flat resolved string) — see ``TickerMessage._resolved_segments``.
+    Using the snapshot (not a live re-resolve) keeps the override the same
+    length as ``full_text`` / ``visible_text`` when resolution is frozen
+    (scroll / transition / typewriter), so a value that changes length under
+    the freeze can't shift a trailing literal into the token color (M1).
+
+    ``None`` is the common path: callers then skip the override entirely and
+    the existing color branches run byte-identically.
+
+    Alignment (M2): the override must land in the SAME char-index space
+    ``draw_with_emoji`` uses, which re-parses ``visible_text`` with
+    ``_parse_segments`` and renders ANY emoji slug or Unicode-emoji run
+    (INCLUDING ones that appear inside a token's resolved VALUE, e.g. a
+    source that yields ``:taco:9``) as a sprite that consumes zero text-char
+    positions. We therefore:
+
+      1. Build ``raw_colors`` one entry per char of the flat resolved string
+         (from ``segments``), so colored-token value chars carry the
+         materialized color and everything else is ``None``.
+      2. Prefix it to ``len(visible_text)`` (``visible_text`` is a prefix of
+         the flat string under typewriter, equal otherwise).
+      3. If ``has_emoji`` (the raw template has emoji, so the draw goes through
+         ``draw_with_emoji``): re-walk ``_parse_segments(visible_text)`` tracking
+         a flat-string offset — a text run appends its ``raw_colors`` slice; an
+         emoji / uemoji run is SKIPPED (no text-char position). The offset
+         advances by the run's flat-string span — ``len(value) + 2`` for a
+         ``:slug:`` emoji (the colons survive in the flat string;
+         ``_parse_segments`` strips them from ``value``) and ``len(value)`` for
+         text / uemoji. Otherwise (non-emoji draw path renders every char
+         literally): the override is ``raw_colors`` as-is — an emoji slug
+         embedded in a token VALUE is drawn literally there and must NOT skip.
+
+    A token's provider is whole-string (materialized once at
+    ``color_for(frame, 0, 1)``) and applied to each of its value chars.
+    """
+    from led_ticker.pixel_emoji import _parse_segments  # noqa: PLC0415
+
+    raw_colors: list[Any] = []
+    has_color = False
+    for text, color, _is_emoji in segments:
+        if color is None:
+            raw_colors.extend([None] * len(text))
+        else:
+            has_color = True
+            c = color.color_for(frame, 0, 1)  # whole-string token provider
+            raw_colors.extend([c] * len(text))
+    if not has_color:
+        return None
+
+    # Align to the drawn prefix; pad with None if somehow shorter.
+    rc = raw_colors[: len(visible_text)]
+    if len(rc) < len(visible_text):
+        rc = rc + [None] * (len(visible_text) - len(rc))
+
+    # The override's char space must match the DRAW PATH's. `_has_emoji`
+    # (computed from the RAW template) selects the path: the emoji branch
+    # (`draw_with_emoji`) renders emoji slugs / uemoji as sprites (0 text-chars)
+    # via `_parse_segments`, so the override must skip them (the re-walk below).
+    # The non-emoji branches (`draw_text_per_char` / `draw_text`) render EVERY
+    # visible char literally, so the override is `rc` as-is — an emoji slug
+    # embedded in a TOKEN VALUE is drawn as literal characters there and must
+    # NOT be skipped (else later chars mis-align).
+    if not has_emoji:
+        return rc
+
+    override: list[Any] = []
+    offset = 0
+    for seg_type, value in _parse_segments(visible_text):
+        if seg_type == "text":
+            override.extend(rc[offset : offset + len(value)])
+            offset += len(value)
+        elif seg_type == "emoji":
+            offset += len(value) + 2  # `:` + slug + `:` in the flat string
+        else:  # uemoji: raw codepoints, no colons
+            offset += len(value)
+    return override
+
+
 @register("message")
 @attrs.define
 class TickerMessage(FrameAwareBase):
@@ -79,6 +169,15 @@ class TickerMessage(FrameAwareBase):
     # byte-identical to today (every token step is gated on it).
     _token: TokenizedField | None = attrs.field(init=False, default=None)
     _resolved_text: str = attrs.field(init=False, default="")
+    # Frozen snapshot of `resolve_segments` taken at the SAME registry read
+    # as `_resolved_text`. The colored-token override is built from this (not
+    # a live re-resolve) so its length stays consistent with the frozen
+    # `_resolved_text` — a value that changes length under a scroll /
+    # transition / typewriter freeze can't skew the override off the rendered
+    # text (M1). None until the first resolve of a token widget.
+    _resolved_segments: list[tuple[Any, Any, bool]] | None = attrs.field(
+        init=False, default=None
+    )
     # True for the duration of a typewriter reveal so resolution stays
     # frozen across the reveal (stable slice length + stable per-char
     # hue anchor). Cleared at visit reset and when the reveal completes.
@@ -121,12 +220,16 @@ class TickerMessage(FrameAwareBase):
             return self.text
         frozen = self._resolution_locked or self._anim_resolution_lock
         if not frozen:
-            resolved, changed = self._token.resolve(get_data_registry())
+            # Read segments from the SAME registry object as resolve() so the
+            # override snapshot can't diverge from the resolved string.
+            registry = get_data_registry()
+            resolved, changed = self._token.resolve(registry)
             if changed:
                 # Invalidate the width cache so the next measure
                 # re-decides hold-vs-scroll / re-centers (held re-center).
                 self._content_width = -1
             self._resolved_text = resolved
+            self._resolved_segments = self._token.resolve_segments(registry)
         return self._resolved_text
 
     def resolve_tokens_now(self) -> None:
@@ -137,8 +240,10 @@ class TickerMessage(FrameAwareBase):
         is locked for the scroll loop. No-op for non-token widgets."""
         if self._token is None or not self._token.has_tokens:
             return
-        resolved, _ = self._token.resolve(get_data_registry())
+        registry = get_data_registry()
+        resolved, _ = self._token.resolve(registry)
         self._resolved_text = resolved
+        self._resolved_segments = self._token.resolve_segments(registry)
         self._content_width = -1
 
     def _effect_total_chars(self, attr_name: str) -> int:
@@ -350,6 +455,31 @@ class TickerMessage(FrameAwareBase):
             rotate_surface.target if rotate_surface is not None else canvas
         )
 
+        # Per-token color override (inline-value-token feature). When any
+        # `:id:` token declares a `color` on its source, build a
+        # per-visible-text-char list of Color-or-None so token chars render
+        # in the source color while literal chars keep `provider`. `None`
+        # (no colored token) leaves all three branches byte-identical.
+        #
+        # Built from the FROZEN `_resolved_segments` snapshot (M1) and scoped
+        # to the ACTUAL `visible_text` with emoji-aware char counting (M2) so
+        # the override lands in `draw_with_emoji`'s exact emoji-excluding
+        # `char_index` space — for both the full string and a typewriter
+        # prefix. This makes the old typewriter/emoji drift guard unnecessary:
+        # a cut slug (`":su"`) now parses as a text run that reads the None
+        # colors the `:sun:` segment contributed, so no leak — and a token
+        # revealed past its leading emoji colorizes correctly mid-reveal.
+        token_override: list[Any] | None = None
+        if self._token is not None and self._token.has_tokens:
+            segments = (
+                self._resolved_segments
+                if self._resolved_segments is not None
+                else self._token.resolve_segments(get_data_registry())
+            )
+            token_override = _build_token_color_override(
+                segments, visible_text, self.frame_for("font_color"), self._has_emoji
+            )
+
         # Run the text paint branches only when we are either on a live
         # (non-rotating) draw or on the FIRST rotating frame of a spin
         # (_snapshot_needed). On subsequent rotating frames (_snapshot_needed
@@ -370,6 +500,15 @@ class TickerMessage(FrameAwareBase):
                 # more chars reveal — char N's hue at frame=t is the same
                 # hue char N will have when typewriter completes. Mirrors
                 # the image-widget contract in `_BaseImageWidget._draw_text`.
+                # When a colored token is present, forward a per-char
+                # override (indexed by the SAME emoji-excluding text-char
+                # position `draw_with_emoji` uses). None => default path,
+                # byte-identical to every existing caller.
+                emoji_override = (
+                    (lambda i, _ov=token_override: _ov[i] if i < len(_ov) else None)
+                    if token_override is not None
+                    else None
+                )
                 cursor_pos += draw_with_emoji(
                     draw_canvas,
                     self.font,
@@ -380,6 +519,7 @@ class TickerMessage(FrameAwareBase):
                     y_offset=y_offset,
                     frame=self.frame_for("font_color"),
                     total_chars=count_text_chars(full_text),
+                    color_override=emoji_override,
                 )
             elif provider.per_char:
                 # Per-char rendering: iterate visible_text, draw each char
@@ -392,29 +532,70 @@ class TickerMessage(FrameAwareBase):
                 # hue char N will have at completion, not a hue
                 # compressed to the visible slice. Mirrors the image-
                 # widget contract in `_BaseImageWidget._draw_text`.
+                # Override wins per-char over the host provider when a
+                # colored token overlaps; None entries defer to the provider.
+                frame_fc = self.frame_for("font_color")
+
+                def _per_char_color(
+                    idx: int,
+                    total: int,
+                    _ov: list[Any] | None = token_override,
+                    _p: ColorProvider = provider,
+                    _f: int = frame_fc,
+                ) -> Any:
+                    if _ov is not None and idx < len(_ov) and _ov[idx] is not None:
+                        return _ov[idx]
+                    return _p.color_for(_f, idx, total)
+
                 cursor_pos += draw_text_per_char(
                     draw_canvas,
                     self.font,
                     cursor_pos,
                     baseline_y + y_offset,
                     visible_text,
-                    lambda idx, total: provider.color_for(
-                        self.frame_for("font_color"), idx, total
-                    ),
+                    _per_char_color,
                     total_chars=len(full_text),
                 )
             else:
-                color = provider.color_for(
-                    self.frame_for("font_color"), 0, len(visible_text)
-                )
-                cursor_pos += draw_text(
-                    draw_canvas,
-                    self.font,
-                    cursor_pos,
-                    baseline_y + y_offset,
-                    color,
-                    visible_text,
-                )
+                frame_fc = self.frame_for("font_color")
+                if token_override is not None:
+                    # A colored token forces the per-char path even for a
+                    # whole-string/constant host color so the override can
+                    # win on individual chars; literal chars keep the host
+                    # constant. Geometry is unchanged (BDF per-char advance
+                    # sums to the whole-string advance; hires ceil-divides
+                    # once — same contract as the per-char branch above).
+                    host_const = provider.color_for(frame_fc, 0, len(visible_text))
+
+                    def _ws_color(
+                        idx: int,
+                        total: int,
+                        _ov: list[Any] = token_override,
+                        _h: Any = host_const,
+                    ) -> Any:
+                        if idx < len(_ov) and _ov[idx] is not None:
+                            return _ov[idx]
+                        return _h
+
+                    cursor_pos += draw_text_per_char(
+                        draw_canvas,
+                        self.font,
+                        cursor_pos,
+                        baseline_y + y_offset,
+                        visible_text,
+                        _ws_color,
+                        total_chars=len(full_text),
+                    )
+                else:
+                    color = provider.color_for(frame_fc, 0, len(visible_text))
+                    cursor_pos += draw_text(
+                        draw_canvas,
+                        self.font,
+                        cursor_pos,
+                        baseline_y + y_offset,
+                        color,
+                        visible_text,
+                    )
         cursor_pos += end_padding
 
         if rotate_surface is not None:

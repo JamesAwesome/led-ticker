@@ -39,7 +39,12 @@ from led_ticker.app.factories import (
 from led_ticker.busy_http import serve_busy
 from led_ticker.config import load_config, resolve_secret_token
 from led_ticker.plugin import StartupContext
-from led_ticker.sources import DataRegistry, set_data_registry, spawn_source_refresh
+from led_ticker.sources import (
+    DataRegistry,
+    prime_polled_sources,
+    set_data_registry,
+    spawn_source_refresh,
+)
 from led_ticker.ticker import (
     RestartRequested,
     Ticker,
@@ -827,6 +832,11 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
             # run_monitor_loop task per polled source. Store as a list so
             # hot-reload (Task 5) can cancel them all.
             source_refresh_task = spawn_source_refresh(_source_registry)
+            # Give polled sources a brief, bounded head start so token widgets
+            # show real data on their first display instead of the placeholder
+            # (pairs with the engine measure-at-lock fix). Bounded: a slow or
+            # down source degrades to the placeholder and self-corrects next tick.
+            await prime_polled_sources(_source_registry)
 
             last_widget: Any = None  # track for section-to-section transitions
             last_scroll_pos: int = 0  # track scroll pos for between-section transitions

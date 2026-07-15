@@ -70,6 +70,45 @@ text = "go :pokeball.ball: go"
     assert required_plugins(_cfg(toml)) == {"led-ticker-flair"}
 
 
+def test_declared_source_id_token_is_not_a_plugin_reference():
+    # ":studio.status:" is dotted and matches the emoji token pattern, but it's
+    # backed by a declared [[source]] id — an inline VALUE TOKEN, not a plugin
+    # emoji reference. It must not surface a "studio" namespace/plugin dependency.
+    toml = """
+[[source]]
+id = "studio.status"
+type = "clock"
+
+[[playlist.section]]
+[[playlist.section.widget]]
+type = "message"
+text = "now playing :studio.status:"
+"""
+    cfg = _cfg(toml)
+    assert "studio" not in _referenced_namespaces(cfg)
+    assert required_plugins(cfg) == set()
+
+
+def test_real_plugin_emoji_still_referenced_alongside_declared_source():
+    # A genuine plugin emoji (not a declared source id) must still be picked up,
+    # even in a config that also declares an unrelated value-token source.
+    toml = """
+[[source]]
+id = "studio.status"
+type = "clock"
+
+[[playlist.section]]
+[[playlist.section.widget]]
+type = "message"
+text = "go :pokeball.ball: go :studio.status:"
+"""
+    cfg = _cfg(toml)
+    namespaces = _referenced_namespaces(cfg)
+    assert "pokeball" in namespaces
+    assert "studio" not in namespaces
+    assert required_plugins(cfg) == {"led-ticker-flair"}
+
+
 def test_plugin_backend_counts_builtin_does_not():
     assert required_plugins(_cfg('[display]\nbackend = "telnet"\n')) == {
         "led-ticker-telnet"

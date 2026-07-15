@@ -24,6 +24,18 @@ def _references_from_data(data: dict) -> dict[str, list[dict[str, str]]]:
     value and inline :ns.slug: emoji. UNFILTERED — includes non-catalog
     namespaces (the Store needs them for in_use_by)."""
     out: dict[str, list[dict[str, str]]] = {}
+    # Declared [[source]] ids are inline VALUE TOKENS (":studio.status:" backed
+    # by a [[source]] id = "studio.status"), not plugin emoji references — even
+    # though they're dotted and match _EMOJI_TOKEN. Skip them below so a config
+    # using value tokens doesn't get flagged as depending on a "studio" plugin.
+    # A real plugin emoji (e.g. ":pokeball.ball:") is never a declared source
+    # id, so this can't create a false negative.
+    raw_sources = data.get("source")
+    source_ids = {
+        s["id"]
+        for s in (raw_sources if isinstance(raw_sources, list) else [])
+        if isinstance(s, dict) and isinstance(s.get("id"), str)
+    }
     # Dedup: one entry per unique (ns, section, type). Emoji-heavy configs
     # otherwise flood the Store's in-use note — a title with two identical
     # tokens plus widget text with two more yielded four copies of the same
@@ -43,6 +55,8 @@ def _references_from_data(data: dict) -> dict[str, list[dict[str, str]]]:
 
     def add_emoji_refs(text: str, section: str) -> None:
         for m in _EMOJI_TOKEN.finditer(text):
+            if m.group(0)[1:-1] in source_ids:
+                continue
             _add_ref(m.group(1), section, m.group(0))
 
     def walk(obj: object, section: str) -> None:

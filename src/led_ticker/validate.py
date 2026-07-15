@@ -2419,7 +2419,8 @@ def _check_blank_intervals(config: AppConfig) -> list[ValidationIssue]:
 
 def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
     """Warn when a section combines a section-level `schedule = {...}` with
-    `loop_count = 0` (cycles forever).
+    `loop_count = 0` (cycles forever) — UNLESS the section's own shape means
+    the forever cycle actually does exit and re-check.
 
     `ticker._build_ticker_iter`'s `cycle_with_refresh` only exits when a
     pass's widget expansion comes back empty — a forever section never
@@ -2428,32 +2429,81 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
     keeps showing past its `end` time, silently no-op'ing the feature
     `_check_blank_intervals` promises darkness for. Widget-level
     `schedule = {...}` is unaffected — `_expand_sources` re-evaluates it
-    every pass regardless of loop_count."""
+    every pass regardless of loop_count.
+
+    Two shapes soften or suppress that warning:
+
+    - A TITLE-ONLY section (`not section.widgets`) has nothing for
+      `cycle_with_refresh` to cycle through — `_section_has_content` treats
+      the title as content every pass and the section's schedule IS
+      re-checked each time it's entered (there's no forever widget rotation
+      to get stuck inside). No warning.
+    - A section whose widgets EVERY have their own `schedule = {...}` exits
+      the forever cycle whenever all those widget windows close (an empty
+      `_expand_sources` result), which re-checks the SECTION-level schedule
+      at that boundary too — just not exactly at the section's own `end`.
+      Emit a softened message describing that re-check-at-widget-boundary
+      behavior instead of the "never re-checks" wording.
+
+    The strong "never re-checks" warning remains for the general case:
+    widgets present, and at least one widget has no schedule of its own (so
+    the rotation never empties out and the forever cycle never exits)."""
     issues: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
-        if section.schedule is not None and section.loop_count == 0:
+        if section.schedule is None or section.loop_count != 0:
+            continue
+        if not section.widgets:
+            # Title-only forever section: no widget rotation to get stuck
+            # in, so the section is re-entered (and re-checked) every pass.
+            continue
+        all_widgets_scheduled = all(
+            "schedule" in widget_cfg for widget_cfg in section.widgets
+        )
+        if all_widgets_scheduled:
             issues.append(
                 ValidationIssue(
                     rule=None,
                     location=f"section[{i}]",
                     message=(
                         "this section has a schedule but loop_count = 0 "
-                        "(cycles forever) — the section-level schedule is "
-                        "only checked when the section is ENTERED; a "
-                        "forever-cycling section never re-checks it "
-                        "afterward, so the section keeps showing past "
-                        "`end` instead of going dark."
+                        "(cycles forever) — every widget in it also has its "
+                        "own schedule, so the section-level schedule is "
+                        "only re-checked when every widget's own window "
+                        "closes (not at the section's own `end` time) — the "
+                        "section may keep showing past its end time until "
+                        "that happens."
                     ),
                     fix=(
-                        "Use a finite loop_count (>= 1) so the schedule is "
-                        "re-checked between playlist cycles, or gate "
-                        "individual widgets with their own "
-                        "`schedule = {...}` instead (re-checked every pass "
-                        "regardless of loop_count)."
+                        "If you need the section-level `end` to take effect "
+                        "exactly on time, use a finite loop_count (>= 1) "
+                        "instead."
                     ),
                     severity="warning",
                 )
             )
+            continue
+        issues.append(
+            ValidationIssue(
+                rule=None,
+                location=f"section[{i}]",
+                message=(
+                    "this section has a schedule but loop_count = 0 "
+                    "(cycles forever) — the section-level schedule is "
+                    "only checked when the section is ENTERED; a "
+                    "forever-cycling section never re-checks it "
+                    "afterward, so the section keeps showing past "
+                    "`end` instead of going dark."
+                ),
+                fix=(
+                    "Use a finite loop_count (>= 1) so the schedule is "
+                    "re-checked between playlist cycles, or gate "
+                    "individual widgets with their own "
+                    "`schedule = {...}` instead (re-checked every pass "
+                    "regardless of loop_count)."
+                ),
+                severity="warning",
+            )
+        )
     return issues
 
 

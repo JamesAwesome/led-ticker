@@ -282,3 +282,85 @@ def test_forever_section_with_only_widget_level_schedule_does_not_warn():
         ]
     )
     assert not any("cycles forever" in m for m in _forever_scheduled_message(res))
+
+
+# ---------------------------------------------------------------------------
+# Deep-dive-2 Fix 2: two shapes of `loop_count = 0` + section-level schedule
+# don't deserve the strong "never re-checks" warning — a title-only section
+# is re-entered (and re-checked) every pass, and an all-widgets-scheduled
+# section exits its forever cycle at widget-window boundaries (re-checking
+# the section schedule then, just not exactly at the section's own `end`).
+# ---------------------------------------------------------------------------
+
+_TITLE_ONLY_FOREVER_SECTION = """
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 0
+schedule = { start = "09:00", end = "17:00" }
+
+[playlist.section.title]
+type = "message"
+text = "Always Visible"
+"""
+
+_ALL_WIDGETS_SCHEDULED_FOREVER_SECTION = """
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 0
+schedule = { start = "09:00", end = "17:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "AM"
+schedule = { start = "00:00", end = "12:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "PM"
+schedule = { start = "12:00", end = "00:00" }
+"""
+
+_MIXED_WIDGETS_FOREVER_SECTION = """
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 0
+schedule = { start = "09:00", end = "17:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "scheduled"
+schedule = { start = "00:00", end = "12:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "unscheduled"
+"""
+
+
+def test_title_only_forever_section_with_schedule_does_not_warn():
+    # A title-only section has nothing for cycle_with_refresh to cycle
+    # through — the title counts as content every pass, so the section is
+    # re-entered (and its schedule re-checked) every pass regardless of
+    # loop_count. The strong "never re-checks" warning is a false positive
+    # here.
+    res = _run(sections=[_TITLE_ONLY_FOREVER_SECTION])
+    assert not _forever_scheduled_message(res)
+
+
+def test_all_widgets_scheduled_forever_section_gets_softened_message():
+    res = _run(sections=[_ALL_WIDGETS_SCHEDULED_FOREVER_SECTION])
+    msgs = _forever_scheduled_message(res)
+    assert any(
+        "only re-checked when every widget's own window closes" in m for m in msgs
+    )
+    # The softened message must NOT claim the schedule is never re-checked.
+    assert not any("never re-checks it" in m for m in msgs)
+
+
+def test_mixed_scheduled_and_unscheduled_widgets_keeps_strong_warning():
+    # At least one widget has no schedule of its own, so the widget
+    # rotation never empties out and the forever cycle never exits — the
+    # original strong warning still applies.
+    res = _run(sections=[_MIXED_WIDGETS_FOREVER_SECTION])
+    msgs = _forever_scheduled_message(res)
+    assert any("never re-checks it" in m for m in msgs)

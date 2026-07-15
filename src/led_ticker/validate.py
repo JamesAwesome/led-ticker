@@ -2226,6 +2226,161 @@ def _check_schedule(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_display_timezone(config: AppConfig) -> list[ValidationIssue]:
+    """[display] timezone (the sign-wide clock for visibility + brightness
+    schedules) must be a resolvable IANA name. Runtime falls back to system
+    local with a warning; preflight is where the typo should be caught."""
+    tz = config.display.timezone
+    if not tz:
+        return []
+    if not isinstance(tz, str):
+        return [
+            ValidationIssue(
+                rule=None,
+                location="display.timezone",
+                message=f"timezone must be a string IANA name, got {type(tz).__name__}",
+                fix=(
+                    "Use an IANA name like 'America/New_York',"
+                    " or leave it empty for system local time."
+                ),
+                severity="error",
+            )
+        ]
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        ZoneInfo(tz)
+    except ZoneInfoNotFoundError, ValueError, TypeError:
+        return [
+            ValidationIssue(
+                rule=None,
+                location="display.timezone",
+                message=f"timezone {tz!r} is not a valid IANA timezone name",
+                fix=(
+                    "Use an IANA name like 'America/New_York',"
+                    " or leave it empty for system local time."
+                ),
+                severity="error",
+            )
+        ]
+    return []
+
+
+def _iter_widget_schedules(config: AppConfig):
+    """Yield (section_index, parsed VisibilitySchedule | None) per widget.
+    None = widget has no schedule OR its schedule is malformed (the async
+    build check reports malformed ones; this static sweep stays quiet)."""
+    from led_ticker.schedule import parse_visibility_schedule
+
+    for i, section in enumerate(config.sections):
+        for w in section.widgets:
+            raw = w.get("schedule")
+            if raw is None:
+                yield i, None
+                continue
+            try:
+                yield i, parse_visibility_schedule(raw, location=f"section[{i}]")
+            except ValueError:
+                yield i, None
+
+
+def _any_visibility_schedule(config: AppConfig) -> bool:
+    return any(s.schedule is not None for s in config.sections) or any(
+        sched is not None for _i, sched in _iter_widget_schedules(config)
+    )
+
+
+def _visibility_schedule_notes(config: AppConfig) -> list[str]:
+    """One line telling the user what clock visibility schedules run on —
+    catches the TZ-less Docker container (UTC) at preflight, not at 5 p.m."""
+    if not _any_visibility_schedule(config):
+        return []
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    tz_name = config.display.timezone
+    try:
+        tz = ZoneInfo(tz_name) if tz_name else None
+    except Exception:
+        return []  # _check_display_timezone already errored on the bad name
+    now = datetime.now(tz)
+    label = tz_name or "system local"
+    return [f"visibility schedules evaluate at {now:%H:%M} ({label})"]
+
+
+_WEEK_DAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def _fmt_week_minute(m: int) -> str:
+    day, rem = divmod(m % 10080, 1440)
+    return f"{_WEEK_DAY_LABELS[day]} {rem // 60:02d}:{rem % 60:02d}"
+
+
+def _check_blank_intervals(config: AppConfig) -> list[ValidationIssue]:
+    """Week sweep (10,080 minutes, same technique as
+    unreachable_window_indices): warn listing the intervals where EVERY
+    section is scheduled out — 'your sign is blank Tue 03:00-09:00' before
+    deploy. Warning, not error: dark-when-closed is often intended."""
+    if not _any_visibility_schedule(config):
+        return []
+    per_section_widget_scheds: dict[int, list] = {}
+    per_section_all_scheduled: dict[int, bool] = {
+        i: bool(s.widgets) for i, s in enumerate(config.sections)
+    }
+    for i, sched in _iter_widget_schedules(config):
+        if sched is None:
+            per_section_all_scheduled[i] = False
+        else:
+            per_section_widget_scheds.setdefault(i, []).append(sched)
+
+    def _sign_active(minutes: int, weekday: int) -> bool:
+        for i, section in enumerate(config.sections):
+            if section.schedule is not None and not section.schedule.window.active_at(
+                minutes, weekday
+            ):
+                continue
+            wscheds = per_section_widget_scheds.get(i, [])
+            if (
+                per_section_all_scheduled[i]
+                and wscheds
+                and not any(s.window.active_at(minutes, weekday) for s in wscheds)
+            ):
+                continue
+            return True
+        return False
+
+    blank = [m for m in range(10080) if not _sign_active(m % 1440, m // 1440)]
+    if not blank:
+        return []
+    # Group consecutive minutes into runs; merge the week-boundary wrap.
+    runs: list[list[int]] = []
+    for m in blank:
+        if runs and m == runs[-1][1] + 1:
+            runs[-1][1] = m
+        else:
+            runs.append([m, m])
+    if len(runs) > 1 and runs[0][0] == 0 and runs[-1][1] == 10079:
+        runs[0][0] = runs.pop()[0] - 10080  # wrap: Sun tail joins Mon head
+    shown = [f"{_fmt_week_minute(a)}-{_fmt_week_minute(b + 1)}" for a, b in runs[:4]]
+    more = f" (and {len(runs) - 4} more)" if len(runs) > 4 else ""
+    return [
+        ValidationIssue(
+            rule=None,
+            location="playlist",
+            message=(
+                "the sign is blank (every section scheduled out) during: "
+                + ", ".join(shown)
+                + more
+            ),
+            fix=(
+                "Intended for a closed-hours dark panel? Ignore this. "
+                "Otherwise add an unscheduled fallback section or widen a window."
+            ),
+            severity="warning",
+        )
+    ]
+
+
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     """Warn when a held top row is wider than the logical canvas.
 
@@ -2867,7 +3022,11 @@ async def validate_config(
     # Schedule validation: timezone, HH:MM times, brightness range, day names,
     # start==end, enabled-with-no-windows (warning), fully-shadowed windows (warning).
     notes: list[str] = []
-    _sched_issues = _check_schedule(config)
+    _sched_issues = (
+        _check_schedule(config)
+        + _check_display_timezone(config)
+        + _check_blank_intervals(config)
+    )
     errors.extend(i for i in _sched_issues if i.severity == "error")
     warnings.extend(i for i in _sched_issues if i.severity == "warning")
     if config.display.schedule.enabled:
@@ -2876,6 +3035,7 @@ async def validate_config(
         notes = format_schedule_summary(
             config.display.schedule, config.display.brightness
         )
+    notes = notes + _visibility_schedule_notes(config)
 
     # Strict: promote all remaining warnings to errors before returning.
     # ValidationResult.valid checks len(errors) == 0; promoting warnings

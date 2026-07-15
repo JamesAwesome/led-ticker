@@ -1,0 +1,75 @@
+---
+title: Widget scheduling
+description: Show a widget or section only during a time window with schedule = {...} — the same start/end/days windows as brightness scheduling, applied to visibility.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+import { Aside } from "@astrojs/starlight/components";
+
+A **schedule** is a time window: a `start`, an `end`, and an optional list of `days`. led-ticker uses that one vocabulary for two different jobs:
+
+- **Visibility** — `schedule = {...}` on any widget or section. Outside the window, the widget or section is skipped this pass. This page.
+- **Brightness** — `[display.schedule]`. Dims or darkens the whole panel by time of day, but never changes _what_ is shown. See [Display: Scheduling](/concepts/display/#scheduling).
+
+They share the same `start`/`end`/`days` semantics (including the overnight wrap), so once you know one you know the other — only the target differs: content vs. brightness.
+
+## The open/closed storefront
+
+The classic use case: swap an "OPEN" graphic for a "CLOSED" one at the same two times every day.
+
+<TomlExample
+  title="Two widgets, opposite windows"
+  code={`[[playlist.section]]
+mode = "slideshow"
+
+[[playlist.section.widget]]
+type = "image"
+path = "open.png"
+schedule = { start = "09:00", end = "17:00", days = ["mon", "tue", "wed", "thu", "fri"] }
+
+[[playlist.section.widget]]
+type = "image"
+path = "closed.png"
+schedule = { start = "17:00", end = "09:00" }`}
+/>
+
+`open.png` is only shown Monday–Friday, 09:00 up to (not including) 17:00. `closed.png` has no `days`, so it's active every day of the week — its window runs from 17:00 through 08:59 the next morning, wrapping past midnight because `start > end`. Together the two windows cover the full 24 hours on weekdays; on weekends `closed.png` is the only one whose window is ever active, so the sign is closed all weekend.
+
+`schedule` also works on a **section**, gating the whole section (all of its widgets) at once:
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "slideshow"
+schedule = { start = "09:00", end = "21:00" }`}
+/>
+
+## Works on every widget, including plugins
+
+`schedule` is a **core-owned** field. The engine pops it off the widget's config before the widget's constructor ever runs, so a widget class — core or plugin — never sees it and never has to implement anything to support it. This also means a widget class can't declare its own field named `schedule`; if one does, config-load rejects it with an error naming the conflict (rename the widget's field, e.g. `poll_schedule`).
+
+Because the check lives in the engine, `schedule` composes with a widget's own visibility logic. The [countdown widget](/widgets/countdown/) already hides itself once its target date has passed (`should_display()`); add a `schedule` and the two conditions AND together — the countdown only shows when it's both in its date range _and_ inside its scheduled window. Neither check can force the other to show something it wants hidden.
+
+## One clock: `[display] timezone`
+
+Both visibility and brightness schedules read the wall clock from the same place: the top-level `[display] timezone` field (an IANA name, e.g. `"America/New_York"`; empty string = the machine's system local time).
+
+<Aside type="caution" title="Docker defaults to UTC">
+A freshly-imaged Pi — and most Docker base images — run on UTC, not your local time zone. If you write `schedule = { start = "09:00", end = "17:00" }` and forget to set `timezone`, "09:00" means 09:00 UTC, which is very much not 9 a.m. on your storefront. Set `[display] timezone` explicitly.
+</Aside>
+
+`led-ticker validate` prints the resolved clock so you can catch this before deploying:
+
+```
+visibility schedules evaluate at 14:32 (America/New_York)
+```
+
+If every section in your config ends up scheduled out for some stretch of the week, `validate` also warns about it — listing the blank interval(s) — so you can confirm that's what you meant before it happens live on the panel.
+
+## Behavior notes
+
+- **Section-level granularity is one playlist cycle.** A section's `schedule` (and each of its widgets') is (re-)checked once per pass through the playlist, not on every render tick. For a flip that needs to land within a second or two of the boundary (a tight 17:00:00 open→closed cutover), put both widgets in **one** section — see the storefront example above — rather than splitting them across two sections that each get checked on their own cycle.
+- **A fully scheduled-out sign goes dark on purpose.** If every section's window is inactive at the same moment, the panel blanks and idles rather than showing stale content or freezing. This is treated as correct behavior — a closed storefront going dark — not a bug. It logs once when going dark and once when a section becomes active again, not on every idle loop.
+- **A widget can appear one last time after its window closes.** If a widget was on screen when its window closes, it can still render as the **outgoing** frame of the transition already in flight — a sub-second artifact, once per exit, and not something to work around.
+
+<RelatedPages slugs={["concepts/display", "widgets/countdown", "reference/config-options"]} />

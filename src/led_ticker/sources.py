@@ -12,6 +12,7 @@ can never pair a new version with a stale value.
 
 import asyncio
 import datetime
+import logging
 import re
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -97,6 +98,17 @@ class PolledDataSource(DataSource):
     session: Any = attrs.field(default=None, kw_only=True)
     interval: int = attrs.field(default=1800, kw_only=True)
 
+    # Set when the first real value is applied (version 0 -> 1). Startup awaits
+    # this (bounded) so token widgets show real data on first display instead
+    # of the placeholder. Created per instance; binds to the running loop lazily.
+    first_value: asyncio.Event = attrs.field(factory=asyncio.Event, init=False)
+
+    def _set_value(self, new: str) -> bool:
+        changed = super()._set_value(new)
+        if self.version > 0:
+            self.first_value.set()
+        return changed
+
     async def update(self) -> None:
         """Fetch + `self._set_value(...)`. Subclass responsibility."""
         raise NotImplementedError
@@ -140,6 +152,39 @@ def set_data_registry(registry: DataRegistry) -> None:
     """Atomically swap the process registry (used at startup + hot-reload)."""
     global _REGISTRY
     _REGISTRY = registry
+
+
+PRIME_TIMEOUT: float = 2.5
+
+
+async def prime_polled_sources(
+    registry: DataRegistry, timeout: float = PRIME_TIMEOUT
+) -> None:
+    """Wait (bounded) for each polled source's first real value so token
+    widgets render real data on their first display instead of a placeholder.
+
+    Bounded: a source slower than `timeout` degrades to the placeholder and
+    self-corrects on its next tick — the wait never blocks boot indefinitely.
+    Sync sources (clock/date/static) are already correct at build time and are
+    not awaited.
+    """
+    polled = [s for s in registry.sources() if isinstance(s, PolledDataSource)]
+    if not polled:
+        return
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(*(s.first_value.wait() for s in polled)),
+            timeout=timeout,
+        )
+    except TimeoutError:
+        not_ready = [s.id for s in polled if not s.first_value.is_set()]
+        logging.info(
+            "source prime: %d/%d polled sources ready within %.1fs; still waiting: %s",
+            len(polled) - len(not_ready),
+            len(polled),
+            timeout,
+            not_ready,
+        )
 
 
 async def run_source_refresh_loop(

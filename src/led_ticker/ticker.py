@@ -644,19 +644,31 @@ class Ticker:
                 self._lock_resolution_if_supported(ticker_obj, False)
             return canvas, cursor_pos, pos
 
-        if cursor_pos > canvas.width:
-            if not continuous:
-                n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
-                canvas, _ = await self._hold_ticks(
-                    canvas, ticker_obj, n_ticks, pos, bg_color
-                )
+        # Measure-at-lock: the geometry a locked scroll consumes must be
+        # measured at the instant of locking, with zero awaits between the
+        # measure and the lock. So (non-continuous) we run the initial hold
+        # FIRST and re-decide overflow-vs-fits from the POST-hold measurement.
+        # A token that resolved from its placeholder during the hold (a polled
+        # source's first fetch landing, or a 1 Hz value tick) has by then
+        # widened its content, and `_hold_ticks` returns that fresh cursor_pos.
+        # Measuring up-front and scrolling to a stale stop_pos was the
+        # "first display only scrolls to the first letter" bug.
+        if not continuous:
+            n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
+            canvas, held_cursor = await self._hold_ticks(
+                canvas, ticker_obj, n_ticks, pos, bg_color
+            )
+            if held_cursor > 0:  # 0 == a breaker-tripped draw; keep entry width
+                cursor_pos = held_cursor
 
+        if cursor_pos > canvas.width:
             padding = get_widget_padding(ticker_obj, default=0)
-            # Freeze inline-token resolution for the scroll loop: `stop_pos`
-            # is captured once from the entry width, and the loop discards
-            # the per-tick cursor_pos. A mid-scroll re-measure would strand
-            # the scroll and clip the tail (constraints #6/#7). A version
-            # that bumped mid-scroll applies on the next held tick / visit.
+            # Freeze inline-token resolution for the scroll loop: `stop_pos` is
+            # captured once — now at the lock boundary, measured just above with
+            # no await between — and the loop discards the per-tick cursor_pos.
+            # A mid-scroll re-measure would strand the scroll and clip the tail
+            # (constraints #6/#7). A version that bumps mid-scroll applies on the
+            # next held tick / visit.
             self._lock_resolution_if_supported(ticker_obj, True)
             try:
                 stop_pos = -(cursor_pos - canvas.width) + padding
@@ -679,7 +691,10 @@ class Ticker:
                 canvas, _ = await self._hold_ticks(
                     canvas, ticker_obj, n_ticks, pos, bg_color
                 )
-        else:
+        elif continuous:
+            # continuous + fits: preserve the original else-branch hold (the
+            # non-continuous fits-case already held above). Continuous mode has
+            # no pre-scroll hold, so its geometry was never stale.
             n_ticks = max(1, int(hold_time * 1000) // ENGINE_TICK_MS)
             canvas, _ = await self._hold_ticks(
                 canvas, ticker_obj, n_ticks, pos, bg_color

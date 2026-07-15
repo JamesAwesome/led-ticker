@@ -383,6 +383,71 @@ class TestSwapAndScrollTokenFreeze:
         )
 
 
+class TestSwapAndScrollMeasureAtLock:
+    """Measure-at-lock: the geometry a locked scroll consumes is measured at
+    the instant of locking, so a token that resolves from its placeholder
+    during the pre-scroll hold drives the scroll distance. Regression: a
+    scrolling message with a polled-source token 'only scrolled to the first
+    letter' on first display."""
+
+    @staticmethod
+    def _growing_widget(narrow: int, wide: int):
+        """Mock widget whose draw() reports `narrow` on the FIRST call (entry
+        measure, placeholder) and `wide` thereafter (resolved during the hold).
+        Width is `cursor_pos + content_width`, matching conftest.make_widget."""
+        w = mock.Mock()
+        w.hold_time = 0.0
+        w.forces_offscreen_scroll = False
+        w.wraps_forever = False
+        w.bg_color = None
+        calls = {"n": 0}
+
+        def _draw(c, cursor_pos=0, **kw):
+            calls["n"] += 1
+            width = narrow if calls["n"] == 1 else wide
+            return c, cursor_pos + width
+
+        w.draw.side_effect = _draw
+        return w
+
+    async def test_overflow_scroll_uses_post_hold_width(
+        self, canvas, mock_frame, no_sleep
+    ):
+        # placeholder overflows narrowly (200), resolves wider (400) during hold.
+        widget = self._growing_widget(narrow=200, wide=400)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
+        # canvas.width=160, padding=0 -> stop from the RESOLVED width 400.
+        assert scroll_pos == -(400 - 160)  # == -240, NOT -(200-160) == -40
+
+    async def test_placeholder_fits_but_value_overflows_scrolls(
+        self, canvas, mock_frame, no_sleep
+    ):
+        # placeholder fits (40), resolves to overflow (400) during the hold.
+        widget = self._growing_widget(narrow=40, wide=400)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
+        # Old behavior: fits -> never scrolls -> scroll_pos == 0. Now it scrolls.
+        assert scroll_pos == -(400 - 160)  # == -240
+
+    async def test_static_overflow_unchanged(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        # A constant-width overflowing widget still stops at the same place.
+        widget = make_widget(content_width=300)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
+        assert scroll_pos == -(300 - 160)  # == -140, unchanged
+
+    async def test_static_fits_does_not_scroll(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        widget = make_widget(content_width=40)
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(canvas, widget, hold_time=0.05)
+        assert scroll_pos == 0  # fits -> held, never scrolls
+
+
 class TestTwoRowScrollBranchesFreeze:
     """F2 tripwire: ``forces_offscreen_scroll`` and ``wraps_forever`` branches
     in ``_swap_and_scroll`` must lock token resolution for their scroll loops,
@@ -647,6 +712,20 @@ class TestSwapAndScrollContinuous:
         assert 3.0 not in sleep_calls, (
             f"continuous=True must skip hold_time sleeps; sleep_calls={sleep_calls}"
         )
+
+    async def test_continuous_fits_still_holds(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        # continuous=True + a fits-width widget must take the `elif continuous:`
+        # hold branch (preserving the original else-branch behavior after the
+        # measure-at-lock restructure) rather than falling through to nothing.
+        widget = make_widget(content_width=40)  # fits the 160-wide canvas
+        ticker = Ticker(monitors=[], frame=mock_frame)
+        _, _, scroll_pos = await ticker._swap_and_scroll(
+            canvas, widget, hold_time=0.05, continuous=True
+        )
+        assert scroll_pos == 0  # fits -> never scrolls
+        assert widget.draw.call_count >= 2  # entry draw + at least one hold tick
 
     async def test_non_continuous_includes_holds(
         self, canvas, mock_frame, make_widget, monkeypatch

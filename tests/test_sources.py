@@ -12,6 +12,7 @@ from led_ticker.sources import (
     StaticSource,
     TokenizedField,
     get_data_registry,
+    prime_polled_sources,
     run_source_refresh_loop,
     set_data_registry,
 )
@@ -498,3 +499,43 @@ def test_build_source_drops_polled_key_from_kwargs():
         assert src.polled is True  # default from PolledDataSource, not overridden
     finally:
         _PLUGIN_SOURCE_TYPES.pop("acme.polledkey", None)
+
+
+class _FakePolled(PolledDataSource):
+    async def update(self) -> None:  # not driven in these tests
+        self._set_value("real")
+
+
+def _polled(source_id: str) -> _FakePolled:
+    return _FakePolled(id=source_id)
+
+
+async def test_first_value_event_set_on_first_real_value():
+    s = _polled("p")
+    assert not s.first_value.is_set()  # nothing applied yet
+    s._set_value("123.45")
+    assert s.first_value.is_set() and s.version == 1
+
+
+async def test_prime_returns_when_all_ready():
+    reg = DataRegistry()
+    a, b = _polled("a"), _polled("b")
+    reg.add(a)
+    reg.add(b)
+    a._set_value("1")
+    b._set_value("2")
+    # Both events already set -> returns effectively immediately.
+    await asyncio.wait_for(prime_polled_sources(reg, timeout=5.0), timeout=1.0)
+
+
+async def test_prime_times_out_bounded_when_source_never_resolves():
+    reg = DataRegistry()
+    reg.add(_polled("slow"))  # never _set_value -> event never set
+    # Must return after ~timeout, not hang.
+    await asyncio.wait_for(prime_polled_sources(reg, timeout=0.05), timeout=1.0)
+
+
+async def test_prime_ignores_sync_sources():
+    reg = DataRegistry()
+    reg.add(StaticSource(id="s", value="x"))  # not polled -> not awaited
+    await asyncio.wait_for(prime_polled_sources(reg, timeout=0.05), timeout=1.0)

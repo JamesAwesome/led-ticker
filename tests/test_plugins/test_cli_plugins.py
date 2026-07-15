@@ -158,8 +158,13 @@ def test_list_fields_plugin_widget_hides_uninjected_shared_fields(tmp_path):
         L.load_plugins(tmp_path / "plugins", entry_points_enabled=False)
         out = _list_widget_fields("acme.clock")
         assert "text" in out  # the widget's own declared field
-        # None of the built-in shared knobs are advertised for a plugin widget:
-        for knob in ("font_size", "font_threshold", "Shared fields"):
+        # None of the built-in shared knobs the plugin can't accept are
+        # advertised for a plugin widget:
+        for knob in ("font_size", "font_threshold"):
             assert knob not in out, f"{knob!r} should not appear for a plugin widget"
+        # `schedule` IS shown — it's core-owned and popped before the plugin
+        # constructor ever sees it, so it's safe (and correct) to advertise.
+        assert "Shared fields" in out
+        assert "schedule" in out
     finally:
         L.reset_plugins()

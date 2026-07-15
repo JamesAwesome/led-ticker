@@ -77,6 +77,48 @@ def test_blank_interval_warning_when_sign_has_gaps():
     assert any("blank" in t for t in warning_texts)
 
 
+def test_blank_interval_warning_exact_week_sweep_arithmetic():
+    """Fix F.3a (2026-07-15): a single daily 09:00-17:00 window leaves the
+    sign blank 17:00-09:00 every night. The week sweep (10,080 minutes)
+    merges the Sun-tail/Mon-head wrap into one run and caps the shown list
+    at 4, so there are 7 nightly gaps -> 4 shown + "(and 3 more)". Verified
+    against the actual validate output (not guessed) before encoding."""
+    res = _run(
+        sections=[
+            SECTION.format(
+                section_extra='schedule = { start = "09:00", end = "17:00" }',
+                widget_extra="",
+            )
+        ]
+    )
+    blank = [i for i in res.warnings if "blank" in i.message]
+    assert blank
+    assert blank[0].location == "playlist"
+    assert "Mon 17:00-Tue 09:00" in blank[0].message
+    assert "(and 3 more)" in blank[0].message
+
+
+def test_blank_interval_warning_weekday_wrap_merge():
+    """Fix F.3b: a mon-fri 09:00-17:00 window leaves the sign blank every
+    weeknight PLUS the whole weekend — the sweep merges Friday evening
+    through Monday morning into one run: "Fri 17:00-Mon 09:00"."""
+    res = _run(
+        sections=[
+            SECTION.format(
+                section_extra=(
+                    'schedule = { start = "09:00", end = "17:00", '
+                    'days = ["mon", "tue", "wed", "thu", "fri"] }'
+                ),
+                widget_extra="",
+            )
+        ]
+    )
+    blank = [i for i in res.warnings if "blank" in i.message]
+    assert blank
+    assert blank[0].location == "playlist"
+    assert "Fri 17:00-Mon 09:00" in blank[0].message
+
+
 def test_no_blank_warning_when_windows_cover_the_week():
     open_w = SECTION.format(
         section_extra='schedule = { start = "09:00", end = "17:00" }', widget_extra=""

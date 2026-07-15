@@ -38,16 +38,16 @@ not overlap or collide with widget-owned fields.
 timezone = "America/New_York"   # NEW, optional; IANA name; "" = system local.
                                 # One clock for all schedules (visibility + brightness).
 
-[[sections]]
+[[playlist.section]]
 mode = "slideshow"
 schedule = { start = "09:00", end = "21:00" }   # NEW: section-level
 
-[[sections.widgets]]
+[[playlist.section.widget]]
 type = "image"
 path = "open.png"
 schedule = { start = "09:00", end = "17:00", days = ["mon","tue","wed","thu","fri"] }
 
-[[sections.widgets]]
+[[playlist.section.widget]]
 type = "image"
 path = "closed.png"
 schedule = { start = "17:00", end = "09:00" }   # overnight wrap = inverse window

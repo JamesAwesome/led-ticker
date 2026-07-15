@@ -230,6 +230,44 @@ async def _idle_on_empty_playlist(sections: list, warned: bool) -> tuple[bool, b
     return True, True
 
 
+def _section_schedule_active(section: Any) -> bool:
+    """Section-level `schedule = {...}` gate. No schedule = always active.
+    Same contract as the widget-level check (ticker._schedule_active): an
+    evaluation error KEEPS the section — scheduling must never blank the
+    panel by accident."""
+    sched = getattr(section, "schedule", None)
+    if sched is None:
+        return True
+    try:
+        return bool(sched.is_active())
+    except Exception:  # noqa: BLE001 - visibility must not crash the run loop
+        logging.exception("section schedule check failed; showing section")
+        return True
+
+
+async def _idle_when_all_scheduled_out(
+    led_frame: Any, any_section_ran: bool, was_dark: bool
+) -> bool:
+    """When EVERY section sat outside its schedule window this cycle, blank
+    the panel (a closed storefront going dark is correct behavior, not a
+    freeze) and idle 1s so the outer loop's reload/restart checks stay
+    responsive. Blanks and logs only on the dark/wake TRANSITIONS — never
+    per iteration. Returns the new dark state."""
+    if any_section_ran:
+        if was_dark:
+            logging.info("schedule: a section is active again — panel waking")
+        return False
+    if not was_dark:
+        logging.info(
+            "schedule: every section is outside its schedule window — panel dark"
+        )
+        canvas = led_frame.get_clean_canvas()
+        canvas = led_frame.swap(canvas)  # constraint #1: capture the swap return
+        del canvas  # next cycle re-fetches a clean canvas; nothing draws meanwhile
+    await asyncio.sleep(1.0)
+    return True
+
+
 async def _build_widget_guarded(
     widget_cfg: Any,
     *,
@@ -866,6 +904,8 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
 
             try:
                 _empty_playlist_warned = False
+                _any_section_ran = True  # first pass: no idle before sections run
+                _display_dark = False
                 while True:
                     # Belt-and-suspenders outer-loop check (once per full
                     # playlist cycle). The per-section check below and the
@@ -904,6 +944,10 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                     )
                     if _idled:
                         continue
+                    _display_dark = await _idle_when_all_scheduled_out(
+                        led_frame, _any_section_ran, _display_dark
+                    )
+                    _any_section_ran = False
                     for section_index, section in enumerate(config.sections):
                         # Per-section reload check: caps reload latency at one
                         # section instead of one full playlist cycle, so a save
@@ -927,6 +971,7 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                             default_section_trans = _reload_res.default_section_trans
                             schedule_task = _reload_res.schedule_task
                             source_refresh_task = _reload_res.source_refresh_task
+                            _any_section_ran = True
                             break
                         # Per-section restart check: caps latency at one
                         # section even for run modes where the per-tick
@@ -940,6 +985,13 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                                 " — exiting for supervisor restart"
                             )
                             sys.exit(0)
+                        if not _section_schedule_active(section):
+                            logging.debug(
+                                "section %d skipped: outside its schedule window",
+                                section_index,
+                            )
+                            continue
+                        _any_section_ran = True
                         status_board.record_section(
                             index=section_index,
                             total=len(config.sections),

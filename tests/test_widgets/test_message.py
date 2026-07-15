@@ -854,6 +854,133 @@ class TestColoredTokens:
 
         assert cursor(with_color=True) == cursor(with_color=False)
 
+    def test_emoji_before_token_skip_alignment(self):
+        """SKIP-ALIGNMENT TEETH. Emoji BEFORE a colored token: ':sun: :x:'
+        with host green + source-red '99'. The override skips the emoji
+        segment entirely (contributing 0 text-char positions), so it stays
+        aligned with `draw_with_emoji`'s emoji-excluding `char_index`: the
+        '99' token chars are source-red while the `:sun:` sprite is
+        byte-identical to a colorless render.
+
+        Unlike `test_colored_token_mixed_with_emoji` (emoji AFTER the token,
+        where an over-length override is harmless — the phantom entries fall
+        past the consumed indices), the emoji here comes BEFORE the token, so
+        its skipped positions are load-bearing. This FAILS if
+        `_build_token_color_override` appended `[None]*len(":sun:")` for the
+        emoji instead of skipping it: the 5 phantom None positions would shift
+        '99' off its red override entries and the token would render GREEN
+        (host) — no green->red diff, and no red in the render."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        black = (0, 0, 0)
+
+        def render(with_color):
+            src = (
+                self._colored_source("99", tok)
+                if with_color
+                else StaticSource(id="x", value="99")
+            )
+            self._registry(src)
+            w = TickerMessage(text=":sun: :x:", font_color=host, center=False)
+            c = self._stub()
+            w.draw(c)
+            assert w._has_emoji is True  # emoji path must fire
+            return dict(c._pixels)
+
+        pw = render(with_color=False)  # token green (host), like literal
+        pc = render(with_color=True)  # token red
+
+        # The token '99' renders in source red — the load-bearing teeth:
+        # under a non-skipping builder these chars would stay host-green.
+        assert tok in set(pc.values()), (
+            "token '99' must render in source red (skip-alignment); a "
+            "non-skipping override would shift the red off '99' and leave it green"
+        )
+
+        # Only the token chars differ green->red; the :sun: sprite is
+        # byte-identical across the colored / colorless renders.
+        diff = {
+            xy for xy in set(pw) | set(pc) if pw.get(xy, black) != pc.get(xy, black)
+        }
+        assert diff, "the colored token must change some pixels (green->red)"
+        for xy in diff:
+            assert pw.get(xy) == host and pc.get(xy) == tok, (
+                f"unexpected diff at {xy}: {pw.get(xy)!r} -> {pc.get(xy)!r} "
+                f"(only the token chars should change color)"
+            )
+        # The :sun: sprite (pixels that are neither host green nor black) is
+        # byte-identical with and without the colored token.
+        sprite = {xy for xy, v in pw.items() if v not in (host, black)}
+        assert sprite, "the :sun: sprite should have rendered"
+        assert not (sprite & diff), (
+            "emoji sprite pixels must be identical with and without a colored token"
+        )
+        for xy in sprite:
+            assert pc.get(xy) == pw.get(xy)
+
+    def test_typewriter_cut_emoji_slug_no_token_color_leak(self):
+        """DRIFT-GUARD TEETH (the fix). Typewriter + emoji-before-token:
+        ':sun: :x:' with host green + source-red '99'. A mid-reveal frame
+        slices `visible_text` to ':su' — a CUT emoji slug. `draw_with_emoji`
+        reparses ':su' as 3 literal chars, so its char_index runs 0,1,2 over
+        chars the emoji-skipping override never accounted for. WITHOUT the
+        gate, override[1]/override[2] (the red '99' entries) would leak onto
+        's'/'u'. WITH the gate the override is dropped for this partial
+        emoji-present frame, so every visible char is host-green — no red.
+
+        The token DOES colorize once the message is fully revealed
+        (visible_text == full_text): the gate only suppresses partial frames."""
+        from led_ticker.animations import Typewriter
+        from led_ticker.widgets.message import TickerMessage
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+
+        # frames_per_char=1, chars_per_frame=1 -> chars_visible == frame+1.
+        # full_text is ":sun: 99" (8 chars): frame=2 reveals 3 -> ":su"
+        # (the cut-slug frame); frame=7 reveals all 8 -> full ":sun: 99".
+        w = TickerMessage(
+            text=":sun: :x:",
+            font_color=host,
+            center=False,
+            animation=Typewriter(frames_per_char=1, chars_per_frame=1),
+        )
+        assert w._has_emoji is True
+
+        # Partial cut-slug frame: no token-red may appear.
+        w._frame_count = 2
+        c = self._stub()
+        w.draw(c)
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        assert lit, "the ':su' reveal frame must render some pixels"
+        assert tok not in set(lit.values()), (
+            "token color leaked onto a typewriter-cut emoji slug — the "
+            "override drifted off draw_with_emoji's char_index"
+        )
+        assert set(lit.values()) <= {host}, (
+            f"partial reveal must be host-green only; got {set(lit.values())!r}"
+        )
+
+        # Full reveal: the gate no longer applies, so the token IS red again.
+        w2 = TickerMessage(
+            text=":sun: :x:",
+            font_color=host,
+            center=False,
+            animation=Typewriter(frames_per_char=1, chars_per_frame=1),
+        )
+        w2._frame_count = 7
+        c2 = self._stub()
+        w2.draw(c2)
+        full_colors = {v for v in c2._pixels.values() if v != (0, 0, 0)}
+        assert tok in full_colors, (
+            "at full reveal the token must colorize — the gate should only "
+            "suppress partial emoji-present frames"
+        )
+
 
 class TestTickerCountdownColorProvider:
     def test_constructor_wraps_raw_color_in_constant_provider(self):

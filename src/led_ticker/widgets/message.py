@@ -393,6 +393,24 @@ class TickerMessage(FrameAwareBase):
                 self._token.resolve_segments(get_data_registry()),
                 self.frame_for("font_color"),
             )
+            # Drift guard: a typewriter reveal can slice `visible_text` to a
+            # raw PREFIX that CUTS an inline emoji slug (e.g. ":su" from
+            # ":sun:"). `draw_with_emoji` then reparses those partial-slug
+            # chars as LITERAL text, advancing its char_index over them — but
+            # the override was built over `full_text` with the whole emoji
+            # slug SKIPPED (0 positions). The emoji-excluding indices drift and
+            # the partial-slug chars would render in the TOKEN color instead of
+            # the host color. Gate the override OFF for these partial
+            # emoji-present frames; the token colorizes correctly once the
+            # message is fully revealed (visible_text == full_text). The
+            # non-emoji typewriter case has no slug to cut — its prefix indices
+            # stay aligned, so colored tokens keep working there.
+            if (
+                self.animation is not None
+                and self._has_emoji
+                and visible_text != full_text
+            ):
+                token_override = None
 
         # Run the text paint branches only when we are either on a live
         # (non-rotating) draw or on the FIRST rotating frame of a spin

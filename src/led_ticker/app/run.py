@@ -268,6 +268,33 @@ async def _idle_when_all_scheduled_out(
     return True
 
 
+def _section_has_content(
+    title: Any, widgets: list[Any], breaker: Any
+) -> tuple[bool, list[Any]]:
+    """Whether a section pass has anything to show this cycle, plus the
+    expanded widget rotation for reuse by the caller (avoids a second
+    `_expand_sources` call for `first_widget`).
+
+    A title always counts as content — it renders regardless of the widget
+    rotation. Otherwise content requires at least one widget to survive
+    `_expand_sources` (containers expanded to `feed_stories`; schedule /
+    `should_display()` / breaker filters applied) this pass. An empty
+    result means every widget is scheduled out, filtered, or tripped —
+    including a Container with zero `feed_stories` (e.g. a boot-time RSS
+    feed before its first successful poll). The caller must NOT mark the
+    section as "ran" in that case: doing so previously left the panel on
+    its last drawn frame while busy-spinning the outer loop (Fix 1,
+    2026-07-15) instead of blanking + idling via
+    `_idle_when_all_scheduled_out`.
+    """
+    if title:
+        return True, []
+    if not widgets:
+        return False, []
+    expanded = _expand_sources(widgets, breaker)
+    return bool(expanded), expanded
+
+
 async def _build_widget_guarded(
     widget_cfg: Any,
     *,
@@ -991,14 +1018,6 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                                 section_index,
                             )
                             continue
-                        _any_section_ran = True
-                        status_board.record_section(
-                            index=section_index,
-                            total=len(config.sections),
-                            mode=section.mode,
-                            title=str((section.title or {}).get("text", "")),
-                            widget_count=len(section.widgets),
-                        )
                         notif_queue: asyncio.Queue[Any] = asyncio.Queue()
                         widgets: list[Any] = []
                         runtime_coerce: list[Any] = []
@@ -1039,6 +1058,33 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                             config_dir=config_path.parent,
                             default_bg_color=section.bg_color,
                             panel_h_for_warning=panel_h_for_warning,
+                        )
+
+                        # Widget-level all-scheduled-out gate: a section with NO
+                        # section-level schedule can still end up with nothing to
+                        # show if every widget's OWN `schedule = {...}` is
+                        # inactive (or a Container is currently empty). Skip the
+                        # rest of the section body the same way the section-level
+                        # gate above does — _any_section_ran stays False so
+                        # `_idle_when_all_scheduled_out` blanks + idles instead of
+                        # leaving the panel on its last drawn frame.
+                        _has_content, _expanded_widgets = _section_has_content(
+                            title, widgets, render_breaker
+                        )
+                        if not _has_content:
+                            logging.debug(
+                                "section %d skipped: all widgets scheduled out "
+                                "(empty rotation)",
+                                section_index,
+                            )
+                            continue
+                        _any_section_ran = True
+                        status_board.record_section(
+                            index=section_index,
+                            total=len(config.sections),
+                            mode=section.mode,
+                            title=str((section.title or {}).get("text", "")),
+                            widget_count=len(section.widgets),
                         )
                         run_method = RUN_MODES.get(
                             section.mode,
@@ -1081,9 +1127,8 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         # `incoming.draw()` call has a real widget to render.
                         if title:
                             first_widget = title
-                        elif widgets:
-                            expanded = _expand_sources(widgets, render_breaker)
-                            first_widget = expanded[0] if expanded else None
+                        elif _expanded_widgets:
+                            first_widget = _expanded_widgets[0]
                         else:
                             first_widget = None
                         just_transitioned = _entry_transition_active(

@@ -54,16 +54,24 @@ def _frame():
 class TestIdleWhenAllScheduledOut:
     def test_sections_ran_resets_dark(self, caplog):
         frame = _frame()
+        existing_canvas = Mock(name="existing_dark_canvas")
         with caplog.at_level(logging.INFO):
-            dark = asyncio.run(_idle_when_all_scheduled_out(frame, True, True))
+            dark, dark_canvas = asyncio.run(
+                _idle_when_all_scheduled_out(frame, True, True, existing_canvas)
+            )
         assert dark is False
+        assert dark_canvas is None
         assert "waking" in caplog.text
         frame.get_clean_canvas.assert_not_called()
+        frame.swap.assert_not_called()
 
     def test_sections_ran_stays_quiet_when_not_dark(self, caplog):
         with caplog.at_level(logging.INFO):
-            dark = asyncio.run(_idle_when_all_scheduled_out(_frame(), True, False))
+            dark, dark_canvas = asyncio.run(
+                _idle_when_all_scheduled_out(_frame(), True, False, None)
+            )
         assert dark is False
+        assert dark_canvas is None
         assert caplog.text == ""
 
     def test_transition_to_dark_blanks_once_and_logs(self, caplog, monkeypatch):
@@ -75,19 +83,27 @@ class TestIdleWhenAllScheduledOut:
         monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
         frame = _frame()
         with caplog.at_level(logging.INFO):
-            dark = asyncio.run(_idle_when_all_scheduled_out(frame, False, False))
+            dark, dark_canvas = asyncio.run(
+                _idle_when_all_scheduled_out(frame, False, False, None)
+            )
         assert dark is True
         frame.get_clean_canvas.assert_called_once()
+        frame.get_clean_canvas.return_value.Clear.assert_called_once()
         frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
+        assert dark_canvas is frame.swap.return_value
         assert "panel dark" in caplog.text
         assert slept == [1.0]
 
     def test_already_dark_reswaps_every_iteration(self, caplog, monkeypatch):
-        """Fix B (2026-07-15): the dark path must keep swapping a clean
-        canvas every iteration (not just once at the dark transition) so
-        overlay hooks (busy_light) keep compositing and the status board's
+        """Fix B (2026-07-15): the dark path must keep swapping a canvas
+        every iteration (not just once at the dark transition) so overlay
+        hooks (busy_light) keep compositing and the status board's
         swap_count liveness counter keeps advancing all night. Logging
-        stays transition-only — quiet here since already dark."""
+        stays transition-only — quiet here since already dark. Fix
+        (2026-07-15, HIGH): the canvas being re-swapped must be the SAME
+        one threaded in via `dark_canvas` — `get_clean_canvas` must NOT be
+        called again, or the real backend leaks a native framebuffer every
+        tick."""
         slept = []
 
         async def _fake_sleep(s):
@@ -95,13 +111,77 @@ class TestIdleWhenAllScheduledOut:
 
         monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
         frame = _frame()
+        existing_canvas = Mock(name="existing_dark_canvas")
         with caplog.at_level(logging.INFO):
-            dark = asyncio.run(_idle_when_all_scheduled_out(frame, False, True))
+            dark, dark_canvas = asyncio.run(
+                _idle_when_all_scheduled_out(frame, False, True, existing_canvas)
+            )
         assert dark is True
-        frame.get_clean_canvas.assert_called_once()
-        frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
+        frame.get_clean_canvas.assert_not_called()
+        existing_canvas.Clear.assert_called_once()
+        frame.swap.assert_called_once_with(existing_canvas)
+        assert dark_canvas is frame.swap.return_value
         assert caplog.text == ""
         assert slept == [1.0]
+
+    def test_clear_runs_before_swap_each_iteration(self, monkeypatch):
+        """Requirement: the dark canvas is Cleared before it's handed to
+        swap() — Clear erases whatever an overlay hook painted onto this
+        same buffer two swaps ago so it doesn't accumulate."""
+
+        async def _fake_sleep(s):
+            pass
+
+        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
+        frame = _frame()
+        canvas = frame.get_clean_canvas.return_value
+        order = []
+        canvas.Clear.side_effect = lambda: order.append("clear")
+
+        def _fake_swap(c):
+            order.append("swap")
+            return frame.swap.return_value
+
+        frame.swap.side_effect = _fake_swap
+        asyncio.run(_idle_when_all_scheduled_out(frame, False, False, None))
+        assert order == ["clear", "swap"]
+
+    def test_dark_canvas_cycles_through_swap_chain_no_leak(self, monkeypatch):
+        """The point of this fix (HIGH, real-hardware memory leak):
+        get_clean_canvas is the ONLY per-episode allocation. Across N
+        consecutive dark iterations, swap is called N times and each
+        swap's argument is the PREVIOUS swap's return value — the double
+        buffer cycles through the swap chain (mirroring the
+        `swapping_frame` double-buffer contract in tests/conftest.py)
+        instead of a fresh framebuffer being allocated every second."""
+
+        async def _fake_sleep(s):
+            pass
+
+        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
+
+        frame = Mock()
+        initial_canvas = Mock(name="clean_canvas")
+        frame.get_clean_canvas.return_value = initial_canvas
+        frame.swap.side_effect = lambda c: Mock(name="swapped")
+
+        n = 5
+        returned_canvases = []
+        swap_call_args = []
+        dark_canvas = None
+        was_dark = False
+        for _ in range(n):
+            was_dark, dark_canvas = asyncio.run(
+                _idle_when_all_scheduled_out(frame, False, was_dark, dark_canvas)
+            )
+            swap_call_args.append(frame.swap.call_args.args[0])
+            returned_canvases.append(dark_canvas)
+
+        assert frame.get_clean_canvas.call_count == 1
+        assert frame.swap.call_count == n
+        assert swap_call_args[0] is initial_canvas
+        for i in range(1, n):
+            assert swap_call_args[i] is returned_canvases[i - 1]
 
 
 class TestOnDisplayDarkTransition:
@@ -281,12 +361,13 @@ class TestWidgetLevelAllOutIdleWiring:
         # as it does for the section-level all-out case.
         frame = _frame()
         with caplog.at_level(logging.INFO):
-            dark = asyncio.run(
-                _idle_when_all_scheduled_out(frame, any_section_ran, False)
+            dark, dark_canvas = asyncio.run(
+                _idle_when_all_scheduled_out(frame, any_section_ran, False, None)
             )
         assert dark is True
         frame.get_clean_canvas.assert_called_once()
         frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
+        assert dark_canvas is frame.swap.return_value
         assert "panel dark" in caplog.text
         assert slept == [1.0]
 
@@ -308,7 +389,11 @@ class TestWidgetLevelAllOutIdleWiring:
         assert expanded == [widget]
 
         frame = _frame()
+        existing_canvas = Mock(name="existing_dark_canvas")
         with caplog.at_level(logging.INFO):
-            dark = asyncio.run(_idle_when_all_scheduled_out(frame, has_content, True))
+            dark, dark_canvas = asyncio.run(
+                _idle_when_all_scheduled_out(frame, has_content, True, existing_canvas)
+            )
         assert dark is False
+        assert dark_canvas is None
         assert "waking" in caplog.text

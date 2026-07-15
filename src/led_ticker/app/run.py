@@ -247,29 +247,46 @@ def _section_schedule_active(section: Any) -> bool:
 
 
 async def _idle_when_all_scheduled_out(
-    led_frame: Any, any_section_ran: bool, was_dark: bool
-) -> bool:
+    led_frame: Any, any_section_ran: bool, was_dark: bool, dark_canvas: Any
+) -> tuple[bool, Any]:
     """When EVERY section sat outside its schedule window this cycle, blank
     the panel (a closed storefront going dark is correct behavior, not a
     freeze) and idle 1s so the outer loop's reload/restart checks stay
-    responsive. Re-blanks at 1 Hz so overlay hooks (e.g. busy_light, which
-    composites inside `frame.swap()`) keep compositing and the status
-    board's `swap_count` liveness counter keeps advancing all night — logs
-    only on the dark/wake TRANSITIONS, never per iteration. Returns the new
-    dark state."""
+    responsive.
+
+    `led_frame.get_clean_canvas()` is fetched exactly ONCE per dark episode
+    — on the False->True (waking->dark) transition — never per iteration.
+    On the real backend, `get_clean_canvas` -> `RgbMatrixBackend.create_canvas`
+    -> the C++ `CreateFrameCanvas()`, which retains every framebuffer it
+    creates until process exit; fetching a fresh one every 1 Hz tick leaked
+    ~3,600 native framebuffers/hour on an overnight-dark panel — enough to
+    OOM the bigsign before morning (HIGH, real-hardware finding). Every dark
+    iteration instead reuses `dark_canvas`: `Clear()` it (erasing whatever
+    an overlay hook painted onto this same buffer two swaps ago) then thread
+    it through `led_frame.swap()` (constraint #1: capture the return — the
+    previous front buffer becomes the new back buffer), so the double
+    buffer just cycles indefinitely with zero net allocation while overlay
+    hooks (e.g. busy_light, which composites inside `frame.swap()`) keep
+    compositing and the status board's `swap_count` liveness counter keeps
+    advancing all night. Logs only on the dark/wake TRANSITIONS, never per
+    iteration. Returns `(now_dark, dark_canvas)`; callers thread
+    `dark_canvas` back in on the next call. Waking (either branch above)
+    always returns `dark_canvas=None` so the next dark episode re-fetches
+    fresh rather than reusing a stale reference.
+    """
     if any_section_ran:
         if was_dark:
             logging.info("schedule: a section is active again — panel waking")
-        return False
+        return False, None
     if not was_dark:
         logging.info(
             "schedule: every section is outside its schedule window — panel dark"
         )
-    canvas = led_frame.get_clean_canvas()
-    canvas = led_frame.swap(canvas)  # constraint #1: capture the swap return
-    del canvas  # next cycle re-fetches a clean canvas; nothing draws meanwhile
+        dark_canvas = led_frame.get_clean_canvas()  # the ONLY fetch per episode
+    dark_canvas.Clear()
+    dark_canvas = led_frame.swap(dark_canvas)  # constraint #1: capture the swap return
     await asyncio.sleep(1.0)
-    return True
+    return True, dark_canvas
 
 
 def _on_display_dark_transition(
@@ -961,6 +978,7 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                 _empty_playlist_warned = False
                 _any_section_ran = True  # first pass: no idle before sections run
                 _display_dark = False
+                _dark_canvas: Any = None
                 while True:
                     # Belt-and-suspenders outer-loop check (once per full
                     # playlist cycle). The per-section check below and the
@@ -1000,8 +1018,8 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                     if _idled:
                         continue
                     _was_dark = _display_dark
-                    _display_dark = await _idle_when_all_scheduled_out(
-                        led_frame, _any_section_ran, _display_dark
+                    _display_dark, _dark_canvas = await _idle_when_all_scheduled_out(
+                        led_frame, _any_section_ran, _display_dark, _dark_canvas
                     )
                     _dark_reset = _on_display_dark_transition(_was_dark, _display_dark)
                     if _dark_reset is not None:

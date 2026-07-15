@@ -7,7 +7,9 @@ brightness_for() and assigns the result to matrix.brightness.
 
 import logging
 import re
+import weakref
 from datetime import datetime
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import attrs
@@ -297,3 +299,39 @@ def parse_visibility_schedule(raw: object, *, location: str) -> VisibilitySchedu
         )
     days = frozenset(_DAYS.index(d) for d in raw_days)
     return VisibilitySchedule(window=TimeWindow(start=start, end=end, days=days))
+
+
+# Widget -> VisibilitySchedule bindings. Keyed by id() because widgets are
+# slotted @attrs.define classes: no attribute injection possible, and
+# eq=True makes them unhashable (no WeakKeyDictionary). Values hold a
+# weakref so hot-reload-evicted widgets don't accumulate; the weakref
+# callback removes the entry before the id can be reused.
+_BINDINGS: dict[int, tuple[Any, VisibilitySchedule]] = {}
+
+
+def bind_schedule(widget: Any, sched: VisibilitySchedule) -> None:
+    """Associate a core `schedule = {...}` with a built widget.
+
+    Called by app.factories._build_widget at construction time. Engine-side
+    lookup is `schedule_for`.
+    """
+    key = id(widget)
+    try:
+        ref = weakref.ref(widget, lambda _r, _key=key: _BINDINGS.pop(_key, None))
+    except TypeError:
+        # Object without weakref support (rare; not an attrs widget). The
+        # strong ref pins it for the process lifetime — acceptable for
+        # config-built widgets, and it keeps the id stable.
+        ref = lambda _w=widget: _w  # noqa: E731
+    _BINDINGS[key] = (ref, sched)
+
+
+def schedule_for(widget: Any) -> VisibilitySchedule | None:
+    """The widget's bound visibility schedule, or None (= always shown)."""
+    entry = _BINDINGS.get(id(widget))
+    if entry is None:
+        return None
+    ref, sched = entry
+    if ref() is not widget:  # stale entry / id reuse — treat as unbound
+        return None
+    return sched

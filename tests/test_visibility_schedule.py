@@ -1,12 +1,15 @@
 """VisibilitySchedule model + strict parser + timezone global."""
 
+import gc
 from datetime import datetime
 
 import pytest
 
 from led_ticker import schedule
 from led_ticker.schedule import (
+    bind_schedule,
     parse_visibility_schedule,
+    schedule_for,
     set_schedule_timezone,
 )
 
@@ -119,3 +122,56 @@ class TestSetScheduleTimezone:
             set_schedule_timezone("Not/AZone")
         assert schedule._SCHEDULE_TZ is None
         assert "invalid timezone" in caplog.text
+
+
+def _sched():
+    return parse_visibility_schedule({"start": "09:00", "end": "17:00"}, location="t")
+
+
+class TestBindingRegistry:
+    def test_unbound_widget_has_no_schedule(self):
+        class W:
+            pass
+
+        assert schedule_for(W()) is None
+
+    def test_bind_then_lookup(self):
+        class W:
+            pass
+
+        w = W()
+        s = _sched()
+        bind_schedule(w, s)
+        assert schedule_for(w) is s
+
+    def test_rebind_overwrites(self):
+        class W:
+            pass
+
+        w = W()
+        bind_schedule(w, _sched())
+        s2 = parse_visibility_schedule({"start": "10:00", "end": "11:00"}, location="t")
+        bind_schedule(w, s2)
+        assert schedule_for(w) is s2
+
+    def test_binding_evicted_on_gc(self):
+        class W:
+            pass
+
+        w = W()
+        bind_schedule(w, _sched())
+        key = id(w)
+        del w
+        gc.collect()
+        assert key not in schedule._BINDINGS
+
+    def test_slotted_attrs_widget_is_bindable(self):
+        # Real widgets are slotted @attrs.define classes; attrs' default
+        # weakref_slot=True makes them weakref-able. TickerMessage is the
+        # canonical case.
+        from led_ticker.widgets.message import TickerMessage
+
+        w = TickerMessage("hello")
+        s = _sched()
+        bind_schedule(w, s)
+        assert schedule_for(w) is s

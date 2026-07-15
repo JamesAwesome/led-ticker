@@ -507,6 +507,166 @@ async def test_per_section_reload_swaps_config_and_restarts_cycle(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Fix F.4 (2026-07-15): reload-mid-cycle wiring through the REAL run() loop.
+# Complements test_per_section_reload_swaps_config_and_restarts_cycle above
+# (which proves the config swap) with the dark-path interaction: a
+# per-section reload must pin `_any_section_ran = True` BEFORE the `break`
+# that restarts the cycle, even when every section seen so far that cycle
+# was empty/scheduled-out — otherwise the next `_idle_when_all_scheduled_out`
+# call would wrongly conclude the whole cycle was dark.
+# ---------------------------------------------------------------------------
+
+
+async def test_reload_mid_cycle_pins_any_section_ran_no_false_dark(monkeypatch, caplog):
+    """(a) A reload occurring while the sections seen so far this cycle were
+    all empty (no title, no widgets) must NOT cause the following cycle's
+    idle check to log "panel dark" / blank the panel — the reload's `break`
+    sets `_any_section_ran = True` first, so the cycle it cut short is not
+    mistaken for an all-scheduled-out cycle."""
+    import logging
+    from unittest import mock
+
+    from led_ticker.config import (
+        AppConfig,
+        DisplayConfig,
+        SectionConfig,
+        TransitionConfig,
+    )
+
+    def _empty_section():
+        return SectionConfig(mode="slideshow", title=None, widgets=[])
+
+    orig_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[_empty_section(), _empty_section()],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    new_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[_empty_section()],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    reload_result = run_mod._ReloadResult(
+        config=new_cfg,
+        default_section_trans=None,
+        schedule_task=None,
+        source_refresh_task=None,
+    )
+
+    class _StopApp(Exception):
+        pass
+
+    calls = {"n": 0}
+
+    async def _spy(*, config, **kwargs):
+        calls["n"] += 1
+        n = calls["n"]
+        if n == 1:
+            return None  # cycle-1 top: no change
+        if n == 2:
+            return None  # section A (empty): no reload here
+        if n == 3:
+            return reload_result  # section B: reload -> break
+        if n == 4:
+            return None  # cycle-2 top: no change
+        raise _StopApp("captured cycle-2 first section")
+
+    # NOTE: asyncio.sleep is deliberately NOT patched here (unlike the
+    # _idle_when_all_scheduled_out unit tests) — patching it globally would
+    # also fast-forward the unrelated 1 Hz source-refresh background task
+    # (spawn_source_refresh) that run() starts, turning it into a real
+    # busy-loop for the lifetime of the test. This test's main path never
+    # reaches a real sleep anyway (both idle checks see any_section_ran=True).
+    monkeypatch.setattr(
+        run_mod, "_detect_and_apply_reload", mock.AsyncMock(side_effect=_spy)
+    )
+
+    frame = mock.Mock(
+        **{
+            "get_clean_canvas.return_value": mock.Mock(height=16, width=160),
+            "overlay_hooks": [],
+        }
+    )
+
+    with (
+        mock.patch.object(run_mod, "load_config", return_value=orig_cfg),
+        mock.patch.object(run_mod, "build_frame_from_config", return_value=frame),
+        mock.patch.object(run_mod, "_configure_user_font_dir"),
+        caplog.at_level(logging.INFO),
+        pytest.raises(_StopApp),
+    ):
+        await run_mod.run(Path("ignored.toml"))
+
+    assert not any("panel dark" in r.getMessage() for r in caplog.records)
+    frame.get_clean_canvas.assert_not_called()
+
+
+async def test_scheduled_out_section_reaches_dark_path_via_run_loop(
+    monkeypatch, caplog
+):
+    """(b) The complementary wiring proof: a section with no title and no
+    widgets, run through the REAL run() loop (not the hand-simulated
+    `_idle_when_all_scheduled_out` unit tests), must actually reach the
+    dark path on the following cycle's idle check — "panel dark" logged,
+    a clean canvas fetched and swapped."""
+    import logging
+    from unittest import mock
+
+    from led_ticker.config import (
+        AppConfig,
+        DisplayConfig,
+        SectionConfig,
+        TransitionConfig,
+    )
+
+    cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[SectionConfig(mode="slideshow", title=None, widgets=[])],
+        between_sections=TransitionConfig(type="cut"),
+    )
+
+    class _StopApp(Exception):
+        pass
+
+    calls = {"n": 0}
+
+    async def _spy(*, config, **kwargs):
+        calls["n"] += 1
+        if calls["n"] >= 4:
+            raise _StopApp("observed dark path")
+        return None
+
+    # NOTE: asyncio.sleep is deliberately NOT patched (see the sibling test
+    # above) — the dark path's real `await asyncio.sleep(1.0)` is on this
+    # test's critical path and is harmless to let run for real; patching it
+    # globally would turn run()'s unrelated 1 Hz source-refresh background
+    # task into a real busy-loop for the test's lifetime.
+    monkeypatch.setattr(
+        run_mod, "_detect_and_apply_reload", mock.AsyncMock(side_effect=_spy)
+    )
+
+    frame = mock.Mock(
+        **{
+            "get_clean_canvas.return_value": mock.Mock(height=16, width=160),
+            "overlay_hooks": [],
+        }
+    )
+
+    with (
+        mock.patch.object(run_mod, "load_config", return_value=cfg),
+        mock.patch.object(run_mod, "build_frame_from_config", return_value=frame),
+        mock.patch.object(run_mod, "_configure_user_font_dir"),
+        caplog.at_level(logging.INFO),
+        pytest.raises(_StopApp),
+    ):
+        await run_mod.run(Path("ignored.toml"))
+
+    assert any("panel dark" in r.getMessage() for r in caplog.records)
+    frame.get_clean_canvas.assert_called()
+    frame.swap.assert_any_call(frame.get_clean_canvas.return_value)
+
+
+# ---------------------------------------------------------------------------
 # build_source_registry — startup guard (asymmetric with reload)
 # ---------------------------------------------------------------------------
 

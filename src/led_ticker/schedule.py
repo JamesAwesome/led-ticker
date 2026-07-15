@@ -28,29 +28,44 @@ def to_minutes(hhmm: str) -> int | None:
     return hh * 60 + mm
 
 
-@attrs.define(frozen=True)
-class _Window:
-    start: int  # minutes since midnight
-    end: int
-    brightness: int
-    days: frozenset[int]  # weekday ints; empty = every day
-
-
 def _day_ok(days: frozenset[int], weekday: int) -> bool:
     return not days or weekday in days
 
 
-def _window_active(w: _Window, minutes: int, weekday: int) -> bool:
-    """True if window `w` is active at `minutes` (since midnight) on `weekday`.
-    Same-day: start<=t<end. Wrap (start>end): pre-midnight part (t>=start) owned
-    by today; post-midnight tail (t<end) owned by yesterday (weekday-1)%7."""
-    if w.start < w.end:
-        return w.start <= minutes < w.end and _day_ok(w.days, weekday)
-    if minutes >= w.start:
-        return _day_ok(w.days, weekday)
-    if minutes < w.end:
-        return _day_ok(w.days, (weekday - 1) % 7)
-    return False
+@attrs.define(frozen=True)
+class TimeWindow:
+    """A wall-clock window: start/end minutes since midnight + day filter.
+
+    Shared primitive for brightness windows ([display.schedule]) and
+    visibility schedules (widget/section `schedule = {...}`) — one
+    implementation of the wrap semantics, so the two features can't drift.
+    """
+
+    start: int  # minutes since midnight
+    end: int
+    days: frozenset[int]  # weekday ints; empty = every day
+
+    def active_at(self, minutes: int, weekday: int) -> bool:
+        """Same-day: start<=t<end. Wrap (start>end): pre-midnight part
+        (t>=start) owned by today; post-midnight tail (t<end) owned by
+        yesterday (weekday-1)%7."""
+        if self.start < self.end:
+            return self.start <= minutes < self.end and _day_ok(self.days, weekday)
+        if minutes >= self.start:
+            return _day_ok(self.days, weekday)
+        if minutes < self.end:
+            return _day_ok(self.days, (weekday - 1) % 7)
+        return False
+
+
+@attrs.define(frozen=True)
+class _Window(TimeWindow):
+    brightness: int
+
+
+def _window_active(w: TimeWindow, minutes: int, weekday: int) -> bool:
+    """Thin delegate kept for existing call sites/tests."""
+    return w.active_at(minutes, weekday)
 
 
 @attrs.define(frozen=True)
@@ -83,7 +98,9 @@ class Scheduler:
                     list(raw_days),
                 )
                 continue
-            out.append(_Window(start, end, int(w.brightness), days))
+            out.append(
+                _Window(start=start, end=end, days=days, brightness=int(w.brightness))
+            )
         return cls(windows=tuple(out))
 
     def _active_index(self, minutes: int, weekday: int) -> int | None:
@@ -119,7 +136,12 @@ def unreachable_window_indices(cfg) -> list[int]:
         days = frozenset(_DAYS.index(d) for d in raw_days if d in _DAYS)
         if raw_days and not days:
             continue  # all-invalid days — skip without renumbering
-        indexed_windows.append((orig_idx, _Window(start, end, int(w.brightness), days)))
+        indexed_windows.append(
+            (
+                orig_idx,
+                _Window(start=start, end=end, days=days, brightness=int(w.brightness)),
+            )
+        )
 
     if not indexed_windows:
         return []

@@ -106,10 +106,10 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
     if isinstance(font, HiresFont):
         fallback = font.glyphs.get("?")
         fallback_advance = fallback.advance if fallback else 0
-        total_real = sum(
-            font.glyphs[c].advance if c in font.glyphs else fallback_advance
-            for c in text
-        )
+        total_real = 0
+        for c in text:
+            g = font.resolve_glyph(c)
+            total_real += g.advance if g is not None else fallback_advance
         # Hi-res glyph advances are REAL pixels. Logical (cf.
         # canvas.width on a ScaledCanvas) needs ceil-division by
         # scale; ceil so we never undercount and break overflow

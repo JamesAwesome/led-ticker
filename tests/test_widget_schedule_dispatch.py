@@ -2,6 +2,7 @@
 reserved against widget classes that try to declare it."""
 
 import asyncio
+from unittest import mock
 
 import attrs
 import pytest
@@ -15,7 +16,10 @@ SCHED = {"start": "09:00", "end": "17:00", "days": ["mon"]}
 
 def test_built_widget_is_bound_and_constructor_never_sees_schedule():
     widget = asyncio.run(
-        _build_widget({"type": "message", "text": "hi", "schedule": dict(SCHED)}, None)
+        _build_widget(
+            {"type": "message", "text": "hi", "schedule": dict(SCHED)},
+            mock.Mock(),
+        )
     )
     s = schedule_for(widget)
     assert s is not None
@@ -26,7 +30,7 @@ def test_built_widget_is_bound_and_constructor_never_sees_schedule():
 
 
 def test_widget_without_schedule_is_unbound():
-    widget = asyncio.run(_build_widget({"type": "message", "text": "hi"}, None))
+    widget = asyncio.run(_build_widget({"type": "message", "text": "hi"}, mock.Mock()))
     assert schedule_for(widget) is None
 
 

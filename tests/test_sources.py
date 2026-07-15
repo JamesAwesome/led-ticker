@@ -4,6 +4,8 @@ import datetime
 import attrs
 import pytest
 
+from led_ticker._compat import require_graphics
+from led_ticker.color_providers import _ConstantColor
 from led_ticker.sources import (
     ClockSource,
     DataRegistry,
@@ -137,6 +139,55 @@ def test_source_colliding_with_emoji_name_is_left_for_emoji():
     assert f.resolve(reg) == (":heart:", False)
 
 
+def _prov(rgb):
+    return _ConstantColor(require_graphics().Color(*rgb))
+
+
+def test_resolve_segments_plain_text_single_span():
+    reg = DataRegistry()
+    f = TokenizedField("hello world")
+    assert f.resolve_segments(reg) == [("hello world", None, False)]
+
+
+def test_resolve_segments_token_carries_source_color():
+    reg = DataRegistry()
+    s = StaticSource(id="x", value="VAL")
+    s.color = _prov([1, 2, 3])
+    s.refresh()  # populate .current (write-order contract: refresh before read)
+    reg.add(s)
+    segs = TokenizedField("a :x: b").resolve_segments(reg)
+    assert segs[0] == ("a ", None, False)
+    assert segs[1][0] == "VAL" and segs[1][1] is s.color and segs[1][2] is False
+    assert segs[2] == (" b", None, False)
+
+
+def test_resolve_segments_token_without_color_is_none():
+    reg = DataRegistry()
+    s = StaticSource(id="x", value="VAL")  # no .color set
+    s.refresh()
+    reg.add(s)
+    segs = TokenizedField(":x:").resolve_segments(reg)
+    assert segs == [("VAL", None, False)]
+
+
+def test_resolve_segments_emoji_marked_and_literal():
+    reg = DataRegistry()
+    # :sun: is a real emoji slug -> is_emoji True, color None, text kept as ":sun:"
+    segs = TokenizedField("hi :sun: yo").resolve_segments(reg)
+    assert segs[0] == ("hi ", None, False)
+    assert segs[1][2] is True and segs[1][0] == ":sun:"
+    assert segs[2] == (" yo", None, False)
+
+
+def test_resolve_segments_concat_equals_resolve():
+    reg = DataRegistry()
+    s = StaticSource(id="x", value="123")
+    reg.add(s)
+    f = TokenizedField("p :x: :sun: q :missing:")
+    flat, _ = f.resolve(reg)
+    assert "".join(t for t, _, _ in f.resolve_segments(reg)) == flat
+
+
 class TestSourceFactory:
     def test_get_source_class_known_types(self):
         from led_ticker.app.factories import get_source_class
@@ -219,6 +270,26 @@ class TestSourceFactory:
         )
         src = build_source(sc)
         assert src.value == ""
+
+    def test_build_source_coerces_color_and_reserves_it(self):
+        from led_ticker.app.factories import build_source
+        from led_ticker.config import SourceConfig
+
+        cfg = SourceConfig(
+            id="clk", type="clock", raw={"format": "%H:%M", "color": [1, 2, 3]}
+        )
+        src = build_source(cfg)
+        assert src.color is not None
+        c = src.color.color_for(0, 0, 1)
+        assert (c.red, c.green, c.blue) == (1, 2, 3)
+
+    def test_build_source_no_color_leaves_default_none(self):
+        from led_ticker.app.factories import build_source
+        from led_ticker.config import SourceConfig
+
+        cfg = SourceConfig(id="clk", type="clock", raw={"format": "%H:%M"})
+        src = build_source(cfg)
+        assert src.color is None
 
 
 def test_set_value_write_order_and_bump_only_on_change():

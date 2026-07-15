@@ -789,6 +789,89 @@ class TestDrawWithEmojiColorProvider:
         # The full draw produces non-zero advance (emoji + text rendered).
         assert advance > 0
 
+    def test_color_override_beats_provider(self):
+        """`color_override` maps a text-char index -> a Color (or None to
+        defer to the host provider). Indices with a non-None override win;
+        indices with None fall through to the provider's color_for — mirrors
+        the same per-char spy convention as the tests above."""
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.pixel_emoji import draw_with_emoji
+
+        red = Color(255, 0, 0)
+
+        override_calls: list[int] = []
+
+        def override(i):
+            override_calls.append(i)
+            return red if i in (2, 3) else None
+
+        provider_calls: list[int] = []
+
+        class _Green:
+            per_char = True
+
+            def color_for(self, frame, idx, total):
+                provider_calls.append(idx)
+                return Color(0, 255, 0)
+
+        canvas = _StubCanvas(width=160, height=16)
+        draw_with_emoji(
+            canvas,
+            FONT_DEFAULT,
+            cursor_pos=0,
+            y=8,
+            color=_Green(),
+            text="ABCD",
+            color_override=override,
+        )
+
+        # Override is consulted for every text-char index.
+        assert override_calls == [0, 1, 2, 3]
+        # Provider is only consulted where the override deferred (None).
+        assert provider_calls == [0, 1]
+
+    def test_color_override_none_is_byte_identical(self):
+        """Default `color_override=None` must render exactly as before —
+        no behavior change to the existing per-char / whole-string paths."""
+        from rgbmatrix import _StubCanvas
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import FONT_DEFAULT
+        from led_ticker.pixel_emoji import draw_with_emoji
+
+        class _Green:
+            per_char = True
+
+            def color_for(self, frame, idx, total):
+                return Color(0, 255, 0)
+
+        baseline_canvas = _StubCanvas(width=160, height=16)
+        baseline_advance = draw_with_emoji(
+            baseline_canvas,
+            FONT_DEFAULT,
+            cursor_pos=0,
+            y=8,
+            color=_Green(),
+            text=":taco: HI :taco:",
+        )
+
+        override_none_canvas = _StubCanvas(width=160, height=16)
+        override_none_advance = draw_with_emoji(
+            override_none_canvas,
+            FONT_DEFAULT,
+            cursor_pos=0,
+            y=8,
+            color=_Green(),
+            text=":taco: HI :taco:",
+            color_override=None,
+        )
+
+        assert baseline_advance == override_none_advance
+        assert baseline_canvas._pixels == override_none_canvas._pixels
+
 
 def test_partly_cloudy_in_both_registries():
     """partly_cloudy is a weather slug; it must be in both lowres and

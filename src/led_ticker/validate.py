@@ -357,6 +357,28 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
                         )
                     )
 
+        # Optional `color` field: dry-run the same coercion build_source runs
+        # at boot, so an invalid provider spec surfaces at preflight instead
+        # of at render time.
+        raw_color = src.raw.get("color")
+        if raw_color is not None:
+            from led_ticker.app.coercion import _coerce_color_provider
+
+            try:
+                _coerce_color_provider(raw_color, f"source[{src.id!r}] color")
+            except Exception as exc:
+                issues.append(
+                    ValidationIssue(
+                        rule=56,
+                        location=f"{loc}.color",
+                        severity="error",
+                        message=f"[[source]] {src.id!r} color is invalid: {exc}",
+                        fix=(
+                            "Use [r,g,b] or {style='...'} — same forms as font_color."
+                        ),
+                    )
+                )
+
     return issues
 
 

@@ -108,3 +108,30 @@ def test_widget_level_schedules_participate_in_sweep():
         ]
     )
     assert any("blank" in i.message for i in res.warnings)
+
+
+def test_title_schedule_is_a_static_error():
+    # Section titles are not schedulable (they bypass the engine's
+    # visibility gate) — `_build_title` raises at build time, but the
+    # static `validate` pass never calls `_build_title`, so without a
+    # dedicated rule this misconfiguration passes preflight clean.
+    title_with_schedule = (
+        "[playlist.section.title]\n"
+        'type = "message"\n'
+        'text = "hi"\n'
+        'schedule = { start = "09:00", end = "17:00" }'
+    )
+    res = _run(
+        sections=[SECTION.format(section_extra=title_with_schedule, widget_extra="")]
+    )
+    title_errors = [i for i in res.errors if "title" in i.location]
+    assert title_errors
+    assert any("schedule" in i.message for i in title_errors)
+
+
+def test_no_title_schedule_error_on_happy_path_config():
+    # Existing happy-path config (no title at all) must not trip the new rule.
+    res = _run()
+    assert not any(
+        "title" in i.location and "schedule" in i.message for i in res.errors
+    )

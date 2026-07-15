@@ -890,6 +890,34 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     fix_replacement_key="font_color",
                 )
             )
+
+        # Rule: title "schedule" is not supported. Titles route through
+        # `_build_widget` (so a `schedule` table would validate + bind) but
+        # the engine never gates titles through `_expand_sources` — titles
+        # bypass the visibility-schedule check entirely, so a bound
+        # schedule would silently do nothing. `_build_title`
+        # (app/factories.py) raises ValueError for this at build time, but
+        # `led-ticker validate`'s static pass never calls `_build_title` —
+        # only `section.widgets` are walked — so without this check the
+        # misconfiguration passes preflight clean and only surfaces from
+        # runtime logs. Mirrors the rule 41 check above.
+        if section.title and "schedule" in section.title:
+            issues.append(
+                ValidationIssue(
+                    rule=None,
+                    location=f"section[{i}].title",
+                    severity="error",
+                    message=(
+                        "[playlist.section.title] does not support"
+                        " 'schedule' — section titles are not schedulable"
+                        " in v1 (they bypass the engine's visibility gate)."
+                    ),
+                    fix=(
+                        "Schedule the section instead: add"
+                        " schedule = {...} to the [[playlist.section]] table."
+                    ),
+                )
+            )
     return issues
 
 

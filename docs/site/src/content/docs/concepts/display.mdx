@@ -66,9 +66,11 @@ This is a **brightness** schedule — it never changes what content is shown, on
 A schedule is a list of `[[display.schedule.windows]]` entries. Each window covers a time range and specifies a brightness:
 
 ```toml
+[display]
+timezone = "America/New_York"   # set this — fresh Pis are often UTC
+
 [display.schedule]
 enabled = true
-timezone = "America/New_York"   # set this — fresh Pis are often UTC
 
 [[display.schedule.windows]]
 start = "07:00"
@@ -145,7 +147,7 @@ This window is active from **Friday 23:00 through Saturday 06:59**. The early-Sa
 - **Boundary latency**: brightness changes land within approximately 30 seconds of the scheduled time, not instantly at the second.
 - **Step, not fade**: brightness jumps in one step when a window becomes active — there is no fade animation.
 - **Schedule changes need a restart**: the schedule is read at startup; there is no live-reload. Restart the display process after editing `[display.schedule]`.
-- **Timezone**: `timezone` accepts any IANA name (e.g. `"America/New_York"`, `"Europe/London"`). Leave it empty to use the Pi's system time — but set it explicitly if you can; freshly imaged Pis default to UTC, which will shift your windows by several hours.
+- **Timezone**: the brightness scheduler reads the top-level `[display] timezone` (an IANA name, e.g. `"America/New_York"`, `"Europe/London"`; empty = the Pi's system time). Set it explicitly if you can; freshly imaged Pis default to UTC, which will shift your windows by several hours. `[display.schedule] timezone` is also available as a per-feature override — when set, it wins for brightness only. [Widget visibility schedules](/concepts/scheduling/) always read the top-level `[display] timezone`, so setting only the per-feature override leaves visibility on the system clock. Set the top-level field so both features share one clock.
 
 ### Viewing the resolved schedule
 

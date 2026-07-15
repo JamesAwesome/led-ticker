@@ -19,14 +19,14 @@ They share the same `start`/`end`/`days` semantics (including the overnight wrap
 The classic use case: swap an "OPEN" graphic for a "CLOSED" one at the same two times every day.
 
 <TomlExample
-  title="Two widgets, opposite windows"
+  title="Two widgets, complementary windows"
   code={`[[playlist.section]]
 mode = "slideshow"
 
 [[playlist.section.widget]]
 type = "image"
 path = "open.png"
-schedule = { start = "09:00", end = "17:00", days = ["mon", "tue", "wed", "thu", "fri"] }
+schedule = { start = "09:00", end = "17:00" }
 
 [[playlist.section.widget]]
 type = "image"
@@ -34,7 +34,23 @@ path = "closed.png"
 schedule = { start = "17:00", end = "09:00" }`}
 />
 
-`open.png` is only shown Monday–Friday, 09:00 up to (not including) 17:00. `closed.png` has no `days`, so it's active every day of the week — its window runs from 17:00 through 08:59 the next morning, wrapping past midnight because `start > end`. Together the two windows cover the full 24 hours on weekdays; on weekends `closed.png` is the only one whose window is ever active, so the sign is closed all weekend.
+Neither widget has `days`, so both are active every day of the week. `open.png`'s window runs 09:00 up to (not including) 17:00; `closed.png`'s window runs from 17:00 through 08:59 the next morning, wrapping past midnight because `start > end`. Every minute of every day falls in exactly one of the two windows, so the sign always has something to show — a gapless, 24/7 handoff between "open" and "closed."
+
+### Weekday-only hours
+
+Real storefronts are usually closed on weekends, not just overnight. Add `days` to `open.png` to restrict it to weekdays:
+
+<TomlExample
+  title="open.png restricted to weekdays"
+  code={`[[playlist.section.widget]]
+type = "image"
+path = "open.png"
+schedule = { start = "09:00", end = "17:00", days = ["mon", "tue", "wed", "thu", "fri"] }`}
+/>
+
+This breaks the gapless coverage from the previous example: `closed.png` still has no `days`, so its window is still only 17:00–08:59 every day — it does **not** expand to cover Saturday and Sunday daytime. The result is a gap: Saturday and Sunday 09:00–17:00 is covered by **neither** widget, so the section has nothing to display and the panel goes dark for those eight hours (see [Behavior notes](#behavior-notes) below on why a scheduled-out sign goes dark on purpose). This is exactly the situation `led-ticker validate`'s blank-interval warning, mentioned above, is built to catch — it will warn and list `sat 09:00–17:00` and `sun 09:00–17:00` so you can decide whether that's intentional (a real weekend closure) or a bug (forgot to add a weekend `closed.png` window).
+
+If a weekend closure is what you want, add a `closed.png` window (or a section-level `schedule`) that explicitly covers the weekend daytime hours too, so the gap is filled on purpose rather than by omission.
 
 `schedule` also works on a **section**, gating the whole section (all of its widgets) at once:
 
@@ -52,7 +68,9 @@ Because the check lives in the engine, `schedule` composes with a widget's own v
 
 ## One clock: `[display] timezone`
 
-Both visibility and brightness schedules read the wall clock from the same place: the top-level `[display] timezone` field (an IANA name, e.g. `"America/New_York"`; empty string = the machine's system local time).
+Visibility schedules read the wall clock from exactly one place: the top-level `[display] timezone` field (an IANA name, e.g. `"America/New_York"`; empty string = the machine's system local time). There is no per-widget or per-section timezone override.
+
+The brightness scheduler (`[display.schedule]`, see [Display: Scheduling](/concepts/display/#scheduling)) reads the same top-level field too — but it also accepts its own `[display.schedule] timezone`, a per-feature override that, when set, wins for brightness only. Set that field alone and brightness moves to the new zone while visibility schedules stay on `[display] timezone` (or the system clock, in Docker). Set the top-level `[display] timezone` instead and both features share one clock.
 
 <Aside type="caution" title="Docker defaults to UTC">
 A freshly-imaged Pi — and most Docker base images — run on UTC, not your local time zone. If you write `schedule = { start = "09:00", end = "17:00" }` and forget to set `timezone`, "09:00" means 09:00 UTC, which is very much not 9 a.m. on your storefront. Set `[display] timezone` explicitly.

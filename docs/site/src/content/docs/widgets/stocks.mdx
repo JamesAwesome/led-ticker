@@ -7,23 +7,31 @@ import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The **stocks.ticker** widget is provided by the **[stocks](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/stocks)** package in the led-ticker-plugins monorepo, referenced in config as `type = "stocks.ticker"`. It shows live equity prices — symbol, price, change, and a rolling sparkline — pulled from [Finnhub](https://finnhub.io/), auto-picking a scrolling crawl, a held card, or a full dashboard to fit your sign's real width. The same package also contributes a `stocks.quote` [value-token source](/concepts/value-tokens/) and a `stocks.trend` [color provider](/concepts/color-providers/), so a live, trend-colored price can drop into any `message` widget too.
+A live stock price on your wall that updates itself all day — not a phone app you have to unlock and refresh. The **stocks.ticker** widget, provided by the **[stocks](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/stocks)** package in the led-ticker-plugins monorepo (`type = "stocks.ticker"`), shows live equity prices — symbol, price, change, and a rolling sparkline — pulled from [Finnhub](https://finnhub.io/), auto-picking a scrolling crawl, a held card, or a full dashboard to fit your sign's real width. The same package also contributes a `stocks.quote` [value-token source](/concepts/value-tokens/) and a `stocks.trend` [color provider](/concepts/color-providers/), so a live, trend-colored price can drop into any `message` widget too — that's the part a phone app or a standalone ticker gadget can't do: your stock feed sharing the same rotation as everything else on the sign.
+
+**v1 tracks US-listed equities only** — crypto, indices, and FX aren't supported yet (a forex-looking symbol is rejected at config-load; see [Data source](#data-source-finnhub) below). A few places this shows up: a home trading desk keeping a handful of positions in view, an office or lobby sign mixing market data into the daily rotation, or a storefront running its own stock as a conversation piece — the sample symbol used throughout this page, `DKS`, is Dick's Sporting Goods, a deliberate storefront hint.
 
 <DemoGif
   src="/demos-pinned/stocks-dashboard-hero.gif"
   caption="dashboard layout on a long panel: hero symbol, price, and sparkline on the left, a scrolling watch column of the rest of the list, and a pulsing LIVE chip — a self-updating stock dashboard on your sign."
 />
 
-<Aside type="tip">
-  Every demo GIF on this page renders in **demo mode** (`demo = true`, no Finnhub token) so prices
-  move deterministically and the page never depends on live markets or a key. Live mode looks the
-  same — it just pulls real quotes from Finnhub instead of a synthetic random walk. See [Try it in
-  demo mode](#try-it-in-demo-mode) and [Data source (Finnhub)](#data-source-finnhub) below.
-</Aside>
-
 **Requires led-ticker-core >= 4.9.**
 
+<Aside type="tip">
+  Want to see every layout, the price-flash, and the LIVE-chip pulse right now? Set `demo = true`
+  and skip to [Try it in demo mode](#try-it-in-demo-mode) below — no Finnhub token, no network call,
+  about two minutes. Every GIF on this page was rendered that way; live mode looks identical, it
+  just pulls real quotes from Finnhub instead of a synthetic random walk.
+</Aside>
+
+Install the plugin first (steps just below this snippet), then drop it into a section:
+
 ```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 5
+
 [[playlist.section.widget]]
 type = "stocks.ticker"
 symbols = ["DKS", "MSFT", "NVDA"]
@@ -46,6 +54,10 @@ Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/
 Set `demo = true` to render a synthetic random-walk feed instead of calling Finnhub — no `FINNHUB_API_TOKEN` needed, no internet required:
 
 ```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 5
+
 [[playlist.section.widget]]
 type = "stocks.ticker"
 symbols = ["DKS", "MSFT", "NVDA", "TSLA"]
@@ -135,6 +147,10 @@ interval = 1
 format = "{price} {pct}"
 color = {style = "stocks.trend", symbol = "DKS"}
 
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+
 [[playlist.section.widget]]
 type = "message"
 text = "DKS :stocks.dks:"
@@ -145,6 +161,13 @@ font_color = [255, 255, 255]
 ```
 
 The `:stocks.dks:` token renders in the source's own `color` — here the `stocks.trend` provider, which tints green when the symbol is up on the day and red when it's down — while the literal `"DKS "` text keeps the message's `font_color`. That's mixed colors on one line, in your own font and layout, not a fixed widget appearance.
+
+<Aside type="note">
+  `font = "Inter-Bold"` / `font_size = 44` above are hi-res — they need a scaled sign
+  (`default_scale > 1`, e.g. bigsign). On a scale-1 panel (e.g. smallsign), drop both fields and
+  let the widget fall back to its default BDF font; the mixed-color `:stocks.dks:` token still
+  works, just rendered in the smaller bitmap font.
+</Aside>
 
 A few things to know before you reach for this:
 
@@ -207,7 +230,7 @@ bottom_font_threshold = 80
 bottom_color = {style = "stocks.trend", symbol = "DKS"}
 ```
 
-Three sections, each on `mode = "slideshow"`: a plain welcome message, the live `stocks.ticker` card, and a `two_row` header where the bottom row is an embedded `:stocks.dks:` token colored directly by `bottom_color` — the same per-row color field described on [Color providers](/concepts/color-providers/). Your regular content and a live market feed share one rotation with no special wiring between them.
+Three sections, each on `mode = "slideshow"`: a plain welcome message, the live `stocks.ticker` card, and a `two_row` header where the bottom row is an embedded `:stocks.dks:` token colored directly by `bottom_color` — the same per-row color field described on [Color providers](/concepts/color-providers/). Your regular content and a live market feed share one rotation with no special wiring between them. (The `font`/`font_size` fields above are hi-res too — see the [scale-1 note](#embed-a-live-price-anywhere) if you're on a small panel.)
 
 ## It's alive
 
@@ -275,7 +298,13 @@ font_color = {style = "stocks.trend", symbol = "DKS", up = [0, 255, 0], down = [
 
 ## Data source (Finnhub)
 
-Quotes come from [Finnhub](https://finnhub.io/), a market-data API with a free tier. Set `FINNHUB_API_TOKEN` in your `.env` — **never in `config.toml`** (a `token` field in a widget block is accepted for backward compatibility but silently ignored; the token always resolves from the environment). No token, or `demo = true` on any stocks widget in the config, falls back to the offline demo feed described above.
+Quotes come from [Finnhub](https://finnhub.io/), a market-data API with a free tier:
+
+1. Sign up free at [finnhub.io/register](https://finnhub.io/register).
+2. Copy the API key from your Finnhub dashboard.
+3. Add it to the `.env` file that sits next to your config — not `config.toml` itself: `FINNHUB_API_TOKEN=your_key`.
+
+**Never put the token in `config.toml`** — a `token` field in a widget block is accepted for backward compatibility but silently ignored; the token always resolves from the environment. No token, or `demo = true` on any stocks widget in the config, falls back to the offline demo feed described above.
 
 A few behaviors worth knowing before you deploy against real markets:
 
@@ -286,12 +315,13 @@ A few behaviors worth knowing before you deploy against real markets:
 
 ## If it doesn't work
 
+- **Nothing shows up at all — a blank panel.** Most likely the widget block isn't nested inside a `[[playlist.section]]` — a bare `[[playlist.section.widget]]` with no section parent yields zero sections and a blank sign; every runnable snippet on this page shows the wrapper. Also worth ruling out: the `stocks` plugin isn't installed yet (see the install step near the top of this page) — though a missing plugin usually surfaces as `unknown widget type 'stocks.ticker'` at config-load rather than a silent blank panel.
 - **A `:stocks.xyz:` token shows no color — it's whatever color the widget already was.** Either the symbol has no feeder in this config (add a `stocks.quote` source or include it in a `stocks.ticker` widget's `symbols`), or you're on core < 4.14.0 (source-declared token color needs core >= 4.14.0 — see [Embed a live price anywhere](#embed-a-live-price-anywhere)).
 - **The whole line renders in one flat color, not per-token.** Same core-version check as above — an older core resolves the token's text correctly but ignores the source's `color` field entirely.
 - **A symbol shows an em-dash (`—`) price, or a `stocks.trend` token stays gray.** The symbol has no data yet (first fetch still in flight) or Finnhub returned nothing for it — double-check the ticker is spelled correctly and is a real, currently-listed equity.
 - **`stocks.ticker: '<symbol>' looks like forex` at config-load.** A symbol containing `/` is treated as a forex pair, which Finnhub's free tier doesn't serve. Remove it or upgrade to a paid Finnhub tier.
 
-**Full documentation** — implementation notes and the layout design handoff — lives in the [stocks package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/stocks/README.md).
+Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. From there, the [Plugins page](/plugins/available/) has the full catalog entry alongside the rest of the plugins. Implementation notes and the layout design handoff live in the [stocks package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/stocks/README.md) if you want to go deeper.
 
 <RelatedPages
   slugs={[

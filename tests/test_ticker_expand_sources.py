@@ -1,8 +1,13 @@
 """_expand_sources drops widgets that opt out of a pass via should_display()."""
 
 from datetime import date, timedelta
+from typing import cast
 
-from led_ticker.schedule import bind_schedule, parse_visibility_schedule
+from led_ticker.schedule import (
+    VisibilitySchedule,
+    bind_schedule,
+    parse_visibility_schedule,
+)
 from led_ticker.ticker import _expand_sources
 from led_ticker.widgets.count import TickerCountdown, TickerCountup
 
@@ -93,20 +98,20 @@ class TestScheduleGate:
 
     def test_inactive_schedule_is_dropped(self):
         w = _Plain()
-        bind_schedule(w, _FakeSchedInactive())
+        bind_schedule(w, cast(VisibilitySchedule, _FakeSchedInactive()))
         assert _expand_sources([w]) == []
 
     def test_raising_schedule_keeps_widget(self):
         # Same contract as should_display: a check that raises must never
         # crash the render loop or silently hide content.
         w = _Plain()
-        bind_schedule(w, _FakeSchedBoom())
+        bind_schedule(w, cast(VisibilitySchedule, _FakeSchedBoom()))
         assert _expand_sources([w]) == [w]
 
     def test_schedule_ands_with_should_display(self):
         # Inactive schedule hides even when should_display() says show...
         w1 = _Shown()
-        bind_schedule(w1, _FakeSchedInactive())
+        bind_schedule(w1, cast(VisibilitySchedule, _FakeSchedInactive()))
         assert _expand_sources([w1]) == []
         # ...and should_display() False hides even inside the window.
         w2 = _Hidden()
@@ -116,7 +121,7 @@ class TestScheduleGate:
     def test_container_is_gated_before_expansion(self):
         story = _Plain()
         c = _Container([story])
-        bind_schedule(c, _FakeSchedInactive())
+        bind_schedule(c, cast(VisibilitySchedule, _FakeSchedInactive()))
         assert _expand_sources([c]) == []
 
     def test_container_with_active_schedule_expands(self):

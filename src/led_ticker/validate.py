@@ -1,5 +1,6 @@
 """Config file validator for led-ticker."""
 
+import asyncio
 import contextlib
 import copy
 import datetime
@@ -3304,15 +3305,22 @@ async def validate_config(
     the TOML was materialized to a throwaway temp file (the web UI's text
     validate) so resolution anchors to the real config directory.
     """
-    pre = _validate_static_prebuild(path, strict=strict, config_dir=config_dir)
+    pre = await asyncio.to_thread(
+        _validate_static_prebuild, path, strict=strict, config_dir=config_dir
+    )
     if pre.early_result is not None:
         return pre.early_result
     assert pre.config is not None
     build_errors, build_warnings, migration_errors = await _run_build_checks(
         pre.config.sections, pre.effective_config_dir
     )
-    return _validate_static_postbuild(
-        pre, build_errors, build_warnings, migration_errors, strict=strict
+    return await asyncio.to_thread(
+        _validate_static_postbuild,
+        pre,
+        build_errors,
+        build_warnings,
+        migration_errors,
+        strict=strict,
     )
 
 

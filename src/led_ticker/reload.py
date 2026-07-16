@@ -4,6 +4,7 @@ Editing config.toml while the display runs takes effect at the top of the next
 render cycle. Validation gates the swap; a bad/missing config never reaches the
 loop (the panel keeps running the old config)."""
 
+import asyncio
 import hashlib
 import logging
 import os
@@ -78,7 +79,7 @@ async def load_and_validate(path: Path) -> tuple[Any, list[str], bool]:
     if not result.valid:
         return None, [f"{i.location}: {i.message}" for i in result.errors], False
     try:
-        return load_config(path), [], False
+        return await asyncio.to_thread(load_config, path), [], False
     except FileNotFoundError:
         return None, [], True
     except Exception as exc:  # noqa: BLE001

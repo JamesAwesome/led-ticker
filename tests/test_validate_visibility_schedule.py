@@ -245,9 +245,9 @@ def test_forever_section_with_schedule_warns():
     msgs = _forever_scheduled_message(res)
     assert any("loop_count = 0" in m and "cycles forever" in m for m in msgs)
     # The fix must recommend a finite loop_count and must NOT recommend
-    # widget-level schedules as a substitute — under producer run-ahead
-    # that advice is false and following it silences the warning without
-    # fixing anything.
+    # widget-level schedules as a substitute — widget-level schedules only end
+    # the section if they leave a full-week gap; without one, the section-level
+    # gate is still never re-checked.
     fixes = _forever_scheduled_fix(res)
     assert any("finite loop_count" in f for f in fixes)
     assert not any("gate individual widgets" in f for f in fixes)

@@ -819,9 +819,8 @@ async def test_reload_to_empty_playlist_while_dark_keeps_cycling_swap(
     monkeypatch, caplog
 ):
     """Once the panel has committed to the dark state (past the debounce),
-    a reload to a zero-section config must keep swapping the SAME dark
-    canvas once per idled iteration — and must NOT fetch a new clean
-    canvas."""
+    a reload to a zero-section config must keep swapping — via
+    `_blank_swap` — once per idled iteration."""
     import logging
     from unittest import mock
 
@@ -895,11 +894,13 @@ async def test_reload_to_empty_playlist_while_dark_keeps_cycling_swap(
     ):
         await run_mod.run(Path("ignored.toml"))
 
-    # Exactly one fetch (the real dark commit, cycle 3) across the whole
-    # sequence, including the post-reload idled-while-dark cycles.
-    frame.get_clean_canvas.assert_called_once()
-    # Swap ran for: the real dark commit (1) + two idled-while-dark cycles
-    # after the reload landed the empty playlist (2) = 3 total.
+    # Every dark iteration (the real dark commit + the two idled-while-dark
+    # cycles after the reload landed the empty playlist) independently
+    # fetches and swaps via `_blank_swap` — no canvas retention threading
+    # anymore (Task 3); allocation-free steady state is the frame's own
+    # concern (LedFrame.get_clean_canvas recycling, pinned in
+    # tests/test_frame.py), not this loop's.
+    assert frame.get_clean_canvas.call_count == 3
     assert frame.swap.call_count == 3
     assert any("panel dark" in r.getMessage() for r in caplog.records)
     assert any(

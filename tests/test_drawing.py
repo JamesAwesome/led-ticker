@@ -443,3 +443,55 @@ class TestGetTextWidthMemoization:
         )
         assert result == result2
         assert len(_TEXT_WIDTH_CACHE) == _TEXT_WIDTH_CACHE_MAXSIZE
+
+
+class TestHiresTextWidthAndFit:
+    def test_width_positive_and_grows_with_size(self):
+        from led_ticker.drawing import hires_text_width
+
+        w22 = hires_text_width("EUR/USD", 22)
+        w11 = hires_text_width("EUR/USD", 11)
+        assert w22 > w11 > 0
+
+    def test_minus_sign_measures_as_hyphen(self):
+        """U+2212 draws as the hyphen glyph (resolve_glyph fallback) — the
+        measurement must agree with the draw, or right-aligned negatives
+        drift (the stocks '?'-overlap class)."""
+        from led_ticker.drawing import hires_text_width
+
+        assert hires_text_width("−1.98%", 22) == hires_text_width("-1.98%", 22)
+
+    def test_threshold_param_accepted(self):
+        from led_ticker.drawing import hires_text_width
+
+        # Same advances regardless of threshold (threshold affects lit
+        # pixels, not advances) — the param exists for font-cache sharing.
+        assert hires_text_width("AAPL", 22, threshold=80) == hires_text_width(
+            "AAPL", 22
+        )
+
+    def test_fit_keeps_design_size_when_it_fits(self):
+        from led_ticker.drawing import fit_text_size
+
+        assert fit_text_size("AAPL", (22, 18, 11), 10_000) == 22
+
+    def test_fit_steps_down_and_result_fits(self):
+        from led_ticker.drawing import fit_text_size, hires_text_width
+
+        budget = hires_text_width("64,906.62", 22) - 1  # 22 must NOT fit
+        size = fit_text_size("64,906.62", (22, 18, 16, 14, 12, 11), budget)
+        assert size < 22
+        assert hires_text_width("64,906.62", size) <= budget or size == 11
+
+    def test_fit_floor_when_nothing_fits(self):
+        from led_ticker.drawing import fit_text_size
+
+        assert fit_text_size("WWWWWWWWWW", (22, 11), 1) == 11
+
+    def test_fit_empty_sizes_raises(self):
+        import pytest
+
+        from led_ticker.drawing import fit_text_size
+
+        with pytest.raises(ValueError):
+            fit_text_size("X", (), 100)

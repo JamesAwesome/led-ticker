@@ -1,11 +1,12 @@
 """Shared drawing helpers for LED canvas rendering."""
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import attrs
 
+from led_ticker.fonts import resolve_font
 from led_ticker.fonts.hires_loader import HiresFont
 
 
@@ -122,6 +123,55 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
         _TEXT_WIDTH_CACHE.pop(next(iter(_TEXT_WIDTH_CACHE)))
     _TEXT_WIDTH_CACHE[key] = width
     return width
+
+
+def hires_text_width(
+    text: str, size: int, *, font: str = "Inter-Bold", threshold: int | None = None
+) -> int:
+    """Physical advance width of `text` in hi-res `font` at `size`.
+
+    Measures with the SAME glyph resolution the renderer draws with
+    (`HiresFont.resolve_glyph`, ASCII-fallback-aware), so collision math in
+    widget/plugin layouts can never drift from the paint — a 'clearance'
+    computed here is a real on-panel clearance on any platform's font
+    metrics. `threshold` is forwarded to `resolve_font` so a caller that
+    paints at a custom threshold shares the same font-cache entry.
+    """
+    resolved = resolve_font(font, size, threshold)
+    if isinstance(resolved, HiresFont):
+        fallback = resolved.glyphs.get("?")
+        fallback_advance = fallback.advance if fallback else 0
+        total = 0
+        for ch in text:
+            glyph = resolved.resolve_glyph(ch)
+            total += glyph.advance if glyph is not None else fallback_advance
+        return total
+    return sum(resolved.CharacterWidth(ord(ch)) for ch in text)
+
+
+def fit_text_size(
+    text: str,
+    sizes: Sequence[int],
+    max_width: int,
+    *,
+    font: str = "Inter-Bold",
+    threshold: int | None = None,
+) -> int:
+    """Largest size in `sizes` (tried in order) at which `text` fits
+    `max_width` physical px; the LAST entry is the floor, returned even when
+    nothing fits — pick a floor you can live with. The shrink-to-fit half of
+    the measured-clearance pattern: content keeps its design size unless it
+    would actually collide, then steps down a caller-owned ladder (ladder
+    VALUES are per-layout design decisions and do not live in core).
+    """
+    last: int | None = None
+    for size in sizes:
+        last = size
+        if hires_text_width(text, size, font=font, threshold=threshold) <= max_width:
+            return size
+    if last is None:
+        raise ValueError("fit_text_size: `sizes` must be non-empty")
+    return last
 
 
 def compute_baseline_for_band(

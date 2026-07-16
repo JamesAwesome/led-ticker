@@ -40,6 +40,24 @@ def _check_swap_returns_new_buffer(factory: Callable[[], Backend]) -> None:
     )
 
 
+def _check_swap_return_is_reusable(factory: Callable[[], Backend]) -> None:
+    # LedFrame.get_clean_canvas recycles the buffer swap() returned (the
+    # process-lifetime allocation invariant). That is only sound if a
+    # swap-returned canvas is a live, drawable back buffer: Clear/SetPixel
+    # must not raise, and re-swapping it must keep the double-buffer
+    # alternation going (each swap returns a different object than it was
+    # handed).
+    b = factory()
+    b.setup()
+    c = b.create_canvas()
+    for _ in range(3):
+        returned = b.swap(c)
+        assert returned is not c, "swap() must not return the canvas it was handed"
+        returned.Clear()  # must not raise
+        returned.SetPixel(0, 0, 9, 9, 9)  # must not raise
+        c = returned
+
+
 def _check_canvas_contract(factory: Callable[[], Backend]) -> None:
     b = factory()
     b.setup()
@@ -170,6 +188,7 @@ def _check_engine_buildable(factory: Callable[[], Backend]) -> None:
 _CHECKS = [
     _check_protocol,
     _check_swap_returns_new_buffer,
+    _check_swap_return_is_reusable,
     _check_canvas_contract,
     _check_no_getpixel_required,
     _check_wrappability,

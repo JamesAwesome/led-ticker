@@ -5,6 +5,7 @@ import importlib.metadata
 import importlib.util
 import inspect
 import logging
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,6 +68,20 @@ class LoadedPlugins:
 
 # Load-once guard; assigned by load_plugins() (added in Task A3).
 _LOADED: LoadedPlugins | None = None
+
+# Serializes the FIRST load's discover+register+commit sequence. The
+# lock-free `if _LOADED is not None: return _LOADED` guard below only
+# serializes the *already-loaded* fast path (racing readers of a settled
+# value) — it is check-then-act and does nothing to stop two near-
+# simultaneous first callers (e.g. two webui to_thread validates) from both
+# passing the check and racing the full discover+register+commit body,
+# which produced a partially-committed registry, "already registered"
+# errors, double-exec'd local plugins, and a last-writer-wins _LOADED that
+# could permanently record every plugin as failed. Double-checked locking:
+# the fast path stays lock-free; only the slow (first-load) path pays for
+# the lock, and a second thread that loses the race re-checks _LOADED
+# inside the lock and returns the winner's result instead of loading again.
+_LOAD_LOCK = threading.Lock()
 
 
 def reset_plugins() -> None:
@@ -345,27 +360,33 @@ def load_plugins(
     global _LOADED  # noqa: PLW0603
     if _LOADED is not None:
         return _LOADED
-    disabled = disable or set()
-    result = LoadedPlugins()
-    loaded_ns: set[str] = set()
-    sources = []
-    if plugin_dir is not None:
-        sources.extend(_discover_local(plugin_dir))
-    if entry_points_enabled:
-        sources.extend(_discover_entry_points())
-    for ns, source, thunk in sources:
-        if ns in disabled:
-            logger.info("plugin %r disabled via [plugins].disable; skipping", ns)
-            continue
-        try:
-            register, requires = thunk()
-        except Exception as e:
-            logger.exception("plugin %r (%s) failed to import", ns, source)
-            result.failed.append((ns, str(e)))
-            continue
-        _load_one(ns, source, register, requires, loaded_ns, result)
-    _LOADED = result
-    return result
+    with _LOAD_LOCK:
+        # Double-checked: another thread may have finished the first load
+        # while we were waiting on the lock. Re-read under the lock rather
+        # than trusting the lock-free peek above.
+        if _LOADED is not None:
+            return _LOADED
+        disabled = disable or set()
+        result = LoadedPlugins()
+        loaded_ns: set[str] = set()
+        sources = []
+        if plugin_dir is not None:
+            sources.extend(_discover_local(plugin_dir))
+        if entry_points_enabled:
+            sources.extend(_discover_entry_points())
+        for ns, source, thunk in sources:
+            if ns in disabled:
+                logger.info("plugin %r disabled via [plugins].disable; skipping", ns)
+                continue
+            try:
+                register, requires = thunk()
+            except Exception as e:
+                logger.exception("plugin %r (%s) failed to import", ns, source)
+                result.failed.append((ns, str(e)))
+                continue
+            _load_one(ns, source, register, requires, loaded_ns, result)
+        _LOADED = result
+        return result
 
 
 def read_plugins_config(config_path: Path) -> PluginsConfig:

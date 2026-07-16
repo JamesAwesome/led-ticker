@@ -3313,8 +3313,20 @@ async def validate_config(
     file-watch reload) because every global mutation reachable from the
     brackets is idempotent or internally locked: ``load_plugins``'s
     ``if _LOADED is not None: return _LOADED`` guard runs before any
-    registry work (pinned by ``test_plugin_load_guard_is_first``);
-    ``_configure_user_font_dir`` overwrites ``hires_loader.USER_FONT_DIR``
+    registry work (pinned by ``test_plugin_load_guard_is_first``) and
+    covers the already-loaded fast path — two threads reading a settled
+    ``_LOADED`` both take the cheap early return with no lock. That guard
+    is check-then-act, though, and does nothing to protect the FIRST load:
+    two near-simultaneous first callers (e.g. two webui to_thread validates
+    on a cold process) could both pass the check and race the full
+    discover+register+commit body. That race is closed by ``_LOAD_LOCK``
+    (a module-level ``threading.Lock``) via double-checked locking — the
+    lock-free peek stays as the fast path, but the slow path re-checks
+    ``_LOADED`` under the lock before doing any registry work, so only one
+    thread ever runs the load and the loser returns the winner's result
+    (regression test: the plugin-loader concurrency test in
+    ``tests/test_plugins/test_loader_config.py``); ``_configure_user_font_dir``
+    overwrites ``hires_loader.USER_FONT_DIR``
     with the same value for a given config path, and a racing overwrite of
     an equal value plus a redundant ``cache_clear()`` is a no-op; the
     ``functools.lru_cache``d font/glyph loaders (``load_hires_font``) rely
@@ -3331,6 +3343,17 @@ async def validate_config(
     ``app.run`` (the real engine build path), never from
     ``validate_widget_cfg`` or the sync brackets (pinned by
     ``test_validate_never_binds_schedules``).
+
+    Known tradeoff (Ctrl-C during a stuck prebuild): a worker-thread
+    prebuild that hangs (e.g. a plugin import blocking on network) cannot
+    be interrupted by cancelling the awaiting task — ``asyncio.to_thread``
+    doesn't kill the underlying OS thread, and the CLI's
+    ``asyncio.run(...)`` joins the default executor at loop close, so a
+    Ctrl-C appears ignored until the bracket finishes. This is a documented
+    tradeoff, not a bug: engineering around it would mean either polling
+    for cancellation inside third-party plugin import code (not ours to
+    control) or killing threads outright (unsafe in CPython). Accept the
+    delayed exit.
     """
     pre = await asyncio.to_thread(
         _validate_static_prebuild, path, strict=strict, config_dir=config_dir

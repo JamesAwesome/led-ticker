@@ -1,4 +1,6 @@
 import textwrap
+import threading
+import time
 
 import pytest
 
@@ -97,3 +99,72 @@ def test_read_plugins_config_propagates_structural_error(tmp_path):
     p.write_text("[display]\nrows=16\ncols=64\n[plugins]\nenabled = 1\n")
     with pytest.raises(ValueError, match="plugins.enabled must be a bool"):
         L.read_plugins_config(p)
+
+
+def test_load_plugins_concurrent_first_load_runs_once(tmp_path, monkeypatch):
+    """Regression for the adversarial-review first-load race: two threads
+    calling ``load_plugins`` concurrently on a cold ``_LOADED`` must run the
+    discover+register+commit body exactly once and both must get back the
+    same result object.
+
+    Before the ``_LOAD_LOCK`` double-checked-locking fix, the lock-free
+    ``if _LOADED is not None: return _LOADED`` guard did nothing to stop two
+    near-simultaneous FIRST callers (e.g. two webui to_thread validates on a
+    cold process) from both passing the check and racing the full body —
+    reproduced symptoms were a partially-committed registry, "already
+    registered" errors, a local plugin module exec'd twice, and a
+    last-writer-wins ``_LOADED``.
+
+    ``_discover_local`` is wrapped to (a) count invocations and (b) sleep
+    briefly, widening the window between the lock-free peek and the
+    lock-guarded body so two near-simultaneous callers reliably overlap
+    instead of serializing by luck alone.
+    """
+    L.reset_plugins()
+    pdir = tmp_path / "plugins"
+    _write(pdir, "acme")
+
+    discover_calls: list[None] = []
+    real_discover = L._discover_local
+
+    def slow_discover(plugin_dir):
+        discover_calls.append(None)
+        time.sleep(0.05)
+        return real_discover(plugin_dir)
+
+    monkeypatch.setattr(L, "_discover_local", slow_discover)
+
+    barrier = threading.Barrier(2)
+    results: list[L.LoadedPlugins] = []
+    errors: list[BaseException] = []
+    lock = threading.Lock()
+
+    def worker():
+        barrier.wait()
+        try:
+            result = L.load_plugins(pdir, entry_points_enabled=False)
+        except BaseException as e:  # noqa: BLE001 - surfaced via assertion below
+            with lock:
+                errors.append(e)
+            return
+        with lock:
+            results.append(result)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    try:
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=5)
+
+        assert not errors, errors
+        assert len(results) == 2
+        assert len(discover_calls) == 1, (
+            f"discover ran {len(discover_calls)} times; expected exactly one "
+            "load under concurrent first-load callers"
+        )
+        assert results[0] is results[1], "both callers must see the same result"
+        assert results[0].failed == []
+        assert {info.namespace for info in results[0].loaded} == {"acme"}
+    finally:
+        L.reset_plugins()

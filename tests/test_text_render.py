@@ -289,6 +289,50 @@ class TestDrawHiresText:
         # both are non-empty. Just assert SOMETHING was painted.
         assert lit > 0
 
+    def _lit_set(self, real):
+        return {
+            (x, y)
+            for y in range(real.height)
+            for x in range(real.width)
+            if real.get_pixel(x, y) == (255, 255, 255)
+        }
+
+    def test_minus_sign_falls_back_to_hyphen_not_question_mark(self):
+        """U+2212 MINUS SIGN isn't in the rasterized charset; without a
+        fallback it renders the '?' tofu (the LED-sign bug on formatted
+        negatives like '-1.98%'). It must render the font's real hyphen
+        glyph instead."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.fonts import resolve_font
+        from led_ticker.text_render import draw_text
+
+        font = resolve_font("Inter-Regular", 24)
+
+        def _render(ch):
+            real, wrapped = self._setup_canvas()
+            draw_text(wrapped, font, 10, 12, Color(255, 255, 255), ch)
+            return self._lit_set(real)
+
+        minus = _render("−")  # MINUS SIGN
+        hyphen = _render("-")  # HYPHEN-MINUS
+        question = _render("?")
+        assert minus, "U+2212 should paint something"
+        assert minus == hyphen, "U+2212 should render the real hyphen glyph"
+        assert minus != question, "U+2212 must not render the '?' tofu"
+
+    def test_get_text_width_minus_matches_hyphen(self):
+        """The width path must apply the SAME fallback as the draw path, or
+        right-aligned / scrolling negatives drift by the '?'-vs-'-' advance
+        delta."""
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts import resolve_font
+
+        font = resolve_font("Inter-Regular", 24)
+        assert get_text_width(font, "−", padding=0) == get_text_width(
+            font, "-", padding=0
+        )
+
 
 # ---------------------------------------------------------------------------
 # Pixel-parity tripwire: BDF rasterizer == native DrawText at scale=1

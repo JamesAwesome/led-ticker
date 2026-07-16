@@ -55,6 +55,19 @@ GEOMETRIC_SHAPES: str = "▲▼●○◆◇"
 # which showed as "72?" on the bigsign before this was added.
 SYMBOLS: str = "°"
 
+# Typographic codepoints that number/text formatters emit but that aren't in
+# the rasterized charset above and have no dedicated glyph — map each to a
+# look-alike ASCII char that IS in the charset (so the font's real glyph is
+# used) instead of letting the caller draw the '?' tofu. U+2212 MINUS SIGN is
+# the load-bearing one: any source rendering a negative ("-1.98%") emits it,
+# and it showed as "?" on the panel. Consulted by `HiresFont.resolve_glyph`;
+# extend it as new formatter glyphs surface (keep BOTH sides visually close —
+# this substitutes silently). NOT for chars already in the charset (em/en
+# dash, middle dot) — those rasterize directly.
+_ASCII_GLYPH_FALLBACKS: dict[str, str] = {
+    "−": "-",  # U+2212 MINUS SIGN -> HYPHEN-MINUS
+}
+
 
 @dataclass(frozen=True)
 class HiresGlyph:
@@ -88,6 +101,27 @@ class HiresFont:
     descent: int
     line_height: int
     glyphs: dict[str, HiresGlyph] = field(default_factory=dict)
+
+    def resolve_glyph(self, ch: str) -> HiresGlyph | None:
+        """Glyph for `ch`, applying an ASCII fallback for typographic
+        codepoints that aren't in the rasterized charset.
+
+        The charset (`_rasterize`) covers Latin + common punctuation but not
+        every look-alike. U+2212 MINUS SIGN in particular is emitted by
+        number formatters (e.g. a data source rendering ``-1.98%``) yet is
+        absent here — so a plain ``glyphs.get(ch)`` misses and the caller
+        draws the ``'?'`` tofu (the LED-panel bug on negative values). Redirect
+        those to their real ASCII glyph (``'-'``), which the font ships and
+        the charset rasterizes. Returns None only when neither the char nor
+        its fallback is present, so the caller can still drop to ``'?'``.
+        """
+        glyph = self.glyphs.get(ch)
+        if glyph is not None:
+            return glyph
+        alt = _ASCII_GLYPH_FALLBACKS.get(ch)
+        if alt is not None:
+            return self.glyphs.get(alt)
+        return None
 
 
 # Plugin-contributed fonts: ``namespace.name`` -> absolute path to the font

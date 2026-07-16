@@ -62,7 +62,7 @@ def _draw_hires_text(
     cursor_x = real_x
     fallback = font.glyphs.get("?")
     for ch in text:
-        glyph = font.glyphs.get(ch, fallback)
+        glyph = font.resolve_glyph(ch) or fallback
         if glyph is None:
             continue
         gx0 = cursor_x + glyph.bearing_x
@@ -153,7 +153,7 @@ def draw_text_per_char(
         for i, ch in enumerate(text):
             color = color_fn(char_offset + i, total)
             r, g, b = color.red, color.green, color.blue
-            glyph = font.glyphs.get(ch, fallback)
+            glyph = font.resolve_glyph(ch) or fallback
             if glyph is None:
                 continue
             gx0 = cursor_x + glyph.bearing_x

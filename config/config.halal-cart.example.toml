@@ -7,11 +7,20 @@
 # ===========================================================================
 # An imitation NYC halal-cart LED sign. The whole point is FLASHING: saturated
 # red + turmeric-gold + rainbow, glowing marquee bulbs, fireworks between every
-# section, a fisheye "HALAL FOOD" banner, and a lottery-ball menu draw. Runs the
-# way a Midtown cart sign does at 2am — loud, bright, never still.
+# section, a fisheye banner, and a lottery-ball menu draw. Runs the way a
+# Midtown cart sign does at 2am — loud, bright, never still.
+#
+# TWO MENUS ON ONE CART (visibility scheduling): like the real carts, mornings
+# are a coffee cart — bacon egg and cheese, coffee, bagels, donuts — and from
+# lunch through the late-night crowd it's the halal menu. AM sections carry
+# schedule = {start = "05:00", end = "11:00"}; PM sections carry
+# schedule = {start = "11:00", end = "05:00"} (start > end WRAPS overnight —
+# the 2am shift). The lottery draw and OPEN 24 HOURS run around the clock.
+# Schedules evaluate on [display] timezone — set it, or a UTC Docker container
+# flips your menus at the wrong hours (validate prints the resolved clock).
 #
 # Palette:  halal-red [230,40,30] · turmeric-gold [255,190,0] · cream [255,244,214]
-# Theme:    flashing, animation, rainbows, flair.
+# Theme:    flashing, animation, rainbows, flair, scheduling.
 # ===========================================================================
 
 # --- Display + RP1 tuning (matches config.bigsign.example.toml) --------------
@@ -26,6 +35,9 @@ gpio_slowdown = 3
 hardware_mapping = "adafruit-hat"
 default_scale = 4
 pwm_bits = 8
+# The one clock every schedule below evaluates on. Without this, a Docker
+# container's UTC clock serves the breakfast menu at dinnertime.
+timezone = "America/New_York"
 
 [title]
 delay = 3
@@ -39,15 +51,30 @@ easing = "ease_in_out"
 between_sections = "flair.fireworks"
 
 # ===========================================================================
-#  1 · HALAL FOOD — rainbow marquee bulging through a fisheye lens
+#  1 · THE BANNER — rainbow marquee bulging through a fisheye lens
+#      PM version (lunch through the 2am crowd; start > end wraps overnight)
 # ===========================================================================
 [[playlist.section]]
 mode = "one_at_a_time"
 hold_time = 10
+schedule = {start = "11:00", end = "05:00"}
 
 [[playlist.section.widget]]
 type = "message"
 text = "★ HALAL FOOD ★ GYRO ★ CHICKEN OVER RICE ★ FALAFEL ★"
+font_color = "rainbow"
+animation = "flair.fisheye"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+# --- AM version: the coffee-cart morning shift -------------------------------
+[[playlist.section]]
+mode = "one_at_a_time"
+hold_time = 10
+schedule = {start = "05:00", end = "11:00"}
+
+[[playlist.section.widget]]
+type = "message"
+text = "★ COFFEE ★ BACON EGG AND CHEESE ★ BAGELS ★ DONUTS ★"
 font_color = "rainbow"
 animation = "flair.fisheye"
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
@@ -69,11 +96,12 @@ choreography = "roll_through"
 border = "rainbow"
 
 # ===========================================================================
-#  3 · CHICKEN OVER RICE — gold shimmer held over a rainbow scroll
+#  3 · CHICKEN OVER RICE — gold shimmer held over a rainbow scroll (PM)
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
+schedule = {start = "11:00", end = "05:00"}
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -92,7 +120,31 @@ bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
 
 # ===========================================================================
+#  3b · COFFEE — the morning counterpart of section 3 (AM)
+# ===========================================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+schedule = {start = "05:00", end = "11:00"}
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "COFFEE"
+bottom_text = "bacon egg & cheese • bagels • donuts • $5"
+top_color = {style = "shimmer", base = "gold", shimmer = "white", speed = 18.0, pause = 0.5}
+top_align = "center"
+bottom_color = "rainbow"
+top_row_height = 10
+top_font = "Inter-Bold"
+top_font_size = 30
+bottom_font = "Inter-Regular"
+bottom_font_size = 18
+bottom_font_threshold = 80
+border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
+
+# ===========================================================================
 #  4 · OPEN 24 HOURS — spins in, marquee bulbs chasing, colors cycling
+#      (unscheduled on purpose: true around the clock, either menu)
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
@@ -109,14 +161,30 @@ animation = "flair.propeller"
 border = {style = "lightbulbs", mode = "chase", lit_color = "rainbow", chase_density = 3}
 
 # ===========================================================================
-#  5 · THE MENU — full rainbow crawl of everything on the cart
+#  5 · THE MENU — full rainbow crawl of everything on the cart (PM)
 # ===========================================================================
 [[playlist.section]]
 mode = "ticker"
+schedule = {start = "11:00", end = "05:00"}
 
 [[playlist.section.widget]]
 type = "message"
 text = "GYRO • CHICKEN OVER RICE • LAMB OVER RICE • FALAFEL • SHAWARMA • COMBO PLATTER • WHITE SAUCE • HOT SAUCE • $8 CASH ONLY"
+font_color = "rainbow"
+font = "Inter-Bold"
+font_size = 44
+border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
+
+# ===========================================================================
+#  5b · THE BREAKFAST MENU — the NYC classics, same rainbow crawl (AM)
+# ===========================================================================
+[[playlist.section]]
+mode = "ticker"
+schedule = {start = "05:00", end = "11:00"}
+
+[[playlist.section.widget]]
+type = "message"
+text = "BACON EGG AND CHEESE • COFFEE • BAGELS • DONUTS • HASH BROWNS • ICED COFFEE • OJ • $5 CASH ONLY"
 font_color = "rainbow"
 font = "Inter-Bold"
 font_size = 44

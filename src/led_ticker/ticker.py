@@ -106,7 +106,11 @@ MAX_SETTLE_TICKS: int = 1000 // ENGINE_TICK_MS
 # behind a backlog of pre-gated items. maxsize=2 keeps evaluation within
 # ~2 queued items + the currently-showing widget of display time (plus one
 # item already evaluated and held by the parked put), caps the queue's
-# memory, and stops the producer from spinning a core.
+# memory, and stops the producer from spinning a core. NOTE: each pass is
+# gate-checked once at expansion (_build_ticker_iter materializes the full
+# pass list via _expand_sources), so the true staleness bound is these
+# in-flight items PLUS the remainder of the current pass — one full pass
+# worst-case for sections with many widgets or a large container.
 TICKER_QUEUE_MAXSIZE = 2
 
 

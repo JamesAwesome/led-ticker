@@ -3082,6 +3082,46 @@ class TestTitleColorRename:
         assert widget is not None
 
 
+class TestTitleScheduleRejected:
+    """`schedule` is not supported on [playlist.section.title] — titles
+    route through `_build_widget` (so it would validate + bind) but bypass
+    `_expand_sources`, the engine's ONLY visibility-schedule gate. A bound
+    title schedule would silently do nothing, so `_build_title` must raise
+    loudly instead."""
+
+    @pytest.mark.asyncio
+    async def test_title_schedule_raises(self):
+        with pytest.raises(ValueError, match="not support 'schedule'"):
+            await _build_title(
+                {
+                    "type": "message",
+                    "text": "Hello",
+                    "schedule": {"start": "09:00", "end": "17:00"},
+                },
+                session=None,  # type: ignore[arg-type]
+            )
+
+    @pytest.mark.asyncio
+    async def test_title_schedule_error_suggests_scheduling_the_section(self):
+        with pytest.raises(ValueError, match="Schedule the section instead"):
+            await _build_title(
+                {
+                    "type": "message",
+                    "text": "Hello",
+                    "schedule": {"start": "09:00", "end": "17:00"},
+                },
+                session=None,  # type: ignore[arg-type]
+            )
+
+    @pytest.mark.asyncio
+    async def test_title_without_schedule_still_works(self):
+        widget = await _build_title(
+            {"type": "message", "text": "Hello"},
+            session=None,  # type: ignore[arg-type]
+        )
+        assert widget is not None
+
+
 class TestGifLoopsRename:
     """gif_loops field renamed to play_count on GifPlayer (via loops)."""
 

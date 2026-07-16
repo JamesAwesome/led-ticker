@@ -167,6 +167,22 @@ def test_nonreloadable_changed_brightness_is_reloadable(tmp_path):
     assert "display.brightness" not in rl.nonreloadable_changed(a, b)
 
 
+def test_nonreloadable_changed_timezone_is_reloadable(tmp_path):
+    """[display] timezone is re-applied on every hot-reload via
+    `respawn_schedule` -> `_respawn_schedule` (`set_schedule_timezone` for
+    visibility schedules + the brightness scheduler's `_schedule_tz_name`) —
+    a timezone-only change must not be flagged restart-required."""
+    a = load_config(_write(tmp_path / "a.toml", _MIN))
+    b_toml = (
+        '[display]\nrows = 16\ncols = 32\ntimezone = "America/Chicago"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n'
+    )
+    b = load_config(_write(tmp_path / "b.toml", b_toml))
+    assert a.display.timezone != b.display.timezone, "fixture must actually change it"
+    assert "display.timezone" not in rl.nonreloadable_changed(a, b)
+    assert rl.nonreloadable_changed(a, b) == []
+
+
 def test_every_frame_field_is_restart_required():
     """Drift guard: every display.* field build_frame_from_config consumes must be
     restart-required (NOT in RELOADABLE_DISPLAY_FIELDS), so a future frame field can

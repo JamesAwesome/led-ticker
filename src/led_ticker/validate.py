@@ -890,6 +890,34 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                     fix_replacement_key="font_color",
                 )
             )
+
+        # Rule: title "schedule" is not supported. Titles route through
+        # `_build_widget` (so a `schedule` table would validate + bind) but
+        # the engine never gates titles through `_expand_sources` — titles
+        # bypass the visibility-schedule check entirely, so a bound
+        # schedule would silently do nothing. `_build_title`
+        # (app/factories.py) raises ValueError for this at build time, but
+        # `led-ticker validate`'s static pass never calls `_build_title` —
+        # only `section.widgets` are walked — so without this check the
+        # misconfiguration passes preflight clean and only surfaces from
+        # runtime logs. Mirrors the rule 41 check above.
+        if section.title and "schedule" in section.title:
+            issues.append(
+                ValidationIssue(
+                    rule=None,
+                    location=f"section[{i}].title",
+                    severity="error",
+                    message=(
+                        "[playlist.section.title] does not support"
+                        " 'schedule' — section titles are not schedulable"
+                        " in v1 (they bypass the engine's visibility gate)."
+                    ),
+                    fix=(
+                        "Schedule the section instead: add"
+                        " schedule = {...} to the [[playlist.section]] table."
+                    ),
+                )
+            )
     return issues
 
 
@@ -2226,6 +2254,365 @@ def _check_schedule(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_display_timezone(config: AppConfig) -> list[ValidationIssue]:
+    """[display] timezone (the sign-wide clock for visibility + brightness
+    schedules) must be a resolvable IANA name. Runtime falls back to system
+    local with a warning; preflight is where the typo should be caught."""
+    tz = config.display.timezone
+    if not tz:
+        return []
+    if not isinstance(tz, str):
+        return [
+            ValidationIssue(
+                rule=None,
+                location="display.timezone",
+                message=f"timezone must be a string IANA name, got {type(tz).__name__}",
+                fix=(
+                    "Use an IANA name like 'America/New_York',"
+                    " or leave it empty for system local time."
+                ),
+                severity="error",
+            )
+        ]
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    try:
+        ZoneInfo(tz)
+    except ZoneInfoNotFoundError, ValueError, TypeError:
+        return [
+            ValidationIssue(
+                rule=None,
+                location="display.timezone",
+                message=f"timezone {tz!r} is not a valid IANA timezone name",
+                fix=(
+                    "Use an IANA name like 'America/New_York',"
+                    " or leave it empty for system local time."
+                ),
+                severity="error",
+            )
+        ]
+    return []
+
+
+def _iter_widget_schedules(config: AppConfig):
+    """Yield (section_index, parsed VisibilitySchedule | None) per widget.
+    None = widget has no schedule OR its schedule is malformed (the async
+    build check reports malformed ones; this static sweep stays quiet)."""
+    from led_ticker.schedule import parse_visibility_schedule
+
+    for i, section in enumerate(config.sections):
+        for w in section.widgets:
+            raw = w.get("schedule")
+            if raw is None:
+                yield i, None
+                continue
+            try:
+                yield i, parse_visibility_schedule(raw, location=f"section[{i}]")
+            except ValueError:
+                yield i, None
+
+
+def _any_visibility_schedule(config: AppConfig) -> bool:
+    return any(s.schedule is not None for s in config.sections) or any(
+        sched is not None for _i, sched in _iter_widget_schedules(config)
+    )
+
+
+def _visibility_schedule_notes(config: AppConfig) -> list[str]:
+    """One line telling the user what clock visibility schedules run on —
+    catches the TZ-less Docker container (UTC) at preflight, not at 5 p.m."""
+    if not _any_visibility_schedule(config):
+        return []
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    tz_name = config.display.timezone
+    try:
+        tz = ZoneInfo(tz_name) if tz_name else None
+    except Exception:
+        return []  # _check_display_timezone already errored on the bad name
+    now = datetime.now(tz)
+    label = tz_name or "system local"
+    return [f"visibility schedules evaluate at {now:%H:%M} ({label})"]
+
+
+_WEEK_DAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def _fmt_week_minute(m: int) -> str:
+    day, rem = divmod(m % 10080, 1440)
+    return f"{_WEEK_DAY_LABELS[day]} {rem // 60:02d}:{rem % 60:02d}"
+
+
+def _check_blank_intervals(config: AppConfig) -> list[ValidationIssue]:
+    """Week sweep (10,080 minutes, same technique as
+    unreachable_window_indices): warn listing the intervals where EVERY
+    section is scheduled out — 'your sign is blank Tue 03:00-09:00' before
+    deploy. Warning, not error: dark-when-closed is often intended."""
+    if not _any_visibility_schedule(config):
+        return []
+    per_section_widget_scheds: dict[int, list] = {}
+    per_section_all_scheduled: dict[int, bool] = {
+        i: bool(s.widgets) for i, s in enumerate(config.sections)
+    }
+    for i, sched in _iter_widget_schedules(config):
+        if sched is None:
+            per_section_all_scheduled[i] = False
+        else:
+            per_section_widget_scheds.setdefault(i, []).append(sched)
+
+    def _sign_active(minutes: int, weekday: int) -> bool:
+        for i, section in enumerate(config.sections):
+            if section.schedule is not None and not section.schedule.window.active_at(
+                minutes, weekday
+            ):
+                continue
+            # A title always counts as content — it renders regardless of
+            # the widget rotation (mirrors run._section_has_content's
+            # `if title: return True, []`, the engine's actual predicate:
+            # ANY built title object is truthy, even one with empty text).
+            # Without this, the sweep could warn "blank" for a window where
+            # a title-only section is in fact showing its title.
+            if section.title is not None:
+                return True
+            wscheds = per_section_widget_scheds.get(i, [])
+            if (
+                per_section_all_scheduled[i]
+                and wscheds
+                and not any(s.window.active_at(minutes, weekday) for s in wscheds)
+            ):
+                continue
+            return True
+        return False
+
+    blank = [m for m in range(10080) if not _sign_active(m % 1440, m // 1440)]
+    if not blank:
+        return []
+    # Group consecutive minutes into runs; merge the week-boundary wrap.
+    runs: list[list[int]] = []
+    for m in blank:
+        if runs and m == runs[-1][1] + 1:
+            runs[-1][1] = m
+        else:
+            runs.append([m, m])
+    if len(runs) > 1 and runs[0][0] == 0 and runs[-1][1] == 10079:
+        runs[0][0] = runs.pop()[0] - 10080  # wrap: Sun tail joins Mon head
+    shown = [f"{_fmt_week_minute(a)}-{_fmt_week_minute(b + 1)}" for a, b in runs[:4]]
+    more = f" (and {len(runs) - 4} more)" if len(runs) > 4 else ""
+    return [
+        ValidationIssue(
+            rule=None,
+            location="playlist",
+            message=(
+                "the sign is blank (every section scheduled out) during: "
+                + ", ".join(shown)
+                + more
+            ),
+            fix=(
+                "Intended for a closed-hours dark panel? Ignore this. "
+                "Otherwise add an unscheduled fallback section or widen a window."
+            ),
+            severity="warning",
+        )
+    ]
+
+
+def _widget_windows_have_gap(schedules: list) -> bool:
+    """True if some week-minute has EVERY window in `schedules` inactive —
+    i.e. the widget rotation these schedules gate can still empty out (an
+    `_expand_sources` result of zero), handing the forever cycle its exit
+    and re-checking the section-level schedule at that boundary. False
+    means the windows jointly cover the full week (e.g. complementary
+    AM/PM pairs with no `days` filter, gapless by construction) —
+    `_expand_sources` never returns empty, so the forever cycle never
+    exits and the section-level schedule is never re-checked again after
+    entry. Same 10,080-minute week-sweep technique as
+    `_check_blank_intervals`. An empty `schedules` list has nothing to
+    cover the week with, so it trivially "has a gap" (every minute)."""
+    if not schedules:
+        return True
+    return any(
+        not any(s.window.active_at(m % 1440, m // 1440) for s in schedules)
+        for m in range(10080)
+    )
+
+
+def _forever_never_rechecks_issue(i: int) -> ValidationIssue:
+    """The strong "never re-checks" warning, shared by the general
+    mixed-schedule case and the 24/7-widget-cover case (`_widget_windows_
+    have_gap` returning False) — both leave the forever cycle with no exit,
+    so the section-level schedule is checked once at entry and never again.
+    """
+    return ValidationIssue(
+        rule=None,
+        location=f"section[{i}]",
+        message=(
+            "this section has a schedule but loop_count = 0 "
+            "(cycles forever) — the section-level schedule is "
+            "only checked when the section is ENTERED; a "
+            "forever-cycling section never re-checks it "
+            "afterward, so the section keeps showing past "
+            "`end` instead of going dark."
+        ),
+        fix=(
+            "Use a finite loop_count (>= 1) so the schedule is "
+            "re-checked between playlist cycles. Widget-level "
+            "`schedule = {...}` is NOT a safe substitute here: the "
+            "schedule gate runs in the enqueue producer, which races "
+            "far ahead of the display consumer through an unbounded "
+            "queue, so a widget's closing window can take hours to "
+            "reach the panel. Note: validate's blank-interval sweep "
+            "assumes the section closes; with loop_count = 0 it will "
+            "not."
+        ),
+        severity="warning",
+    )
+
+
+def _forever_widget_only_schedule_issue(i: int) -> ValidationIssue:
+    """Warn when a `loop_count = 0` section has NO section-level `schedule`
+    but at least one widget inside it carries its own `schedule = {...}`.
+
+    Widget-level schedules are gated by `_expand_sources`, which runs
+    inside `ticker._build_ticker_iter`'s generators — the ENQUEUE
+    PRODUCER, not the display consumer. That producer runs far ahead of
+    what's actually on the panel through an unbounded queue. For a
+    finite-`loop_count` section that's fine (staleness is bounded to one
+    section run), but for `loop_count = 0` the producer makes every
+    schedule decision for that section within seconds of entry — a
+    widget's window closing hours later never reaches the panel; the
+    already-queued frames just keep playing.
+    """
+    return ValidationIssue(
+        rule=None,
+        location=f"section[{i}]",
+        message=(
+            "widget-level schedules in a forever (`loop_count = 0`) "
+            "section are evaluated when content is queued, not when "
+            "it is displayed — the panel can keep showing a widget "
+            "long past its window's end."
+        ),
+        fix=(
+            "Use a finite loop_count (e.g. 1) so schedules are "
+            "re-evaluated each time the playlist re-enters the "
+            "section."
+        ),
+        severity="warning",
+    )
+
+
+def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
+    """Warn on `loop_count = 0` (forever) sections whose schedule shape
+    means schedule decisions go stale on the panel — UNLESS the section's
+    own shape means the forever cycle actually does exit and re-check.
+
+    Both section-level and widget-level `schedule = {...}` are evaluated in
+    the ENQUEUE PRODUCER (`ticker._build_ticker_iter`'s generators, via
+    `_expand_sources`), which runs far ahead of the display consumer
+    through an unbounded queue. For a finite `loop_count` that's harmless —
+    staleness is bounded to one section run, which is the documented
+    behavior. For `loop_count = 0` it isn't: the producer never gets a
+    natural boundary to re-run at, so every schedule decision for that
+    section is effectively locked in near section-entry time. This
+    function covers three shapes of that problem:
+
+    1. SECTION-LEVEL schedule + `loop_count = 0`, general case: the
+       section-level schedule (checked once, at `run.py`'s section entry)
+       is never re-checked afterward — the section keeps showing past its
+       `end` time, silently no-op'ing the feature `_check_blank_intervals`
+       promises darkness for. This is the strong "never re-checks"
+       warning.
+    2. SECTION-LEVEL schedule + `loop_count = 0`, softened case: every
+       widget in the section ALSO has its own `schedule = {...}`, and
+       those widget windows jointly leave a gap somewhere in the week
+       (`_widget_windows_have_gap` returns True). `ticker._build_ticker_
+       iter`'s `cycle_with_refresh` exits the forever cycle whenever a
+       pass's widget expansion comes back empty, which re-checks the
+       SECTION-level schedule at that boundary too — just not exactly at
+       the section's own `end`, and even then the change only reaches the
+       panel once whatever content was already queued drains.
+    3. WIDGET-LEVEL schedules only, no section-level schedule: at least
+       one widget in the section carries `schedule = {...}` with nothing
+       at the section level. Because the producer locks in that widget's
+       schedule decision near section-entry time and `loop_count = 0`
+       never gives it a fresh pass, the widget's window closing later
+       doesn't reach the panel until the section is re-entered — which,
+       for a forever section, may be never.
+
+    Two shapes soften or suppress the SECTION-level warning (cases 1/2):
+
+    - A TITLE-ONLY section (`not section.widgets`) has nothing for
+      `cycle_with_refresh` to cycle through — `_section_has_content` treats
+      the title as content every pass and the section's schedule IS
+      re-checked each time it's entered (there's no forever widget rotation
+      to get stuck inside). No warning.
+    - A section whose widgets EVERY have their own `schedule = {...}` exits
+      the forever cycle whenever all those widget windows close (an empty
+      `_expand_sources` result) — case 2 above — UNLESS the widget windows
+      jointly cover the full week (`_widget_windows_have_gap` returns
+      False, e.g. a complementary AM/PM pair with no gap): then
+      `_expand_sources` never actually returns empty, the forever cycle
+      never gets an exit to re-check at, and this is exactly the "never
+      re-checks" shape (case 1) despite every widget nominally having its
+      own schedule.
+
+    Case 3 (widget-only) is orthogonal to cases 1/2 — it only fires when
+    `section.schedule is None`, so it never double-warns a section already
+    covered by the strong or softened section-level message."""
+    issues: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        if section.loop_count != 0:
+            continue
+        if not section.widgets:
+            # Title-only forever section: no widget rotation to get stuck
+            # in, so the section is re-entered (and re-checked) every pass.
+            continue
+        if section.schedule is None:
+            if any("schedule" in widget_cfg for widget_cfg in section.widgets):
+                issues.append(_forever_widget_only_schedule_issue(i))
+            continue
+        all_widgets_scheduled = all(
+            "schedule" in widget_cfg for widget_cfg in section.widgets
+        )
+        if all_widgets_scheduled:
+            widget_scheds = [
+                sched
+                for si, sched in _iter_widget_schedules(config)
+                if si == i and sched is not None
+            ]
+            if not _widget_windows_have_gap(widget_scheds):
+                # The widget windows jointly cover 24/7 — the rotation
+                # never empties out, so this is the "never re-checks"
+                # shape, not the softened "re-checks at widget-boundary"
+                # one.
+                issues.append(_forever_never_rechecks_issue(i))
+                continue
+            issues.append(
+                ValidationIssue(
+                    rule=None,
+                    location=f"section[{i}]",
+                    message=(
+                        "this section has a schedule but loop_count = 0 "
+                        "(cycles forever) — every widget in it also has its "
+                        "own schedule, so the section-level schedule is "
+                        "only re-checked when every widget's own window "
+                        "closes (not at the section's own `end` time) — "
+                        "and even then the change reaches the panel only "
+                        "after already-queued content drains — use a "
+                        "finite loop_count for predictable boundaries."
+                    ),
+                    fix=(
+                        "If you need the section-level `end` to take effect "
+                        "promptly, use a finite loop_count (>= 1) instead."
+                    ),
+                    severity="warning",
+                )
+            )
+            continue
+        issues.append(_forever_never_rechecks_issue(i))
+    return issues
+
+
 def _check_held_top_text_overflow(config: AppConfig) -> list[ValidationIssue]:
     """Warn when a held top row is wider than the logical canvas.
 
@@ -2867,7 +3254,12 @@ async def validate_config(
     # Schedule validation: timezone, HH:MM times, brightness range, day names,
     # start==end, enabled-with-no-windows (warning), fully-shadowed windows (warning).
     notes: list[str] = []
-    _sched_issues = _check_schedule(config)
+    _sched_issues = (
+        _check_schedule(config)
+        + _check_display_timezone(config)
+        + _check_blank_intervals(config)
+        + _check_forever_section_schedule(config)
+    )
     errors.extend(i for i in _sched_issues if i.severity == "error")
     warnings.extend(i for i in _sched_issues if i.severity == "warning")
     if config.display.schedule.enabled:
@@ -2876,6 +3268,7 @@ async def validate_config(
         notes = format_schedule_summary(
             config.display.schedule, config.display.brightness
         )
+    notes = notes + _visibility_schedule_notes(config)
 
     # Strict: promote all remaining warnings to errors before returning.
     # ValidationResult.valid checks len(errors) == 0; promoting warnings

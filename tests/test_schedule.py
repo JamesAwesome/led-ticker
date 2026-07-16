@@ -174,3 +174,40 @@ def test_summary_invalid_time_window_marked():
     assert "see errors" in text
     # The valid window should still render normally
     assert "07:00" in text and "100%" in text
+
+
+class TestTimeWindow:
+    """Shared window primitive — the same matching logic brightness windows use."""
+
+    def test_same_day_window(self):
+        from led_ticker.schedule import TimeWindow
+
+        w = TimeWindow(start=9 * 60, end=17 * 60, days=frozenset())
+        assert w.active_at(9 * 60, 0) is True  # 09:00 inclusive
+        assert w.active_at(16 * 60 + 59, 0) is True
+        assert w.active_at(17 * 60, 0) is False  # end exclusive
+        assert w.active_at(8 * 60, 0) is False
+
+    def test_overnight_wrap(self):
+        from led_ticker.schedule import TimeWindow
+
+        w = TimeWindow(start=22 * 60, end=6 * 60, days=frozenset())
+        assert w.active_at(23 * 60, 0) is True
+        assert w.active_at(5 * 60, 0) is True
+        assert w.active_at(12 * 60, 0) is False
+
+    def test_wrap_tail_owned_by_previous_day(self):
+        from led_ticker.schedule import TimeWindow
+
+        # Window starts Friday 22:00 (weekday 4); the 02:00 tail on Saturday
+        # (weekday 5) belongs to Friday's day filter.
+        w = TimeWindow(start=22 * 60, end=6 * 60, days=frozenset({4}))
+        assert w.active_at(23 * 60, 4) is True  # Fri 23:00
+        assert w.active_at(2 * 60, 5) is True  # Sat 02:00 — Friday's tail
+        assert w.active_at(2 * 60, 4) is False  # Fri 02:00 — Thursday's tail
+
+    def test_window_subclass_field_order(self):
+        from led_ticker.schedule import _Window
+
+        w = _Window(start=0, end=60, days=frozenset(), brightness=50)
+        assert (w.start, w.end, w.brightness) == (0, 60, 50)

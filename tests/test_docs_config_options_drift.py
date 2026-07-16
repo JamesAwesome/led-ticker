@@ -94,6 +94,7 @@ DOCUMENTED_KEYS: dict[str, set[str]] = {
         "separator_size",
         "start_hold",
         "transition_specified",
+        "schedule",
     },
     # [busy_light] surfaces every BusyLightConfig field — 1:1 TOML keys.
     "busy_light": {f.name for f in fields(BusyLightConfig)},

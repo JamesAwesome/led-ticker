@@ -40,6 +40,7 @@ from led_ticker.colors import (
 )
 from led_ticker.config import SectionConfig, SourceConfig, TransitionConfig
 from led_ticker.frame import LedFrame
+from led_ticker.schedule import bind_schedule, parse_visibility_schedule
 from led_ticker.sources import (
     _PLUGIN_SOURCE_TYPES,  # noqa: PLC2701 — private but same package
     ClockSource,
@@ -97,6 +98,12 @@ FIELD_HINTS: dict[str, FieldHint] = {
         " — five styles (rainbow chase, color cycle, constant, bands, lightbulbs)"
         "; see /concepts/borders/",
         "none",
+    ),
+    "schedule": FieldHint(
+        '{start = "HH:MM", end = "HH:MM", days = [...]}',
+        "show this widget only during the time window (core-owned; start >"
+        " end wraps overnight) — see /concepts/scheduling/",
+        "none (always shown)",
     ),
     # TickerMessage / TickerCountdown
     "text": FieldHint("str", "widget text content", None),
@@ -268,6 +275,7 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "font_threshold": None,
     "animation": {"message", "gif", "image"},
     "border": {"message", "countdown", "countup", "two_row", "gif", "image"},
+    "schedule": None,
     "text_wrap": {"gif", "image"},
     "text_separator": {"gif", "image"},
     "text_separator_color": {"gif", "image"},
@@ -281,6 +289,10 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "bottom_font_size": {"two_row"},
     "bottom_font_threshold": {"two_row"},
 }
+
+# Dispatch fields that ARE valid on plugin widgets (core pops them before
+# the constructor, so the plugin never has to accept them).
+_PLUGIN_SAFE_DISPATCH = frozenset({"schedule"})
 
 # Section-title random color cycle. One stable color per section visit.
 # Lives here (not in `colors.py`) because this is the only consumer; a
@@ -746,6 +758,26 @@ async def validate_widget_cfg(
         _msg, _suggested_fix = _crypto_migration
         raise MigrationError(_msg, suggested_fix=_suggested_fix)
     cls = get_widget_class(widget_type)
+
+    # `schedule` is a HARD-RESERVED core field (visibility scheduling —
+    # docs /concepts/scheduling/). Popped here — BEFORE `_run_validate_config`
+    # runs a plugin's `validate_config` hook — so it never reaches a widget
+    # constructor NOR a plugin's own validation (a strict "reject unknown
+    # keys" hook would otherwise choke on it), and rejected on any widget
+    # class that declares its own `schedule` field so the TOML key has
+    # exactly one meaning everywhere.
+    if _widget_declares_field(cls, "schedule"):
+        raise ValueError(
+            f"widget type={widget_type!r} declares a 'schedule' field, but "
+            "'schedule' is reserved by the core engine for visibility "
+            "scheduling. Rename the widget's field (e.g. 'poll_schedule')."
+        )
+    schedule_value = widget_cfg.pop("schedule", None)
+    if schedule_value is not None:
+        parse_visibility_schedule(
+            schedule_value, location=f"widget type={widget_type!r} schedule"
+        )
+
     _run_validate_config(cls, widget_cfg, widget_type)
 
     _coerce_widget_cfg(widget_cfg, coercion_collector)
@@ -886,6 +918,7 @@ async def _build_widget(
     is the supported use case, so callers pass None for it.
     """
     widget_type: str = widget_cfg["type"]  # peek before validate_widget_cfg pops it
+    raw_schedule = widget_cfg.get("schedule")  # peek; validate pops + checks it
     await validate_widget_cfg(
         widget_cfg,
         session=session,
@@ -896,8 +929,17 @@ async def _build_widget(
     )
     cls = get_widget_class(widget_type)
     if hasattr(cls, "start"):
-        return await cls.start(session=session, **widget_cfg)
-    return cls(**widget_cfg)
+        widget = await cls.start(session=session, **widget_cfg)
+    else:
+        widget = cls(**widget_cfg)
+    if raw_schedule is not None:
+        bind_schedule(
+            widget,
+            parse_visibility_schedule(
+                raw_schedule, location=f"widget type={widget_type!r} schedule"
+            ),
+        )
+    return widget
 
 
 async def _build_title(
@@ -943,6 +985,20 @@ async def _build_title(
             ),
             fix_key="color",
             fix_replacement_key="font_color",
+        )
+
+    # Titles route through `_build_widget` (so a `schedule` table would
+    # validate + bind), but the ENGINE never gates titles through
+    # `_expand_sources` — titles bypass the visibility-schedule check
+    # entirely, so a bound schedule would silently do nothing. Titles are
+    # not schedulable in v1: raise loudly here rather than let a config
+    # author's schedule = {...} on a title be silently ignored.
+    if "schedule" in cfg:
+        raise ValueError(
+            "[playlist.section.title] does not support 'schedule' — section "
+            "titles are not schedulable in v1 (they bypass the engine's "
+            "visibility gate). Schedule the section instead: add "
+            "schedule = {...} to the [[playlist.section]] table."
         )
 
     return await _build_widget(
@@ -1354,7 +1410,11 @@ def _list_widget_fields(widget_type: str) -> str:
         # Plugin widgets don't auto-receive the built-in shared knobs (`type`,
         # `text`, `font`, `font_size`, `font_threshold`); suppress that whole
         # block for them rather than advertise fields they'd reject.
-        if is_plugin_widget and applicable_types is None:
+        if (
+            is_plugin_widget
+            and applicable_types is None
+            and name not in _PLUGIN_SAFE_DISPATCH
+        ):
             continue
         if name in widget_field_names:
             continue  # already shown above
@@ -1552,6 +1612,13 @@ def _list_section_fields() -> str:
             "float (seconds)",
             "default: [transitions].duration",
             "duration for transitions within this section",
+        ),
+        (
+            "schedule",
+            '{start = "HH:MM", end = "HH:MM", days = [...]}',
+            "default: none (always shown)",
+            "show this section only during the time window (core-owned; start >"
+            " end wraps overnight) — see /concepts/scheduling/",
         ),
     ]
 

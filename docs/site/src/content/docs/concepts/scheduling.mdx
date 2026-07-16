@@ -1,0 +1,103 @@
+---
+title: Widget scheduling
+description: Show a widget or section only during a time window with schedule = {...} — the same start/end/days windows as brightness scheduling, applied to visibility.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+import { Aside } from "@astrojs/starlight/components";
+
+A **schedule** is a time window: a `start`, an `end`, and an optional list of `days`. led-ticker uses that one vocabulary for two different jobs:
+
+- **Visibility** — `schedule = {...}` on any widget or section. Outside the window, the widget or section is skipped this pass. This page.
+- **Brightness** — `[display.schedule]`. Dims or darkens the whole panel by time of day, but never changes _what_ is shown. See [Display: Scheduling](/concepts/display/#scheduling).
+
+They share the same `start`/`end`/`days` semantics (including the overnight wrap), so once you know one you know the other — only the target differs: content vs. brightness.
+
+## The open/closed storefront
+
+The classic use case: swap an "OPEN" graphic for a "CLOSED" one at the same two times every day.
+
+<TomlExample
+  title="Two widgets, complementary windows"
+  code={`[[playlist.section]]
+mode = "slideshow"
+
+[[playlist.section.widget]]
+type = "image"
+path = "open.png"
+schedule = { start = "09:00", end = "17:00" }
+
+[[playlist.section.widget]]
+type = "image"
+path = "closed.png"
+schedule = { start = "17:00", end = "09:00" }`}
+/>
+
+Neither widget has `days`, so both are active every day of the week. `open.png`'s window runs 09:00 up to (not including) 17:00; `closed.png`'s window runs from 17:00 through 08:59 the next morning, wrapping past midnight because `start > end`. Every minute of every day falls in exactly one of the two windows, so the sign always has something to show — a gapless, 24/7 handoff between "open" and "closed."
+
+### Weekday-only hours
+
+Real storefronts are usually closed on weekends, not just overnight. Add `days` to `open.png` to restrict it to weekdays:
+
+<TomlExample
+  title="open.png restricted to weekdays"
+  code={`[[playlist.section.widget]]
+type = "image"
+path = "open.png"
+schedule = { start = "09:00", end = "17:00", days = ["mon", "tue", "wed", "thu", "fri"] }`}
+/>
+
+This breaks the gapless coverage from the previous example: `closed.png` still has no `days`, so its window is still only 17:00–08:59 every day — it does **not** expand to cover Saturday and Sunday daytime. The result is a gap: Saturday and Sunday 09:00–17:00 is covered by **neither** widget, so the section has nothing to display and the panel goes dark for those eight hours (see [Behavior notes](#behavior-notes) below on why a scheduled-out sign goes dark on purpose). This is exactly the situation `led-ticker validate`'s blank-interval warning (described under [One clock](#one-clock-display-timezone) below) is built to catch — it will warn and list `Sat 09:00-17:00` and `Sun 09:00-17:00` so you can decide whether that's intentional (a real weekend closure) or a bug (forgot to add a weekend `closed.png` window).
+
+If a weekend closure is what you want, add a `closed.png` window (or a section-level `schedule`) that explicitly covers the weekend daytime hours too, so the gap is filled on purpose rather than by omission.
+
+`schedule` also works on a **section**, gating the whole section (all of its widgets) at once:
+
+<TomlExample
+  code={`[[playlist.section]]
+mode = "slideshow"
+schedule = { start = "09:00", end = "21:00" }`}
+/>
+
+## Works on every widget, including plugins
+
+`schedule` is a **core-owned** field. The engine pops it off the widget's config before the widget's constructor ever runs, so a widget class — core or plugin — never sees it and never has to implement anything to support it. This also means a widget class can't declare its own field named `schedule`; if one does, config-load rejects it with an error naming the conflict (rename the widget's field, e.g. `poll_schedule`).
+
+Because the check lives in the engine, `schedule` composes with a widget's own visibility logic. The [countdown widget](/widgets/countdown/) already hides itself once its target date has passed (`should_display()`); add a `schedule` and the two conditions AND together — the countdown only shows when it's both in its date range _and_ inside its scheduled window. Neither check can force the other to show something it wants hidden.
+
+## One clock: `[display] timezone`
+
+Visibility schedules read the wall clock from exactly one place: the top-level `[display] timezone` field (an IANA name, e.g. `"America/New_York"`; empty string = the machine's system local time). There is no per-widget or per-section timezone override.
+
+The brightness scheduler (`[display.schedule]`, see [Display: Scheduling](/concepts/display/#scheduling)) reads the same top-level field too — but it also accepts its own `[display.schedule] timezone`, a per-feature override that, when set, wins for brightness only. Set that field alone and brightness moves to the new zone while visibility schedules stay on `[display] timezone` (or the system clock, in Docker). Set the top-level `[display] timezone` instead and both features share one clock.
+
+<Aside type="caution" title="Docker defaults to UTC">
+A freshly-imaged Pi — and most Docker base images — run on UTC, not your local time zone. If you write `schedule = { start = "09:00", end = "17:00" }` and forget to set `timezone`, "09:00" means 09:00 UTC, which is very much not 9 a.m. on your storefront. Set `[display] timezone` explicitly.
+</Aside>
+
+`led-ticker validate` prints the resolved clock so you can catch this before deploying:
+
+```
+visibility schedules evaluate at 14:32 (America/New_York)
+```
+
+If every section in your config ends up scheduled out for some stretch of the week, `validate` also warns about it — listing the blank interval(s) — so you can confirm that's what you meant before it happens live on the panel.
+
+## Behavior notes
+
+- **Section-level granularity is one playlist cycle.** A section's `schedule` (and each of its widgets') is (re-)checked once per pass through the playlist, not on every render tick. For a flip that needs to land within a second or two of the boundary (a tight 17:00:00 open→closed cutover), put both widgets in **one** section — see the storefront example above — rather than splitting them across two sections that each get checked on their own cycle.
+- **A fully scheduled-out sign goes dark on purpose.** If every section's window is inactive at the same moment, the panel goes dark after two consecutive all-out cycles (~2 s), debouncing content flaps (e.g. a container emptying briefly on a failed poll) instead of visibly blanking on every one, then idles rather than showing stale content or freezing. This is treated as correct behavior — a closed storefront going dark — not a bug. It logs once when going dark and once when waking, not on every idle loop — but it keeps re-blanking the panel once a second the whole time it's dark, so overlays (like the busy-light corner dot) and liveness monitoring keep working overnight instead of freezing on whatever was on screen at the moment it went dark. The dark buffer itself is allocated once for the life of the process and reused for every dark stretch afterward, so a config that flaps in and out of "all scheduled out" repeatedly doesn't grow memory use over time.
+- **A widget can appear one last time after its window closes.** If a widget was on screen when its window closes, it can still render as the **outgoing** frame of the transition already in flight — a sub-second artifact, once per exit, and not something to work around.
+- **Section titles don't take `schedule`.** `[playlist.section.title]` is not schedulable — schedule the section itself instead (`[[playlist.section]] schedule = {...}`).
+- **Schedule checks run ahead of the display in a `loop_count = 0` (forever) section — for both section- and widget-level schedules.** Every schedule — section-level or widget-level — is actually decided in the enqueue **producer** (`_expand_sources`, called from `_build_ticker_iter`'s generators), which pushes content into an unbounded queue that the display consumer drains from separately. For a **finite** `loop_count`, that gap is harmless: the producer can only run at most one section's worth ahead, so staleness is bounded to roughly one section run. For `loop_count = 0`, there's no such bound — the producer never gets a natural boundary to re-run the check at, so every schedule decision for that section is effectively locked in within seconds of the section being entered. A widget's window closing hours later never reaches the panel; the display just keeps playing whatever was already queued.
+
+  This has three consequences, depending on shape:
+
+  1. **Section-level `schedule` + `loop_count = 0`, general case.** The section-level `schedule` is checked once, at entry, and never again — the section keeps showing past its `end` time instead of going dark.
+  2. **Section-level `schedule` + `loop_count = 0`, all-widgets-scheduled case.** If every widget in the section also carries its own `schedule = {...}` and those widget windows leave a gap somewhere in the week, the widget rotation empties out at that gap, which gives the section a fresh entry — re-checking the section-level schedule too, just at the widget-window boundary rather than exactly at the section's own `end`. But that re-check still only reaches the panel once whatever content the producer had already queued finishes draining — it is not instantaneous either. **Unless the widget windows jointly cover the full week** (e.g. complementary AM/PM windows with no gap, the same gapless pattern used for the storefront example above), the rotation never actually empties out, so this degrades to shape 1 — the strong warning — despite every widget nominally having its own schedule.
+  3. **Widget-level `schedule` only, no section-level schedule, `loop_count = 0`.** Don't reach for widget-level schedules as the "safe" way to gate content in a forever section — they're gated by the same run-ahead producer, so a widget's window closing later doesn't reach the panel until the section is next entered, which for a forever section may not happen for a long time (or ever).
+
+  `led-ticker validate` warns on all three shapes — the strong message for (1), a softened message for (2), and a dedicated widget-only message for (3). In every case the fix is the same: **use a finite `loop_count` (e.g. `1`)** so the playlist re-enters the section — and re-evaluates its schedules — every cycle. Note that `validate`'s blank-interval sweep assumes a forever section closes on schedule; with `loop_count = 0` and no exit, it won't, so the sweep's "blank during X" claim can be wrong for that shape. The bounded-queue fix that would make forever sections re-check promptly is tracked as a follow-up engine change, not shipped here.
+
+<RelatedPages slugs={["concepts/display", "widgets/countdown", "reference/config-options"]} />

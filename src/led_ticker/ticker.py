@@ -1124,6 +1124,22 @@ def _displayable(widget: Any) -> bool:
         return True
 
 
+def _schedule_active(widget: Any) -> bool:
+    """Core `schedule = {...}` visibility gate (bound at build time in
+    app.factories). No binding = always shown. Same contract as
+    `_displayable`: a check that raises KEEPS the widget — scheduling must
+    never crash the render loop or silently hide content."""
+    from led_ticker.schedule import schedule_for
+
+    sched = schedule_for(widget)
+    if sched is None:
+        return True
+    try:
+        return bool(sched.is_active())
+    except Exception:  # noqa: BLE001 - visibility must not crash the render loop
+        return True
+
+
 def _expand_sources(
     sources: list[Any], breaker: RenderBreaker | None = None
 ) -> list[Any]:
@@ -1139,12 +1155,18 @@ def _expand_sources(
     Widgets (and container stories) that define `should_display()` are also
     filtered: returning `False` removes the widget from this pass. A check
     that raises keeps the widget — visibility must never crash the render loop.
+    Widgets with a bound core `schedule = {...}` (see led_ticker.schedule.
+    bind_schedule) are additionally gated by `_schedule_active` — the two
+    compose as AND. A scheduled container is gated BEFORE expansion (stories
+    inherit); its background update() keeps running regardless.
     """
     from led_ticker.widget import Container
 
     out: list[Any] = []
     for s in sources:
         if breaker is not None and breaker.is_disabled(s):
+            continue
+        if not _schedule_active(s):
             continue
         if isinstance(s, Container):
             for story in s.feed_stories:

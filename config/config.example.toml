@@ -255,3 +255,19 @@ image_align = "center"
 # allow_restart = true   # enables the "Restart to apply" button in the web UI; requires a process supervisor
 #                        # to bring the display back — Docker's `restart: unless-stopped` (shipped in compose.yaml)
 #                        # handles this automatically. Defaults to false.
+
+# --- Scheduling (see https://docs.ledticker.dev/concepts/scheduling/) ---
+# Show a widget only during a time window. start > end wraps overnight.
+# [[playlist.section.widget]]
+# type = "image"
+# path = "open.png"
+# schedule = { start = "09:00", end = "17:00", days = ["mon", "tue", "wed", "thu", "fri"] }
+#
+# [[playlist.section.widget]]
+# type = "image"
+# path = "closed.png"
+# schedule = { start = "17:00", end = "09:00" }
+#
+# Sections take the same field; set the sign-wide clock with:
+# [display]
+# timezone = "America/New_York"

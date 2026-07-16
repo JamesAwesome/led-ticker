@@ -17,3 +17,4 @@ Shared fields:
   type                          
   font_size                     int (pixels)  default: none  — text height in real pixels; required for hi-res fonts
   font_threshold                int 0–255  default: 128  — bitmask threshold for hi-res font rendering
+  schedule                      {start = "HH:MM", end = "HH:MM", days = [...]}  default: none (always shown)  — show this widget only during the time window (core-owned; start > end wraps overnight) — see /concepts/scheduling/

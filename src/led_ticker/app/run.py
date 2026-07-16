@@ -51,6 +51,7 @@ from led_ticker.ticker import (
     _displayable,
     _expand_sources,
     _maybe_wrap,
+    _schedule_active,
 )
 from led_ticker.transitions import Transition, run_transition
 from led_ticker.widget import _build_sink, run_monitor_loop, spawn_tracked
@@ -151,9 +152,19 @@ async def _supervised_schedule(
             logging.exception("schedule: failed to reset brightness to base")
 
 
+def _schedule_tz_name(display: Any) -> str:
+    """Brightness-scheduler timezone: its own field wins (back-compat),
+    else the sign-wide [display] timezone, else "" (system local)."""
+    return display.schedule.timezone or display.timezone
+
+
 async def _respawn_schedule(old_task: Any, config: Any, led_frame: Any) -> Any:
     """Cancel the running schedule ticker (if any) and start a fresh one from the
     new config. Disabled -> set brightness to the new base and return None."""
+    from led_ticker.schedule import set_schedule_timezone  # noqa: PLC0415
+
+    set_schedule_timezone(config.display.timezone)
+
     if old_task is not None:
         old_task.cancel()
         await asyncio.sleep(0)  # let the old ticker observe the cancel before respawn
@@ -165,7 +176,7 @@ async def _respawn_schedule(old_task: Any, config: Any, led_frame: Any) -> Any:
             _supervised_schedule(
                 led_frame,
                 sched,
-                config.display.schedule.timezone,
+                _schedule_tz_name(config.display),
                 config.display.brightness,
             )
         )
@@ -218,6 +229,166 @@ async def _idle_on_empty_playlist(sections: list, warned: bool) -> tuple[bool, b
         )
     await asyncio.sleep(1.0)
     return True, True
+
+
+def _section_schedule_active(section: Any) -> bool:
+    """Section-level `schedule = {...}` gate. No schedule = always active.
+    Same contract as the widget-level check (ticker._schedule_active): an
+    evaluation error KEEPS the section — scheduling must never blank the
+    panel by accident."""
+    sched = getattr(section, "schedule", None)
+    if sched is None:
+        return True
+    try:
+        return bool(sched.is_active())
+    except Exception:  # noqa: BLE001 - visibility must not crash the run loop
+        logging.exception("section schedule check failed; showing section")
+        return True
+
+
+def _cycle_dark_canvas(led_frame: Any, dark_canvas: Any) -> Any:
+    """Clear + swap the dark-idle canvas, returning the new back-buffer.
+
+    Extracted so the swap-chain-cycling step (constraint #1: capture the
+    swap return) has exactly ONE implementation, shared by
+    `_idle_when_all_scheduled_out` (the all-scheduled-out dark idle) and
+    `run()`'s empty-playlist idle branch — a hot-reload that lands a
+    zero-section config WHILE the panel is dark must keep cycling this same
+    buffer too, or swaps (and the overlay hooks / `swap_count` liveness
+    counter riding on them) stall for as long as the playlist stays empty.
+    """
+    dark_canvas.Clear()
+    return led_frame.swap(dark_canvas)  # constraint #1: capture the swap return
+
+
+async def _idle_when_all_scheduled_out(
+    led_frame: Any,
+    any_section_ran: bool,
+    was_dark: bool,
+    dark_canvas: Any,
+    dark_streak: int,
+) -> tuple[bool, Any, int]:
+    """When EVERY section sat outside its schedule window this cycle, blank
+    the panel (a closed storefront going dark is correct behavior, not a
+    freeze) and idle 1s so the outer loop's reload/restart checks stay
+    responsive.
+
+    LEAK guard — process-lifetime canvas retention: `dark_canvas` is fetched
+    via `led_frame.get_clean_canvas()` AT MOST ONCE for the life of the
+    process (gated on `dark_canvas is None`, not on the dark/wake
+    transition), and every wake threads the SAME canvas back out instead of
+    dropping it. On the real backend, `get_clean_canvas` ->
+    `RgbMatrixBackend.create_canvas` -> the C++ `CreateFrameCanvas()`, which
+    retains every framebuffer it creates until process exit — fetching a
+    fresh one per DARK EPISODE (the previous scheme) still leaked one
+    retained framebuffer per episode: a config that flaps empty/non-empty at
+    a slow poll cadence (e.g. a Container's 30s poll) goes through ~30
+    consecutive all-out cycles per episode — far wider than the debounce
+    below covers — so a flappy container could still rack up one leaked
+    buffer per flap over a long uptime. Retaining `dark_canvas` across
+    episodes caps the LIFETIME total at one allocation, full stop, no matter
+    the flap pattern. Every dark iteration (first fetch or Nth revisit)
+    reuses it via `_cycle_dark_canvas` (Clear, erasing whatever an overlay
+    hook painted onto this same buffer two swaps ago, then thread it through
+    `led_frame.swap()`), so the double buffer just cycles indefinitely with
+    zero net allocation after the first fetch, while overlay hooks (e.g.
+    busy_light, which composites inside `frame.swap()`) keep compositing and
+    the status board's `swap_count` liveness counter keeps advancing all
+    night. Accepted artifact: on re-entering dark, the retained canvas may
+    momentarily still be the DISPLAYED front buffer (from whatever last used
+    it), so `_cycle_dark_canvas`'s `Clear()` can blank one frame earlier than
+    the swap that actually takes it off screen — invisible in practice,
+    since the very next swap shows black anyway.
+
+    FLICKER guard — debounce (separate from the leak guard above): the
+    panel only commits to the dark log/blank on the SECOND consecutive
+    all-out cycle, tracked via `dark_streak`. Without it, a config whose
+    only section flaps content on/off between polls (e.g. a Container
+    emptying briefly on a failed poll) would blank the panel on every single
+    poll even though nothing is structurally wrong — a visible ~1s black
+    flicker each time. The FIRST all-out cycle is a no-op: no blank, no log,
+    just a 1s sleep — the panel keeps showing its last frame for one extra
+    second while we wait to see if this is a real closed-hours transition or
+    a one-cycle content flap. Only the SECOND (and every subsequent)
+    consecutive all-out cycle runs the actual dark path.
+
+    Logs only on the dark/wake TRANSITIONS, never per iteration (nor during
+    the debounce cycle). Returns `(now_dark, dark_canvas, dark_streak)`;
+    callers thread all three back in on the next call. Waking preserves
+    whatever `dark_canvas` this call was holding (or `None` if the process
+    has never gone dark yet) — it must NOT null it out, or the next dark
+    episode would re-fetch and defeat the process-lifetime retention above.
+    """
+    if any_section_ran:
+        if was_dark:
+            logging.info("schedule: panel waking — re-checking sections")
+        return False, dark_canvas, 0
+    if not was_dark and dark_streak == 0:
+        # Debounce cycle: a single all-out pass doesn't commit to dark yet —
+        # no fetch, no blank, no log. The panel just keeps its last frame
+        # for one more second while we wait to see if this is a real
+        # closed-hours transition or a one-cycle content flap.
+        await asyncio.sleep(1.0)
+        return False, dark_canvas, 1
+    if not was_dark:
+        logging.info(
+            "schedule: every section is outside its schedule window — panel dark"
+        )
+    if dark_canvas is None:
+        # The ONLY fetch for the life of the process — every subsequent dark
+        # episode (however many wake/dark flaps happen before it) reuses
+        # this same canvas via _cycle_dark_canvas below.
+        dark_canvas = led_frame.get_clean_canvas()
+    dark_canvas = _cycle_dark_canvas(led_frame, dark_canvas)
+    await asyncio.sleep(1.0)
+    return True, dark_canvas, dark_streak + 1
+
+
+def _on_display_dark_transition(
+    was_dark: bool, now_dark: bool
+) -> tuple[None, int, None] | None:
+    """Reset outgoing-transition tracking on the False->True (panel just
+    went dark) transition. Without this, the morning wake's entry
+    transition would draw yesterday evening's `last_widget` at full
+    brightness as the outgoing frame — a stale, unrelated widget flashing
+    on wake. Returns the (last_widget, last_scroll_pos, last_bg_color)
+    reset triple to assign when the transition just happened, else None
+    (caller keeps its prior values unchanged). `last_scale` /
+    `last_content_height` are wrapper geometry, not content — deliberately
+    left untouched; `_entry_transition_active` already treats
+    `last_widget is None` as "no entry transition" (boot behavior), so
+    resetting `last_widget` alone is sufficient to suppress the stale
+    outgoing frame."""
+    if was_dark or not now_dark:
+        return None
+    return None, 0, None
+
+
+def _section_has_content(
+    title: Any, widgets: list[Any], breaker: Any
+) -> tuple[bool, list[Any]]:
+    """Whether a section pass has anything to show this cycle, plus the
+    expanded widget rotation for reuse by the caller (avoids a second
+    `_expand_sources` call for `first_widget`).
+
+    A title always counts as content — it renders regardless of the widget
+    rotation. Otherwise content requires at least one widget to survive
+    `_expand_sources` (containers expanded to `feed_stories`; schedule /
+    `should_display()` / breaker filters applied) this pass. An empty
+    result means every widget is scheduled out, filtered, or tripped —
+    including a Container with zero `feed_stories` (e.g. a boot-time RSS
+    feed before its first successful poll). The caller must NOT mark the
+    section as "ran" in that case: doing so previously left the panel on
+    its last drawn frame while busy-spinning the outer loop (Fix 1,
+    2026-07-15) instead of blanking + idling via
+    `_idle_when_all_scheduled_out`.
+    """
+    if title:
+        return True, []
+    if not widgets:
+        return False, []
+    expanded = _expand_sources(widgets, breaker)
+    return bool(expanded), expanded
 
 
 async def _build_widget_guarded(
@@ -435,10 +606,14 @@ def _entry_transition_active(
     outgoing widget: a cached `last_widget` that has since gone out of range (e.g. a
     countdown that crossed its date between sections) must NOT render as the
     transition's outgoing frame — that would briefly flash the negative count the
-    visibility filter otherwise hides."""
+    visibility filter otherwise hides. Same reasoning applies to a `last_widget`
+    whose bound `schedule = {...}` has gone inactive between sections — without
+    this conjunct it would still flash as the transition's outgoing frame even
+    though `_expand_sources` has already excluded it from the rotation."""
     return (
         last_widget is not None
         and _displayable(last_widget)
+        and _schedule_active(last_widget)
         and first_widget is not None
         and entry_trans is not None
     )
@@ -856,6 +1031,10 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
 
             try:
                 _empty_playlist_warned = False
+                _any_section_ran = True  # first pass: no idle before sections run
+                _display_dark = False
+                _dark_canvas: Any = None
+                _dark_streak = 0
                 while True:
                     # Belt-and-suspenders outer-loop check (once per full
                     # playlist cycle). The per-section check below and the
@@ -886,6 +1065,15 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         default_section_trans = _reload_res.default_section_trans
                         schedule_task = _reload_res.schedule_task
                         source_refresh_task = _reload_res.source_refresh_task
+                        # Mirrors the mid-cycle reload pin below: a reload
+                        # landing here (e.g. restoring sections after an
+                        # empty-playlist interlude) must not let the next
+                        # `_idle_when_all_scheduled_out` call treat this as a
+                        # continuation of a stale all-out streak — that would
+                        # commit a spurious dark on hours-old evidence instead
+                        # of giving the freshly-reloaded sections a pass.
+                        _any_section_ran = True
+                        _dark_streak = 0
                     # A section-less playlist has nothing to draw — idle + warn
                     # (checked AFTER the reload above, so adding sections recovers)
                     # instead of busy-spinning this loop at 100% CPU.
@@ -893,7 +1081,30 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         config.sections, _empty_playlist_warned
                     )
                     if _idled:
+                        # A hot-reload can land a zero-section config WHILE
+                        # the panel is dark — keep cycling the same dark
+                        # canvas so swaps (and the overlay hooks / swap_count
+                        # liveness counter riding on them) don't stall for as
+                        # long as the playlist stays empty.
+                        if _display_dark and _dark_canvas is not None:
+                            _dark_canvas = _cycle_dark_canvas(led_frame, _dark_canvas)
                         continue
+                    _was_dark = _display_dark
+                    (
+                        _display_dark,
+                        _dark_canvas,
+                        _dark_streak,
+                    ) = await _idle_when_all_scheduled_out(
+                        led_frame,
+                        _any_section_ran,
+                        _display_dark,
+                        _dark_canvas,
+                        _dark_streak,
+                    )
+                    _dark_reset = _on_display_dark_transition(_was_dark, _display_dark)
+                    if _dark_reset is not None:
+                        last_widget, last_scroll_pos, last_bg_color = _dark_reset
+                    _any_section_ran = False
                     for section_index, section in enumerate(config.sections):
                         # Per-section reload check: caps reload latency at one
                         # section instead of one full playlist cycle, so a save
@@ -917,6 +1128,7 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                             default_section_trans = _reload_res.default_section_trans
                             schedule_task = _reload_res.schedule_task
                             source_refresh_task = _reload_res.source_refresh_task
+                            _any_section_ran = True
                             break
                         # Per-section restart check: caps latency at one
                         # section even for run modes where the per-tick
@@ -930,13 +1142,12 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                                 " — exiting for supervisor restart"
                             )
                             sys.exit(0)
-                        status_board.record_section(
-                            index=section_index,
-                            total=len(config.sections),
-                            mode=section.mode,
-                            title=str((section.title or {}).get("text", "")),
-                            widget_count=len(section.widgets),
-                        )
+                        if not _section_schedule_active(section):
+                            logging.debug(
+                                "section %d skipped: outside its schedule window",
+                                section_index,
+                            )
+                            continue
                         notif_queue: asyncio.Queue[Any] = asyncio.Queue()
                         widgets: list[Any] = []
                         runtime_coerce: list[Any] = []
@@ -977,6 +1188,33 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                             config_dir=config_path.parent,
                             default_bg_color=section.bg_color,
                             panel_h_for_warning=panel_h_for_warning,
+                        )
+
+                        # Widget-level all-scheduled-out gate: a section with NO
+                        # section-level schedule can still end up with nothing to
+                        # show if every widget's OWN `schedule = {...}` is
+                        # inactive (or a Container is currently empty). Skip the
+                        # rest of the section body the same way the section-level
+                        # gate above does — _any_section_ran stays False so
+                        # `_idle_when_all_scheduled_out` blanks + idles instead of
+                        # leaving the panel on its last drawn frame.
+                        _has_content, _expanded_widgets = _section_has_content(
+                            title, widgets, render_breaker
+                        )
+                        if not _has_content:
+                            logging.debug(
+                                "section %d skipped: all widgets scheduled out "
+                                "(empty rotation)",
+                                section_index,
+                            )
+                            continue
+                        _any_section_ran = True
+                        status_board.record_section(
+                            index=section_index,
+                            total=len(config.sections),
+                            mode=section.mode,
+                            title=str((section.title or {}).get("text", "")),
+                            widget_count=len(section.widgets),
                         )
                         run_method = RUN_MODES.get(
                             section.mode,
@@ -1019,9 +1257,8 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         # `incoming.draw()` call has a real widget to render.
                         if title:
                             first_widget = title
-                        elif widgets:
-                            expanded = _expand_sources(widgets, render_breaker)
-                            first_widget = expanded[0] if expanded else None
+                        elif _expanded_widgets:
+                            first_widget = _expanded_widgets[0]
                         else:
                             first_widget = None
                         just_transitioned = _entry_transition_active(
@@ -1177,13 +1414,22 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         # to the container's last current story; if the container
                         # is currently empty, keep the previous last_widget (the
                         # next transition will use whatever was last on-screen).
+                        # A title fallback applies even when `widgets` is
+                        # non-empty: if every widget's rotation is currently
+                        # empty (all scheduled out / empty containers) but the
+                        # section has a title, the title — not a stale
+                        # earlier-section last_widget — is what's actually on
+                        # screen, so it must be what the next entry transition
+                        # renders as outgoing.
                         if widgets:
                             expanded = _expand_sources(widgets, render_breaker)
                             if expanded:
                                 last_widget = expanded[-1]
-                            # else: container is empty this cycle — keep prior
-                            # last_widget so the next transition still has a real
-                            # widget to render as outgoing.
+                            elif title:
+                                last_widget = title
+                            # else: empty container this cycle — keep prior
+                            # last_widget so the next transition still has a
+                            # real widget to render as outgoing.
                         elif title:
                             last_widget = title
             finally:

@@ -2969,22 +2969,32 @@ def apply_migrations(path: Path, result: ValidationResult) -> int:
     return applied
 
 
-async def validate_config(
-    path: Path, *, strict: bool = False, config_dir: Path | None = None
-) -> ValidationResult:
-    """Validate a TOML config file. Raises FileNotFoundError if path does not exist.
+@dataclass
+class _PrebuildResult:
+    """Locals crossing the await in validate_config (Task 1, #302).
 
-    When ``strict=True``:
-    - Asset path existence is checked (rule 40). Paths are allowed to be absent
-      in normal mode because assets may only live on the deploy target.
-    - All accumulated warnings are promoted to errors before returning.
-      ``ValidationResult.warnings`` will be empty; callers check ``result.valid``
-      as usual.
+    Populated by _validate_static_prebuild; consumed by
+    _validate_static_postbuild. ``config.sections`` and
+    ``effective_config_dir`` are also read directly by the await glue in
+    validate_config to call _run_build_checks.
+    """
 
-    ``config_dir`` overrides the directory used to resolve relative paths
-    (fonts, assets, plugin checks). Defaults to ``path.parent`` — pass it when
-    the TOML was materialized to a throwaway temp file (the web UI's text
-    validate) so resolution anchors to the real config directory.
+    path: Path
+    config: AppConfig | None
+    errors: list[ValidationIssue]
+    warnings: list[ValidationIssue]
+    effective_config_dir: Path
+    early_result: ValidationResult | None
+
+
+def _validate_static_prebuild(
+    path: Path, *, strict: bool, config_dir: Path | None
+) -> _PrebuildResult:
+    """Phase 1a/1b: everything in validate_config before the await.
+
+    Raises FileNotFoundError if path does not exist. Sets
+    ``early_result`` (and leaves ``config`` as None) when Phase 1a fails —
+    the caller returns it directly without running build checks.
     """
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
@@ -3017,7 +3027,14 @@ async def validate_config(
                 fix="Fix the TOML syntax or structural error above.",
             )
         )
-        return ValidationResult(path=path, errors=errors, warnings=warnings)
+        return _PrebuildResult(
+            path=path,
+            config=None,
+            errors=errors,
+            warnings=warnings,
+            effective_config_dir=path.parent,
+            early_result=ValidationResult(path=path, errors=errors, warnings=warnings),
+        )
 
     # Phase 1b: [display] backend — must name a registered backend.
     # `from led_ticker.backends import known_backends` triggers the package
@@ -3109,9 +3126,32 @@ async def validate_config(
     # the config. Type / required-field errors stay hard.
     effective_config_dir = config_dir if config_dir is not None else path.parent
     _configure_user_font_dir(effective_config_dir)
-    build_errors, build_warnings, migration_errors = await _run_build_checks(
-        config.sections, effective_config_dir
+    return _PrebuildResult(
+        path=path,
+        config=config,
+        errors=errors,
+        warnings=warnings,
+        effective_config_dir=effective_config_dir,
+        early_result=None,
     )
+
+
+def _validate_static_postbuild(
+    pre: _PrebuildResult,
+    build_errors: list[tuple[str, str]],
+    build_warnings: list[tuple[str, Any]],
+    migration_errors: list[tuple[str, str, str, str | None, str | None]],
+    *,
+    strict: bool,
+) -> ValidationResult:
+    """Phase 1c-cont/1d/2 + schedule checks + notes: everything after the await."""
+    path = pre.path
+    config = pre.config
+    errors = pre.errors
+    warnings = pre.warnings
+    effective_config_dir = pre.effective_config_dir
+    assert config is not None
+
     for location, msg, fix, fix_key, fix_replacement_key in migration_errors:
         errors.append(
             ValidationIssue(
@@ -3245,6 +3285,35 @@ async def validate_config(
         warnings = []
 
     return ValidationResult(path=path, errors=errors, warnings=warnings, notes=notes)
+
+
+async def validate_config(
+    path: Path, *, strict: bool = False, config_dir: Path | None = None
+) -> ValidationResult:
+    """Validate a TOML config file. Raises FileNotFoundError if path does not exist.
+
+    When ``strict=True``:
+    - Asset path existence is checked (rule 40). Paths are allowed to be absent
+      in normal mode because assets may only live on the deploy target.
+    - All accumulated warnings are promoted to errors before returning.
+      ``ValidationResult.warnings`` will be empty; callers check ``result.valid``
+      as usual.
+
+    ``config_dir`` overrides the directory used to resolve relative paths
+    (fonts, assets, plugin checks). Defaults to ``path.parent`` — pass it when
+    the TOML was materialized to a throwaway temp file (the web UI's text
+    validate) so resolution anchors to the real config directory.
+    """
+    pre = _validate_static_prebuild(path, strict=strict, config_dir=config_dir)
+    if pre.early_result is not None:
+        return pre.early_result
+    assert pre.config is not None
+    build_errors, build_warnings, migration_errors = await _run_build_checks(
+        pre.config.sections, pre.effective_config_dir
+    )
+    return _validate_static_postbuild(
+        pre, build_errors, build_warnings, migration_errors, strict=strict
+    )
 
 
 async def validate_config_text(

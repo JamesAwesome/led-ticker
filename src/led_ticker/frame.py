@@ -68,9 +68,12 @@ class LedFrame:
         allocating (see _last_back). Only before the first swap of the
         process does this fall back to backend.create_canvas().
 
-        Aliasing contract: a call site must not hold a previous
-        get_clean_canvas() result while fetching another — the second fetch
-        Clears (and hands out) the same recycled buffer.
+        Aliasing contract: a call site must never draw through or swap a
+        previously fetched canvas after a subsequent fetch — the second
+        fetch Clears (and hands out) the same recycled buffer, so drawing
+        into or swapping the stale reference corrupts whatever the new
+        fetch is building. Merely holding a dead reference (never drawn
+        through or swapped again) is harmless.
         """
         self._require_ready()
         canvas = self._last_back

@@ -1065,6 +1065,13 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         # the keepalive swap keeps overlay hooks compositing
                         # and swap_count advancing throughout.
                         _blank_swap(led_frame)
+                        # Same rationale as `_on_display_dark_transition`: an
+                        # empty-playlist interlude must not let the recovery
+                        # entry transition replay the pre-interlude widget as
+                        # its outgoing frame from a black panel. Resetting
+                        # every iteration is idempotent — cheap insurance
+                        # against the interlude lasting more than one pass.
+                        last_widget, last_scroll_pos, last_bg_color = None, 0, None
                         continue
                     _was_dark = _display_dark
                     _display_dark, _dark_streak = await _idle_when_all_scheduled_out(

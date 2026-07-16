@@ -218,6 +218,14 @@ async def _idle_on_empty_playlist(sections: list, warned: bool) -> tuple[bool, b
     config — and returns ``(idled=True, warned=True)`` so the caller `continue`s.
     With sections present it returns ``(False, False)`` (no idle, resets the
     warned flag so a later empty state warns again).
+
+    Approved behavior change (#396): the caller now BLANKS the panel (via
+    `_blank_swap`) on every idled iteration this returns, unconditionally —
+    dark or not. A zero-section playlist has nothing to display, the same
+    as the all-scheduled-out dark path, so it is no longer left showing a
+    frozen last frame for the duration. This function only paces the
+    keepalive (the 1s sleep here sets the cadence); it does not perform the
+    swap itself.
     """
     if sections:
         return False, False
@@ -1047,13 +1055,16 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         config.sections, _empty_playlist_warned
                     )
                     if _idled:
-                        # A hot-reload can land a zero-section config WHILE
-                        # the panel is dark — keep swapping so swaps (and the
-                        # overlay hooks / swap_count liveness counter riding
-                        # on them) don't stall for as long as the playlist
-                        # stays empty.
-                        if _display_dark:
-                            _blank_swap(led_frame)
+                        # Approved behavior change (#396): zero sections =
+                        # nothing to display = blank, same semantics as the
+                        # all-scheduled-out dark path — NOT a frozen last
+                        # frame. Unconditional (dark or not): a hot-reload
+                        # can land a zero-section config WHILE the panel is
+                        # dark, or the playlist can start/become empty
+                        # before any dark commit ever happens — either way
+                        # the keepalive swap keeps overlay hooks compositing
+                        # and swap_count advancing throughout.
+                        _blank_swap(led_frame)
                         continue
                     _was_dark = _display_dark
                     _display_dark, _dark_streak = await _idle_when_all_scheduled_out(

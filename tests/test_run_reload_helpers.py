@@ -1037,3 +1037,117 @@ async def test_idle_on_empty_playlist_passthrough_when_sections_present(monkeypa
     idled, warned = await run_mod._idle_on_empty_playlist(["section"], True)
     assert idled is False and warned is False  # resets so a later empty re-warns
     assert slept == []  # no idle when there is content to render
+
+
+# ---------------------------------------------------------------------------
+# Approved behavior change (#396): a zero-section playlist BLANKS the panel
+# with keepalive swaps regardless of `_display_dark` — the historical
+# behavior only blanked while already-dark, leaving a freshly-emptied
+# playlist showing a frozen last frame. Complements
+# test_reload_to_empty_playlist_while_dark_keeps_cycling_swap above (which
+# covers the already-dark case) by proving the NOT-dark case now also
+# blanks, via the same run()-spy harness used by
+# test_per_section_reload_swaps_config_and_restarts_cycle.
+# ---------------------------------------------------------------------------
+
+
+async def test_empty_playlist_blanks_and_keeps_swapping(monkeypatch, caplog):
+    """A zero-section playlist blanks the panel (instead of freezing the
+    last frame) and keepalive-swaps every idled iteration, dark or not —
+    overlay hooks and swap_count liveness must not stall during the
+    interlude."""
+    import logging
+    from unittest import mock
+
+    from led_ticker.config import (
+        AppConfig,
+        DisplayConfig,
+        SectionConfig,
+        TransitionConfig,
+    )
+
+    # Initial config has one CONTENT section (title set) that renders fine
+    # every cycle — `_display_dark` never becomes True. Then a reload lands
+    # a zero-section config while still non-dark.
+    orig_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[SectionConfig(mode="slideshow", title={"text": "A"}, widgets=[])],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    empty_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    reload_result = run_mod._ReloadResult(
+        config=empty_cfg,
+        default_section_trans=None,
+        schedule_task=None,
+        source_refresh_task=None,
+    )
+
+    class _StopApp(Exception):
+        pass
+
+    calls = {"n": 0}
+
+    async def _spy(*, config, **kwargs):
+        calls["n"] += 1
+        n = calls["n"]
+        # n=1: cycle-1 outer-top (no change). n=2: cycle-1's single section
+        # (has content -> rendered, _display_dark stays False). n=3:
+        # cycle-2 outer-top — land the zero-section config HERE, while
+        # never-dark. From this point the section loop is never entered
+        # (config.sections == []), so only outer-top checks fire: n=4 is
+        # the outer-top check for the SECOND idled-empty iteration. n=5
+        # stops the loop after observing two idled (non-dark) iterations.
+        if n == 3:
+            return reload_result
+        if n >= 5:
+            raise _StopApp("observed idled-not-dark iterations")
+        return None
+
+    monkeypatch.setattr(
+        run_mod, "_detect_and_apply_reload", mock.AsyncMock(side_effect=_spy)
+    )
+
+    blank_calls: list = []
+    monkeypatch.setattr(run_mod, "_blank_swap", lambda f: blank_calls.append(f))
+
+    frame = mock.Mock(
+        **{
+            "get_clean_canvas.return_value": mock.Mock(height=16, width=160),
+            "overlay_hooks": [],
+        }
+    )
+
+    class _SpyTicker:
+        def __init__(self, *args, **kwargs):
+            self.last_scroll_pos = 0
+            self._enqueue_task = None
+
+        async def run_slideshow(self, **kw):
+            pass
+
+    with (
+        mock.patch.object(run_mod, "load_config", return_value=orig_cfg),
+        mock.patch.object(run_mod, "build_frame_from_config", return_value=frame),
+        mock.patch.object(run_mod, "_configure_user_font_dir"),
+        mock.patch.object(run_mod, "Ticker", _SpyTicker),
+        caplog.at_level(logging.INFO),
+        pytest.raises(_StopApp),
+    ):
+        await run_mod.run(Path("ignored.toml"))
+
+    # The keepalive fired once per idled iteration (two idled cycles were
+    # observed before the stop sentinel), and the panel never committed to
+    # the "panel dark" all-scheduled-out path — this is the empty-playlist
+    # path blanking on its own, independent of `_display_dark`.
+    assert blank_calls == [frame, frame], (
+        "expected one _blank_swap(led_frame) call per idled iteration; "
+        f"got {blank_calls!r}"
+    )
+    assert not any("panel dark" in r.getMessage() for r in caplog.records)
+    assert any(
+        "no sections" in r.getMessage() for r in caplog.records
+    )  # empty-playlist warning still fires

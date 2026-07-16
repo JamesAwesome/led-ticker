@@ -33,6 +33,8 @@ The display process checks `config.toml` for modifications at the top of every f
 
 The swap happens only between cycles, so the running cycle always finishes consistently on one config — it never splits a section across a config boundary.
 
+If the new config validates but has zero sections (the common typo of `[[sections]]` instead of `[[playlist.section]]`), the panel goes dark for the interlude — there's nothing to display, so it blanks rather than freezing on the last frame — and recovers automatically as soon as a reload lands a config with sections again.
+
 ## Enabling and disabling
 
 Hot-reload is on by default. To opt out:

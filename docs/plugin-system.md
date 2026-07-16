@@ -129,7 +129,7 @@ def register(api):
     api.on_shutdown(lambda: _STATE.update(n=0))
 ```
 
-- `StartupContext(frame, session, config)` — `frame` is the `LedFrame` (`.overlay_hooks`, `.matrix`, `.get_clean_canvas()`, `.swap()`); `session` is the shared `aiohttp.ClientSession`; `config` is the parsed app config.
+- `StartupContext(frame, session, config)` — `frame` is the `LedFrame` (`.overlay_hooks`, `.matrix`, `.get_clean_canvas()`, `.swap()`); `session` is the shared `aiohttp.ClientSession`; `config` is the parsed app config. `get_clean_canvas()` returns the engine's recycled back buffer — fetch, draw, and swap it immediately; never hold it across other engine work (aliasing).
 - Register overlays via `api.overlay` (guarded), **not** by appending to `ctx.frame.overlay_hooks` (unguarded → a raise freezes the panel).
 - Run order: `parse config → load plugins → build frame → append plugin overlays → enter session → run on_startup → main loop → (finally) run on_shutdown`.
 

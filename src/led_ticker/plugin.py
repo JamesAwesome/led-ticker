@@ -189,7 +189,11 @@ class StartupContext:
     internal imports (matching ``Canvas``/``Color``). Real types:
     ``frame`` is the ``LedFrame`` (has ``overlay_hooks``,
     ``get_clean_canvas()``, ``swap()``, ``create_canvas()``, ``brightness``;
-    the backend owns the matrix now, so there is no ``matrix`` attribute);
+    the backend owns the matrix now, so there is no ``matrix`` attribute).
+    ``get_clean_canvas()`` returns the engine's recycled back buffer —
+    fetch, draw, and swap it immediately; never hold it across other
+    engine work (aliasing: a later ``get_clean_canvas()`` call hands out
+    that same buffer again).
     ``session`` is the shared
     ``aiohttp.ClientSession``; ``config`` is the parsed app config.
 

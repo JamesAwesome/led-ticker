@@ -601,6 +601,132 @@ async def test_reload_mid_cycle_pins_any_section_ran_no_false_dark(monkeypatch, 
     frame.get_clean_canvas.assert_not_called()
 
 
+# ---------------------------------------------------------------------------
+# Cycle-3 review Fix 3 (2026-07-15): the OUTER-TOP reload check (the one at
+# the very top of `while True`, before the per-section loop) must pin
+# `_any_section_ran = True` (and reset `_dark_streak = 0`) too, mirroring
+# the mid-cycle pin proven above. Without it, a reload that restores
+# sections after an empty-playlist/all-scheduled-out interlude leaves
+# `_any_section_ran` at its stale False value from before the reload — the
+# very next `_idle_when_all_scheduled_out` call reads that stale evidence
+# and can commit a spurious "panel dark" log + canvas fetch even though the
+# just-reloaded sections have real content to show this pass.
+# ---------------------------------------------------------------------------
+
+
+async def test_reload_at_outer_top_pins_any_section_ran_no_stale_dark(
+    monkeypatch, caplog
+):
+    """Two cycles of an empty section build up stale `_any_section_ran =
+    False` / `_dark_streak = 1` evidence (one debounce cycle registered,
+    never committed to dark). A reload landing at the OUTER-TOP check on
+    the third cycle swaps in a section with real content — the idle check
+    immediately afterward must not log "panel dark" or fetch a canvas on
+    that stale streak."""
+    import logging
+    from unittest import mock
+
+    from led_ticker.config import (
+        AppConfig,
+        DisplayConfig,
+        SectionConfig,
+        TransitionConfig,
+    )
+
+    def _empty_section():
+        return SectionConfig(mode="slideshow", title=None, widgets=[])
+
+    def _content_section(text):
+        return SectionConfig(mode="slideshow", title={"text": text}, widgets=[])
+
+    orig_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[_empty_section()],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    new_cfg = AppConfig(
+        display=DisplayConfig(rows=16, cols=32, chain_length=5),
+        sections=[_content_section("restored")],
+        between_sections=TransitionConfig(type="cut"),
+    )
+    reload_result = run_mod._ReloadResult(
+        config=new_cfg,
+        default_section_trans=None,
+        schedule_task=None,
+        source_refresh_task=None,
+    )
+
+    class _StopApp(Exception):
+        pass
+
+    calls = {"n": 0}
+
+    async def _spy(*, config, **kwargs):
+        calls["n"] += 1
+        n = calls["n"]
+        # n=1: cycle-1 outer-top (no change). n=2: cycle-1 section (empty,
+        # no content) -> _any_section_ran ends False entering cycle 2.
+        # n=3: cycle-2 outer-top; the idle check just before this call is
+        # the debounce no-op (dark_streak 0->1, no fetch, no log). n=4:
+        # cycle-2 section (still empty) -> _any_section_ran stays False.
+        # n=5: cycle-3 outer-top — land the reload HERE, restoring real
+        # content while _any_section_ran is still stale-False and
+        # dark_streak == 1 (one cycle short of the OLD code's dark commit).
+        if n == 5:
+            return reload_result
+        if n >= 7:
+            raise _StopApp("observed cycle-3 section pass on the new config")
+        return None
+
+    # NOTE: asyncio.sleep is deliberately NOT patched — see the sibling
+    # tests above for why (patching it globally would fast-forward the
+    # unrelated 1 Hz source-refresh background task into a busy-loop). This
+    # test's debounce cycle incurs one real ~1s sleep.
+    monkeypatch.setattr(
+        run_mod, "_detect_and_apply_reload", mock.AsyncMock(side_effect=_spy)
+    )
+
+    frame = mock.Mock(
+        **{
+            "get_clean_canvas.return_value": mock.Mock(height=16, width=160),
+            "overlay_hooks": [],
+        }
+    )
+
+    ran_sections: list = []
+
+    class _SpyTicker:
+        def __init__(self, *args, **kwargs):
+            ran_sections.append(kwargs.get("monitors"))
+            self.last_scroll_pos = 0
+            self._enqueue_task = None
+
+        async def run_slideshow(self, **kw):
+            pass
+
+    with (
+        mock.patch.object(run_mod, "load_config", return_value=orig_cfg),
+        mock.patch.object(run_mod, "build_frame_from_config", return_value=frame),
+        mock.patch.object(run_mod, "_configure_user_font_dir"),
+        mock.patch.object(run_mod, "Ticker", _SpyTicker),
+        caplog.at_level(logging.INFO),
+        pytest.raises(_StopApp),
+    ):
+        await run_mod.run(Path("ignored.toml"))
+
+    # The stale evidence must not have caused a spurious dark commit on the
+    # cycle the reload landed.
+    assert not any("panel dark" in r.getMessage() for r in caplog.records)
+    frame.get_clean_canvas.assert_not_called()
+    # And the freshly-reloaded section's title-only content actually got a
+    # pass through the engine this cycle (Ticker was reached), rather than
+    # the outer loop treating the cycle as all-scheduled-out.
+    assert ran_sections, (
+        "the restored section's content never reached Ticker — the outer-"
+        "top reload's stale _any_section_ran must have suppressed it"
+    )
+
+
 async def test_scheduled_out_section_reaches_dark_path_via_run_loop(
     monkeypatch, caplog
 ):

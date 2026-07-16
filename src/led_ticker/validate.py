@@ -2417,6 +2417,56 @@ def _check_blank_intervals(config: AppConfig) -> list[ValidationIssue]:
     ]
 
 
+def _widget_windows_have_gap(schedules: list) -> bool:
+    """True if some week-minute has EVERY window in `schedules` inactive —
+    i.e. the widget rotation these schedules gate can still empty out (an
+    `_expand_sources` result of zero), handing the forever cycle its exit
+    and re-checking the section-level schedule at that boundary. False
+    means the windows jointly cover the full week (e.g. complementary
+    AM/PM pairs with no `days` filter, gapless by construction) —
+    `_expand_sources` never returns empty, so the forever cycle never
+    exits and the section-level schedule is never re-checked again after
+    entry. Same 10,080-minute week-sweep technique as
+    `_check_blank_intervals`. An empty `schedules` list has nothing to
+    cover the week with, so it trivially "has a gap" (every minute)."""
+    if not schedules:
+        return True
+    return any(
+        not any(s.window.active_at(m % 1440, m // 1440) for s in schedules)
+        for m in range(10080)
+    )
+
+
+def _forever_never_rechecks_issue(i: int) -> ValidationIssue:
+    """The strong "never re-checks" warning, shared by the general
+    mixed-schedule case and the 24/7-widget-cover case (`_widget_windows_
+    have_gap` returning False) — both leave the forever cycle with no exit,
+    so the section-level schedule is checked once at entry and never again.
+    """
+    return ValidationIssue(
+        rule=None,
+        location=f"section[{i}]",
+        message=(
+            "this section has a schedule but loop_count = 0 "
+            "(cycles forever) — the section-level schedule is "
+            "only checked when the section is ENTERED; a "
+            "forever-cycling section never re-checks it "
+            "afterward, so the section keeps showing past "
+            "`end` instead of going dark."
+        ),
+        fix=(
+            "Use a finite loop_count (>= 1) so the schedule is "
+            "re-checked between playlist cycles, or gate "
+            "individual widgets with their own "
+            "`schedule = {...}` instead (re-checked every pass "
+            "regardless of loop_count). Note: validate's blank-interval "
+            "sweep assumes the section closes; with loop_count = 0 it "
+            "will not."
+        ),
+        severity="warning",
+    )
+
+
 def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
     """Warn when a section combines a section-level `schedule = {...}` with
     `loop_count = 0` (cycles forever) — UNLESS the section's own shape means
@@ -2443,11 +2493,19 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
       `_expand_sources` result), which re-checks the SECTION-level schedule
       at that boundary too — just not exactly at the section's own `end`.
       Emit a softened message describing that re-check-at-widget-boundary
-      behavior instead of the "never re-checks" wording.
+      behavior instead of the "never re-checks" wording — UNLESS the widget
+      windows jointly cover the full week (`_widget_windows_have_gap`
+      returns False, e.g. a complementary AM/PM pair with no gap): then
+      `_expand_sources` never actually returns empty, the forever cycle
+      never gets an exit to re-check at, and this is exactly the "never
+      re-checks" shape despite every widget nominally having its own
+      schedule — emit the strong warning instead.
 
     The strong "never re-checks" warning remains for the general case:
     widgets present, and at least one widget has no schedule of its own (so
-    the rotation never empties out and the forever cycle never exits)."""
+    the rotation never empties out and the forever cycle never exits), OR
+    every widget has a schedule but those schedules jointly cover 24/7 (see
+    above)."""
     issues: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
         if section.schedule is None or section.loop_count != 0:
@@ -2460,6 +2518,18 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
             "schedule" in widget_cfg for widget_cfg in section.widgets
         )
         if all_widgets_scheduled:
+            widget_scheds = [
+                sched
+                for si, sched in _iter_widget_schedules(config)
+                if si == i and sched is not None
+            ]
+            if not _widget_windows_have_gap(widget_scheds):
+                # The widget windows jointly cover 24/7 — the rotation
+                # never empties out, so this is the "never re-checks"
+                # shape, not the softened "re-checks at widget-boundary"
+                # one.
+                issues.append(_forever_never_rechecks_issue(i))
+                continue
             issues.append(
                 ValidationIssue(
                     rule=None,
@@ -2482,28 +2552,7 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
             continue
-        issues.append(
-            ValidationIssue(
-                rule=None,
-                location=f"section[{i}]",
-                message=(
-                    "this section has a schedule but loop_count = 0 "
-                    "(cycles forever) — the section-level schedule is "
-                    "only checked when the section is ENTERED; a "
-                    "forever-cycling section never re-checks it "
-                    "afterward, so the section keeps showing past "
-                    "`end` instead of going dark."
-                ),
-                fix=(
-                    "Use a finite loop_count (>= 1) so the schedule is "
-                    "re-checked between playlist cycles, or gate "
-                    "individual widgets with their own "
-                    "`schedule = {...}` instead (re-checked every pass "
-                    "regardless of loop_count)."
-                ),
-                severity="warning",
-            )
-        )
+        issues.append(_forever_never_rechecks_issue(i))
     return issues
 
 

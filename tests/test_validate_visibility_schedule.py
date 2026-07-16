@@ -303,7 +303,32 @@ type = "message"
 text = "Always Visible"
 """
 
-_ALL_WIDGETS_SCHEDULED_FOREVER_SECTION = """
+_ALL_WIDGETS_SCHEDULED_GAPPED_FOREVER_SECTION = """
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 0
+schedule = { start = "09:00", end = "17:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "MORNING"
+schedule = { start = "09:00", end = "12:00" }
+
+[[playlist.section.widget]]
+type = "message"
+text = "AFTERNOON"
+schedule = { start = "13:00", end = "17:00" }
+"""
+
+# 24/7-COVERING pair — same complementary AM/PM shape as the widget-level
+# gate smoke-test configs (config.scheduling_smoketest.*.toml), but with
+# loop_count = 0 here (the smoketests use loop_count = 1, which the
+# `section.loop_count != 0` guard exempts before this shape even matters).
+# Every week-minute falls in exactly one of the two windows — no gap — so
+# `_expand_sources` never returns empty and the forever cycle never exits:
+# this is the STRONG "never re-checks" shape despite every widget nominally
+# having its own schedule.
+_ALL_WIDGETS_SCHEDULED_247_FOREVER_SECTION = """
 [[playlist.section]]
 mode = "slideshow"
 loop_count = 0
@@ -347,14 +372,32 @@ def test_title_only_forever_section_with_schedule_does_not_warn():
     assert not _forever_scheduled_message(res)
 
 
-def test_all_widgets_scheduled_forever_section_gets_softened_message():
-    res = _run(sections=[_ALL_WIDGETS_SCHEDULED_FOREVER_SECTION])
+def test_all_widgets_scheduled_gapped_forever_section_gets_softened_message():
+    # A gap exists (12:00-13:00, plus overnight) between the widget windows,
+    # so the rotation DOES empty out at those boundaries — the softened
+    # message (re-checks at widget-boundary, not exactly at section `end`)
+    # is correct here.
+    res = _run(sections=[_ALL_WIDGETS_SCHEDULED_GAPPED_FOREVER_SECTION])
     msgs = _forever_scheduled_message(res)
     assert any(
         "only re-checked when every widget's own window closes" in m for m in msgs
     )
     # The softened message must NOT claim the schedule is never re-checked.
     assert not any("never re-checks it" in m for m in msgs)
+
+
+def test_all_widgets_scheduled_247_forever_section_gets_strong_message():
+    # The widget windows jointly cover the full week (complementary AM/PM,
+    # no gap) — _expand_sources never returns empty, so the forever cycle
+    # never exits and the section-level schedule is never re-checked after
+    # entry. This is the STRONG warning despite every widget having its own
+    # schedule; the softened message would understate the problem.
+    res = _run(sections=[_ALL_WIDGETS_SCHEDULED_247_FOREVER_SECTION])
+    msgs = _forever_scheduled_message(res)
+    assert any("never re-checks it" in m for m in msgs)
+    assert not any(
+        "only re-checked when every widget's own window closes" in m for m in msgs
+    )
 
 
 def test_mixed_scheduled_and_unscheduled_widgets_keeps_strong_warning():

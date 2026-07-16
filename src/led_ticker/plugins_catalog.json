@@ -300,7 +300,7 @@
     {
       "name": "stocks",
       "namespace": "stocks",
-      "summary": "Live equity stock ticker (crawl / card / dashboard by sign shape) with an embeddable trend-colored price token.",
+      "summary": "Live multi-asset ticker (crawl / card / dashboard by sign shape) — stocks via Finnhub (default) or stocks + forex + crypto via Twelve Data — with an embeddable trend-colored price token.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/stocks",
       "provides": {
         "widgets": [
@@ -318,7 +318,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "stocks-v0.5.0",
+          "ref": "stocks-v0.6.0",
           "subdirectory": "plugins/stocks"
         }
       ]

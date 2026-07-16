@@ -1662,6 +1662,39 @@ class TestRunTransitionOnScaledCanvas:
         )
 
 
+# Module-level (not class-level) so both TestRunTransitionCrossScale and
+# TestCrossScaleNoAllocation can depend on them via normal pytest fixture
+# injection without one class inheriting the other's test methods —
+# subclassing a test class re-collects every inherited test_* method under
+# the subclass too, duplicating suite runtime (adversarial-review M4).
+@pytest.fixture
+def real_bigsign_canvas():
+    from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+    opts = RGBMatrixOptions()
+    opts.cols = 64
+    opts.rows = 32
+    opts.chain_length = 8
+    opts.parallel = 1
+    opts.pixel_mapper_config = "U-mapper"
+    return RGBMatrix(options=opts).CreateFrameCanvas()
+
+
+@pytest.fixture
+def bigsign_frame(real_bigsign_canvas):
+    frame = mock.Mock()
+    frame.get_clean_canvas.return_value = real_bigsign_canvas
+    frame.swap.side_effect = lambda c: type(real_bigsign_canvas)(
+        width=c.width, height=c.height
+    )
+    # create_canvas must return a fresh real canvas (not a ScaledCanvas)
+    # — run_transition wraps it itself.
+    frame.create_canvas.side_effect = lambda: type(real_bigsign_canvas)(
+        width=real_bigsign_canvas.width, height=real_bigsign_canvas.height
+    )
+    return frame
+
+
 class TestRunTransitionCrossScale:
     """Regression: when incoming_scale != current scale, run_transition
     must allocate a new wrapper at incoming_scale at t >= 0.5 and dissolve
@@ -1670,34 +1703,10 @@ class TestRunTransitionCrossScale:
     causing a visible "flash" at scale-change boundaries (commit e539a47).
 
     Uses real bigsign canvases + ScaledCanvas to exercise the integration
-    end-to-end rather than mocking the wrapper.
+    end-to-end rather than mocking the wrapper. `real_bigsign_canvas` /
+    `bigsign_frame` are module-level fixtures (shared with
+    TestCrossScaleNoAllocation below) rather than class methods.
     """
-
-    @pytest.fixture
-    def real_bigsign_canvas(self):
-        from rgbmatrix import RGBMatrix, RGBMatrixOptions
-
-        opts = RGBMatrixOptions()
-        opts.cols = 64
-        opts.rows = 32
-        opts.chain_length = 8
-        opts.parallel = 1
-        opts.pixel_mapper_config = "U-mapper"
-        return RGBMatrix(options=opts).CreateFrameCanvas()
-
-    @pytest.fixture
-    def bigsign_frame(self, real_bigsign_canvas):
-        frame = mock.Mock()
-        frame.get_clean_canvas.return_value = real_bigsign_canvas
-        frame.swap.side_effect = lambda c: type(real_bigsign_canvas)(
-            width=c.width, height=c.height
-        )
-        # create_canvas must return a fresh real canvas (not a ScaledCanvas)
-        # — run_transition wraps it itself.
-        frame.create_canvas.side_effect = lambda: type(real_bigsign_canvas)(
-            width=real_bigsign_canvas.width, height=real_bigsign_canvas.height
-        )
-        return frame
 
     async def test_incoming_scale_triggers_wrapper_switch(
         self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
@@ -1957,14 +1966,17 @@ class TestRunTransitionCrossScale:
         assert isinstance(new_wrapper.real, type(real_bigsign_canvas))
 
 
-class TestCrossScaleNoAllocation(TestRunTransitionCrossScale):
+class TestCrossScaleNoAllocation:
     """Cross-scale re-wrap must reuse the current back buffer rather than
     allocate a fresh canvas via `frame.create_canvas()` — each such call is
     a permanently-retained C++ framebuffer on real hardware (task 5,
-    canvas-liveness-foundation). Subclasses TestRunTransitionCrossScale to
-    reuse its `real_bigsign_canvas` / `bigsign_frame` fixtures. Covers both
-    switch paths: the default `scale_switch_at=0.5` in-loop switch, and a
-    `scale_switch_at=0.0` stub for the pre-loop switch.
+    canvas-liveness-foundation). Standalone (not a subclass of
+    TestRunTransitionCrossScale — see the module-level `real_bigsign_canvas`
+    / `bigsign_frame` fixtures above, shared via normal fixture injection
+    rather than inheritance, so this class doesn't re-collect the parent's
+    tests). Covers both switch paths: the default `scale_switch_at=0.5`
+    in-loop switch, and a `scale_switch_at=0.0` stub for the pre-loop
+    switch.
     """
 
     async def test_run_transition_never_calls_create_canvas_in_loop_switch(

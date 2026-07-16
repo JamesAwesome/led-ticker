@@ -2495,7 +2495,9 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
        SECTION-level schedule at that boundary too — just not exactly at
        the section's own `end`. Under the bounded notification queue
        (#394), that re-check reaches the display within a couple of
-       queued items, not "eventually."
+       queued items once the rotation empties, which can lag the
+       widget-window close by the remainder of the already-expanded
+       pass — not "eventually."
 
     Two shapes soften or suppress the SECTION-level warning (cases 1/2):
 
@@ -2517,8 +2519,10 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
     A `loop_count = 0` section with widget-level `schedule = {...}` but NO
     section-level schedule is not warned about here at all (see #394): the
     bounded queue means a widget's own window closing reaches the panel
-    within a couple of queued items regardless of `loop_count`, so there is
-    nothing stale to flag."""
+    within a couple of queued items regardless of `loop_count` — though
+    that can lag the widget-window close by the remainder of the
+    already-expanded pass — so there is nothing stale to flag beyond that
+    bound."""
     issues: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
         if section.loop_count != 0:
@@ -2559,8 +2563,10 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
                         "only re-checked when every widget's own window "
                         "closes (not at the section's own `end` time), and "
                         "that re-check reaches the panel within a couple "
-                        "of queued items — use a finite loop_count for "
-                        "predictable boundaries."
+                        "of queued items once the rotation empties, which "
+                        "can lag the widget-window close by the remainder "
+                        "of the already-expanded pass — use a finite "
+                        "loop_count for predictable boundaries."
                     ),
                     fix=(
                         "If you need the section-level `end` to take effect "

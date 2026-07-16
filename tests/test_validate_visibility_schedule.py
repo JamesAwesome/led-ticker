@@ -288,9 +288,11 @@ def test_forever_section_with_only_widget_level_schedule_does_not_warn():
     # is displayed" warning is RETIRED. It was a stopgap for the unbounded
     # producer queue (PR #391) — Tasks 1-2 of #394 bounded that queue, so
     # gate evaluation for a widget-schedules-only forever section now
-    # reaches the panel within ~2 queued items + the currently-showing
-    # widget. The old warning is a false positive under bounding; this
-    # config must produce NO warning at all.
+    # reaches the panel within about three in-flight items plus the
+    # remainder of the already-expanded pass (up to roughly one full pass
+    # for many-widget/large-container sections). The old warning is a
+    # false positive under bounding; this config must produce NO warning
+    # at all.
     res = _run(
         sections=[
             SECTION.format(
@@ -434,8 +436,11 @@ def test_all_widgets_scheduled_gapped_forever_section_gets_softened_message():
     # #394: the old "already-queued content drains" temper described an
     # unbounded producer queue (PR #391 stopgap). Tasks 1-2 bounded that
     # queue, so the re-check now reaches the panel within a couple of
-    # queued items — no more temper, just the bound.
-    assert any("within a couple of queued items" in m for m in msgs)
+    # queued items once the rotation empties — but that can still lag the
+    # widget-window close by the remainder of the already-expanded pass,
+    # so the softened message carries that caveat rather than the old
+    # temper.
+    assert any("remainder of the already-expanded pass" in m for m in msgs)
     assert not any("already-queued content drains" in m for m in msgs)
     fixes = _forever_scheduled_fix(res)
     assert any("finite loop_count (>= 1)" in f for f in fixes)

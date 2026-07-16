@@ -173,3 +173,37 @@ font = "Inter-Regular"
 font_size = 24
 font_threshold = 80
 font_color = [255, 255, 255]
+
+# --- FOREVER-SECTION boundary check (#394, manual) ---
+# Uncomment this section (and comment out sections 1-4 above) to verify
+# display-time gating in a loop_count = 0 section on hardware: the AM/PM
+# pair below never leaves this section (loop_count = 0 cycles forever), so
+# the ONLY thing that can flip the panel at noon/midnight is the per-pass
+# widget gate. THE CHECK: at a 12:00 boundary the displayed widget must
+# flip within a few seconds (one widget hold + ~2 queued items) — if it
+# keeps showing the pre-boundary widget for minutes, producer run-ahead
+# has regressed.
+#
+# [[playlist.section]]
+# mode = "slideshow"
+# content_height = 16
+# hold_time = 5
+# loop_count = 0
+#
+# [[playlist.section.widget]]
+# type = "message"
+# text = "FOREVER AM 00:00-12:00"
+# font = "Inter-Regular"
+# font_size = 24
+# font_threshold = 80
+# font_color = [0, 255, 0]
+# schedule = { start = "00:00", end = "12:00" }
+#
+# [[playlist.section.widget]]
+# type = "message"
+# text = "FOREVER PM 12:00-00:00"
+# font = "Inter-Regular"
+# font_size = 24
+# font_threshold = 80
+# font_color = [255, 120, 0]
+# schedule = { start = "12:00", end = "00:00" }

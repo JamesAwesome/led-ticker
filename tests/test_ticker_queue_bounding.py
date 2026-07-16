@@ -9,6 +9,7 @@ import pytest
 
 from led_ticker.ticker import (
     TICKER_QUEUE_MAXSIZE,
+    Ticker,
     _enqueue_ticker_objects,
 )
 
@@ -126,3 +127,163 @@ async def test_gating_tracks_display_time():
     )
     await producer
     assert None in tail
+
+
+@pytest.mark.asyncio
+async def test_run_swap_drain_loop_terminates_with_parked_producer():
+    """_run_swap's catch-up drain (`while not queue.empty(): get_nowait()`)
+    is synchronous — a producer parked in put() CANNOT refill mid-drain
+    (its waiter only resolves at the next event-loop yield), so the drain
+    terminates. Pin that event-loop fact directly."""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    producer = asyncio.create_task(_enqueue_ticker_objects(itertools.count(), queue))
+    await asyncio.sleep(0.01)  # queue full, producer parked
+    drained = []
+    while not queue.empty():
+        drained.append(queue.get_nowait())
+    # Terminated with exactly the buffered items — the parked producer
+    # could not sneak refills in synchronously.
+    assert len(drained) == TICKER_QUEUE_MAXSIZE
+    producer.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await producer
+
+
+@pytest.mark.asyncio
+async def test_consumer_never_starves_when_producer_is_fast():
+    """With a fast producer, every consumer get() should find an item
+    already buffered (the producer keeps the 2-slot queue topped up) —
+    the producer must not become the frame-rate limiter."""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    producer = asyncio.create_task(_enqueue_ticker_objects(itertools.count(), queue))
+    await asyncio.sleep(0.01)
+    empty_at_get = 0
+    for _ in range(50):
+        if queue.empty():
+            empty_at_get += 1
+        await queue.get()
+        await asyncio.sleep(0.001)  # consumer tick
+    assert empty_at_get == 0
+    producer.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await producer
+
+
+# --- Carry-forward from Task 1's review: does the "empty() means done"
+# idiom in the consumers survive the bounded queue, or can a transient
+# empty() strand widgets that are still coming? Checked here for
+# `_run_swap` (~ticker.py:798) and `_scroll_one_by_one` (~ticker.py:952)
+# — both empirically SAFE, not fixed (see each test's docstring for why).
+# `_scroll_side_by_side` (~ticker.py:1053) uses the same idiom but WAS
+# broken; that fix + its regression test land in a follow-up commit.
+
+
+@pytest.mark.asyncio
+async def test_run_swap_survives_degenerate_config(mock_frame, make_widget, no_sleep):
+    """CARRY-FORWARD regression (#394 Task 1 review): 5 widgets, hold_time=0
+    (the engine's floor — see below), no transition configured (the plain
+    `else` branch in `_run_swap`, i.e. an instant cut), driven through the
+    REAL producer (`_build_then_enqueue`, spawned by `run_slideshow` itself)
+    over a REAL bounded queue (`maxsize=TICKER_QUEUE_MAXSIZE`). All 5 must
+    display, and the section must end only via the `None` sentinel.
+
+    EARLY-EXIT VERDICT: not exposed. Empirically confirmed (this test
+    passes, and passes even harder under 30 widgets at `scroll_speed=0` —
+    see the report for the exploratory numbers) and explained by the
+    engine's own floor: `_show_one` -> `_swap_and_scroll` always runs
+    `_hold_ticks` with `n_ticks = max(1, ...)`, so EVERY widget-visit
+    contains at least one real `await asyncio.sleep(...)` — even at
+    hold_time=0 the `max(1, ...)` floor still runs one tick. That single
+    await is a genuine event-loop suspension point.
+
+    Why one suspension is enough: `_run_swap`'s catch-up drain consumes
+    exactly one item right before calling `_show_one`, freeing exactly one
+    of the queue's 2 slots. `queue.get_nowait()` calls `_wakeup_next` on
+    the producer's parked `put()` future via `loop.call_soon` — a callback
+    enqueued on the loop's FIFO ready-queue *before* `_show_one`'s own
+    sleep registers ITS resume callback. So when the consumer's task
+    suspends on that sleep, the loop's next pass runs the producer's
+    already-queued wakeup first (FIFO), the producer synchronously
+    `put_nowait()`s the freed slot and re-parks (still inside that same
+    step — no further await needed to top back up to 2), and only THEN
+    does the consumer's own sleep resume. By the time `_run_swap` next
+    checks `queue.empty()`, the refill has already happened. This holds
+    regardless of hold_time/scroll_speed magnitude (even 0 — `sleep(0)`
+    is still a real suspend/resume cycle) because it's an ordering
+    guarantee, not a timing one. Documented here rather than "fixed" per
+    the carry-forward's own instruction: fix only sites the test actually
+    catches tripping.
+    """
+    widgets = [make_widget(10) for _ in range(5)]
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    ticker = Ticker(
+        monitors=widgets,
+        frame=mock_frame,
+        notif_queue=queue,
+        hold_time=0.0,
+    )
+    await ticker.run_slideshow(loop_count=1)
+
+    for i, w in enumerate(widgets):
+        assert w.draw.called, f"widget {i} was dropped"
+    assert queue.empty(), "sentinel + all items must be fully drained"
+    await ticker._enqueue_task  # producer finished cleanly (no hang, no error)
+
+
+@pytest.mark.asyncio
+async def test_scroll_one_by_one_survives_degenerate_config(
+    mock_frame, make_widget, no_sleep
+):
+    """Same carry-forward check as above, for `_scroll_one_by_one`
+    (`run_one_at_a_time`), whose `except asyncio.QueueEmpty: break` at
+    ~ticker.py:952-954 is the same "empty() means done" shape.
+
+    EARLY-EXIT VERDICT: not exposed, even with 20 one-pixel-wide widgets
+    at `scroll_speed=0` (empirically checked; kept smaller here for a fast
+    test). Reasoning: that `get_nowait()` only runs once the CURRENT
+    widget has fully scrolled off-canvas (`final_pos < 0`), which takes
+    `canvas.width + widget_width` per-pixel ticks — each tick has a real
+    `await asyncio.sleep(...)`. So dozens of suspend/resume cycles (each
+    one sufficient to let the producer top up by the single slot freed at
+    the *previous* widget's dequeue — same FIFO-ordering argument as
+    `_run_swap`) elapse before this site ever asks the queue for the next
+    item. Not fixed, per the same "test doesn't catch it" rule.
+    """
+    widgets = [make_widget(10) for _ in range(5)]
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    ticker = Ticker(
+        monitors=widgets,
+        frame=mock_frame,
+        notif_queue=queue,
+        hold_time=0.0,
+        scroll_speed=0,
+    )
+    await ticker.run_one_at_a_time(loop_count=1)
+
+    for i, w in enumerate(widgets):
+        assert w.draw.called, f"widget {i} was dropped"
+
+
+@pytest.mark.asyncio
+async def test_run_slideshow_completes_over_bounded_queue(
+    mock_frame, make_widget, no_sleep
+):
+    """Integration pin: `Ticker.run_slideshow` end-to-end over a REAL
+    bounded queue with the REAL producer (`_build_then_enqueue`, spawned
+    internally by `run_slideshow`) — not a hand-fed unbounded queue like
+    the consumer-side tests in `tests/test_ticker_display.py`. Mirrors
+    `TestTickerRunSwap.test_run_swap_terminates`'s fixture setup (mock
+    frame + `make_widget` + `no_sleep`) but supplies a bounded queue.
+    """
+    w1 = make_widget(30)
+    w2 = make_widget(30)
+    w3 = make_widget(30)
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    ticker = Ticker(monitors=[w1, w2, w3], frame=mock_frame, notif_queue=queue)
+    await ticker.run_slideshow(loop_count=1)
+
+    assert w1.draw.called
+    assert w2.draw.called
+    assert w3.draw.called
+    assert queue.empty()
+    await ticker._enqueue_task  # sentinel path completed cleanly, no hang

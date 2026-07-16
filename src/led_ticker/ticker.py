@@ -1050,10 +1050,24 @@ class Ticker:
                         cursor_pos,
                     )
                 elif not queue_empty:
-                    if self.notif_queue.empty():
-                        queue_empty = True
+                    try:
+                        next_monitor = self.notif_queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        # Nothing buffered RIGHT NOW — under the bounded
+                        # queue (#394) this is NOT the same as exhausted:
+                        # the producer may simply not have been scheduled
+                        # yet (this inner loop runs synchronously, with no
+                        # await, so it can outrun the producer within a
+                        # single tick). Break out of buffering for THIS
+                        # tick only — `queue_empty` stays False so the
+                        # next outer tick retries. Exhaustion is decided
+                        # ONLY by the `None` sentinel below; setting the
+                        # sticky flag here (as the old unbounded-queue
+                        # code did, when `empty()` reliably meant
+                        # exhausted because the whole section was
+                        # enqueued before the first read) would strand
+                        # every later widget behind a false conclusion.
                         break
-                    next_monitor = self.notif_queue.get_nowait()
                     # Sentinel: producer exhausted the iterator. Mark
                     # the queue drained so the outer loop holds the
                     # last widget at end-of-scroll instead of waiting

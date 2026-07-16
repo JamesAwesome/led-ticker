@@ -1069,6 +1069,12 @@ class TestScrollSideBySide:
 
         queue = asyncio.Queue()
         await queue.put(widget)
+        # Sentinel: under the bounded queue (#394), `queue_empty` latches
+        # ONLY on the `None` sentinel (never on a transient `empty()`), so
+        # a hand-fed queue must supply it explicitly to reach the
+        # end-of-scroll hold — mirroring what a real producer always
+        # eventually sends.
+        await queue.put(None)
 
         ticker = Ticker(
             monitors=[], frame=mock_frame, notif_queue=queue, scroll_speed=0
@@ -1108,6 +1114,10 @@ class TestScrollSideBySide:
 
         queue = asyncio.Queue()
         await queue.put(widget)
+        # Sentinel: see the matching comment in
+        # test_end_of_scroll_hold_redraws_at_same_position — `queue_empty`
+        # latches ONLY on `None` under the bounded queue (#394).
+        await queue.put(None)
 
         # hold_at_end=0.5s @ ENGINE_TICK_MS=50ms → ≥10 hold ticks
         # expected, plus a small number of scroll-in ticks before

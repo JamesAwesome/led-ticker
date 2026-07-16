@@ -170,12 +170,28 @@ async def test_consumer_never_starves_when_producer_is_fast():
 
 
 # --- Carry-forward from Task 1's review: does the "empty() means done"
-# idiom in the consumers survive the bounded queue, or can a transient
-# empty() strand widgets that are still coming? Checked here for
-# `_run_swap` (~ticker.py:798) and `_scroll_one_by_one` (~ticker.py:952)
-# — both empirically SAFE, not fixed (see each test's docstring for why).
-# `_scroll_side_by_side` (~ticker.py:1053) uses the same idiom but WAS
-# broken; that fix + its regression test land in a follow-up commit.
+# idiom in the three consumers survive the bounded queue, or can a
+# transient empty() strand widgets that are still coming? ---
+#
+# Three call sites use the pattern:
+#   _run_swap            (~ticker.py:798)  while not queue.empty(): get_nowait()
+#   _scroll_one_by_one    (~ticker.py:952)  try: get_nowait() except QueueEmpty
+#   _scroll_side_by_side  (~ticker.py:1053) if queue.empty(): queue_empty=True (sticky)
+#
+# Verdict per site, established empirically (drive the real producer +
+# a real maxsize=2 queue through the real consumer, count draws) AND by
+# tracing the event-loop scheduling that would have to hold for the
+# empirical result to generalize beyond the specific widths/timings
+# tested:
+#
+#   _run_swap:            SAFE, not fixed — see
+#                         test_run_swap_survives_degenerate_config below.
+#   _scroll_one_by_one:   SAFE, not fixed — see
+#                         test_scroll_one_by_one_survives_degenerate_config
+#                         below.
+#   _scroll_side_by_side: WAS BROKEN, fixed in this change — see
+#                         test_scroll_side_by_side_does_not_drop_widgets_
+#                         under_bounded_queue below.
 
 
 @pytest.mark.asyncio
@@ -262,6 +278,50 @@ async def test_scroll_one_by_one_survives_degenerate_config(
 
     for i, w in enumerate(widgets):
         assert w.draw.called, f"widget {i} was dropped"
+
+
+@pytest.mark.asyncio
+async def test_scroll_side_by_side_does_not_drop_widgets_under_bounded_queue(
+    mock_frame, make_widget, no_sleep
+):
+    """CARRY-FORWARD regression (#394 Task 1 review) — the site that WAS
+    broken: `_scroll_side_by_side`'s inner buffering loop
+    (`while cursor_pos < canvas.width: ...`) has NO await in it at all —
+    it's a tight synchronous burst that pulls from the queue as many
+    times as it takes to fill one row. Before the fix, hitting
+    `queue.empty()` mid-burst (before the producer had ANY chance to run)
+    set a STICKY `queue_empty = True` flag that permanently disabled all
+    further buffering for the rest of the section — even though the
+    `None` sentinel had never arrived and the producer had more widgets
+    queued up behind it. Under the old unbounded queue this couldn't
+    happen (the whole section was enqueued before the first read, so
+    `empty()` really did mean exhausted); under `maxsize=2` it's a near-
+    certainty whenever a row needs more than 2 buffered widgets to fill.
+
+    Repro (pre-fix): 8 widgets of width 10 on a 160px canvas needs ~16
+    buffered to fill one row; only 2 fit in the queue at a time, so the
+    burst always drained both, saw `empty()`, and stranded widgets
+    4-8 (observed draw counts: [253, 46, 72, 0, 0, 0, 0, 0]).
+
+    Fix: `queue_empty` is now set ONLY by the `None` sentinel via
+    `get_nowait()` + `except asyncio.QueueEmpty: break` (a plain,
+    non-sticky break — retried next outer tick) instead of a
+    `queue.empty()` pre-check. Exhaustion is decided by the sentinel
+    only, matching the carry-forward's directive.
+    """
+    widgets = [make_widget(10) for _ in range(8)]
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    ticker = Ticker(
+        monitors=widgets,
+        frame=mock_frame,
+        notif_queue=queue,
+        hold_time=0.0,
+    )
+    await ticker.run_ticker(loop_count=1)
+
+    counts = [w.draw.call_count for w in widgets]
+    for i, w in enumerate(widgets):
+        assert w.draw.called, f"widget {i} was dropped: {counts}"
 
 
 @pytest.mark.asyncio

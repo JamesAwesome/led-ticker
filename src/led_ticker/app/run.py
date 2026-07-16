@@ -218,6 +218,14 @@ async def _idle_on_empty_playlist(sections: list, warned: bool) -> tuple[bool, b
     config — and returns ``(idled=True, warned=True)`` so the caller `continue`s.
     With sections present it returns ``(False, False)`` (no idle, resets the
     warned flag so a later empty state warns again).
+
+    Approved behavior change (#396): the caller now BLANKS the panel (via
+    `_blank_swap`) on every idled iteration this returns, unconditionally —
+    dark or not. A zero-section playlist has nothing to display, the same
+    as the all-scheduled-out dark path, so it is no longer left showing a
+    frozen last frame for the duration. This function only paces the
+    keepalive (the 1s sleep here sets the cadence); it does not perform the
+    swap itself.
     """
     if sections:
         return False, False
@@ -246,102 +254,69 @@ def _section_schedule_active(section: Any) -> bool:
         return True
 
 
-def _cycle_dark_canvas(led_frame: Any, dark_canvas: Any) -> Any:
-    """Clear + swap the dark-idle canvas, returning the new back-buffer.
-
-    Extracted so the swap-chain-cycling step (constraint #1: capture the
-    swap return) has exactly ONE implementation, shared by
-    `_idle_when_all_scheduled_out` (the all-scheduled-out dark idle) and
-    `run()`'s empty-playlist idle branch — a hot-reload that lands a
-    zero-section config WHILE the panel is dark must keep cycling this same
-    buffer too, or swaps (and the overlay hooks / `swap_count` liveness
-    counter riding on them) stall for as long as the playlist stays empty.
-    """
-    dark_canvas.Clear()
-    return led_frame.swap(dark_canvas)  # constraint #1: capture the swap return
+def _blank_swap(led_frame: Any) -> None:
+    """One keepalive blank: fetch the (recycled — see LedFrame.get_clean_canvas)
+    clean canvas and swap it. Shared by the all-scheduled-out dark idle and
+    the empty-playlist idle: every idle path must keep swapping, or overlay
+    hooks (busy_light composites inside frame.swap()) and the status board's
+    swap_count liveness counter stall for the duration. Allocation-free
+    after the process's first swap; the frame remembers its own back
+    buffer, so callers thread nothing."""
+    canvas = led_frame.get_clean_canvas()
+    canvas = led_frame.swap(canvas)  # constraint #1: capture the swap return
+    del canvas  # the frame recycles it on the next fetch
 
 
 async def _idle_when_all_scheduled_out(
     led_frame: Any,
     any_section_ran: bool,
     was_dark: bool,
-    dark_canvas: Any,
     dark_streak: int,
-) -> tuple[bool, Any, int]:
+) -> tuple[bool, int]:
     """When EVERY section sat outside its schedule window this cycle, blank
     the panel (a closed storefront going dark is correct behavior, not a
     freeze) and idle 1s so the outer loop's reload/restart checks stay
     responsive.
 
-    LEAK guard — process-lifetime canvas retention: `dark_canvas` is fetched
-    via `led_frame.get_clean_canvas()` AT MOST ONCE for the life of the
-    process (gated on `dark_canvas is None`, not on the dark/wake
-    transition), and every wake threads the SAME canvas back out instead of
-    dropping it. On the real backend, `get_clean_canvas` ->
-    `RgbMatrixBackend.create_canvas` -> the C++ `CreateFrameCanvas()`, which
-    retains every framebuffer it creates until process exit — fetching a
-    fresh one per DARK EPISODE (the previous scheme) still leaked one
-    retained framebuffer per episode: a config that flaps empty/non-empty at
-    a slow poll cadence (e.g. a Container's 30s poll) goes through ~30
-    consecutive all-out cycles per episode — far wider than the debounce
-    below covers — so a flappy container could still rack up one leaked
-    buffer per flap over a long uptime. Retaining `dark_canvas` across
-    episodes caps the LIFETIME total at one allocation, full stop, no matter
-    the flap pattern. Every dark iteration (first fetch or Nth revisit)
-    reuses it via `_cycle_dark_canvas` (Clear, erasing whatever an overlay
-    hook painted onto this same buffer two swaps ago, then thread it through
-    `led_frame.swap()`), so the double buffer just cycles indefinitely with
-    zero net allocation after the first fetch, while overlay hooks (e.g.
-    busy_light, which composites inside `frame.swap()`) keep compositing and
-    the status board's `swap_count` liveness counter keeps advancing all
-    night. Accepted artifact: on re-entering dark, the retained canvas may
-    momentarily still be the DISPLAYED front buffer (from whatever last used
-    it), so `_cycle_dark_canvas`'s `Clear()` can blank one frame earlier than
-    the swap that actually takes it off screen — invisible in practice,
-    since the very next swap shows black anyway.
+    Allocation is not this function's concern anymore: LedFrame.get_clean_canvas
+    recycles the swap-returned buffer, so per-iteration fetches are
+    allocation-free — the process-lifetime O(1) invariant is pinned in
+    tests/test_frame.py.
 
-    FLICKER guard — debounce (separate from the leak guard above): the
-    panel only commits to the dark log/blank on the SECOND consecutive
-    all-out cycle, tracked via `dark_streak`. Without it, a config whose
-    only section flaps content on/off between polls (e.g. a Container
-    emptying briefly on a failed poll) would blank the panel on every single
-    poll even though nothing is structurally wrong — a visible ~1s black
-    flicker each time. The FIRST all-out cycle is a no-op: no blank, no log,
-    just a 1s sleep — the panel keeps showing its last frame for one extra
-    second while we wait to see if this is a real closed-hours transition or
-    a one-cycle content flap. Only the SECOND (and every subsequent)
-    consecutive all-out cycle runs the actual dark path.
+    FLICKER guard — debounce: the panel only commits to the dark log/blank
+    on the SECOND consecutive all-out cycle, tracked via `dark_streak`.
+    Without it, a config whose only section flaps content on/off between
+    polls (e.g. a Container emptying briefly on a failed poll) would blank
+    the panel on every single poll even though nothing is structurally
+    wrong — a visible ~1s black flicker each time. The FIRST all-out cycle
+    is a no-op: no blank, no log, just a 1s sleep — the panel keeps showing
+    its last frame for one extra second while we wait to see if this is a
+    real closed-hours transition or a one-cycle content flap. Only the
+    SECOND (and every subsequent) consecutive all-out cycle runs the actual
+    dark path.
 
     Logs only on the dark/wake TRANSITIONS, never per iteration (nor during
-    the debounce cycle). Returns `(now_dark, dark_canvas, dark_streak)`;
-    callers thread all three back in on the next call. Waking preserves
-    whatever `dark_canvas` this call was holding (or `None` if the process
-    has never gone dark yet) — it must NOT null it out, or the next dark
-    episode would re-fetch and defeat the process-lifetime retention above.
+    the debounce cycle). Returns `(now_dark, dark_streak)`; callers thread
+    both back in on the next call.
     """
     if any_section_ran:
         if was_dark:
             logging.info("schedule: panel waking — re-checking sections")
-        return False, dark_canvas, 0
+        return False, 0
     if not was_dark and dark_streak == 0:
         # Debounce cycle: a single all-out pass doesn't commit to dark yet —
         # no fetch, no blank, no log. The panel just keeps its last frame
         # for one more second while we wait to see if this is a real
         # closed-hours transition or a one-cycle content flap.
         await asyncio.sleep(1.0)
-        return False, dark_canvas, 1
+        return False, 1
     if not was_dark:
         logging.info(
             "schedule: every section is outside its schedule window — panel dark"
         )
-    if dark_canvas is None:
-        # The ONLY fetch for the life of the process — every subsequent dark
-        # episode (however many wake/dark flaps happen before it) reuses
-        # this same canvas via _cycle_dark_canvas below.
-        dark_canvas = led_frame.get_clean_canvas()
-    dark_canvas = _cycle_dark_canvas(led_frame, dark_canvas)
+    _blank_swap(led_frame)
     await asyncio.sleep(1.0)
-    return True, dark_canvas, dark_streak + 1
+    return True, dark_streak + 1
 
 
 def _on_display_dark_transition(
@@ -1033,7 +1008,6 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                 _empty_playlist_warned = False
                 _any_section_ran = True  # first pass: no idle before sections run
                 _display_dark = False
-                _dark_canvas: Any = None
                 _dark_streak = 0
                 while True:
                     # Belt-and-suspenders outer-loop check (once per full
@@ -1081,25 +1055,27 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         config.sections, _empty_playlist_warned
                     )
                     if _idled:
-                        # A hot-reload can land a zero-section config WHILE
-                        # the panel is dark — keep cycling the same dark
-                        # canvas so swaps (and the overlay hooks / swap_count
-                        # liveness counter riding on them) don't stall for as
-                        # long as the playlist stays empty.
-                        if _display_dark and _dark_canvas is not None:
-                            _dark_canvas = _cycle_dark_canvas(led_frame, _dark_canvas)
+                        # Approved behavior change (#396): zero sections =
+                        # nothing to display = blank, same semantics as the
+                        # all-scheduled-out dark path — NOT a frozen last
+                        # frame. Unconditional (dark or not): a hot-reload
+                        # can land a zero-section config WHILE the panel is
+                        # dark, or the playlist can start/become empty
+                        # before any dark commit ever happens — either way
+                        # the keepalive swap keeps overlay hooks compositing
+                        # and swap_count advancing throughout.
+                        _blank_swap(led_frame)
+                        # Same rationale as `_on_display_dark_transition`: an
+                        # empty-playlist interlude must not let the recovery
+                        # entry transition replay the pre-interlude widget as
+                        # its outgoing frame from a black panel. Resetting
+                        # every iteration is idempotent — cheap insurance
+                        # against the interlude lasting more than one pass.
+                        last_widget, last_scroll_pos, last_bg_color = None, 0, None
                         continue
                     _was_dark = _display_dark
-                    (
-                        _display_dark,
-                        _dark_canvas,
-                        _dark_streak,
-                    ) = await _idle_when_all_scheduled_out(
-                        led_frame,
-                        _any_section_ran,
-                        _display_dark,
-                        _dark_canvas,
-                        _dark_streak,
+                    _display_dark, _dark_streak = await _idle_when_all_scheduled_out(
+                        led_frame, _any_section_ran, _display_dark, _dark_streak
                     )
                     _dark_reset = _on_display_dark_transition(_was_dark, _display_dark)
                     if _dark_reset is not None:

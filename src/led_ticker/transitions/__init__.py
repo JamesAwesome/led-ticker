@@ -7,6 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 from led_ticker._plugin_hint import plugin_hint
 from led_ticker._types import Canvas
 from led_ticker.render_breaker import guard_for_transition
+from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.ticker import _maybe_wrap, _swap
 
 # --- Easing functions ---
@@ -306,10 +307,14 @@ async def run_transition(
     scale_switch_at: float = getattr(transition, "scale_switch_at", 0.5)
 
     if needs_switch and scale_switch_at <= 0.0:
-        # Switch immediately: create incoming canvas before the loop starts.
+        # Switch immediately: re-wrap the current back buffer at the
+        # incoming scale. No allocation — after the switch the old-scale
+        # `canvas` wrapper is never drawn or swapped again (`active` is
+        # always incoming_canvas from here), so sharing its real buffer is
+        # safe, and the per-frame Fill/Clear below erases its old content.
         assert incoming_scale is not None  # guaranteed by needs_switch
         incoming_canvas = _maybe_wrap(
-            frame.create_canvas(),
+            unwrap_to_real(canvas),
             incoming_scale,
             incoming_content_height,
         )
@@ -353,8 +358,10 @@ async def run_transition(
                 and t >= scale_switch_at
                 and incoming_canvas is None
             ):
+                # No allocation here either — see the site-1 rationale
+                # above (pre-loop scale_switch_at <= 0.0 branch).
                 incoming_canvas = _maybe_wrap(
-                    frame.create_canvas(),
+                    unwrap_to_real(canvas),
                     incoming_scale,
                     incoming_content_height,
                 )

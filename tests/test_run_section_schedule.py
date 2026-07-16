@@ -7,7 +7,7 @@ from typing import cast
 from unittest.mock import Mock
 
 from led_ticker.app.run import (
-    _cycle_dark_canvas,
+    _blank_swap,
     _idle_when_all_scheduled_out,
     _on_display_dark_transition,
     _section_has_content,
@@ -52,43 +52,25 @@ def _frame():
     return frame
 
 
-class TestCycleDarkCanvas:
-    """Fix 3 (deep-dive-2, 2026-07-15): the extracted Clear+swap step shared
-    by `_idle_when_all_scheduled_out` and run()'s empty-playlist-while-dark
-    branch."""
-
-    def test_clears_then_swaps_and_returns_swap_result(self):
-        frame = _frame()
-        canvas = Mock(name="dark_canvas")
-        order = []
-        canvas.Clear.side_effect = lambda: order.append("clear")
-
-        def _fake_swap(c):
-            order.append("swap")
-            return frame.swap.return_value
-
-        frame.swap.side_effect = _fake_swap
-
-        result = _cycle_dark_canvas(frame, canvas)
-
-        assert order == ["clear", "swap"]
-        frame.swap.assert_called_once_with(canvas)
-        assert result is frame.swap.return_value
+def test_blank_swap_captures_and_discards(monkeypatch):
+    """The shared keepalive-blank step (Task 3): fetch the frame-recycled
+    clean canvas and swap it, capturing the swap return per constraint #1.
+    Nothing is threaded back to the caller — the frame remembers its own
+    back buffer (Task 1's `LedFrame.get_clean_canvas` recycling)."""
+    frame = Mock()
+    _blank_swap(frame)
+    frame.get_clean_canvas.assert_called_once()
+    frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
 
 
 class TestIdleWhenAllScheduledOut:
     def test_sections_ran_resets_dark(self, caplog):
-        """Waking preserves whatever canvas was retained — it must NOT be
-        nulled out, or the next dark episode would re-fetch and defeat the
-        process-lifetime retention (the leak-guard fix)."""
         frame = _frame()
-        existing_canvas = Mock(name="existing_dark_canvas")
         with caplog.at_level(logging.INFO):
-            dark, dark_canvas, dark_streak = asyncio.run(
-                _idle_when_all_scheduled_out(frame, True, True, existing_canvas, 3)
+            dark, dark_streak = asyncio.run(
+                _idle_when_all_scheduled_out(frame, True, True, 3)
             )
         assert dark is False
-        assert dark_canvas is existing_canvas
         assert dark_streak == 0
         assert "panel waking" in caplog.text
         frame.get_clean_canvas.assert_not_called()
@@ -96,11 +78,10 @@ class TestIdleWhenAllScheduledOut:
 
     def test_sections_ran_stays_quiet_when_not_dark(self, caplog):
         with caplog.at_level(logging.INFO):
-            dark, dark_canvas, dark_streak = asyncio.run(
-                _idle_when_all_scheduled_out(_frame(), True, False, None, 0)
+            dark, dark_streak = asyncio.run(
+                _idle_when_all_scheduled_out(_frame(), True, False, 0)
             )
         assert dark is False
-        assert dark_canvas is None
         assert dark_streak == 0
         assert caplog.text == ""
 
@@ -118,28 +99,26 @@ class TestIdleWhenAllScheduledOut:
         monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
         frame = _frame()
         with caplog.at_level(logging.INFO):
-            dark, dark_canvas, dark_streak = asyncio.run(
-                _idle_when_all_scheduled_out(frame, False, False, None, 1)
+            dark, dark_streak = asyncio.run(
+                _idle_when_all_scheduled_out(frame, False, False, 1)
             )
         assert dark is True
         assert dark_streak == 2
         frame.get_clean_canvas.assert_called_once()
-        frame.get_clean_canvas.return_value.Clear.assert_called_once()
         frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
-        assert dark_canvas is frame.swap.return_value
         assert "panel dark" in caplog.text
         assert slept == [1.0]
 
     def test_already_dark_reswaps_every_iteration(self, caplog, monkeypatch):
-        """Fix B (2026-07-15): the dark path must keep swapping a canvas
-        every iteration (not just once at the dark transition) so overlay
-        hooks (busy_light) keep compositing and the status board's
-        swap_count liveness counter keeps advancing all night. Logging
-        stays transition-only — quiet here since already dark. Fix
-        (2026-07-15, HIGH): the canvas being re-swapped must be the SAME
-        one threaded in via `dark_canvas` — `get_clean_canvas` must NOT be
-        called again, or the real backend leaks a native framebuffer every
-        tick."""
+        """Fix B (2026-07-15): the dark path must keep swapping every
+        iteration (not just once at the dark transition) so overlay hooks
+        (busy_light) keep compositing and the status board's swap_count
+        liveness counter keeps advancing all night. Logging stays
+        transition-only — quiet here since already dark. Allocation is no
+        longer this function's concern (Task 3): every committed dark
+        iteration calls `get_clean_canvas()` once and swaps its result —
+        `LedFrame.get_clean_canvas` recycling (Task 1) is what pins this to
+        O(1) allocation at the frame level, proven in tests/test_frame.py."""
         slept = []
 
         async def _fake_sleep(s):
@@ -147,54 +126,23 @@ class TestIdleWhenAllScheduledOut:
 
         monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
         frame = _frame()
-        existing_canvas = Mock(name="existing_dark_canvas")
         with caplog.at_level(logging.INFO):
-            dark, dark_canvas, dark_streak = asyncio.run(
-                _idle_when_all_scheduled_out(frame, False, True, existing_canvas, 7)
+            dark, dark_streak = asyncio.run(
+                _idle_when_all_scheduled_out(frame, False, True, 7)
             )
         assert dark is True
         assert dark_streak == 8
-        frame.get_clean_canvas.assert_not_called()
-        existing_canvas.Clear.assert_called_once()
-        frame.swap.assert_called_once_with(existing_canvas)
-        assert dark_canvas is frame.swap.return_value
+        frame.get_clean_canvas.assert_called_once()
+        frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
         assert caplog.text == ""
         assert slept == [1.0]
 
-    def test_clear_runs_before_swap_each_iteration(self, monkeypatch):
-        """Requirement: the dark canvas is Cleared before it's handed to
-        swap() — Clear erases whatever an overlay hook painted onto this
-        same buffer two swaps ago so it doesn't accumulate."""
-
-        async def _fake_sleep(s):
-            pass
-
-        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
-        frame = _frame()
-        canvas = frame.get_clean_canvas.return_value
-        order = []
-        canvas.Clear.side_effect = lambda: order.append("clear")
-
-        def _fake_swap(c):
-            order.append("swap")
-            return frame.swap.return_value
-
-        frame.swap.side_effect = _fake_swap
-        # dark_streak=1: already past the debounce, so this call runs the
-        # actual dark path (fetch + clear + swap).
-        asyncio.run(_idle_when_all_scheduled_out(frame, False, False, None, 1))
-        assert order == ["clear", "swap"]
-
-    def test_dark_canvas_cycles_through_swap_chain_no_leak(self, monkeypatch):
-        """The point of this fix (HIGH, real-hardware memory leak):
-        get_clean_canvas is the ONLY allocation for the life of the process
-        (see TestDarkCanvasProcessLifetimeRetention below for the
-        multi-episode proof). Across N consecutive dark iterations (after
-        the initial debounce cycle), swap is called once per iteration and
-        each swap's argument is the PREVIOUS swap's return value — the
-        double buffer cycles through the swap chain (mirroring the
-        `swapping_frame` double-buffer contract in tests/conftest.py)
-        instead of a fresh framebuffer being allocated every second."""
+    def test_repeated_dark_iterations_blank_swap_every_time(self, monkeypatch):
+        """Across N consecutive dark iterations (after the initial debounce
+        cycle), each iteration independently calls `get_clean_canvas()` once
+        and `swap()` once — no canvas is threaded between calls anymore.
+        Allocation-free steady state is Task 1's frame-level guarantee, not
+        this function's."""
 
         async def _fake_sleep(s):
             pass
@@ -202,36 +150,19 @@ class TestIdleWhenAllScheduledOut:
         monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
 
         frame = Mock()
-        initial_canvas = Mock(name="clean_canvas")
-        frame.get_clean_canvas.return_value = initial_canvas
+        frame.get_clean_canvas.return_value = Mock(name="clean_canvas")
         frame.swap.side_effect = lambda c: Mock(name="swapped")
 
         n = 5  # 1 debounce cycle + 4 real dark iterations
-        returned_canvases = []
-        swap_call_args = []
-        dark_canvas = None
         was_dark = False
         dark_streak = 0
-        prev_swap_count = 0
         for _ in range(n):
-            was_dark, dark_canvas, dark_streak = asyncio.run(
-                _idle_when_all_scheduled_out(
-                    frame, False, was_dark, dark_canvas, dark_streak
-                )
+            was_dark, dark_streak = asyncio.run(
+                _idle_when_all_scheduled_out(frame, False, was_dark, dark_streak)
             )
-            if frame.swap.call_count > prev_swap_count:
-                swap_call_args.append(frame.swap.call_args.args[0])
-                prev_swap_count = frame.swap.call_count
-            returned_canvases.append(dark_canvas)
 
-        assert frame.get_clean_canvas.call_count == 1
-        assert frame.swap.call_count == n - 1  # first cycle was the debounce
-        # First return (the debounce cycle) is None; real dark iterations
-        # start at index 1.
-        assert returned_canvases[0] is None
-        assert swap_call_args[0] is initial_canvas
-        for i in range(1, len(swap_call_args)):
-            assert swap_call_args[i] is returned_canvases[i]
+        assert frame.get_clean_canvas.call_count == n - 1  # first was debounce
+        assert frame.swap.call_count == n - 1
 
 
 class TestDebounceGoingDark:
@@ -251,13 +182,12 @@ class TestDebounceGoingDark:
         monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
         frame = _frame()
         was_dark = False
-        dark_canvas = None
         dark_streak = 0
         for i in range(20):
             any_section_ran = i % 2 == 0  # ran, out, ran, out, ...
-            was_dark, dark_canvas, dark_streak = asyncio.run(
+            was_dark, dark_streak = asyncio.run(
                 _idle_when_all_scheduled_out(
-                    frame, any_section_ran, was_dark, dark_canvas, dark_streak
+                    frame, any_section_ran, was_dark, dark_streak
                 )
             )
             assert was_dark is False
@@ -269,23 +199,22 @@ class TestDebounceGoingDark:
         all-out cycle — not the first."""
         frame = _frame()
         with caplog.at_level(logging.INFO):
-            dark1, dark_canvas1, streak1 = asyncio.run(
-                _idle_when_all_scheduled_out(frame, False, False, None, 0)
+            dark1, streak1 = asyncio.run(
+                _idle_when_all_scheduled_out(frame, False, False, 0)
             )
             first_cycle_log = caplog.text
 
             # First cycle: debounce only — checked BEFORE the second call
             # runs, since both calls share the same frame mock.
             assert dark1 is False
-            assert dark_canvas1 is None
             assert streak1 == 1
             assert first_cycle_log == ""
             frame.get_clean_canvas.assert_not_called()
             frame.swap.assert_not_called()
 
             caplog.clear()
-            dark2, dark_canvas2, streak2 = asyncio.run(
-                _idle_when_all_scheduled_out(frame, False, dark1, dark_canvas1, streak1)
+            dark2, streak2 = asyncio.run(
+                _idle_when_all_scheduled_out(frame, False, dark1, streak1)
             )
             second_cycle_log = caplog.text
 
@@ -303,119 +232,12 @@ class TestDebounceGoingDark:
             slept.append(s)
 
         monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
-        dark, dark_canvas, dark_streak = asyncio.run(
-            _idle_when_all_scheduled_out(_frame(), False, False, None, 0)
+        dark, dark_streak = asyncio.run(
+            _idle_when_all_scheduled_out(_frame(), False, False, 0)
         )
         assert dark is False
-        assert dark_canvas is None
         assert dark_streak == 1
         assert slept == [1.0]
-
-
-class TestDarkCanvasProcessLifetimeRetention:
-    """Cycle-3 review Fix 1: the leak guard is process-lifetime canvas
-    retention, not per-episode. `get_clean_canvas` must be fetched AT MOST
-    ONCE for the life of the process, no matter how many dark<->wake
-    episodes happen — the debounce alone only covers a 1-cycle flap; a
-    config that stays all-out for many consecutive cycles per episode (e.g.
-    a slow-polling Container) would otherwise still leak one retained
-    framebuffer per episode."""
-
-    def test_dark_wake_dark_across_two_episodes_fetches_once(self, monkeypatch):
-        async def _fake_sleep(s):
-            pass
-
-        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
-
-        frame = Mock()
-        initial_canvas = Mock(name="clean_canvas")
-        frame.get_clean_canvas.return_value = initial_canvas
-        swapped = []
-
-        def _fake_swap(c):
-            new = Mock(name=f"swapped_{len(swapped)}")
-            swapped.append(new)
-            return new
-
-        frame.swap.side_effect = _fake_swap
-
-        was_dark = False
-        dark_canvas = None
-        dark_streak = 0
-
-        # Episode 1: debounce no-op, then commit (fetch #1).
-        was_dark, dark_canvas, dark_streak = asyncio.run(
-            _idle_when_all_scheduled_out(
-                frame, False, was_dark, dark_canvas, dark_streak
-            )
-        )
-        was_dark, dark_canvas, dark_streak = asyncio.run(
-            _idle_when_all_scheduled_out(
-                frame, False, was_dark, dark_canvas, dark_streak
-            )
-        )
-        assert was_dark is True
-        assert frame.get_clean_canvas.call_count == 1
-        episode_1_canvas = dark_canvas
-
-        # Wake: canvas must be preserved, not dropped.
-        was_dark, dark_canvas, dark_streak = asyncio.run(
-            _idle_when_all_scheduled_out(
-                frame, True, was_dark, dark_canvas, dark_streak
-            )
-        )
-        assert was_dark is False
-        assert dark_canvas is episode_1_canvas
-        assert dark_streak == 0
-
-        # Episode 2: debounce no-op, then commit again — must REUSE the
-        # retained canvas, not re-fetch.
-        was_dark, dark_canvas, dark_streak = asyncio.run(
-            _idle_when_all_scheduled_out(
-                frame, False, was_dark, dark_canvas, dark_streak
-            )
-        )
-        was_dark, dark_canvas, dark_streak = asyncio.run(
-            _idle_when_all_scheduled_out(
-                frame, False, was_dark, dark_canvas, dark_streak
-            )
-        )
-        assert was_dark is True
-        assert frame.get_clean_canvas.call_count == 1, (
-            "get_clean_canvas must be fetched exactly once for the life of "
-            "the process, regardless of how many dark/wake episodes occur"
-        )
-        # The second episode still cycles the swap chain from wherever the
-        # first episode's retained canvas left off.
-        assert dark_canvas is swapped[-1]
-
-    def test_multi_cycle_flap_fetches_once(self, monkeypatch):
-        """A flap pattern with runs LONGER than the 1-cycle debounce (out,
-        out, ran, out, out, ran, ...) must still fetch exactly once, total,
-        across the whole run — the debounce alone can't cover this (each
-        run is 2 all-out cycles wide, so every episode commits to dark),
-        only the process-lifetime retention does."""
-
-        async def _fake_sleep(s):
-            pass
-
-        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
-
-        frame = Mock()
-        frame.get_clean_canvas.return_value = Mock(name="clean_canvas")
-        frame.swap.side_effect = lambda c: Mock(name="swapped")
-
-        was_dark = False
-        dark_canvas = None
-        dark_streak = 0
-        pattern = [False, False, True] * 5  # out, out, ran, repeated
-        for any_section_ran in pattern:
-            was_dark, dark_canvas, dark_streak = asyncio.run(
-                _idle_when_all_scheduled_out(
-                    frame, any_section_ran, was_dark, dark_canvas, dark_streak
-                )
-            )
-        assert frame.get_clean_canvas.call_count == 1
 
 
 class TestOnDisplayDarkTransition:
@@ -597,14 +419,13 @@ class TestWidgetLevelAllOutIdleWiring:
         # the debounce), so the dark path actually commits.
         frame = _frame()
         with caplog.at_level(logging.INFO):
-            dark, dark_canvas, dark_streak = asyncio.run(
-                _idle_when_all_scheduled_out(frame, any_section_ran, False, None, 1)
+            dark, dark_streak = asyncio.run(
+                _idle_when_all_scheduled_out(frame, any_section_ran, False, 1)
             )
         assert dark is True
         assert dark_streak == 2
         frame.get_clean_canvas.assert_called_once()
         frame.swap.assert_called_once_with(frame.get_clean_canvas.return_value)
-        assert dark_canvas is frame.swap.return_value
         assert "panel dark" in caplog.text
         assert slept == [1.0]
 
@@ -626,16 +447,10 @@ class TestWidgetLevelAllOutIdleWiring:
         assert expanded == [widget]
 
         frame = _frame()
-        existing_canvas = Mock(name="existing_dark_canvas")
         with caplog.at_level(logging.INFO):
-            dark, dark_canvas, dark_streak = asyncio.run(
-                _idle_when_all_scheduled_out(
-                    frame, has_content, True, existing_canvas, 4
-                )
+            dark, dark_streak = asyncio.run(
+                _idle_when_all_scheduled_out(frame, has_content, True, 4)
             )
         assert dark is False
-        # Waking preserves the retained canvas rather than dropping it
-        # (process-lifetime retention, cycle-3 review Fix 1).
-        assert dark_canvas is existing_canvas
         assert dark_streak == 0
         assert "panel waking" in caplog.text

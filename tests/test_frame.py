@@ -1,5 +1,7 @@
 """Tests for led_ticker.frame."""
 
+from unittest.mock import Mock
+
 from led_ticker.backends.headless import HeadlessBackend
 from led_ticker.backends.rgbmatrix import RgbMatrixBackend
 from led_ticker.frame import LedFrame
@@ -264,3 +266,81 @@ def test_swap_without_preview_unchanged():
     canvas = frame.get_clean_canvas()
     swapped = frame.swap(canvas)
     assert swapped is not canvas  # plain path: stub returns a new canvas
+
+
+class _CountingBackend:
+    """Minimal Backend double that counts create_canvas calls and models
+    double-buffering (swap returns the previous back buffer)."""
+
+    def __init__(self):
+        self.create_calls = 0
+        self._back = None
+        self.brightness = 100
+
+    def setup(self):
+        pass
+
+    def create_canvas(self):
+        self.create_calls += 1
+        return Mock(name=f"canvas{self.create_calls}")
+
+    def swap(self, canvas):
+        old_back = self._back if self._back is not None else Mock(name="back0")
+        self._back = canvas
+        return old_back
+
+
+def _counting_frame():
+    """Return a setup-ready LedFrame backed by a _CountingBackend, plus the
+    backend itself (so tests can assert on create_calls)."""
+    backend = _CountingBackend()
+    frame = LedFrame(backend=backend)
+    frame.setup()
+    return frame, backend
+
+
+class TestGetCleanCanvasRecycling:
+    def test_first_fetch_allocates(self):
+        frame, backend = _counting_frame()
+        c = frame.get_clean_canvas()
+        assert backend.create_calls == 1
+        c.Clear.assert_called_once()
+
+    def test_fetch_after_swap_recycles_the_returned_buffer(self):
+        frame, backend = _counting_frame()
+        c1 = frame.get_clean_canvas()
+        back = frame.swap(c1)  # constraint #1: capture
+        c2 = frame.get_clean_canvas()
+        assert c2 is back  # the just-swapped-out buffer, recycled
+        assert backend.create_calls == 1  # no new allocation
+        back.Clear.assert_called()  # recycled buffer is cleared
+
+    def test_steady_state_allocation_is_constant(self):
+        frame, backend = _counting_frame()
+        c = frame.get_clean_canvas()
+        for _ in range(50):
+            c = frame.swap(c)
+            c = frame.get_clean_canvas()
+        assert backend.create_calls == 1
+
+    def test_double_fetch_before_any_swap_allocates_twice(self):
+        # Documented bound: with no swap yet there is nothing to recycle.
+        frame, backend = _counting_frame()
+        frame.get_clean_canvas()
+        frame.get_clean_canvas()
+        assert backend.create_calls == 2
+
+    def test_tee_path_recycles_hw_buffer(self):
+        frame, backend = _counting_frame()
+        tee = Mock()
+        tee.mirror = False
+        frame.install_preview(tee)
+        c1 = frame.get_clean_canvas()
+        assert c1 is tee
+        hw1 = tee._hw
+        result = frame.swap(tee)
+        assert result is tee
+        c2 = frame.get_clean_canvas()
+        assert c2 is tee
+        assert tee._hw is not hw1  # rebound to the swap-returned buffer
+        assert backend.create_calls == 1

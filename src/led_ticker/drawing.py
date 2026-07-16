@@ -136,6 +136,12 @@ def hires_text_width(
     computed here is a real on-panel clearance on any platform's font
     metrics. `threshold` is forwarded to `resolve_font` so a caller that
     paints at a custom threshold shares the same font-cache entry.
+
+    If `font` resolves to a BDF alias (e.g. ``"6x12"``), `size`/`threshold`
+    are ignored (per `resolve_font`'s contract) and the result is LOGICAL
+    px — matching `get_text_width`'s BDF branch, not the hi-res real px
+    every other case returns. Raises `UnknownFontError` for an unknown
+    `font` name.
     """
     resolved = resolve_font(font, size, threshold)
     if isinstance(resolved, HiresFont):
@@ -163,6 +169,11 @@ def fit_text_size(
     the measured-clearance pattern: content keeps its design size unless it
     would actually collide, then steps down a caller-owned ladder (ladder
     VALUES are per-layout design decisions and do not live in core).
+
+    Only meaningful for hi-res fonts: a BDF alias ignores `size` (see
+    `hires_text_width`), so every ladder entry measures identically and the
+    result degenerates to `sizes[0]`-or-floor. Raises `ValueError` on an
+    empty `sizes`; `UnknownFontError` propagates for an unknown `font`.
     """
     last: int | None = None
     for size in sizes:

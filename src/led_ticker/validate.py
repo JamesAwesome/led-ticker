@@ -2458,12 +2458,10 @@ def _forever_never_rechecks_issue(i: int) -> ValidationIssue:
             "Use a finite loop_count (>= 1) so the schedule is "
             "re-checked between playlist cycles. Widget-level "
             "`schedule = {...}` is NOT a safe substitute here: the "
-            "schedule gate runs in the enqueue producer, which races "
-            "far ahead of the display consumer through an unbounded "
-            "queue, so a widget's closing window can take hours to "
-            "reach the panel. Note: validate's blank-interval sweep "
-            "assumes the section closes; with loop_count = 0 it will "
-            "not."
+            "section never exhausts its rotation, so entry-level "
+            "re-checks never happen. Note: validate's blank-interval "
+            "sweep assumes the section closes; with loop_count = 0 it "
+            "will not."
         ),
         severity="warning",
     )

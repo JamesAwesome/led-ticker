@@ -795,7 +795,33 @@ class Ticker:
         )
 
         prev_object = ticker_object
-        while not self.notif_queue.empty():
+        while True:
+            # Yield one event-loop turn before every exhaustion check.
+            # `_show_one` guarantees a real `await` for the
+            # `_swap_and_scroll` (non-play) path — `_hold_ticks`'s
+            # `n_ticks = max(1, ...)` floor always runs at least one
+            # `asyncio.sleep`, which is what makes a plain `.empty()`
+            # check safe there (see `test_run_swap_survives_degenerate_
+            # config`). The `play()` dispatch path (`_play_widget`) has
+            # no such floor: a breaker-disabled widget short-circuits
+            # before calling `play()` at all, and a `play()` that raises
+            # before its first `await` never actually suspends either —
+            # both return with ZERO real suspension. Two such widgets
+            # back-to-back can drain both queue slots (via this loop's
+            # own `get_nowait()`, below) while the producer's pending
+            # refill (already scheduled via `loop.call_soon` from the
+            # previous dequeue) never gets a turn to run — a transient
+            # `.empty()` then reads as exhaustion and strands whatever
+            # the producer had queued up behind it. `asyncio.sleep(0)` is
+            # a single bare event-loop turn: it runs whatever's already
+            # scheduled (a parked producer's refill) without waiting on
+            # NEW work, so a queue nothing more is ever coming into still
+            # reads empty afterward and this loop still terminates
+            # cleanly (no hang) — it just stops treating instantaneous
+            # emptiness as proof of exhaustion.
+            await asyncio.sleep(0)
+            if self.notif_queue.empty():
+                break
             ticker_object = self.notif_queue.get_nowait()
             # Sentinel mid-stream: producer exhausted the iterator.
             # Stop draining the queue and return the current scroll pos.

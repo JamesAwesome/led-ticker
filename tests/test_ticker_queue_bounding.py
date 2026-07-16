@@ -7,6 +7,7 @@ import itertools
 
 import pytest
 
+from led_ticker.render_breaker import RenderBreaker
 from led_ticker.ticker import (
     TICKER_QUEUE_MAXSIZE,
     Ticker,
@@ -131,10 +132,18 @@ async def test_gating_tracks_display_time():
 
 @pytest.mark.asyncio
 async def test_run_swap_drain_loop_terminates_with_parked_producer():
-    """_run_swap's catch-up drain (`while not queue.empty(): get_nowait()`)
-    is synchronous — a producer parked in put() CANNOT refill mid-drain
-    (its waiter only resolves at the next event-loop yield), so the drain
-    terminates. Pin that event-loop fact directly."""
+    """Pin the general event-loop fact behind the Task 2 fix directly: a
+    producer parked in `put()` CANNOT refill a synchronous, no-await
+    drain — its waiter only resolves at the next event-loop yield.
+
+    This is exactly why `_run_swap`'s tail loop (~ticker.py:798) now
+    inserts `await asyncio.sleep(0)` before every `.empty()` check
+    (see `test_run_swap_play_widgets_do_not_strand_trailing_widgets`
+    below): without a yield, two adjacent suspension-free widget-visits
+    (a play()-dispatched widget short-circuited by the breaker, or one
+    whose `play()` raises before its first `await`) can drain both
+    queue slots exactly like this test's manual loop does, and strand
+    whatever the producer had queued up behind them."""
     queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
     producer = asyncio.create_task(_enqueue_ticker_objects(itertools.count(), queue))
     await asyncio.sleep(0.01)  # queue full, producer parked
@@ -173,7 +182,7 @@ async def test_consumer_never_starves_when_producer_is_fast():
 # idiom in the three consumers survive the bounded queue, or can a
 # transient empty() strand widgets that are still coming? ---
 #
-# Three call sites use the pattern:
+# Three call sites use (or used) the pattern:
 #   _run_swap            (~ticker.py:798)  while not queue.empty(): get_nowait()
 #   _scroll_one_by_one    (~ticker.py:952)  try: get_nowait() except QueueEmpty
 #   _scroll_side_by_side  (~ticker.py:1053) if queue.empty(): queue_empty=True (sticky)
@@ -184,12 +193,24 @@ async def test_consumer_never_starves_when_producer_is_fast():
 # empirical result to generalize beyond the specific widths/timings
 # tested:
 #
-#   _run_swap:            SAFE, not fixed — see
-#                         test_run_swap_survives_degenerate_config below.
+#   _run_swap:            Task 1 verdict ("SAFE, not fixed") covered only
+#                         the `_swap_and_scroll` (non-play) path, where
+#                         `_hold_ticks`'s `n_ticks = max(1, ...)` floor
+#                         guarantees a real await per visit. Task 2's
+#                         review (#394) found the verdict FALSE for the
+#                         `play()` dispatch path: a breaker-disabled
+#                         widget short-circuits `_play_widget` before any
+#                         await, and a `play()` that raises before its
+#                         first await never suspends either — two such
+#                         widgets back-to-back can drain the queue with
+#                         zero real suspensions. FIXED in Task 2 by
+#                         yielding once per drain iteration — see
+#                         test_run_swap_play_widgets_do_not_strand_
+#                         trailing_widgets below.
 #   _scroll_one_by_one:   SAFE, not fixed — see
 #                         test_scroll_one_by_one_survives_degenerate_config
 #                         below.
-#   _scroll_side_by_side: WAS BROKEN, fixed in this change — see
+#   _scroll_side_by_side: WAS BROKEN, fixed in Task 1 — see
 #                         test_scroll_side_by_side_does_not_drop_widgets_
 #                         under_bounded_queue below.
 
@@ -203,14 +224,28 @@ async def test_run_swap_survives_degenerate_config(mock_frame, make_widget, no_s
     over a REAL bounded queue (`maxsize=TICKER_QUEUE_MAXSIZE`). All 5 must
     display, and the section must end only via the `None` sentinel.
 
-    EARLY-EXIT VERDICT: not exposed. Empirically confirmed (this test
-    passes, and passes even harder under 30 widgets at `scroll_speed=0` —
-    see the report for the exploratory numbers) and explained by the
-    engine's own floor: `_show_one` -> `_swap_and_scroll` always runs
-    `_hold_ticks` with `n_ticks = max(1, ...)`, so EVERY widget-visit
-    contains at least one real `await asyncio.sleep(...)` — even at
-    hold_time=0 the `max(1, ...)` floor still runs one tick. That single
-    await is a genuine event-loop suspension point.
+    SCOPE: this suspension guarantee covers the `_swap_and_scroll`
+    (non-play) path only — these 5 widgets are plain draw()-based mocks,
+    which is exactly the shape `_show_one` routes there. It does NOT
+    cover the `play()` dispatch path (`_play_widget`): a breaker-disabled
+    widget short-circuits before calling `play()` at all, and a `play()`
+    that raises before its first `await` never suspends either — both
+    are genuine zero-suspension visits. Task 2's review (#394) found that
+    edge and it's covered separately by
+    `test_run_swap_play_widgets_do_not_strand_trailing_widgets` below,
+    fixed by `_run_swap`'s tail loop now doing `await asyncio.sleep(0)`
+    before every `.empty()` check (~ticker.py:798) — that explicit yield
+    is the general-purpose version of the guarantee this test's `_swap_
+    and_scroll` widgets get for free (see next paragraph).
+
+    EARLY-EXIT VERDICT (this path): not exposed. Empirically confirmed
+    (this test passes, and passes even harder under 30 widgets at
+    `scroll_speed=0` — see the report for the exploratory numbers) and
+    explained by the engine's own floor: `_show_one` -> `_swap_and_scroll`
+    always runs `_hold_ticks` with `n_ticks = max(1, ...)`, so EVERY
+    widget-visit contains at least one real `await asyncio.sleep(...)` —
+    even at hold_time=0 the `max(1, ...)` floor still runs one tick. That
+    single await is a genuine event-loop suspension point.
 
     Why one suspension is enough: `_run_swap`'s catch-up drain consumes
     exactly one item right before calling `_show_one`, freeing exactly one
@@ -226,9 +261,9 @@ async def test_run_swap_survives_degenerate_config(mock_frame, make_widget, no_s
     checks `queue.empty()`, the refill has already happened. This holds
     regardless of hold_time/scroll_speed magnitude (even 0 — `sleep(0)`
     is still a real suspend/resume cycle) because it's an ordering
-    guarantee, not a timing one. Documented here rather than "fixed" per
-    the carry-forward's own instruction: fix only sites the test actually
-    catches tripping.
+    guarantee, not a timing one. This is the SAME mechanism the Task 2
+    fix's explicit `await asyncio.sleep(0)` buys deliberately for the
+    play() path, which has no floor to get it for free.
     """
     widgets = [make_widget(10) for _ in range(5)]
     queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
@@ -243,7 +278,97 @@ async def test_run_swap_survives_degenerate_config(mock_frame, make_widget, no_s
     for i, w in enumerate(widgets):
         assert w.draw.called, f"widget {i} was dropped"
     assert queue.empty(), "sentinel + all items must be fully drained"
-    await ticker._enqueue_task  # producer finished cleanly (no hang, no error)
+    # Timeboxed (#394 Task 2 review, Finding 2): a bare await here would
+    # hang the whole suite instead of failing if the producer ever got
+    # parked forever — matching the pattern at ~line 91.
+    assert ticker._enqueue_task is not None
+    await asyncio.wait_for(ticker._enqueue_task, timeout=2.0)
+
+
+class _KeyedPlayWidget:
+    """A play()-dispatched widget keyed by `.text` for the breaker —
+    mirrors how a content-bearing widget (e.g. an RSS story) is keyed by
+    `render_breaker._key`: `(type(widget).__name__, str(widget.text))`.
+    Two DIFFERENT instances sharing the same `.text` therefore share the
+    same breaker key, so tripping one disables the other too.
+
+    `raises=True` makes `play()` raise before its first `await` —
+    `_play_widget`'s `except Exception` (~ticker.py:477) trips the
+    breaker and returns the canvas unchanged, with ZERO real awaits for
+    that visit. `raises=False` is used for the SECOND instance of a
+    matching pair: by the time `_play_widget` reaches it, the breaker is
+    already disabled (tripped by the first instance moments earlier), so
+    `_play_widget`'s own disabled-check (~ticker.py:459) short-circuits
+    before `play()` is ever called — also ZERO real awaits. Pre-tripping
+    a widget BEFORE the section even starts doesn't reach this code path
+    at all: `_expand_sources` filters already-disabled widgets out at
+    enqueue time (~ticker.py:1204), so a widget disabled before its pass
+    begins never reaches the queue, let alone `_play_widget`. The two
+    zero-await code paths only become adjacent in the queue when the
+    SAME pass enqueues both instances (neither disabled yet) and the
+    first one's failure disables the second one in between.
+    """
+
+    def __init__(self, text, raises):
+        self.text = text
+        self.raises = raises
+        self.play_called = False
+
+    async def play(self, real_canvas, frame, loop_count=1, **kwargs):
+        if self.raises:
+            raise RuntimeError("boom before any await")
+        self.play_called = True
+        return real_canvas
+
+
+@pytest.mark.asyncio
+async def test_run_swap_play_widgets_do_not_strand_trailing_widgets(
+    mock_frame, make_widget, no_sleep
+):
+    """Task 2 review regression (#394 Finding 1): two ADJACENT
+    suspension-free play()-dispatched widgets — one whose `play()` raises
+    synchronously, one that's short-circuited by the breaker it just
+    tripped (same content key) — followed by two normal draw()-based
+    widgets in a finite section, driven through the REAL producer + a
+    REAL bounded queue via `run_slideshow`.
+
+    Pre-fix, this reliably dropped the trailing widgets: `_run_swap`'s
+    tail loop drained both consumed slots (`get_nowait()` for the raising
+    widget, then `get_nowait()` for the now-disabled duplicate) with no
+    intervening `await` anywhere — neither play()-visit ever suspends the
+    running task — so the producer's pending refill (already scheduled
+    via `loop.call_soon` from the first dequeue) never got a turn to run
+    before `while not queue.empty()` re-checked and (falsely) concluded
+    the section was exhausted.
+
+    Fixed by `_run_swap` yielding `await asyncio.sleep(0)` before every
+    `.empty()` check, giving the producer's pending refill a turn each
+    time a slot is freed — see the docstring on
+    `test_run_swap_drain_loop_terminates_with_parked_producer` for the
+    underlying event-loop mechanics.
+    """
+    breaker = RenderBreaker()
+    w_raising = _KeyedPlayWidget("dup", raises=True)
+    w_disabled = _KeyedPlayWidget("dup", raises=False)
+    w3 = make_widget(10)
+    w4 = make_widget(10)
+
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    ticker = Ticker(
+        monitors=[w_raising, w_disabled, w3, w4],
+        frame=mock_frame,
+        notif_queue=queue,
+        hold_time=0.0,
+        breaker=breaker,
+    )
+    await ticker.run_slideshow(loop_count=1)
+
+    assert not w_disabled.play_called, "breaker short-circuit didn't fire as expected"
+    assert w3.draw.called, "widget 3 was stranded by the suspension-free drain"
+    assert w4.draw.called, "widget 4 was stranded by the suspension-free drain"
+    assert queue.empty(), "sentinel + all items must be fully drained"
+    assert ticker._enqueue_task is not None
+    await asyncio.wait_for(ticker._enqueue_task, timeout=2.0)
 
 
 @pytest.mark.asyncio
@@ -346,4 +471,7 @@ async def test_run_slideshow_completes_over_bounded_queue(
     assert w2.draw.called
     assert w3.draw.called
     assert queue.empty()
-    await ticker._enqueue_task  # sentinel path completed cleanly, no hang
+    # Timeboxed (#394 Task 2 review, Finding 2): see the matching comment
+    # in test_run_swap_survives_degenerate_config.
+    assert ticker._enqueue_task is not None
+    await asyncio.wait_for(ticker._enqueue_task, timeout=2.0)

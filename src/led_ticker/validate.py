@@ -3317,10 +3317,15 @@ async def validate_config(
     ``_configure_user_font_dir`` overwrites ``hires_loader.USER_FONT_DIR``
     with the same value for a given config path, and a racing overwrite of
     an equal value plus a redundant ``cache_clear()`` is a no-op; the
-    ``functools.lru_cache``d font/glyph loaders (``load_hires_font``) and
-    the lazy-built ``color_lut._HUE_TABLE`` / emoji-registry singletons rely
-    on CPython's internal cache locking — a concurrent first call at worst
-    double-computes a deterministic result, never a partial read; and
+    ``functools.lru_cache``d font/glyph loaders (``load_hires_font``) rely
+    on CPython's internal cache locking, while the lazy-built
+    ``color_lut._HUE_TABLE`` / emoji-registry singletons are hand-rolled
+    ``if X is None`` inits whose safety is the GIL's atomic reference
+    assignment — either way a concurrent first call at worst
+    double-computes a deterministic result, never a partial read (known
+    unexercised edge: two concurrent validates for genuinely DIFFERENT
+    config directories could transiently race the font dir, degrading to
+    a rule-24 unknown-font warning — no current caller does this); and
     schedule state is untouched — ``bind_schedule`` /
     ``set_schedule_timezone`` are reachable only from ``_build_widget`` /
     ``app.run`` (the real engine build path), never from

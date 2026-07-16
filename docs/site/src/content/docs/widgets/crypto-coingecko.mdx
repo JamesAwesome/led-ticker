@@ -3,6 +3,7 @@ title: crypto.coingecko widget
 description: The crypto.coingecko multi-coin price ticker is provided by the crypto package in led-ticker-plugins (type = "crypto.coingecko").
 ---
 
+import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 
 The **crypto.coingecko** widget is provided by the **[crypto](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/crypto)** package in the led-ticker-plugins monorepo, referenced in config as `type = "crypto.coingecko"`.
@@ -14,6 +15,21 @@ The **crypto.coingecko** widget is provided by the **[crypto](https://github.com
 
 - **To add it to your sign:** add `led-ticker-crypto` to `config/requirements-plugins.txt` and restart (`docker compose restart`) — see [Plugins](/plugins/) for the full flow.
 - **Full documentation** — options, config examples, and a demo gif — lives in the [crypto package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/crypto/README.md).
+
+<Aside type="tip" title="Want richer crypto layouts?">
+  For **major coins** (BTC, ETH, SOL, and the other pairs Twelve Data lists), the
+  [**stocks.ticker** widget](/widgets/stocks/) with `provider = "twelvedata"` is the more
+  feature-rich option: the same held **card** and full **dashboard** layouts as stocks — hero
+  price, sparkline, a pulsing LIVE chip, a scrolling watch column — plus an embeddable,
+  trend-colored [`stocks.quote` price token](/widgets/stocks/#embed-a-live-price-anywhere) you
+  can drop into any `message`. And it shares **one** free key with your stocks and forex, so a
+  mixed rotation (equities + FX + crypto) runs off a single source.
+
+Reach for `crypto.coingecko` here when you want **broad coin coverage** instead: CoinGecko
+lists thousands of coins, including the sub-cent long tail (like SHIB) that a majors-only feed
+won't carry.
+
+</Aside>
 
 ## Features
 

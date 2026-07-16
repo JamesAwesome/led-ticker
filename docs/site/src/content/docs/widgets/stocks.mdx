@@ -257,6 +257,41 @@ Held layouts (`card`, `dashboard`) aren't a static snapshot redrawn every poll �
 - **LIVE-chip pulse.** The state chip in the corner reads `LIVE` (green) while the market is open, `PRE` (amber) or `AH` (violet) outside regular hours, and `CLSD` (red, dimmed) when closed. Only `LIVE` breathes — a slow brightness pulse that's the visual "this widget is actually polling," the same idea as the busy-light overlay's corner dot.
 - **Sparkline endpoint pulse.** The rightmost point of the rolling sparkline twinkles every frame regardless of market state, so the chart itself reads as alive even between price updates.
 
+## Multi-asset via Twelve Data
+
+Add one field — `provider = "twelvedata"` — and the same widget mixes stocks, forex, and crypto in one `symbols` list, all off a single free key:
+
+```toml
+[[source]]
+id = "eurusd"
+type = "stocks.quote"
+provider = "twelvedata"
+symbol = "EUR/USD"
+format = "{price}"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 5
+
+[[playlist.section.widget]]
+type = "stocks.ticker"
+provider = "twelvedata"
+symbols = ["AAPL", "EUR/USD", "BTC/USD"]
+```
+
+- **The `/` routes the asset class, no exchange prefix.** `"AAPL"` is a stock, `"EUR/USD"` is forex, `"BTC/USD"` is crypto — Twelve Data infers the type from the symbol shape alone.
+- **Per-symbol market state.** Each symbol carries its own state chip — `BTC/USD` can read `LIVE` around the clock while an after-hours `AAPL` reads `CLSD`, in the same rotation.
+- **Auto-formatting needs no config.** Prices pick their decimal places from magnitude — forex (`EUR/USD` ~1.08) renders at 4 decimals, equities and larger crypto values render at 2 with thousands separators (`65,432.10`). The `decimals` field on `stocks.quote` overrides this per source for the rare case you want something else.
+- **The rate just works.** The shared cache detects your Twelve Data key's actual per-minute limit at boot and throttles to it — free-tier and a paid key both just work, with no rate field to tune.
+- **Get a free key** at [twelvedata.com/pricing](https://twelvedata.com/pricing) and put it in `.env` as `TWELVEDATA_API_KEY` — never in `config.toml` (env-only, same convention as `FINNHUB_API_TOKEN`).
+
+<Aside type="note">
+  Demo mode (`demo = true`) synthesizes a generic random-walk price for every symbol, so it can't
+  show a true forex 4-decimal quote or crypto's larger magnitude — the GIFs above were all rendered
+  against Finnhub-shaped equity demo data. See [Data sources](#data-sources) below for the full
+  Twelve Data rundown, including the delayed-data caveat on the free tier.
+</Aside>
+
 ## Options
 
 ### `stocks.ticker` widget

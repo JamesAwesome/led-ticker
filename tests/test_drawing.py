@@ -470,6 +470,23 @@ class TestHiresTextWidthAndFit:
             "AAPL", 22
         )
 
+    def test_threshold_is_forwarded_to_resolve_font(self, monkeypatch):
+        """The param must actually REACH resolve_font (font-cache sharing
+        with a caller's paint) — width equality alone can't catch a silently
+        dropped parameter."""
+        import led_ticker.drawing as drawing_mod
+        from led_ticker.fonts import resolve_font as real_resolve_font
+
+        seen = []
+
+        def spy(name, size=None, threshold=None):
+            seen.append((name, size, threshold))
+            return real_resolve_font(name, size, threshold)
+
+        monkeypatch.setattr(drawing_mod, "resolve_font", spy)
+        drawing_mod.hires_text_width("AAPL", 22, threshold=80)
+        assert seen == [("Inter-Bold", 22, 80)]
+
     def test_fit_keeps_design_size_when_it_fits(self):
         from led_ticker.drawing import fit_text_size
 

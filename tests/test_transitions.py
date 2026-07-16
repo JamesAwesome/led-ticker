@@ -1721,8 +1721,10 @@ class TestRunTransitionCrossScale:
         # Once at t=0.5 the wrapper is swapped to scale=4
         assert isinstance(result, ScaledCanvas)
         assert result.scale == 4
-        # And exactly one fresh canvas was allocated for the new wrapper
-        assert bigsign_frame.create_canvas.call_count == 1
+        # No fresh canvas allocated — the re-wrap reuses the current back
+        # buffer (task 5, canvas-liveness-foundation); see
+        # TestCrossScaleNoAllocation for the dedicated allocation tripwire.
+        assert bigsign_frame.create_canvas.call_count == 0
 
     async def test_same_scale_skips_wrapper_switch(
         self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
@@ -1953,6 +1955,62 @@ class TestRunTransitionCrossScale:
         # Result is still the wrapper (rebound to the new back-buffer)
         assert result is new_wrapper
         assert isinstance(new_wrapper.real, type(real_bigsign_canvas))
+
+
+class TestCrossScaleNoAllocation(TestRunTransitionCrossScale):
+    """Cross-scale re-wrap must reuse the current back buffer rather than
+    allocate a fresh canvas via `frame.create_canvas()` — each such call is
+    a permanently-retained C++ framebuffer on real hardware (task 5,
+    canvas-liveness-foundation). Subclasses TestRunTransitionCrossScale to
+    reuse its `real_bigsign_canvas` / `bigsign_frame` fixtures. Covers both
+    switch paths: the default `scale_switch_at=0.5` in-loop switch, and a
+    `scale_switch_at=0.0` stub for the pre-loop switch.
+    """
+
+    async def test_run_transition_never_calls_create_canvas_in_loop_switch(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing_wrapper = ScaledCanvas(real_bigsign_canvas, scale=2)
+
+        await run_transition(
+            outgoing_wrapper,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=Dissolve(),  # default scale_switch_at=0.5 -> in-loop switch
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+        bigsign_frame.create_canvas.assert_not_called()
+
+    async def test_run_transition_never_calls_create_canvas_pre_loop_switch(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        class _ImmediateSwitchDissolve(Dissolve):
+            scale_switch_at = 0.0
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing_wrapper = ScaledCanvas(real_bigsign_canvas, scale=2)
+
+        await run_transition(
+            outgoing_wrapper,
+            bigsign_frame,
+            outgoing,
+            incoming,
+            transition=_ImmediateSwitchDissolve(),
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+        bigsign_frame.create_canvas.assert_not_called()
 
 
 class TestRunTransitionDurationMs:

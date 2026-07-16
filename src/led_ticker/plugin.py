@@ -50,7 +50,9 @@ from led_ticker.drawing import (
     compute_baseline,
     compute_baseline_for_band,
     compute_cursor,
+    fit_text_size,
     get_text_width,
+    hires_text_width,
     safe_scale,
 )
 from led_ticker.fonts import (
@@ -150,9 +152,11 @@ __all__ = [
     "draw_text",
     "draw_text_per_char",
     "draw_with_emoji",
+    "fit_text_size",
     "font_line_height_logical",
     "format_clock",
     "get_text_width",
+    "hires_text_width",
     "is_scaled",
     "make_color",
     "plugin_config_block",

@@ -20,6 +20,12 @@ class LedFrame:
     overlay_hooks: list[Callable[[Canvas], None]] = attrs.field(factory=list)
     _preview_tee: Any = attrs.field(init=False, default=None)
     _ready: bool = attrs.field(init=False, default=False)
+    # The buffer the most recent swap() returned — by definition off-screen.
+    # get_clean_canvas() recycles it instead of allocating: on the real
+    # backend every backend.create_canvas() is a C++ CreateFrameCanvas()
+    # retained until process exit (never freed), so steady-state paths must
+    # never allocate. None until the first swap of the process.
+    _last_back: Any = attrs.field(init=False, default=None)
 
     def setup(self) -> None:
         """Build the backend's matrix (privilege-drop boundary, constraint
@@ -56,9 +62,20 @@ class LedFrame:
         return self.backend.create_canvas()
 
     def get_clean_canvas(self) -> Canvas:
-        """A cleared canvas ready for rendering (tee-aware)."""
+        """A cleared canvas ready for rendering (tee-aware).
+
+        Recycles the buffer the most recent swap() returned instead of
+        allocating (see _last_back). Only before the first swap of the
+        process does this fall back to backend.create_canvas().
+
+        Aliasing contract: a call site must not hold a previous
+        get_clean_canvas() result while fetching another — the second fetch
+        Clears (and hands out) the same recycled buffer.
+        """
         self._require_ready()
-        canvas = self.backend.create_canvas()
+        canvas = self._last_back
+        if canvas is None:
+            canvas = self.backend.create_canvas()
         canvas.Clear()
         tee = self._preview_tee
         if tee is not None:
@@ -79,7 +96,10 @@ class LedFrame:
         tee = self._preview_tee
         if tee is not None and canvas is tee:
             new_hw = self.backend.swap(tee._hw)
+            self._last_back = new_hw
             tee.maybe_capture()
             tee._hw = new_hw
             return tee
-        return self.backend.swap(canvas)
+        new_back = self.backend.swap(canvas)
+        self._last_back = new_back
+        return new_back

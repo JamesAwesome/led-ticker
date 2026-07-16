@@ -46,6 +46,7 @@ from led_ticker.sources import (
     spawn_source_refresh,
 )
 from led_ticker.ticker import (
+    TICKER_QUEUE_MAXSIZE,
     RestartRequested,
     Ticker,
     _displayable,
@@ -1124,7 +1125,9 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                                 section_index,
                             )
                             continue
-                        notif_queue: asyncio.Queue[Any] = asyncio.Queue()
+                        notif_queue: asyncio.Queue[Any] = asyncio.Queue(
+                            maxsize=TICKER_QUEUE_MAXSIZE
+                        )
                         widgets: list[Any] = []
                         runtime_coerce: list[Any] = []
                         for widget_cfg in section.widgets:

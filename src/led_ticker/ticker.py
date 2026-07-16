@@ -98,6 +98,16 @@ DEFAULT_BUFFER_MSG: TickerMessage = _CircleBufferMsg(
 # ~1 s keeps the slip inside the rotation's existing jitter budget.
 MAX_SETTLE_TICKS: int = 1000 // ENGINE_TICK_MS
 
+# Producer/consumer backpressure (#394). The enqueue producer used to run
+# unboundedly ahead of the display consumer (~30k items in 0.5s measured),
+# which made every gate decision (_expand_sources: widget `schedule`,
+# should_display, container re-reads) an ENQUEUE-time decision — a widget
+# whose window closed hours ago kept displaying because the consumer sat
+# behind a backlog of pre-gated items. maxsize=2 keeps evaluation within
+# ~2 queued items + the currently-showing widget of display time, caps the
+# queue's memory, and stops the producer from spinning a core.
+TICKER_QUEUE_MAXSIZE = 2
+
 
 def _has_index(index: int, items: list[Any]) -> bool:
     """Check if a list has an index."""
@@ -1259,6 +1269,10 @@ async def _enqueue_ticker_objects(
     `_scroll_side_by_side`) see a wake-up and can return
     cleanly instead of hanging forever waiting on an item that will
     never arrive.
+
+    The queue is bounded (TICKER_QUEUE_MAXSIZE); `put()` blocks when full,
+    which both paces this producer to display speed and yields the event
+    loop — the old `qsize() > 10` cooperative-yield hack is gone.
     """
     try:
         await notif_queue.put(next(ticker_iter))
@@ -1268,11 +1282,6 @@ async def _enqueue_ticker_objects(
     while True:
         try:
             await notif_queue.put(next(ticker_iter))
-            # Yield to let consumer tasks run. Without this,
-            # itertools.cycle with unbounded Queue starves the
-            # event loop (put() never blocks on unbounded queues).
-            if notif_queue.qsize() > 10:
-                await asyncio.sleep(0)
         except StopIteration:
             await notif_queue.put(None)
             break

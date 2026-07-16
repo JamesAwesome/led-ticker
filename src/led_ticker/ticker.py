@@ -98,6 +98,21 @@ DEFAULT_BUFFER_MSG: TickerMessage = _CircleBufferMsg(
 # ~1 s keeps the slip inside the rotation's existing jitter budget.
 MAX_SETTLE_TICKS: int = 1000 // ENGINE_TICK_MS
 
+# Producer/consumer backpressure (#394). The enqueue producer used to run
+# unboundedly ahead of the display consumer (~30k items in 0.5s measured),
+# which made every gate decision (_expand_sources: widget `schedule`,
+# should_display, container re-reads) an ENQUEUE-time decision — a widget
+# whose window closed hours ago kept displaying because the consumer sat
+# behind a backlog of pre-gated items. maxsize=2 keeps evaluation within
+# ~2 queued items + the currently-showing widget of display time (plus one
+# item already evaluated and held by the parked put), caps the queue's
+# memory, and stops the producer from spinning a core. NOTE: each pass is
+# gate-checked once at expansion (_build_ticker_iter materializes the full
+# pass list via _expand_sources), so the true staleness bound is these
+# in-flight items PLUS the remainder of the current pass — one full pass
+# worst-case for sections with many widgets or a large container.
+TICKER_QUEUE_MAXSIZE = 2
+
 
 def _has_index(index: int, items: list[Any]) -> bool:
     """Check if a list has an index."""
@@ -785,7 +800,33 @@ class Ticker:
         )
 
         prev_object = ticker_object
-        while not self.notif_queue.empty():
+        while True:
+            # Yield one event-loop turn before every exhaustion check.
+            # `_show_one` guarantees a real `await` for the
+            # `_swap_and_scroll` (non-play) path — `_hold_ticks`'s
+            # `n_ticks = max(1, ...)` floor always runs at least one
+            # `asyncio.sleep`, which is what makes a plain `.empty()`
+            # check safe there (see `test_run_swap_survives_degenerate_
+            # config`). The `play()` dispatch path (`_play_widget`) has
+            # no such floor: a breaker-disabled widget short-circuits
+            # before calling `play()` at all, and a `play()` that raises
+            # before its first `await` never actually suspends either —
+            # both return with ZERO real suspension. Two such widgets
+            # back-to-back can drain both queue slots (via this loop's
+            # own `get_nowait()`, below) while the producer's pending
+            # refill (already scheduled via `loop.call_soon` from the
+            # previous dequeue) never gets a turn to run — a transient
+            # `.empty()` then reads as exhaustion and strands whatever
+            # the producer had queued up behind it. `asyncio.sleep(0)` is
+            # a single bare event-loop turn: it runs whatever's already
+            # scheduled (a parked producer's refill) without waiting on
+            # NEW work, so a queue nothing more is ever coming into still
+            # reads empty afterward and this loop still terminates
+            # cleanly (no hang) — it just stops treating instantaneous
+            # emptiness as proof of exhaustion.
+            await asyncio.sleep(0)
+            if self.notif_queue.empty():
+                break
             ticker_object = self.notif_queue.get_nowait()
             # Sentinel mid-stream: producer exhausted the iterator.
             # Stop draining the queue and return the current scroll pos.
@@ -1040,10 +1081,24 @@ class Ticker:
                         cursor_pos,
                     )
                 elif not queue_empty:
-                    if self.notif_queue.empty():
-                        queue_empty = True
+                    try:
+                        next_monitor = self.notif_queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        # Nothing buffered RIGHT NOW — under the bounded
+                        # queue (#394) this is NOT the same as exhausted:
+                        # the producer may simply not have been scheduled
+                        # yet (this inner loop runs synchronously, with no
+                        # await, so it can outrun the producer within a
+                        # single tick). Break out of buffering for THIS
+                        # tick only — `queue_empty` stays False so the
+                        # next outer tick retries. Exhaustion is decided
+                        # ONLY by the `None` sentinel below; setting the
+                        # sticky flag here (as the old unbounded-queue
+                        # code did, when `empty()` reliably meant
+                        # exhausted because the whole section was
+                        # enqueued before the first read) would strand
+                        # every later widget behind a false conclusion.
                         break
-                    next_monitor = self.notif_queue.get_nowait()
                     # Sentinel: producer exhausted the iterator. Mark
                     # the queue drained so the outer loop holds the
                     # last widget at end-of-scroll instead of waiting
@@ -1259,6 +1314,10 @@ async def _enqueue_ticker_objects(
     `_scroll_side_by_side`) see a wake-up and can return
     cleanly instead of hanging forever waiting on an item that will
     never arrive.
+
+    The queue is bounded (TICKER_QUEUE_MAXSIZE); `put()` blocks when full,
+    which both paces this producer to display speed and yields the event
+    loop — the old `qsize() > 10` cooperative-yield hack is gone.
     """
     try:
         await notif_queue.put(next(ticker_iter))
@@ -1268,11 +1327,6 @@ async def _enqueue_ticker_objects(
     while True:
         try:
             await notif_queue.put(next(ticker_iter))
-            # Yield to let consumer tasks run. Without this,
-            # itertools.cycle with unbounded Queue starves the
-            # event loop (put() never blocks on unbounded queues).
-            if notif_queue.qsize() > 10:
-                await asyncio.sleep(0)
         except StopIteration:
             await notif_queue.put(None)
             break

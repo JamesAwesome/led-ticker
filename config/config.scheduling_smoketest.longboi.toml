@@ -182,8 +182,8 @@ font_color = [255, 255, 255]
 # pair below never leaves this section (loop_count = 0 cycles forever), so
 # the ONLY thing that can flip the panel at noon/midnight is the per-pass
 # widget gate. THE CHECK: at a 12:00 boundary the displayed widget must
-# flip within roughly 15-30s (current widget + ~2 queued items, each one
-# hold_time=5s show — longer on the bigsign where the text scrolls). If it
+# flip within roughly 15-30s (current widget + ~3 items in flight — 2 queued + 1 held by the parked producer — each one
+# hold_time=5s show; longer on the bigsign where the text scrolls). If it
 # keeps showing the pre-boundary widget for minutes, the producer backlog
 # has regressed.
 #

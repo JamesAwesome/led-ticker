@@ -104,8 +104,9 @@ MAX_SETTLE_TICKS: int = 1000 // ENGINE_TICK_MS
 # should_display, container re-reads) an ENQUEUE-time decision — a widget
 # whose window closed hours ago kept displaying because the consumer sat
 # behind a backlog of pre-gated items. maxsize=2 keeps evaluation within
-# ~2 queued items + the currently-showing widget of display time, caps the
-# queue's memory, and stops the producer from spinning a core.
+# ~2 queued items + the currently-showing widget of display time (plus one
+# item already evaluated and held by the parked put), caps the queue's
+# memory, and stops the producer from spinning a core.
 TICKER_QUEUE_MAXSIZE = 2
 
 

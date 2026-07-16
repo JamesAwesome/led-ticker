@@ -2456,32 +2456,90 @@ def _forever_never_rechecks_issue(i: int) -> ValidationIssue:
         ),
         fix=(
             "Use a finite loop_count (>= 1) so the schedule is "
-            "re-checked between playlist cycles, or gate "
-            "individual widgets with their own "
-            "`schedule = {...}` instead (re-checked every pass "
-            "regardless of loop_count). Note: validate's blank-interval "
-            "sweep assumes the section closes; with loop_count = 0 it "
-            "will not."
+            "re-checked between playlist cycles. Widget-level "
+            "`schedule = {...}` is NOT a safe substitute here: the "
+            "schedule gate runs in the enqueue producer, which races "
+            "far ahead of the display consumer through an unbounded "
+            "queue, so a widget's closing window can take hours to "
+            "reach the panel. Note: validate's blank-interval sweep "
+            "assumes the section closes; with loop_count = 0 it will "
+            "not."
+        ),
+        severity="warning",
+    )
+
+
+def _forever_widget_only_schedule_issue(i: int) -> ValidationIssue:
+    """Warn when a `loop_count = 0` section has NO section-level `schedule`
+    but at least one widget inside it carries its own `schedule = {...}`.
+
+    Widget-level schedules are gated by `_expand_sources`, which runs
+    inside `ticker._build_ticker_iter`'s generators — the ENQUEUE
+    PRODUCER, not the display consumer. That producer runs far ahead of
+    what's actually on the panel through an unbounded queue. For a
+    finite-`loop_count` section that's fine (staleness is bounded to one
+    section run), but for `loop_count = 0` the producer makes every
+    schedule decision for that section within seconds of entry — a
+    widget's window closing hours later never reaches the panel; the
+    already-queued frames just keep playing.
+    """
+    return ValidationIssue(
+        rule=None,
+        location=f"section[{i}]",
+        message=(
+            "widget-level schedules in a forever (`loop_count = 0`) "
+            "section are evaluated when content is queued, not when "
+            "it is displayed — the panel can keep showing a widget "
+            "long past its window's end."
+        ),
+        fix=(
+            "Use a finite loop_count (e.g. 1) so schedules are "
+            "re-evaluated each time the playlist re-enters the "
+            "section."
         ),
         severity="warning",
     )
 
 
 def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
-    """Warn when a section combines a section-level `schedule = {...}` with
-    `loop_count = 0` (cycles forever) — UNLESS the section's own shape means
-    the forever cycle actually does exit and re-check.
+    """Warn on `loop_count = 0` (forever) sections whose schedule shape
+    means schedule decisions go stale on the panel — UNLESS the section's
+    own shape means the forever cycle actually does exit and re-check.
 
-    `ticker._build_ticker_iter`'s `cycle_with_refresh` only exits when a
-    pass's widget expansion comes back empty — a forever section never
-    reaches that exit, so the SECTION-level schedule (checked once, at
-    `run.py`'s section entry) is never re-checked afterward: the section
-    keeps showing past its `end` time, silently no-op'ing the feature
-    `_check_blank_intervals` promises darkness for. Widget-level
-    `schedule = {...}` is unaffected — `_expand_sources` re-evaluates it
-    every pass regardless of loop_count.
+    Both section-level and widget-level `schedule = {...}` are evaluated in
+    the ENQUEUE PRODUCER (`ticker._build_ticker_iter`'s generators, via
+    `_expand_sources`), which runs far ahead of the display consumer
+    through an unbounded queue. For a finite `loop_count` that's harmless —
+    staleness is bounded to one section run, which is the documented
+    behavior. For `loop_count = 0` it isn't: the producer never gets a
+    natural boundary to re-run at, so every schedule decision for that
+    section is effectively locked in near section-entry time. This
+    function covers three shapes of that problem:
 
-    Two shapes soften or suppress that warning:
+    1. SECTION-LEVEL schedule + `loop_count = 0`, general case: the
+       section-level schedule (checked once, at `run.py`'s section entry)
+       is never re-checked afterward — the section keeps showing past its
+       `end` time, silently no-op'ing the feature `_check_blank_intervals`
+       promises darkness for. This is the strong "never re-checks"
+       warning.
+    2. SECTION-LEVEL schedule + `loop_count = 0`, softened case: every
+       widget in the section ALSO has its own `schedule = {...}`, and
+       those widget windows jointly leave a gap somewhere in the week
+       (`_widget_windows_have_gap` returns True). `ticker._build_ticker_
+       iter`'s `cycle_with_refresh` exits the forever cycle whenever a
+       pass's widget expansion comes back empty, which re-checks the
+       SECTION-level schedule at that boundary too — just not exactly at
+       the section's own `end`, and even then the change only reaches the
+       panel once whatever content was already queued drains.
+    3. WIDGET-LEVEL schedules only, no section-level schedule: at least
+       one widget in the section carries `schedule = {...}` with nothing
+       at the section level. Because the producer locks in that widget's
+       schedule decision near section-entry time and `loop_count = 0`
+       never gives it a fresh pass, the widget's window closing later
+       doesn't reach the panel until the section is re-entered — which,
+       for a forever section, may be never.
+
+    Two shapes soften or suppress the SECTION-level warning (cases 1/2):
 
     - A TITLE-ONLY section (`not section.widgets`) has nothing for
       `cycle_with_refresh` to cycle through — `_section_has_content` treats
@@ -2490,29 +2548,28 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
       to get stuck inside). No warning.
     - A section whose widgets EVERY have their own `schedule = {...}` exits
       the forever cycle whenever all those widget windows close (an empty
-      `_expand_sources` result), which re-checks the SECTION-level schedule
-      at that boundary too — just not exactly at the section's own `end`.
-      Emit a softened message describing that re-check-at-widget-boundary
-      behavior instead of the "never re-checks" wording — UNLESS the widget
-      windows jointly cover the full week (`_widget_windows_have_gap`
-      returns False, e.g. a complementary AM/PM pair with no gap): then
+      `_expand_sources` result) — case 2 above — UNLESS the widget windows
+      jointly cover the full week (`_widget_windows_have_gap` returns
+      False, e.g. a complementary AM/PM pair with no gap): then
       `_expand_sources` never actually returns empty, the forever cycle
       never gets an exit to re-check at, and this is exactly the "never
-      re-checks" shape despite every widget nominally having its own
-      schedule — emit the strong warning instead.
+      re-checks" shape (case 1) despite every widget nominally having its
+      own schedule.
 
-    The strong "never re-checks" warning remains for the general case:
-    widgets present, and at least one widget has no schedule of its own (so
-    the rotation never empties out and the forever cycle never exits), OR
-    every widget has a schedule but those schedules jointly cover 24/7 (see
-    above)."""
+    Case 3 (widget-only) is orthogonal to cases 1/2 — it only fires when
+    `section.schedule is None`, so it never double-warns a section already
+    covered by the strong or softened section-level message."""
     issues: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
-        if section.schedule is None or section.loop_count != 0:
+        if section.loop_count != 0:
             continue
         if not section.widgets:
             # Title-only forever section: no widget rotation to get stuck
             # in, so the section is re-entered (and re-checked) every pass.
+            continue
+        if section.schedule is None:
+            if any("schedule" in widget_cfg for widget_cfg in section.widgets):
+                issues.append(_forever_widget_only_schedule_issue(i))
             continue
         all_widgets_scheduled = all(
             "schedule" in widget_cfg for widget_cfg in section.widgets
@@ -2539,14 +2596,14 @@ def _check_forever_section_schedule(config: AppConfig) -> list[ValidationIssue]:
                         "(cycles forever) — every widget in it also has its "
                         "own schedule, so the section-level schedule is "
                         "only re-checked when every widget's own window "
-                        "closes (not at the section's own `end` time) — the "
-                        "section may keep showing past its end time until "
-                        "that happens."
+                        "closes (not at the section's own `end` time) — "
+                        "and even then the change reaches the panel only "
+                        "after already-queued content drains — use a "
+                        "finite loop_count for predictable boundaries."
                     ),
                     fix=(
                         "If you need the section-level `end` to take effect "
-                        "exactly on time, use a finite loop_count (>= 1) "
-                        "instead."
+                        "promptly, use a finite loop_count (>= 1) instead."
                     ),
                     severity="warning",
                 )

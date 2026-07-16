@@ -296,14 +296,14 @@ symbols = ["AAPL", "EUR/USD", "BTC/USD"]
 
 ### `stocks.ticker` widget
 
-| Field             | Type                                 | Default  | Notes                                                                                                                                                                                                        |
-| ----------------- | ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `symbols`         | list of str                          | required | Equity tickers, e.g. `["DKS", "MSFT"]`. A symbol containing `/` (a forex pair like `"EUR/USD"`) is rejected at config-load — see [Data source](#data-source-finnhub).                                        |
-| `layout`          | `"crawl"` / `"card"` / `"dashboard"` | auto     | Explicit override. Omit it to auto-select from the sign's real physical width — see [One ticker, every sign](#one-ticker-every-sign).                                                                        |
-| `green_up`        | bool                                 | `true`   | When `true` (default), a positive change renders green and a negative change renders red. Set `false` to swap the two colors (some non-US market conventions); the ▲/▼ arrow direction itself never changes. |
-| `update_interval` | int, seconds                         | `60`     | Base poll cadence. The actual cadence widens automatically to at least `len(symbols) + 1` seconds — see [Data source](#data-source-finnhub) for why.                                                         |
-| `padding`         | int, pixels                          | `6`      | End padding on the `crawl` layout only (spacing before the next symbol scrolls in); no effect on `card`/`dashboard`.                                                                                         |
-| `demo`            | bool                                 | `false`  | Render a synthetic random-walk feed instead of calling Finnhub. No token needed — see [Try it in demo mode](#try-it-in-demo-mode) above.                                                                     |
+| Field             | Type                                 | Default  | Notes                                                                                                                                                                                                                              |
+| ----------------- | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `symbols`         | list of str                          | required | Ticker symbols, e.g. `["DKS", "MSFT"]`. A symbol containing `/` (e.g. `"EUR/USD"`) is rejected at config-load under the default `provider = "finnhub"`; valid under `provider = "twelvedata"` — see [Data sources](#data-sources). |
+| `layout`          | `"crawl"` / `"card"` / `"dashboard"` | auto     | Explicit override. Omit it to auto-select from the sign's real physical width — see [One ticker, every sign](#one-ticker-every-sign).                                                                                              |
+| `green_up`        | bool                                 | `true`   | When `true` (default), a positive change renders green and a negative change renders red. Set `false` to swap the two colors (some non-US market conventions); the ▲/▼ arrow direction itself never changes.                       |
+| `update_interval` | int, seconds                         | `60`     | Base poll cadence. Under Finnhub, the actual cadence widens automatically to at least `len(symbols) + 1` seconds — see [Data sources](#data-sources) for why.                                                                      |
+| `padding`         | int, pixels                          | `6`      | End padding on the `crawl` layout only (spacing before the next symbol scrolls in); no effect on `card`/`dashboard`.                                                                                                               |
+| `demo`            | bool                                 | `false`  | Render a synthetic random-walk feed instead of calling Finnhub. No token needed — see [Try it in demo mode](#try-it-in-demo-mode) above.                                                                                           |
 
 ### `stocks.quote` source
 
@@ -331,9 +331,13 @@ Used as a `font_color` (on `message`) or `color` (on a `[[source]]` block, or `t
 font_color = {style = "stocks.trend", symbol = "DKS", up = [0, 255, 0], down = [255, 0, 0]}
 ```
 
-## Data source (Finnhub)
+## Data sources
 
-Quotes come from [Finnhub](https://finnhub.io/), a market-data API with a free tier:
+The plugin polls one of two providers, chosen by `provider` (default `"finnhub"`). Every `stocks.ticker` widget and `stocks.quote` source in a config shares one process-wide quote cache — a symbol is fetched once per poll cycle no matter how many widgets/tokens reference it, and adding a second widget or token for a symbol you're already tracking costs nothing extra. Use one provider consistently across a config: the first widget/source to start the shared cache decides which provider handles every symbol in the process.
+
+### Finnhub (default)
+
+Quotes come from [Finnhub](https://finnhub.io/), a market-data API with a free tier, for US equities:
 
 1. Sign up free at [finnhub.io/register](https://finnhub.io/register).
 2. Copy the API key from your Finnhub dashboard.
@@ -343,10 +347,18 @@ Quotes come from [Finnhub](https://finnhub.io/), a market-data API with a free t
 
 A few behaviors worth knowing before you deploy against real markets:
 
-- **v1 is equities only.** A symbol that looks like a forex pair (contains `/`, e.g. `"EUR/USD"`) is rejected at config-load — FX quotes require a paid Finnhub tier.
-- **One shared cache.** Every `stocks.ticker` widget and every `stocks.quote` source in a config reads the same process-wide quote cache, keyed on the union of every symbol anyone has registered. A symbol is fetched once per poll cycle no matter how many widgets/tokens reference it — adding a second widget or token for a symbol you're already tracking costs nothing extra.
+- **Equities only.** A symbol that looks like a forex or crypto pair (contains `/`, e.g. `"EUR/USD"`) is rejected at config-load under the default `provider = "finnhub"` — switch that symbol's widget/source to `provider = "twelvedata"` instead (see [Multi-asset via Twelve Data](#multi-asset-via-twelve-data) above).
 - **Cadence widens with your symbol list.** The poll interval is `max(update_interval, number_of_symbols + 1)` seconds, recomputed every cycle — a long `symbols` list automatically slows down to stay inside Finnhub's free-tier rate limit (60 requests/minute per token) rather than requiring you to hand-tune `update_interval` yourself.
 - **Closed-market behavior.** When the market is closed, prices hold at the last fetched close instead of going blank or re-fetching every cycle — a symbol still gets exactly one fetch after a fresh boot (to grab that last close), then holds until the market reopens.
+
+### Twelve Data (`provider = "twelvedata"`)
+
+Set `provider = "twelvedata"` on a `stocks.ticker` widget or `stocks.quote` source to poll [Twelve Data](https://twelvedata.com/) instead — one free key covering stocks, forex, and crypto:
+
+1. Get a free key at [twelvedata.com/pricing](https://twelvedata.com/pricing).
+2. Add it to `.env`, next to your config, as `TWELVEDATA_API_KEY=your_key` — never in `config.toml` (same env-only convention as `FINNHUB_API_TOKEN`).
+
+Each quote carries its own market-open flag, so a mixed `symbols` list shows correct **per-symbol** state — crypto can read `LIVE` around the clock while an after-hours equity in the same list reads `CLSD`. You don't set a rate: on first use, the shared cache calls Twelve Data's `/api_usage` endpoint to detect your key's actual per-minute limit (free tier is 8 requests/minute) and throttles to it automatically; a paid key is detected and used at its own higher limit with no config change, and an unexpected `429` ratchets the rate down further for the rest of the session as a safety net. Free-tier data is **delayed roughly 1–15 minutes** — fine at sign-refresh cadence, not for tick-by-tick trading.
 
 ## If it doesn't work
 
@@ -354,7 +366,7 @@ A few behaviors worth knowing before you deploy against real markets:
 - **A `:stocks.xyz:` token shows no color — it's whatever color the widget already was.** Either the symbol has no feeder in this config (add a `stocks.quote` source or include it in a `stocks.ticker` widget's `symbols`), or you're on core < 4.14.0 (source-declared token color needs core >= 4.14.0 — see [Embed a live price anywhere](#embed-a-live-price-anywhere)).
 - **The whole line renders in one flat color, not per-token.** Same core-version check as above — an older core resolves the token's text correctly but ignores the source's `color` field entirely.
 - **A symbol shows an em-dash (`—`) price, or a `stocks.trend` token stays gray.** The symbol has no data yet (first fetch still in flight) or Finnhub returned nothing for it — double-check the ticker is spelled correctly and is a real, currently-listed equity.
-- **`stocks.ticker: '<symbol>' looks like forex` at config-load.** A symbol containing `/` is treated as a forex pair, which Finnhub's free tier doesn't serve. Remove it or upgrade to a paid Finnhub tier.
+- **`stocks.ticker: '<symbol>' looks like forex` at config-load.** A symbol containing `/` isn't served under the default `provider = "finnhub"` — set `provider = "twelvedata"` on that widget/source instead (see [Multi-asset via Twelve Data](#multi-asset-via-twelve-data)), or remove the symbol.
 
 Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. From there, the [Plugins page](/plugins/available/) has the full catalog entry alongside the rest of the plugins. Implementation notes and the layout design handoff live in the [stocks package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/stocks/README.md) if you want to go deeper.
 

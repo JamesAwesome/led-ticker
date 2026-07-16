@@ -283,16 +283,14 @@ def test_default_loop_count_section_with_schedule_does_not_warn():
     assert not any("cycles forever" in m for m in _forever_scheduled_message(res))
 
 
-def test_forever_section_with_only_widget_level_schedule_warns():
-    # loop_count = 0 with NO section-level schedule, but a widget inside it
-    # carries its own schedule. The schedule gate for that widget runs in
-    # the enqueue producer (_expand_sources inside _build_ticker_iter's
-    # generators), which races far ahead of the display consumer through
-    # an unbounded queue — for loop_count = 0 the producer locks in that
-    # decision near section-entry and never gets a fresh pass, so the
-    # widget's window closing hours later never reaches the panel. This is
-    # a distinct shape from the section-level "cycles forever" warning
-    # (Fix D above), so it must not use that wording.
+def test_forever_section_with_only_widget_level_schedule_does_not_warn():
+    # #394: the widget-level "evaluated when content is queued, not when it
+    # is displayed" warning is RETIRED. It was a stopgap for the unbounded
+    # producer queue (PR #391) — Tasks 1-2 of #394 bounded that queue, so
+    # gate evaluation for a widget-schedules-only forever section now
+    # reaches the panel within ~2 queued items + the currently-showing
+    # widget. The old warning is a false positive under bounding; this
+    # config must produce NO warning at all.
     res = _run(
         sections=[
             SECTION.format(
@@ -303,13 +301,8 @@ def test_forever_section_with_only_widget_level_schedule_warns():
     )
     msgs = _forever_scheduled_message(res)
     assert not any("cycles forever" in m for m in msgs)
-    assert any(
-        "widget-level schedules in a forever" in m
-        and "evaluated when content is queued, not when it is displayed" in m
-        for m in msgs
-    )
-    fixes = _forever_scheduled_fix(res)
-    assert any("finite loop_count (e.g. 1)" in f for f in fixes)
+    assert not any("widget-level schedules in a forever" in m for m in msgs)
+    assert not msgs
 
 
 def test_finite_loop_count_with_widget_level_schedule_only_does_not_warn():
@@ -438,12 +431,12 @@ def test_all_widgets_scheduled_gapped_forever_section_gets_softened_message():
     )
     # The softened message must NOT claim the schedule is never re-checked.
     assert not any("never re-checks it" in m for m in msgs)
-    # Tempered wording: even at that widget-boundary re-check, the change
-    # only reaches the panel after already-queued content drains — the
-    # section-level re-check is not itself instantaneous on the display.
-    assert any(
-        "reaches the panel only after already-queued content drains" in m for m in msgs
-    )
+    # #394: the old "already-queued content drains" temper described an
+    # unbounded producer queue (PR #391 stopgap). Tasks 1-2 bounded that
+    # queue, so the re-check now reaches the panel within a couple of
+    # queued items — no more temper, just the bound.
+    assert any("within a couple of queued items" in m for m in msgs)
+    assert not any("already-queued content drains" in m for m in msgs)
     fixes = _forever_scheduled_fix(res)
     assert any("finite loop_count (>= 1)" in f for f in fixes)
 

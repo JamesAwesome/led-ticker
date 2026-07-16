@@ -7,9 +7,9 @@ import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-A live stock price on your wall that updates itself all day — not a phone app you have to unlock and refresh. The **stocks.ticker** widget, provided by the **[stocks](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/stocks)** package in the led-ticker-plugins monorepo (`type = "stocks.ticker"`), shows live equity prices — symbol, price, change, and a rolling sparkline — pulled from [Finnhub](https://finnhub.io/), auto-picking a scrolling crawl, a held card, or a full dashboard to fit your sign's real width. The same package also contributes a `stocks.quote` [value-token source](/concepts/value-tokens/) and a `stocks.trend` [color provider](/concepts/color-providers/), so a live, trend-colored price can drop into any `message` widget too — that's the part a phone app or a standalone ticker gadget can't do: your stock feed sharing the same rotation as everything else on the sign.
+A live stock price on your wall that updates itself all day — not a phone app you have to unlock and refresh. The **stocks.ticker** widget, provided by the **[stocks](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/stocks)** package in the led-ticker-plugins monorepo (`type = "stocks.ticker"`), shows live prices — symbol, price, change, and a rolling sparkline — auto-picking a scrolling crawl, a held card, or a full dashboard to fit your sign's real width. Prices come from [Finnhub](https://finnhub.io/) by default (US equities, free tier) or, with one config field, from [Twelve Data](https://twelvedata.com/) (`provider = "twelvedata"`) for stocks **and** forex **and** crypto off a single free key. The same package also contributes a `stocks.quote` [value-token source](/concepts/value-tokens/) and a `stocks.trend` [color provider](/concepts/color-providers/), so a live, trend-colored price can drop into any `message` widget too — that's the part a phone app or a standalone ticker gadget can't do: your stock feed sharing the same rotation as everything else on the sign.
 
-**v1 tracks US-listed equities only** — crypto, indices, and FX aren't supported yet (a forex-looking symbol is rejected at config-load; see [Data source](#data-source-finnhub) below). A few places this shows up: a home trading desk keeping a handful of positions in view, an office or lobby sign mixing market data into the daily rotation, or a storefront running its own stock as a conversation piece — the sample symbol used throughout this page, `DKS`, is Dick's Sporting Goods, a deliberate storefront hint.
+**The default Finnhub path is US-listed equities only** — a symbol containing `/` (a forex pair like `"EUR/USD"`) is rejected at config-load under `provider = "finnhub"`, the default. Set `provider = "twelvedata"` and the same `symbols` list can mix stocks, forex (`"EUR/USD"`), and crypto (`"BTC/USD"`) — the `/` is what routes the asset class; see [Multi-asset via Twelve Data](#multi-asset-via-twelve-data) below and [Data sources](#data-sources) for the full picture. A few places this shows up: a home trading desk keeping a handful of positions in view, an office or lobby sign mixing market data into the daily rotation, or a storefront running its own stock as a conversation piece — the sample symbol used throughout this page, `DKS`, is Dick's Sporting Goods, a deliberate storefront hint.
 
 <DemoGif
   src="/demos-pinned/stocks-dashboard-hero.gif"
@@ -43,7 +43,7 @@ To install the plugin on a Docker deploy, add its line to the plugin manifest an
 # First plugin? Create your manifest from the example:
 cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
 # Add the package (one name per line), then restart:
-echo "led-ticker-stocks==0.5.0" >> config/requirements-plugins.txt
+echo "led-ticker-stocks==0.6.0" >> config/requirements-plugins.txt
 docker compose restart
 ```
 

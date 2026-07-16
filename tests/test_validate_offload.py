@@ -65,3 +65,58 @@ async def test_load_and_validate_offloads_the_duplicate_load(monkeypatch):
     assert "load_config" in calls, f"duplicate load not offloaded: {calls}"
     assert "_validate_static_prebuild" in calls
     assert "_validate_static_postbuild" in calls
+
+
+@pytest.mark.asyncio
+async def test_validate_never_binds_schedules(tmp_path):
+    """Validation must be side-effect-free on the schedule registry —
+    a worker-thread validate that bound widgets would race the render
+    loop's reads."""
+    from led_ticker import schedule
+
+    cfg = tmp_path / "c.toml"
+    cfg.write_text(
+        '[display]\nrows = 16\ncols = 32\nbackend = "headless"\n\n'
+        '[[playlist.section]]\nmode = "slideshow"\n\n'
+        '[[playlist.section.widget]]\ntype = "message"\ntext = "hi"\n'
+        'schedule = { start = "09:00", end = "17:00" }\n'
+    )
+    before = dict(schedule._BINDINGS)
+    result = await validate_mod.validate_config(cfg)
+    assert result.valid, result.errors
+    assert dict(schedule._BINDINGS) == before
+
+
+def test_plugin_load_guard_is_first():
+    """AST pin: load_plugins' idempotency guard must run before any
+    mutating statement. The thread-safety of worker-thread validation
+    rests on this guard being checked before any registry work begins —
+    a racing second caller must see a pure read, not a partial rebuild.
+
+    load_plugins' real shape is: docstring, `global _LOADED`, then the
+    guard `if _LOADED is not None: return _LOADED` — so the pin skips
+    over the (non-mutating) docstring and global declaration rather than
+    requiring the guard to be the literal first statement.
+    """
+    import ast
+    import inspect
+
+    from led_ticker import _plugin_loader
+
+    tree = ast.parse(inspect.getsource(_plugin_loader.load_plugins))
+    fn_def = tree.body[0]
+    assert isinstance(fn_def, ast.FunctionDef)
+    body = fn_def.body
+    stmts = [
+        s
+        for s in body
+        if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant))
+    ]
+    idx = 1 if isinstance(stmts[0], ast.Global) else 0
+    guard = stmts[idx]
+    src = ast.unparse(guard)
+    assert isinstance(guard, ast.If), (
+        f"expected the idempotency guard immediately after the docstring/"
+        f"global declaration, got: {src}"
+    )
+    assert "_LOADED" in src and "return" in src, src

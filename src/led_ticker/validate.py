@@ -3304,6 +3304,28 @@ async def validate_config(
     (fonts, assets, plugin checks). Defaults to ``path.parent`` — pass it when
     the TOML was materialized to a throwaway temp file (the web UI's text
     validate) so resolution anchors to the real config directory.
+
+    Thread-safety: the two sync brackets (``_validate_static_prebuild`` /
+    ``_validate_static_postbuild``) run via ``asyncio.to_thread`` — only
+    ``_run_build_checks`` (which awaits ``validate_widget_cfg`` per widget)
+    stays on the loop, between the two thread hops. This is safe even under
+    two concurrent worker threads (e.g. a webui text-validate racing a
+    file-watch reload) because every global mutation reachable from the
+    brackets is idempotent or internally locked: ``load_plugins``'s
+    ``if _LOADED is not None: return _LOADED`` guard runs before any
+    registry work (pinned by ``test_plugin_load_guard_is_first``);
+    ``_configure_user_font_dir`` overwrites ``hires_loader.USER_FONT_DIR``
+    with the same value for a given config path, and a racing overwrite of
+    an equal value plus a redundant ``cache_clear()`` is a no-op; the
+    ``functools.lru_cache``d font/glyph loaders (``load_hires_font``) and
+    the lazy-built ``color_lut._HUE_TABLE`` / emoji-registry singletons rely
+    on CPython's internal cache locking — a concurrent first call at worst
+    double-computes a deterministic result, never a partial read; and
+    schedule state is untouched — ``bind_schedule`` /
+    ``set_schedule_timezone`` are reachable only from ``_build_widget`` /
+    ``app.run`` (the real engine build path), never from
+    ``validate_widget_cfg`` or the sync brackets (pinned by
+    ``test_validate_never_binds_schedules``).
     """
     pre = await asyncio.to_thread(
         _validate_static_prebuild, path, strict=strict, config_dir=config_dir

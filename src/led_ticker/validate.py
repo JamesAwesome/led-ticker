@@ -1,5 +1,6 @@
 """Config file validator for led-ticker."""
 
+import asyncio
 import contextlib
 import copy
 import datetime
@@ -2969,22 +2970,32 @@ def apply_migrations(path: Path, result: ValidationResult) -> int:
     return applied
 
 
-async def validate_config(
-    path: Path, *, strict: bool = False, config_dir: Path | None = None
-) -> ValidationResult:
-    """Validate a TOML config file. Raises FileNotFoundError if path does not exist.
+@dataclass
+class _PrebuildResult:
+    """Locals crossing the await in validate_config (Task 1, #302).
 
-    When ``strict=True``:
-    - Asset path existence is checked (rule 40). Paths are allowed to be absent
-      in normal mode because assets may only live on the deploy target.
-    - All accumulated warnings are promoted to errors before returning.
-      ``ValidationResult.warnings`` will be empty; callers check ``result.valid``
-      as usual.
+    Populated by _validate_static_prebuild; consumed by
+    _validate_static_postbuild. ``config.sections`` and
+    ``effective_config_dir`` are also read directly by the await glue in
+    validate_config to call _run_build_checks.
+    """
 
-    ``config_dir`` overrides the directory used to resolve relative paths
-    (fonts, assets, plugin checks). Defaults to ``path.parent`` — pass it when
-    the TOML was materialized to a throwaway temp file (the web UI's text
-    validate) so resolution anchors to the real config directory.
+    path: Path
+    config: AppConfig | None
+    errors: list[ValidationIssue]
+    warnings: list[ValidationIssue]
+    effective_config_dir: Path
+    early_result: ValidationResult | None
+
+
+def _validate_static_prebuild(
+    path: Path, *, strict: bool, config_dir: Path | None
+) -> _PrebuildResult:
+    """Phase 1a/1b: everything in validate_config before the await.
+
+    Raises FileNotFoundError if path does not exist. Sets
+    ``early_result`` (and leaves ``config`` as None) when Phase 1a fails —
+    the caller returns it directly without running build checks.
     """
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
@@ -3017,7 +3028,14 @@ async def validate_config(
                 fix="Fix the TOML syntax or structural error above.",
             )
         )
-        return ValidationResult(path=path, errors=errors, warnings=warnings)
+        return _PrebuildResult(
+            path=path,
+            config=None,
+            errors=errors,
+            warnings=warnings,
+            effective_config_dir=path.parent,
+            early_result=ValidationResult(path=path, errors=errors, warnings=warnings),
+        )
 
     # Phase 1b: [display] backend — must name a registered backend.
     # `from led_ticker.backends import known_backends` triggers the package
@@ -3109,9 +3127,32 @@ async def validate_config(
     # the config. Type / required-field errors stay hard.
     effective_config_dir = config_dir if config_dir is not None else path.parent
     _configure_user_font_dir(effective_config_dir)
-    build_errors, build_warnings, migration_errors = await _run_build_checks(
-        config.sections, effective_config_dir
+    return _PrebuildResult(
+        path=path,
+        config=config,
+        errors=errors,
+        warnings=warnings,
+        effective_config_dir=effective_config_dir,
+        early_result=None,
     )
+
+
+def _validate_static_postbuild(
+    pre: _PrebuildResult,
+    build_errors: list[tuple[str, str]],
+    build_warnings: list[tuple[str, Any]],
+    migration_errors: list[tuple[str, str, str, str | None, str | None]],
+    *,
+    strict: bool,
+) -> ValidationResult:
+    """Phase 1c-cont/1d/2 + schedule checks + notes: everything after the await."""
+    path = pre.path
+    config = pre.config
+    errors = pre.errors
+    warnings = pre.warnings
+    effective_config_dir = pre.effective_config_dir
+    assert config is not None
+
     for location, msg, fix, fix_key, fix_replacement_key in migration_errors:
         errors.append(
             ValidationIssue(
@@ -3245,6 +3286,92 @@ async def validate_config(
         warnings = []
 
     return ValidationResult(path=path, errors=errors, warnings=warnings, notes=notes)
+
+
+async def validate_config(
+    path: Path, *, strict: bool = False, config_dir: Path | None = None
+) -> ValidationResult:
+    """Validate a TOML config file. Raises FileNotFoundError if path does not exist.
+
+    When ``strict=True``:
+    - Asset path existence is checked (rule 40). Paths are allowed to be absent
+      in normal mode because assets may only live on the deploy target.
+    - All accumulated warnings are promoted to errors before returning.
+      ``ValidationResult.warnings`` will be empty; callers check ``result.valid``
+      as usual.
+
+    ``config_dir`` overrides the directory used to resolve relative paths
+    (fonts, assets, plugin checks). Defaults to ``path.parent`` — pass it when
+    the TOML was materialized to a throwaway temp file (the web UI's text
+    validate) so resolution anchors to the real config directory.
+
+    Thread-safety: the two sync brackets (``_validate_static_prebuild`` /
+    ``_validate_static_postbuild``) run via ``asyncio.to_thread`` — only
+    ``_run_build_checks`` (which awaits ``validate_widget_cfg`` per widget)
+    stays on the loop, between the two thread hops. This is safe even under
+    two concurrent worker threads (e.g. a webui text-validate racing a
+    file-watch reload) because every global mutation reachable from the
+    brackets is idempotent or internally locked: ``load_plugins``'s
+    ``if _LOADED is not None: return _LOADED`` guard runs before any
+    registry work (pinned by ``test_plugin_load_guard_is_first``) and
+    covers the already-loaded fast path — two threads reading a settled
+    ``_LOADED`` both take the cheap early return with no lock. That guard
+    is check-then-act, though, and does nothing to protect the FIRST load:
+    two near-simultaneous first callers (e.g. two webui to_thread validates
+    on a cold process) could both pass the check and race the full
+    discover+register+commit body. That race is closed by ``_LOAD_LOCK``
+    (a module-level ``threading.Lock``) via double-checked locking — the
+    lock-free peek stays as the fast path, but the slow path re-checks
+    ``_LOADED`` under the lock before doing any registry work, so only one
+    thread ever runs the load and the loser returns the winner's result
+    (regression test: the plugin-loader concurrency test in
+    ``tests/test_plugins/test_loader_config.py``); ``_configure_user_font_dir``
+    overwrites ``hires_loader.USER_FONT_DIR``
+    with the same value for a given config path, and a racing overwrite of
+    an equal value plus a redundant ``cache_clear()`` is a no-op; the
+    ``functools.lru_cache``d font/glyph loaders (``load_hires_font``) rely
+    on CPython's internal cache locking, while the lazy-built
+    ``color_lut._HUE_TABLE`` / emoji-registry singletons are hand-rolled
+    ``if X is None`` inits whose safety is the GIL's atomic reference
+    assignment — either way a concurrent first call at worst
+    double-computes a deterministic result, never a partial read (known
+    unexercised edge: two concurrent validates for genuinely DIFFERENT
+    config directories could transiently race the font dir, degrading to
+    a rule-24 unknown-font warning — no current caller does this); and
+    schedule state is untouched — ``bind_schedule`` /
+    ``set_schedule_timezone`` are reachable only from ``_build_widget`` /
+    ``app.run`` (the real engine build path), never from
+    ``validate_widget_cfg`` or the sync brackets (pinned by
+    ``test_validate_never_binds_schedules``).
+
+    Known tradeoff (Ctrl-C during a stuck prebuild): a worker-thread
+    prebuild that hangs (e.g. a plugin import blocking on network) cannot
+    be interrupted by cancelling the awaiting task — ``asyncio.to_thread``
+    doesn't kill the underlying OS thread, and the CLI's
+    ``asyncio.run(...)`` joins the default executor at loop close, so a
+    Ctrl-C appears ignored until the bracket finishes. This is a documented
+    tradeoff, not a bug: engineering around it would mean either polling
+    for cancellation inside third-party plugin import code (not ours to
+    control) or killing threads outright (unsafe in CPython). Accept the
+    delayed exit.
+    """
+    pre = await asyncio.to_thread(
+        _validate_static_prebuild, path, strict=strict, config_dir=config_dir
+    )
+    if pre.early_result is not None:
+        return pre.early_result
+    assert pre.config is not None
+    build_errors, build_warnings, migration_errors = await _run_build_checks(
+        pre.config.sections, pre.effective_config_dir
+    )
+    return await asyncio.to_thread(
+        _validate_static_postbuild,
+        pre,
+        build_errors,
+        build_warnings,
+        migration_errors,
+        strict=strict,
+    )
 
 
 async def validate_config_text(

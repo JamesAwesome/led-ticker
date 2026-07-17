@@ -1928,3 +1928,29 @@ def _fresh_real():
     opts.parallel = 1
     opts.pixel_mapper_config = "U-mapper"
     return RGBMatrix(options=opts).CreateFrameCanvas()
+
+
+class TestEmojiSlugs:
+    def test_returns_sorted_core_slugs(self):
+        from led_ticker.pixel_emoji import emoji_slugs
+
+        slugs = emoji_slugs()
+        assert isinstance(slugs, tuple)
+        assert list(slugs) == sorted(set(slugs)), "sorted + deduped"
+        for known in ("taco", "sun", "moon", "star", "heart", "pride"):
+            assert known in slugs
+        assert "fire" not in slugs  # not in the set; the flagship typo
+
+    def test_includes_plugin_committed_slugs(self, monkeypatch):
+        from led_ticker import pixel_emoji
+
+        monkeypatch.setitem(
+            pixel_emoji.EMOJI_REGISTRY, "testplug.widget", [(0, 0, 255, 0, 0)]
+        )
+        assert "testplug.widget" in pixel_emoji.emoji_slugs()
+
+    def test_exported_on_plugin_surface(self):
+        import led_ticker.plugin as plugin
+
+        assert "emoji_slugs" in plugin.__all__
+        assert plugin.emoji_slugs is not None

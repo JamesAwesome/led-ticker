@@ -67,6 +67,7 @@ from led_ticker.pixel_emoji import (
     count_text_chars,
     draw_emoji_at,
     draw_with_emoji,
+    emoji_slugs,
     measure_emoji_at,
     measure_width,
 )
@@ -152,6 +153,7 @@ __all__ = [
     "draw_text",
     "draw_text_per_char",
     "draw_with_emoji",
+    "emoji_slugs",
     "fit_text_size",
     "font_line_height_logical",
     "format_clock",

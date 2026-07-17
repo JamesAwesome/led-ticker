@@ -27,6 +27,7 @@ from led_ticker.sources import (
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
+from led_ticker.widgets._text_run import draw_text_run
 
 
 def _coerce_font_color(value: Any) -> ColorProvider:
@@ -400,116 +401,38 @@ class TickerMessage(FrameAwareBase):
         # is False) the artifact is already in the surface; skip the branches.
         _run_branches = rotate_surface is None or _snapshot_needed
         if _run_branches:
+            # Shared three-branch draw dispatch (emoji / per-char /
+            # whole-string) with the optional colored-token override, lifted
+            # into `draw_text_run` so two_row + image (Phase 2) share ONE
+            # implementation of the subtle per-char override semantics.
+            #
+            # `total_chars` preserves message's PER-BRANCH anchor exactly: the
+            # emoji branch used `count_text_chars(full_text)` (draw_with_emoji's
+            # emoji-EXCLUDING space), the per-char / forced-per-char branches
+            # used `len(full_text)`, and the plain branch ignores it. Only ONE
+            # branch runs per draw (selected by `has_emoji` / `per_char`), so
+            # the matching count computed here is threaded explicitly — the
+            # helper does NOT recompute from `visible_text` (which is a slice
+            # under typewriter, and would shift each char's hue mid-reveal).
             if self._has_emoji:
-                from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji
+                from led_ticker.pixel_emoji import count_text_chars  # noqa: PLC0415
 
-                # Per-char providers (rainbow/gradient) survive emoji
-                # segments: draw_with_emoji takes the provider directly,
-                # renders sprites for emoji slugs, and runs the per-char
-                # path on text segments — char_index advances continuously
-                # across segments so the rainbow sweep doesn't reset at
-                # each :slug:. `total_chars` is anchored to the FULL
-                # message's text-char count (excluding emoji slugs) so
-                # typewriter mid-cycle doesn't shift each char's hue as
-                # more chars reveal — char N's hue at frame=t is the same
-                # hue char N will have when typewriter completes. Mirrors
-                # the image-widget contract in `_BaseImageWidget._draw_text`.
-                # When a colored token is present, forward a per-char
-                # override (indexed by the SAME emoji-excluding text-char
-                # position `draw_with_emoji` uses). None => default path,
-                # byte-identical to every existing caller.
-                emoji_override = (
-                    (lambda i, _ov=token_override: _ov[i] if i < len(_ov) else None)
-                    if token_override is not None
-                    else None
-                )
-                cursor_pos += draw_with_emoji(
-                    draw_canvas,
-                    self.font,
-                    cursor_pos,
-                    baseline_y,
-                    provider,
-                    visible_text,
-                    y_offset=y_offset,
-                    frame=self.frame_for("font_color"),
-                    total_chars=count_text_chars(full_text),
-                    color_override=emoji_override,
-                )
-            elif provider.per_char:
-                # Per-char rendering: iterate visible_text, draw each char
-                # with its own color (rainbow / gradient). The shared
-                # `draw_text_per_char` helper handles the HiresFont
-                # real-pixel cursor tracking that avoids the per-char
-                # ceil-divide drift. `total_chars=len(self.text)`
-                # anchors each char's hue to its position in the FULL
-                # text — typewriter mid-cycle reveals char N at the
-                # hue char N will have at completion, not a hue
-                # compressed to the visible slice. Mirrors the image-
-                # widget contract in `_BaseImageWidget._draw_text`.
-                # Override wins per-char over the host provider when a
-                # colored token overlaps; None entries defer to the provider.
-                frame_fc = self.frame_for("font_color")
-
-                def _per_char_color(
-                    idx: int,
-                    total: int,
-                    _ov: list[Any] | None = token_override,
-                    _p: ColorProvider = provider,
-                    _f: int = frame_fc,
-                ) -> Any:
-                    if _ov is not None and idx < len(_ov) and _ov[idx] is not None:
-                        return _ov[idx]
-                    return _p.color_for(_f, idx, total)
-
-                cursor_pos += draw_text_per_char(
-                    draw_canvas,
-                    self.font,
-                    cursor_pos,
-                    baseline_y + y_offset,
-                    visible_text,
-                    _per_char_color,
-                    total_chars=len(full_text),
-                )
+                run_total = count_text_chars(full_text)
             else:
-                frame_fc = self.frame_for("font_color")
-                if token_override is not None:
-                    # A colored token forces the per-char path even for a
-                    # whole-string/constant host color so the override can
-                    # win on individual chars; literal chars keep the host
-                    # constant. Geometry is unchanged (BDF per-char advance
-                    # sums to the whole-string advance; hires ceil-divides
-                    # once — same contract as the per-char branch above).
-                    host_const = provider.color_for(frame_fc, 0, len(visible_text))
-
-                    def _ws_color(
-                        idx: int,
-                        total: int,
-                        _ov: list[Any] = token_override,
-                        _h: Any = host_const,
-                    ) -> Any:
-                        if idx < len(_ov) and _ov[idx] is not None:
-                            return _ov[idx]
-                        return _h
-
-                    cursor_pos += draw_text_per_char(
-                        draw_canvas,
-                        self.font,
-                        cursor_pos,
-                        baseline_y + y_offset,
-                        visible_text,
-                        _ws_color,
-                        total_chars=len(full_text),
-                    )
-                else:
-                    color = provider.color_for(frame_fc, 0, len(visible_text))
-                    cursor_pos += draw_text(
-                        draw_canvas,
-                        self.font,
-                        cursor_pos,
-                        baseline_y + y_offset,
-                        color,
-                        visible_text,
-                    )
+                run_total = len(full_text)
+            cursor_pos += draw_text_run(
+                draw_canvas,
+                self.font,
+                cursor_pos,
+                baseline_y,
+                provider,
+                visible_text,
+                self.frame_for("font_color"),
+                override=token_override,
+                has_emoji=self._has_emoji,
+                total_chars=run_total,
+                y_offset=y_offset,
+            )
         cursor_pos += end_padding
 
         if rotate_surface is not None:

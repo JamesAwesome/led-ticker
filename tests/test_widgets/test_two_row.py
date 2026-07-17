@@ -1412,3 +1412,204 @@ class TestRowLayout:
             "in a 16-row band should anchor at the band's top edge so "
             "it doesn't bleed into the bottom band starting at row 16."
         )
+
+
+class TestTwoRowColoredTokens:
+    """Per-token color on both rows (Phase 2). A `:id:` token renders in
+    its source-declared `.color` while surrounding literal text keeps the
+    row's host color (`top_color` / `bottom_color`). Exercised on a
+    DEFAULT-mode widget (`bottom_text_wrap=False`) so the direct top-row
+    (`:667`) and bottom-row (`:702`) draw sites run, plus the wrap-mode
+    helper and a marquee scroll. Byte-identical when no source declares a
+    color."""
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for src in sources:
+            src.refresh()
+            reg.add(src)
+        set_data_registry(reg)
+        return reg
+
+    @staticmethod
+    def _stub(width=160, height=16):
+        from rgbmatrix import _StubCanvas
+
+        return _StubCanvas(width=width, height=height)
+
+    @staticmethod
+    def _colored_source(id_, value, rgb):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id=id_, value=value)
+        src.color = _ConstantColor(Color(*rgb))
+        return src
+
+    def test_top_token_uses_source_color_literal_keeps_top_color(self):
+        """Default-mode top row (`:667`): 'AB :x:' with a red-colored token
+        renders 'AB ' in host `top_color` (green) and '99' in source red,
+        with the literal strictly LEFT of the token."""
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("x", "99", tok))
+        w = TwoRowMessage(
+            top_text="AB :x:",
+            bottom_text="",
+            top_color=host,
+            top_align="left",
+        )
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert host in colors, "literal 'AB' should render in host green"
+        assert tok in colors, "token '99' should render in source red"
+        assert colors <= {host, tok}, f"only host+token expected; got {colors!r}"
+        green_xs = [x for (x, _y), v in lit.items() if v == host]
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert max(green_xs) < min(red_xs), (
+            f"literal (green) must be left of token (red); "
+            f"green max={max(green_xs)} red min={min(red_xs)}"
+        )
+
+    def test_bottom_token_uses_source_color_literal_keeps_bottom_color(self):
+        """Default-mode bottom row (`:702`): same as top, on the bottom
+        row with `bottom_color` as host."""
+        host = (0, 0, 255)
+        tok = (255, 128, 0)
+        self._registry(self._colored_source("x", "99", tok))
+        w = TwoRowMessage(
+            top_text="",
+            bottom_text="AB :x:",
+            bottom_color=host,
+            bottom_align="left",
+        )
+        c = self._stub()
+        w.draw(c)
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert host in colors, "literal 'AB' should render in host blue"
+        assert tok in colors, "token '99' should render in source orange"
+        assert colors <= {host, tok}, f"only host+token expected; got {colors!r}"
+        host_xs = [x for (x, _y), v in lit.items() if v == host]
+        tok_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert max(host_xs) < min(tok_xs)
+
+    def test_token_value_with_emoji_aligns(self):
+        """has_emoji-BASIS test: a token VALUE that resolves to a string
+        containing an emoji slug (`:sun: 72`) followed by a trailing literal
+        (` END`). The token's `72` chars colorize red; the trailing ` END`
+        literal keeps the host color and NO literal char steals the token
+        color (proves the override skips the emoji segment, matching
+        `has_renderable_emoji(resolved)` as the draw path's emoji basis)."""
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("x", ":sun: 72", tok))
+        w = TwoRowMessage(
+            top_text=":x: END",
+            bottom_text="",
+            top_color=host,
+            top_align="left",
+        )
+        c = self._stub()
+        w.draw(c)
+        assert w._resolved_top == ":sun: 72 END"
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        colors = set(lit.values())
+        assert tok in colors, "token '72' should render red"
+        assert host in colors, "trailing ' END' literal should render host"
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        host_xs = [x for (x, _y), v in lit.items() if v == host]
+        # ' END' is to the RIGHT of the '72' token — its host pixels must
+        # sit right of every token-red pixel. A wrong has_emoji basis would
+        # shift the override and bleed red into (or steal from) ' END'.
+        assert max(host_xs) > max(red_xs), (
+            "trailing literal ' END' (host) must be right of the token (red) — "
+            "a misaligned override would steal its color"
+        )
+
+    def test_wrap_mode_row_colored(self):
+        """Wrap mode (`bottom_text_wrap=True`) routes through
+        `_draw_row_text_at`: a colored token on the bottom row still
+        colorizes while the literal keeps `bottom_color`."""
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("x", "99", tok))
+        w = TwoRowMessage(
+            top_text="",
+            bottom_text="AB :x:",
+            bottom_color=host,
+            bottom_text_wrap=True,
+        )
+        c = self._stub()
+        w.draw(c)
+
+        colors = {v for v in c._pixels.values() if v != (0, 0, 0)}
+        assert host in colors, "literal 'AB' should render host green"
+        assert tok in colors, "token '99' should render source red"
+
+    def test_marquee_scroll_keeps_token_colored(self):
+        """A scrolled (overflowing) bottom row keeps the token colored: the
+        override is full-string (visible_text == resolved), so an x-shift
+        does not misalign it."""
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        long_val = "9999999999"
+        self._registry(self._colored_source("x", long_val, tok))
+        w = TwoRowMessage(
+            top_text="",
+            bottom_text="THE PRICE IS :x: DOLLARS RIGHT NOW",
+            bottom_color=host,
+        )
+        c = self._stub()
+        # cursor_pos < 0 → scrolled left (overflow path).
+        w.draw(c, cursor_pos=-30)
+
+        colors = {v for v in c._pixels.values() if v != (0, 0, 0)}
+        assert tok in colors, "token digits should stay red while scrolled"
+        assert host in colors, "literal should stay host green while scrolled"
+
+    def test_no_color_source_is_byte_identical(self):
+        """A colorless token renders the EXACT same pixels as the literal
+        substituted text — `override is None` leaves the draw path untouched
+        (top AND bottom rows)."""
+        host = (0, 200, 0)
+        from led_ticker.sources import StaticSource
+
+        self._registry(StaticSource(id="x", value="99"))
+        w = TwoRowMessage(
+            top_text="AB :x:",
+            bottom_text="CD :x:",
+            top_color=host,
+            bottom_color=host,
+            top_align="left",
+            bottom_align="left",
+        )
+        c_tok = self._stub()
+        w.draw(c_tok)
+
+        self._registry()  # empty registry → control has no tokens
+        control = TwoRowMessage(
+            top_text="AB 99",
+            bottom_text="CD 99",
+            top_color=host,
+            bottom_color=host,
+            top_align="left",
+            bottom_align="left",
+        )
+        c_lit = self._stub()
+        control.draw(c_lit)
+
+        assert c_tok.count_nonzero() > 0
+        assert c_tok._pixels == c_lit._pixels, (
+            "a colorless token must render byte-identically to the literal text"
+        )

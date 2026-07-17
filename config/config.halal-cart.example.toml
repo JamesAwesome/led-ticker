@@ -1,5 +1,7 @@
-# requires-plugins: led-ticker-flair
+# requires-plugins: led-ticker-flair led-ticker-weather
 # Install via config/requirements-plugins.txt (or the web UI Store), then restart.
+# The greeting's live temperature needs WEATHERAPI_KEY in your .env (free tier:
+# https://www.weatherapi.com/) — without it the :wx.cart: token just shows "…".
 # See https://docs.ledticker.dev/plugins/
 #
 # ===========================================================================
@@ -15,12 +17,16 @@
 # lunch through the late-night crowd it's the halal menu. AM sections carry
 # schedule = {start = "05:00", end = "11:00"}; PM sections carry
 # schedule = {start = "11:00", end = "05:00"} (start > end WRAPS overnight —
-# the 2am shift). The lottery draw and OPEN 24 HOURS run around the clock.
+# the 2am shift). Even the lottery draw follows the shift; only OPEN 24 HOURS
+# and the greeting run around the clock. The greeting (section 2) shows the
+# OTHER granularity: one always-on section whose three widgets carry their own
+# widget-level schedules — good morning / good afternoon / good night 🌙 —
+# so exactly one greeting is visible at any hour.
 # Schedules evaluate on [display] timezone — set it, or a UTC Docker container
 # flips your menus at the wrong hours (validate prints the resolved clock).
 #
 # Palette:  halal-red [230,40,30] · turmeric-gold [255,190,0] · cream [255,244,214]
-# Theme:    flashing, animation, rainbows, flair, scheduling.
+# Theme:    flashing, animation, rainbows, flair, scheduling, value tokens.
 # ===========================================================================
 
 # --- Display + RP1 tuning (matches config.bigsign.example.toml) --------------
@@ -49,6 +55,22 @@ default = "color_flash"
 duration = 0.6
 easing = "ease_in_out"
 between_sections = "flair.fireworks"
+
+# --- Value tokens for the greeting: live clock + temperature -----------------
+# Referenced as :clock.now: / :wx.cart: inside widget text. The clock follows
+# the same timezone as the schedules; weather polls every 15 min.
+[[source]]
+id = "clock.now"
+type = "clock"
+format = "%-I:%M %p"
+timezone = "America/New_York"
+
+[[source]]
+id = "wx.cart"
+type = "weather.current"
+location = "New York, NY"
+interval = 900
+format = "{temp_f}°"
 
 # ===========================================================================
 #  1 · THE BANNER — rainbow marquee bulging through a fisheye lens
@@ -80,12 +102,51 @@ animation = "flair.fisheye"
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 
 # ===========================================================================
-#  2 · THE DRAW — lottery balls roll in spelling the menu
+#  2 · THE GREETING — good morning / afternoon / night, live clock + temp
+#      One always-on section; each widget carries its OWN schedule window so
+#      exactly one greeting shows at any hour (windows cover the full day).
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
-entry_transition = "dissolve"
+
+[[playlist.section.widget]]
+type = "message"
+text = "GOOD MORNING ☀️ :clock.now: • :wx.cart:"
+schedule = {start = "05:00", end = "11:00"}
+font_color = {style = "shimmer", base = "gold", shimmer = "white", speed = 18.0, pause = 0.5}
+font = "Inter-Bold"
+font_size = 44
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+[[playlist.section.widget]]
+type = "message"
+text = "GOOD AFTERNOON ☀️ :clock.now: • :wx.cart:"
+schedule = {start = "11:00", end = "18:00"}
+font_color = "color_cycle"
+font = "Inter-Bold"
+font_size = 44
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+[[playlist.section.widget]]
+type = "message"
+text = "GOOD NIGHT 🌙 :clock.now: • :wx.cart:"
+schedule = {start = "18:00", end = "05:00"}
+font_color = {style = "shimmer", base = "blue", shimmer = "white", speed = 18.0, pause = 0.5}
+font = "Inter-Bold"
+font_size = 44
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+# ===========================================================================
+#  3 · THE DRAW — lottery balls roll in spelling the menu, fireworks reveal
+#      PM: the halal draw (lunch through the 2am crowd)
+# ===========================================================================
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+# Flashier than the old dissolve: the balls arrive under a fireworks burst.
+entry_transition = "flair.fireworks"
+schedule = {start = "11:00", end = "05:00"}
 
 [[playlist.section.widget]]
 type = "flair.lottery"
@@ -95,8 +156,23 @@ colors = [[230, 40, 30], [255, 190, 0], [255, 244, 214]]
 choreography = "roll_through"
 border = "rainbow"
 
+# --- AM version: the breakfast draw ------------------------------------------
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+entry_transition = "flair.fireworks"
+schedule = {start = "05:00", end = "11:00"}
+
+[[playlist.section.widget]]
+type = "flair.lottery"
+words = ["BACON", "EGG", "CHEESE"]
+ball_style = "classic"
+colors = [[230, 40, 30], [255, 190, 0], [255, 244, 214]]
+choreography = "roll_through"
+border = "rainbow"
+
 # ===========================================================================
-#  3 · CHICKEN OVER RICE — gold shimmer held over a rainbow scroll (PM)
+#  4 · CHICKEN OVER RICE — gold shimmer held over a rainbow scroll (PM)
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
@@ -120,7 +196,7 @@ bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
 
 # ===========================================================================
-#  3b · COFFEE — the morning counterpart of section 3 (AM)
+#  4b · COFFEE — the morning counterpart of section 4 (AM)
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
@@ -143,7 +219,7 @@ bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
 
 # ===========================================================================
-#  4 · OPEN 24 HOURS — spins in, marquee bulbs chasing, colors cycling
+#  5 · OPEN 24 HOURS — spins in, marquee bulbs chasing, colors cycling
 #      (unscheduled on purpose: true around the clock, either menu)
 # ===========================================================================
 [[playlist.section]]
@@ -161,7 +237,7 @@ animation = "flair.propeller"
 border = {style = "lightbulbs", mode = "chase", lit_color = "rainbow", chase_density = 3}
 
 # ===========================================================================
-#  5 · THE MENU — full rainbow crawl of everything on the cart (PM)
+#  6 · THE MENU — full rainbow crawl of everything on the cart (PM)
 # ===========================================================================
 [[playlist.section]]
 mode = "ticker"
@@ -176,7 +252,7 @@ font_size = 44
 border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
 
 # ===========================================================================
-#  5b · THE BREAKFAST MENU — the NYC classics, same rainbow crawl (AM)
+#  6b · THE BREAKFAST MENU — the NYC classics, same rainbow crawl (AM)
 # ===========================================================================
 [[playlist.section]]
 mode = "ticker"

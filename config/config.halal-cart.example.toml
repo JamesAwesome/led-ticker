@@ -1,4 +1,4 @@
-# requires-plugins: led-ticker-flair led-ticker-weather
+# requires-plugins: led-ticker-flair, led-ticker-weather
 # Install via config/requirements-plugins.txt (or the web UI Store), then restart.
 # The greeting's live temperature needs WEATHERAPI_KEY in your .env (free tier:
 # https://www.weatherapi.com/) — without it the :wx.cart: token just shows "…".

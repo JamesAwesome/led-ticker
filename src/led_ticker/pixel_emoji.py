@@ -2505,6 +2505,17 @@ def _get_registry() -> dict[str, PixelData]:
     return EMOJI_REGISTRY
 
 
+def emoji_slugs() -> tuple[str, ...]:
+    """Sorted slugs currently drawable inline (built-ins + plugin-registered).
+
+    Union of the low-res registry (via the lazy `_get_registry()`
+    materializer) and `HIRES_REGISTRY`, so a slug present in either form is
+    listed. Public via `led_ticker.plugin` — plugins use it to enumerate or
+    validate emoji (e.g. flair.stickers' random mode / knob validation).
+    """
+    return tuple(sorted(set(_get_registry()) | set(HIRES_REGISTRY)))
+
+
 def is_emoji_slug(slug: str) -> bool:
     """True if `slug` (no surrounding colons) is a registered emoji.
 

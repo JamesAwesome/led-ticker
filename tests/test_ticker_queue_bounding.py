@@ -475,3 +475,90 @@ async def test_run_slideshow_completes_over_bounded_queue(
     # in test_run_swap_survives_degenerate_config.
     assert ticker._enqueue_task is not None
     await asyncio.wait_for(ticker._enqueue_task, timeout=2.0)
+
+
+# ---------------------------------------------------------------------------
+# Issue #400: producer death BEFORE the first put() strands the consumer
+# ---------------------------------------------------------------------------
+# _enqueue_ticker_objects only sentinels on StopIteration; any OTHER
+# exception out of the first next() (e.g. a plugin container whose
+# feed_stories property raises during _expand_sources) killed the producer
+# with only a log line — no sentinel — so the consumer's first blocking
+# `await notif_queue.get()` waited forever: a panel freeze (constraint #1
+# class). Mid-stream death already degraded safely (later reads are
+# empty()-guarded get_nowait); only the death-before-first-put window froze.
+
+
+class _ExplodingContainer:
+    """A Container-shaped widget whose expansion raises on FIRST access —
+    the exact failure _build_ticker_iter hits lazily inside next()."""
+
+    @property
+    def feed_stories(self):
+        raise RuntimeError("boom on first expansion")
+
+
+@pytest.mark.asyncio
+async def test_producer_death_before_first_put_delivers_sentinel():
+    """Unit: the producer must wake the consumer even when it dies before
+    its first put — exactly one None sentinel, and the exception still
+    propagates (so the done-callback's logging is preserved)."""
+    from led_ticker.ticker import _build_then_enqueue
+
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    task = asyncio.create_task(_build_then_enqueue([_ExplodingContainer()], queue))
+    with pytest.raises(RuntimeError, match="boom on first expansion"):
+        await asyncio.wait_for(task, timeout=2.0)
+    assert queue.get_nowait() is None, "dead producer must enqueue the sentinel"
+    assert queue.empty(), "exactly ONE sentinel"
+
+
+@pytest.mark.asyncio
+async def test_producer_death_mid_stream_still_delivers_sentinel(make_widget):
+    """Defense in depth: a mid-stream death also sentinels (consumers
+    already degrade via empty()-guarded reads, but the sentinel ends the
+    section promptly instead of on the next poll)."""
+    from led_ticker.ticker import _build_then_enqueue
+
+    class _ExplodesOnSecondExpansion:
+        def __init__(self):
+            self.calls = 0
+            self._story = make_widget(10)
+
+        @property
+        def feed_stories(self):
+            self.calls += 1
+            if self.calls > 1:
+                raise RuntimeError("boom mid-stream")
+            return [self._story]
+
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    task = asyncio.create_task(
+        _build_then_enqueue([_ExplodesOnSecondExpansion()], queue)
+    )
+    with pytest.raises(RuntimeError, match="boom mid-stream"):
+        await asyncio.wait_for(task, timeout=2.0)
+    items = []
+    while not queue.empty():
+        items.append(queue.get_nowait())
+    assert items and items[-1] is None, "sentinel must arrive last"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "run_method", ["run_slideshow", "run_ticker", "run_one_at_a_time"]
+)
+async def test_consumers_return_when_producer_dies_before_first_put(
+    mock_frame, no_sleep, run_method
+):
+    """Integration (the freeze itself): each of the three consumers must
+    RETURN — not hang — when the section's producer dies before its first
+    put. Timeboxed: pre-fix this times out on the first blocking get()."""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=TICKER_QUEUE_MAXSIZE)
+    ticker = Ticker(
+        monitors=[_ExplodingContainer()],
+        frame=mock_frame,
+        notif_queue=queue,
+        hold_time=0.0,
+    )
+    await asyncio.wait_for(getattr(ticker, run_method)(loop_count=1), timeout=2.0)

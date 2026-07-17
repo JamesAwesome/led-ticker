@@ -1,6 +1,7 @@
 """Display orchestrator for scrolling/swapping widgets on LED panels."""
 
 import asyncio
+import contextlib
 import inspect
 import itertools
 import logging
@@ -1339,10 +1340,26 @@ async def _build_then_enqueue(
     loop_count: int | None = None,
     breaker: RenderBreaker | None = None,
 ) -> None:
-    ticker_iter = _build_ticker_iter(
-        ticker_objects, title=title, loop_count=loop_count or 0, breaker=breaker
-    )
-    await _enqueue_ticker_objects(ticker_iter, notif_queue)
+    try:
+        ticker_iter = _build_ticker_iter(
+            ticker_objects, title=title, loop_count=loop_count or 0, breaker=breaker
+        )
+        await _enqueue_ticker_objects(ticker_iter, notif_queue)
+    except Exception:
+        # A dead producer must still wake the consumer (issue #400): without
+        # the sentinel, the section's first blocking `await notif_queue.get()`
+        # waits forever — a panel freeze (constraint #1 class). The window is
+        # death BEFORE the first put (e.g. a container's `feed_stories`
+        # raising inside _build_ticker_iter's lazy first next()); mid-stream
+        # death already degrades via the consumers' empty()-guarded reads,
+        # but the sentinel ends those sections promptly too. QueueFull is
+        # safe to suppress: a full queue means the consumer has items and
+        # will reach the guarded paths. CancelledError is a BaseException,
+        # so normal section teardown never enqueues a spurious sentinel.
+        # Re-raise so the done-callback's logging is preserved.
+        with contextlib.suppress(asyncio.QueueFull):
+            notif_queue.put_nowait(None)
+        raise
 
 
 def _draw_scroll_frame(

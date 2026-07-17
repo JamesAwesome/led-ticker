@@ -19,7 +19,11 @@ from led_ticker.lens_render import LensTextRenderer
 from led_ticker.pixel_emoji import has_renderable_emoji
 from led_ticker.rotate import lens_blit, make_rotation_surface
 from led_ticker.scaled_canvas import is_scaled
-from led_ticker.sources import TokenizedField, get_data_registry
+from led_ticker.sources import (
+    TokenizedField,
+    build_token_color_override,
+    get_data_registry,
+)
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
@@ -36,96 +40,6 @@ def _coerce_font_color(value: Any) -> ColorProvider:
     if not hasattr(value, "color_for"):
         return _ConstantColor(value)
     return value
-
-
-def _build_token_color_override(
-    segments: list[tuple[Any, Any, bool]],
-    visible_text: str,
-    frame: int,
-    has_emoji: bool,
-) -> list[Any] | None:
-    """Return a per-visible-text-char list of ``Color``-or-``None`` aligned
-    to ``draw_with_emoji``'s emoji-excluding ``char_index`` space for the
-    ACTUAL ``visible_text`` being drawn, or ``None`` if no token carries a
-    color.
-
-    ``segments`` is the FROZEN ``resolve_segments`` snapshot (typed spans of
-    the flat resolved string) — see ``TickerMessage._resolved_segments``.
-    Using the snapshot (not a live re-resolve) keeps the override the same
-    length as ``full_text`` / ``visible_text`` when resolution is frozen
-    (scroll / transition / typewriter), so a value that changes length under
-    the freeze can't shift a trailing literal into the token color (M1).
-
-    ``None`` is the common path: callers then skip the override entirely and
-    the existing color branches run byte-identically.
-
-    Alignment (M2): the override must land in the SAME char-index space
-    ``draw_with_emoji`` uses, which re-parses ``visible_text`` with
-    ``_parse_segments`` and renders ANY emoji slug or Unicode-emoji run
-    (INCLUDING ones that appear inside a token's resolved VALUE, e.g. a
-    source that yields ``:taco:9``) as a sprite that consumes zero text-char
-    positions. We therefore:
-
-      1. Build ``raw_colors`` one entry per char of the flat resolved string
-         (from ``segments``), so colored-token value chars carry the
-         materialized color and everything else is ``None``.
-      2. Prefix it to ``len(visible_text)`` (``visible_text`` is a prefix of
-         the flat string under typewriter, equal otherwise).
-      3. If ``has_emoji`` (the raw template has emoji, so the draw goes through
-         ``draw_with_emoji``): re-walk ``_parse_segments(visible_text)`` tracking
-         a flat-string offset — a text run appends its ``raw_colors`` slice; an
-         emoji / uemoji run is SKIPPED (no text-char position). The offset
-         advances by the run's flat-string span — ``len(value) + 2`` for a
-         ``:slug:`` emoji (the colons survive in the flat string;
-         ``_parse_segments`` strips them from ``value``) and ``len(value)`` for
-         text / uemoji. Otherwise (non-emoji draw path renders every char
-         literally): the override is ``raw_colors`` as-is — an emoji slug
-         embedded in a token VALUE is drawn literally there and must NOT skip.
-
-    A token's provider is whole-string (materialized once at
-    ``color_for(frame, 0, 1)``) and applied to each of its value chars.
-    """
-    from led_ticker.pixel_emoji import _parse_segments  # noqa: PLC0415
-
-    raw_colors: list[Any] = []
-    has_color = False
-    for text, color, _is_emoji in segments:
-        if color is None:
-            raw_colors.extend([None] * len(text))
-        else:
-            has_color = True
-            c = color.color_for(frame, 0, 1)  # whole-string token provider
-            raw_colors.extend([c] * len(text))
-    if not has_color:
-        return None
-
-    # Align to the drawn prefix; pad with None if somehow shorter.
-    rc = raw_colors[: len(visible_text)]
-    if len(rc) < len(visible_text):
-        rc = rc + [None] * (len(visible_text) - len(rc))
-
-    # The override's char space must match the DRAW PATH's. `_has_emoji`
-    # (computed from the RAW template) selects the path: the emoji branch
-    # (`draw_with_emoji`) renders emoji slugs / uemoji as sprites (0 text-chars)
-    # via `_parse_segments`, so the override must skip them (the re-walk below).
-    # The non-emoji branches (`draw_text_per_char` / `draw_text`) render EVERY
-    # visible char literally, so the override is `rc` as-is — an emoji slug
-    # embedded in a TOKEN VALUE is drawn as literal characters there and must
-    # NOT be skipped (else later chars mis-align).
-    if not has_emoji:
-        return rc
-
-    override: list[Any] = []
-    offset = 0
-    for seg_type, value in _parse_segments(visible_text):
-        if seg_type == "text":
-            override.extend(rc[offset : offset + len(value)])
-            offset += len(value)
-        elif seg_type == "emoji":
-            offset += len(value) + 2  # `:` + slug + `:` in the flat string
-        else:  # uemoji: raw codepoints, no colons
-            offset += len(value)
-    return override
 
 
 @register("message")
@@ -476,7 +390,7 @@ class TickerMessage(FrameAwareBase):
                 if self._resolved_segments is not None
                 else self._token.resolve_segments(get_data_registry())
             )
-            token_override = _build_token_color_override(
+            token_override = build_token_color_override(
                 segments, visible_text, self.frame_for("font_color"), self._has_emoji
             )
 

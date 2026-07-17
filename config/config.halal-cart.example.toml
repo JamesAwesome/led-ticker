@@ -22,10 +22,22 @@
 # OTHER granularity: one always-on section whose three widgets carry their own
 # widget-level schedules — good morning / good afternoon / good night 🌙 —
 # so exactly one greeting is visible at any hour.
+#
+# TACO TUESDAY MADNESS (day-of-week scheduling): Tuesdays the cart goes LOCO —
+# breakfast burritos at sunrise, tacos + burritos + bowls from lunch through
+# the 2am crowd, all delivered with the energy of an upstate used-car salesman
+# whose lot is on fire. Every regular menu section carries
+# days = ["mon", "wed", "thu", "fri", "sat", "sun"] and each has a Tuesday
+# twin (the "t" sections) with days = ["tue"]. Overnight wrap + days compose:
+# the post-midnight tail of a wrapped window belongs to the day it STARTED,
+# so the Tuesday PM sections run Tue 11:00 all the way to Wed 05:00, and the
+# regular menu takes back over at Wednesday sunrise. The greeting and
+# OPEN 24 HOURS stay up every day.
 # Schedules evaluate on [display] timezone — set it, or a UTC Docker container
 # flips your menus at the wrong hours (validate prints the resolved clock).
 #
 # Palette:  halal-red [230,40,30] · turmeric-gold [255,190,0] · cream [255,244,214]
+#           taco-green [80,200,60] (Tuesday accent)
 # Theme:    flashing, animation, rainbows, flair, scheduling, value tokens.
 # ===========================================================================
 
@@ -79,7 +91,7 @@ format = "{temp_f}°"
 [[playlist.section]]
 mode = "one_at_a_time"
 hold_time = 10
-schedule = {start = "11:00", end = "05:00"}
+schedule = {start = "11:00", end = "05:00", days = ["mon", "wed", "thu", "fri", "sat", "sun"]}
 
 [[playlist.section.widget]]
 type = "message"
@@ -92,11 +104,36 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 [[playlist.section]]
 mode = "one_at_a_time"
 hold_time = 10
-schedule = {start = "05:00", end = "11:00"}
+schedule = {start = "05:00", end = "11:00", days = ["mon", "wed", "thu", "fri", "sat", "sun"]}
 
 [[playlist.section.widget]]
 type = "message"
 text = "★ COFFEE ★ BACON EGG AND CHEESE ★ BAGELS ★ DONUTS ★"
+font_color = "rainbow"
+animation = "flair.fisheye"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+# --- 1t · TUESDAY banners: the madness announces itself ----------------------
+[[playlist.section]]
+mode = "one_at_a_time"
+hold_time = 10
+schedule = {start = "11:00", end = "05:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "🌮 TACO TUESDAY MADNESS 🌮 TACOS ★ BURRITOS ★ BOWLS 🌮 WE'VE GONE COMPLETELY LOCO 🌮"
+font_color = "rainbow"
+animation = "flair.fisheye"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+[[playlist.section]]
+mode = "one_at_a_time"
+hold_time = 10
+schedule = {start = "05:00", end = "11:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "🌮 TACO TUESDAY 🌮 BREAKFAST BURRITOS 🌮 THESE DEALS WON'T LAST 🌮"
 font_color = "rainbow"
 animation = "flair.fisheye"
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
@@ -146,7 +183,7 @@ mode = "slideshow"
 hold_time = 8
 # Flashier than the old dissolve: the balls arrive under a fireworks burst.
 entry_transition = "flair.fireworks"
-schedule = {start = "11:00", end = "05:00"}
+schedule = {start = "11:00", end = "05:00", days = ["mon", "wed", "thu", "fri", "sat", "sun"]}
 
 [[playlist.section.widget]]
 type = "flair.lottery"
@@ -161,7 +198,7 @@ border = "rainbow"
 mode = "slideshow"
 hold_time = 8
 entry_transition = "flair.fireworks"
-schedule = {start = "05:00", end = "11:00"}
+schedule = {start = "05:00", end = "11:00", days = ["mon", "wed", "thu", "fri", "sat", "sun"]}
 
 [[playlist.section.widget]]
 type = "flair.lottery"
@@ -171,13 +208,43 @@ colors = [[230, 40, 30], [255, 190, 0], [255, 244, 214]]
 choreography = "roll_through"
 border = "rainbow"
 
+# --- 3t · TUESDAY draw: two balls, one truth ---------------------------------
+# Runs all Tuesday (both shifts — the pun doesn't change at lunch).
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+entry_transition = "flair.fireworks"
+schedule = {start = "11:00", end = "05:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "flair.lottery"
+words = ["TACO", "LOCO"]
+ball_style = "classic"
+colors = [[230, 40, 30], [80, 200, 60]]
+choreography = "roll_through"
+border = "rainbow"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+entry_transition = "flair.fireworks"
+schedule = {start = "05:00", end = "11:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "flair.lottery"
+words = ["TACO", "LOCO"]
+ball_style = "classic"
+colors = [[230, 40, 30], [80, 200, 60]]
+choreography = "roll_through"
+border = "rainbow"
+
 # ===========================================================================
 #  4 · CHICKEN OVER RICE — gold shimmer held over a rainbow scroll (PM)
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
-schedule = {start = "11:00", end = "05:00"}
+schedule = {start = "11:00", end = "05:00", days = ["mon", "wed", "thu", "fri", "sat", "sun"]}
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -201,7 +268,7 @@ border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
-schedule = {start = "05:00", end = "11:00"}
+schedule = {start = "05:00", end = "11:00", days = ["mon", "wed", "thu", "fri", "sat", "sun"]}
 
 [[playlist.section.widget]]
 type = "two_row"
@@ -218,9 +285,50 @@ bottom_font_size = 18
 bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
 
+# --- 4t · TUESDAY hero cards: the hard sell ----------------------------------
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+schedule = {start = "11:00", end = "05:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "TACOS"
+bottom_text = "tacos • burritos • bowls • prices SLASHED • today only"
+top_color = {style = "shimmer", base = [80, 200, 60], shimmer = "white", speed = 18.0, pause = 0.5}
+top_align = "center"
+bottom_color = "rainbow"
+top_row_height = 10
+top_font = "Inter-Bold"
+top_font_size = 30
+bottom_font = "Inter-Regular"
+bottom_font_size = 18
+bottom_font_threshold = 80
+border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+schedule = {start = "05:00", end = "11:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "BURRITO"
+bottom_text = "breakfast burritos • get here before they're GONE"
+top_color = {style = "shimmer", base = [80, 200, 60], shimmer = "white", speed = 18.0, pause = 0.5}
+top_align = "center"
+bottom_color = "rainbow"
+top_row_height = 10
+top_font = "Inter-Bold"
+top_font_size = 30
+bottom_font = "Inter-Regular"
+bottom_font_size = 18
+bottom_font_threshold = 80
+border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
+
 # ===========================================================================
 #  5 · OPEN 24 HOURS — spins in, marquee bulbs chasing, colors cycling
-#      (unscheduled on purpose: true around the clock, either menu)
+#      (unscheduled on purpose: true around the clock, either menu, every day)
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
@@ -241,7 +349,7 @@ border = {style = "lightbulbs", mode = "chase", lit_color = "rainbow", chase_den
 # ===========================================================================
 [[playlist.section]]
 mode = "ticker"
-schedule = {start = "11:00", end = "05:00"}
+schedule = {start = "11:00", end = "05:00", days = ["mon", "wed", "thu", "fri", "sat", "sun"]}
 
 [[playlist.section.widget]]
 type = "message"
@@ -256,11 +364,36 @@ border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
 # ===========================================================================
 [[playlist.section]]
 mode = "ticker"
-schedule = {start = "05:00", end = "11:00"}
+schedule = {start = "05:00", end = "11:00", days = ["mon", "wed", "thu", "fri", "sat", "sun"]}
 
 [[playlist.section.widget]]
 type = "message"
 text = "BACON EGG AND CHEESE • COFFEE • BAGELS • DONUTS • HASH BROWNS • ICED COFFEE • OJ • $5 CASH ONLY"
+font_color = "rainbow"
+font = "Inter-Bold"
+font_size = 44
+border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
+
+# --- 6t · TUESDAY crawls: the going-out-of-business pitch --------------------
+[[playlist.section]]
+mode = "ticker"
+schedule = {start = "11:00", end = "05:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "TACO TUESDAY MADNESS 🌮 TACOS • BURRITOS • BOWLS 🌮 PRICES SO LOW IT'S LOCO 🌮 EVERYTHING MUST GO 🌮 ONE DAY ONLY 🌮 DON'T WALK — RUN 🌮 CASH ONLY"
+font_color = "rainbow"
+font = "Inter-Bold"
+font_size = 44
+border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
+
+[[playlist.section]]
+mode = "ticker"
+schedule = {start = "05:00", end = "11:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREAKFAST BURRITOS 🌮 TACO TUESDAY STARTS AT SUNRISE 🌮 THE BOSS SAYS WE'VE LOST OUR MINDS 🌮 ONE DAY ONLY 🌮 CASH ONLY"
 font_color = "rainbow"
 font = "Inter-Bold"
 font_size = 44

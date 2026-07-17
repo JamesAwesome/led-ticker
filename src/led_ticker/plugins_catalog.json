@@ -233,7 +233,7 @@
     {
       "name": "flair",
       "namespace": "flair",
-      "summary": "Flair text-effect pack \u2014 flair.lottery lottery-ball roll-in widget, flair.propeller animation (spinning in-plane reveal on message widgets), flair.fisheye scroll-lens animation, and flair.spinout / flair.fireworks transitions (outgoing widget spins out, or bursts into fireworks, before cut to incoming). Part of the led-ticker-flair pack.",
+      "summary": "Flair text-effect pack — flair.lottery lottery-ball roll-in widget, flair.propeller animation (spinning in-plane reveal on message widgets), flair.fisheye scroll-lens animation, and flair.spinout / flair.fireworks / flair.stickers transitions (outgoing widget spins out, bursts into fireworks, or gets buried under an emoji sticker-bomb that peels away). Part of the led-ticker-flair pack.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": {
         "widgets": [
@@ -245,7 +245,8 @@
         ],
         "transitions": [
           "flair.spinout",
-          "flair.fireworks"
+          "flair.fireworks",
+          "flair.stickers"
         ]
       },
       "sources": [
@@ -326,7 +327,7 @@
     {
       "name": "telnet",
       "namespace": "telnet",
-      "summary": "Telnet (ANSI terminal) rendering backend for led-ticker \u2014 watch your sign in a terminal.",
+      "summary": "Telnet (ANSI terminal) rendering backend for led-ticker — watch your sign in a terminal.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/telnet",
       "provides": {
         "backends": [

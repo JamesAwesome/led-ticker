@@ -32,7 +32,9 @@
 # the post-midnight tail of a wrapped window belongs to the day it STARTED,
 # so the Tuesday PM sections run Tue 11:00 all the way to Wed 05:00, and the
 # regular menu takes back over at Wednesday sunrise. The greeting and
-# OPEN 24 HOURS stay up every day.
+# OPEN 24 HOURS stay up every day. Tuesday sections (except the draw, which
+# keeps its fireworks) enter under flair.stickers — a wall of taco cards
+# buries the panel, then peels away (needs led-ticker-flair >= 0.8.0).
 # Schedules evaluate on [display] timezone — set it, or a UTC Docker container
 # flips your menus at the wrong hours (validate prints the resolved clock).
 #
@@ -117,6 +119,8 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 [[playlist.section]]
 mode = "one_at_a_time"
 hold_time = 10
+# The sticker-bomb: a wall of taco cards buries the banner, then peels away.
+transition = {type = "flair.stickers", emoji = ["taco"]}
 schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 
 [[playlist.section.widget]]
@@ -129,6 +133,7 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 [[playlist.section]]
 mode = "one_at_a_time"
 hold_time = 10
+transition = {type = "flair.stickers", emoji = ["taco"]}
 schedule = {start = "05:00", end = "11:00", days = ["tue"]}
 
 [[playlist.section.widget]]
@@ -289,6 +294,7 @@ border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
+transition = {type = "flair.stickers", emoji = ["taco"]}
 schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 
 [[playlist.section.widget]]
@@ -309,6 +315,7 @@ border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
+transition = {type = "flair.stickers", emoji = ["taco"]}
 schedule = {start = "05:00", end = "11:00", days = ["tue"]}
 
 [[playlist.section.widget]]
@@ -377,6 +384,7 @@ border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
 # --- 6t · TUESDAY crawls: the going-out-of-business pitch --------------------
 [[playlist.section]]
 mode = "ticker"
+transition = {type = "flair.stickers", emoji = ["taco"]}
 schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 
 [[playlist.section.widget]]
@@ -389,6 +397,7 @@ border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
 
 [[playlist.section]]
 mode = "ticker"
+transition = {type = "flair.stickers", emoji = ["taco"]}
 schedule = {start = "05:00", end = "11:00", days = ["tue"]}
 
 [[playlist.section.widget]]

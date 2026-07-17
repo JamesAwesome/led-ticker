@@ -35,7 +35,8 @@
 # OPEN 24 HOURS stay up every day. Tuesday sections (except the draw, which
 # keeps its fireworks) enter under flair.stickers with backing = "shadow" —
 # a swarm of haloed tacos piles over the panel (the menu stays visible
-# through the gaps), then peels away (needs led-ticker-flair >= 0.9.0).
+# through the gaps), then peels away. The greeting deals in on flair.poker
+# (card-suit ripples). Needs led-ticker-flair >= 0.10.0.
 # Schedules evaluate on [display] timezone — set it, or a UTC Docker container
 # flips your menus at the wrong hours (validate prints the resolved clock).
 #
@@ -148,10 +149,14 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 #  2 · THE GREETING — good morning / afternoon / night, live clock + temp
 #      One always-on section; each widget carries its OWN schedule window so
 #      exactly one greeting shows at any hour (windows cover the full day).
+#      Deals in on flair.poker: rainbow card suits ripple the greeting onto
+#      the panel (the cart's a gambler — it already runs a lottery draw).
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
+# Card-suit ripples wash the greeting in (needs led-ticker-flair >= 0.10.0).
+entry_transition = "flair.poker"
 
 [[playlist.section.widget]]
 type = "message"

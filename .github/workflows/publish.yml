@@ -30,6 +30,14 @@ jobs:
           # A typo tag (missing 'v'), wrong target commit, or off-tag release
           # derives a .devN+<local> version PyPI would reject AFTER approval.
           [ "$TAG" = "v$V" ] || { echo "::error::Tag $TAG != v$V — not an exact-tag release. Refusing to publish."; exit 1; }
+      - name: Guard — version order matches history order (fail before publish)
+        run: |
+          set -euo pipefail
+          # Monotonic + ancestry: the new version must be strictly greater
+          # than every released version AND descend from the previous latest.
+          # Born from the v4.16.1-after-v4.17.0 incident (2026-07-16); see
+          # scripts/release_guard.py and the spec it cites.
+          python3 scripts/release_guard.py "${{ github.event.release.tag_name }}"
       - name: Build sdist + wheel
         run: rm -rf dist && uv build
       - name: Publish to PyPI (Trusted Publishing)

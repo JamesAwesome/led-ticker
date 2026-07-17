@@ -1,3 +1,5 @@
+> **Cut releases with `uv run python scripts/cut_release.py <patch|minor|major> --notes FILE`** — it derives the next version from the LIVE remote at execution time (never a number carried in a plan or an old terminal), checks version-order == history-order (`scripts/release_guard.py`, the same guard publish.yml enforces), and creates the release on the origin/main tip. Manual `gh release create` is discouraged: a parallel workstream once shipped v4.17.0 minutes before a stale pipeline cut v4.16.1 on newer code, hiding a fix from resolver-visible latest.
+
 # Releasing led-ticker to PyPI
 
 This runbook covers the one-time setup required before any package can be published, the first-publish sequence (core then plugins), and the procedure for subsequent releases.

@@ -1,6 +1,6 @@
 ---
 title: Sprite and flair transitions
-description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, the flair.spinout text-spin transition, and the flair.fireworks burst transition."
+description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, and flair.poker card-suit ripple transitions."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -234,5 +234,99 @@ transition = {type = "flair.fireworks", bursts = 3, colors = [[255, 60, 60], [0,
 
 - **Size-adaptive by default.** Burst count, radius, and stagger timing are all derived from the panel's actual width/height at draw time — the same `transition = "flair.fireworks"` line looks right on smallsign, bigsign, and longboi without per-sign tuning.
 - **Two-phase design, painted through black.** There is no `GetPixel` on real hardware (the framebuffer stores pre-computed GPIO bitplane data, not readable RGB), so nothing can be composited from a previous frame — every frame is drawn from scratch from the widgets plus burst geometry. Phase one (`t < 0.5`) plays over the outgoing widget; phase two (`t >= 0.5`) switches to the incoming widget and blacks out everything outside the union of the (still-growing) burst circles, guaranteeing full coverage by `t == 1.0` regardless of any individual burst's stagger.
+
+### `flair.stickers` (flair >= 0.9.0, core >= 4.18)
+
+`flair.stickers` sticker-bombs the panel: emoji "stickers" pop on one at a time in a random order over the outgoing widget until they fully cover it at the halfway point, then pop off in an independent random order, revealing the incoming widget in the gaps. Each sticker sits on a tilted die-cut card so the wall reads as stickers on glass. Pass `emoji = ["taco"]` for a themed wall of one emoji, a list for a mix, or omit it for a random assortment drawn from every drawable slug.
+
+<DemoGif
+  src="/demos-pinned/transition-flair-stickers.gif"
+  caption="`flair.stickers` — a wall of taco cards buries the outgoing widget, then peels away to reveal the incoming one"
+/>
+
+#### Install
+
+`flair.stickers` ships in the same `led-ticker-flair` package as the sprite-trails and the other text-effect transitions:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Themed taco wall"
+  code={`[[playlist.section]]
+mode = "slideshow"
+hold_time = 3.0
+transition = {type = "flair.stickers", emoji = ["taco"]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "TACO"
+center = true
+font_color = [255, 190, 0]`}
+/>
+
+#### Knobs
+
+| Knob      | Default                     | Notes                                                                                                                                                                                                                                                              |
+| --------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `emoji`   | omitted (random assortment) | List of emoji slugs (no colons), e.g. `["taco"]` or `["sun", "moon", "star_yellow"]`. A single-item list is a themed wall; a list mixes; omitting it draws a random slug per sticker from the full drawable set. An unknown slug fails at `led-ticker validate`.   |
+| `backing` | `"card"`                    | Sticker body. `"card"`: tilted black card with a white rim — the only mode that fully covers the panel at the midpoint. `"shadow"`: black silhouette halo, no card. `"none"`: bare sprites. Shadow/none read as an emoji **swarm** — gaps stay visible, by design. |
+| `seed`    | `None` (OS entropy)         | Fixes sticker positions, angles, and pop-on/off order for reproducible runs. Leave unset for a real deploy (every firing varies).                                                                                                                                  |
+
+#### Behavior notes
+
+- **The card is what guarantees full coverage.** Each `"card"` sticker is squared to its grid cell, so a jittered grid of cards covers the panel completely at the midpoint regardless of the emoji's shape. `"shadow"` and `"none"` deliberately trade that guarantee for a lighter, see-through swarm.
+- **Only real slugs.** A typo like `emoji = ["fire"]` (there is no `fire` slug) fails at config-load with the bad slug named — see [Emoji](/assets/emoji/) for the full list.
+- **Random mode is a themed run, not confetti.** With no `emoji`, each sticker independently picks a slug, so a bare `transition = "flair.stickers"` gives a genuine mixed assortment (cats, hearts, weather, pride flags…).
+
+### `flair.poker` (flair >= 0.10.0, core >= 4.18)
+
+`flair.poker` deals the panel in with card suits. Rainbow ♥ ♦ ♣ ♠ glyphs pattern in over the outgoing widget, then each one emits **suit-shaped** rainbow ripple rings — an expanding heart emits heart-shaped rings, a club club-shaped ones — that wash the incoming widget in until the panel is covered. Pass `suits = ["diamonds"]` (or `["clubs"]`, etc.) for a single suit, or omit it for all four.
+
+<DemoGif
+  src="/demos-pinned/transition-flair-poker.gif"
+  caption="`flair.poker` — rainbow suit glyphs emit suit-shaped ripples that wash in the incoming widget"
+/>
+
+#### Install
+
+`flair.poker` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+#### Minimal config
+
+<TomlExample
+  title="All four suits"
+  code={`[[playlist.section]]
+mode = "slideshow"
+hold_time = 3.0
+transition = "flair.poker"
+
+[[playlist.section.widget]]
+type = "message"
+text = "ANTE UP"
+center = true
+font_color = [255, 255, 255]`}
+/>
+
+#### Knobs
+
+| Knob    | Default             | Notes                                                                                                                                                  |
+| ------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `suits` | all four            | List from `hearts` / `diamonds` / `clubs` / `spades`, e.g. `["diamonds"]` for a single-suit wash. An unknown suit name fails at `led-ticker validate`. |
+| `seed`  | `None` (OS entropy) | Fixes the glyph layout and ripple timing for reproducible runs. Leave unset for a real deploy.                                                         |
+
+#### Behavior notes
+
+- **The reveal is against black.** Like `flair.fireworks`, the second half reveals the incoming widget inside the ripple wakes against black (hardware can't composite two widgets — there is no `GetPixel`), then covers the whole panel by the end. The suit glyphs and their rings share one shape function, which is what lets the ripples take each suit's outline.
+- **Single-suit is a theme, all-suits is a shuffle.** `suits = ["hearts"]` gives a wall of heart ripples; omitting `suits` mixes all four across the grid.
 
 <RelatedPages slugs={["transitions/push", "transitions/wipe", "concepts/animations"]} />

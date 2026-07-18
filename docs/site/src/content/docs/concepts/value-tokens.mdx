@@ -5,6 +5,7 @@ description: "Embed live clock, date, weather, and other values in any widget's 
 
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import DemoGif from "../../../components/DemoGif.astro";
 
 Any text-bearing widget can embed a **value token** — a `:name:` placeholder that resolves to a live string at display time. Declare the source once at the top of your config; reference it anywhere in a `text =` field (or `top_text`, `bottom_text`, overlay text on image/gif widgets).
 
@@ -100,13 +101,14 @@ font_color = [80, 140, 255] # blue — colors everything else`}
 
 Token colors compose with a per-character host color too: a message with `font_color = "rainbow"` and a colored token keeps sweeping the rainbow across its literal text while the token itself stays fixed in the source's color.
 
-**This release: `message` widgets only.** `two_row` and the text overlay on `gif`/`image` widgets don't read a source's `color` yet — a token there always renders in the widget's own color, regardless of what the source declares. Support for those is a planned follow-up.
+Colored tokens work in every widget that reads inline tokens: `message`, `two_row` (both rows), and the text overlay on `gif` / `image` widgets. On a `two_row` widget, use `top_color` / `bottom_color` for the row's literal text; a token on that row still takes its source's `color`.
 
-One honest scope boundary, narrow:
+<DemoGif
+  src="/demos-pinned/token-color-two-row.gif"
+  caption="A `two_row` widget: the `:status:` token renders in its source's green on both rows, while the literal labels keep the row's white."
+/>
 
-- **A `flair.fisheye` lens drops token colors.** Under [`animation = "flair.fisheye"`](/concepts/animations/#flairfisheye-flair-pack), the whole message renders in the widget's `font_color` — a source's `color` isn't applied while the text is passing through the lens.
-
-A `typewriter` reveal colors tokens correctly the whole time, including when the message mixes a colored token with inline `:slug:` emoji — each token character takes the source's color as soon as it appears on screen.
+A `typewriter` reveal colors tokens correctly the whole time, including when the message mixes a colored token with inline `:slug:` emoji — each token character takes the source's color as soon as it appears on screen. A colored token also keeps its color under a [`flair.fisheye`](/concepts/animations/#flairfisheye-flair-pack) lens.
 
 ## The three source types
 

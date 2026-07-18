@@ -1,0 +1,37 @@
+# render-duration: 10
+# requires-plugins: led-ticker-flair (>= 0.10.0; render locally with the plugin installed)
+[display]
+rows = 64
+cols = 256
+chain_length = 1
+default_scale = 4
+brightness = 70
+
+[transitions]
+duration = 2.5
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+transition = {type = "flair.poker", seed = 3}
+
+[[playlist.section.widget]]
+type = "message"
+text = "ANTE UP"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 255, 255]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+transition = {type = "flair.poker", seed = 3}
+
+[[playlist.section.widget]]
+type = "message"
+text = "ALL IN"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [0, 220, 255]

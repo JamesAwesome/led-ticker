@@ -1,0 +1,37 @@
+# render-duration: 10
+# requires-plugins: led-ticker-flair (>= 0.9.0; render locally with the plugin installed)
+[display]
+rows = 64
+cols = 256
+chain_length = 1
+default_scale = 4
+brightness = 70
+
+[transitions]
+duration = 2.5
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+transition = {type = "flair.stickers", emoji = ["taco"], seed = 7}
+
+[[playlist.section.widget]]
+type = "message"
+text = "TACO"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 190, 0]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+transition = {type = "flair.stickers", emoji = ["taco"], seed = 7}
+
+[[playlist.section.widget]]
+type = "message"
+text = "TUESDAY"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [80, 200, 60]

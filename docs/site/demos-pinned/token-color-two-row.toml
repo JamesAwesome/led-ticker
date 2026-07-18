@@ -1,0 +1,31 @@
+# render-duration: 6
+[display]
+rows = 64
+cols = 256
+chain_length = 1
+default_scale = 4
+brightness = 70
+
+[[source]]
+id = "status"
+type = "static"
+value = "OPEN"
+color = [80, 220, 80]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "FIREBIRD :status:"
+bottom_text = "Mon-Fri 6am-9pm  ·  :status: now"
+top_color = [255, 255, 255]
+bottom_color = [255, 255, 255]
+top_align = "center"
+top_row_height = 10
+top_font = "Inter-Bold"
+top_font_size = 30
+bottom_font = "Inter-Regular"
+bottom_font_size = 18
+bottom_font_threshold = 80

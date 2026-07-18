@@ -50,7 +50,11 @@ from led_ticker.colors import DEFAULT_COLOR
 from led_ticker.drawing import get_text_width, safe_scale
 from led_ticker.fonts import FONT_SMALL, font_line_height_logical
 from led_ticker.pixel_emoji import draw_with_emoji, has_renderable_emoji, measure_width
-from led_ticker.sources import TokenizedField, get_data_registry
+from led_ticker.sources import (
+    TokenizedField,
+    build_token_color_override,
+    get_data_registry,
+)
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
@@ -172,6 +176,14 @@ class TwoRowMessage(FrameAwareBase):
     _bottom_token: TokenizedField | None = attrs.field(init=False, default=None)
     _resolved_top: str = attrs.field(init=False, default="")
     _resolved_bottom: str = attrs.field(init=False, default="")
+    # Frozen per-row segment snapshots (typed spans of the resolved string:
+    # (text, color, is_emoji)) taken at the SAME registry read that sets
+    # `_resolved_top` / `_resolved_bottom`, so text + segments can't drift under
+    # a frozen registry (spec §2). Built only when that row's field
+    # `has_tokens`; otherwise `None`, and `build_token_color_override` returns
+    # `None` — the draw path is byte-identical to a non-token widget.
+    _top_segments: Any = attrs.field(init=False, default=None)
+    _bottom_segments: Any = attrs.field(init=False, default=None)
 
     @property
     def wraps_forever(self) -> bool:
@@ -323,12 +335,16 @@ class TwoRowMessage(FrameAwareBase):
             resolved, changed = self._top_token.resolve(reg)
             if changed:
                 self._resolved_top = resolved
+                # Refresh the segment snapshot in the SAME block as the flat
+                # text so they can't drift (spec §2).
+                self._top_segments = self._top_token.resolve_segments(reg)
                 # Invalidate top width so alignment re-centers on the new value.
                 self._top_width = -1
         if self._bottom_token is not None and self._bottom_token.has_tokens:
             resolved, changed = self._bottom_token.resolve(reg)
             if changed:
                 self._resolved_bottom = resolved
+                self._bottom_segments = self._bottom_token.resolve_segments(reg)
                 # Invalidate bottom width so overflow re-decides on the new value.
                 self._bottom_width = -1
 
@@ -344,10 +360,12 @@ class TwoRowMessage(FrameAwareBase):
         if self._top_token is not None and self._top_token.has_tokens:
             resolved, _ = self._top_token.resolve(reg)
             self._resolved_top = resolved
+            self._top_segments = self._top_token.resolve_segments(reg)
             self._top_width = -1
         if self._bottom_token is not None and self._bottom_token.has_tokens:
             resolved, _ = self._bottom_token.resolve(reg)
             self._resolved_bottom = resolved
+            self._bottom_segments = self._bottom_token.resolve_segments(reg)
             self._bottom_width = -1
 
     def _font_for_row(self, row_index: int) -> Font:
@@ -394,6 +412,34 @@ class TwoRowMessage(FrameAwareBase):
             return measure_width(font, sep, canvas=canvas)
         return get_text_width(font, sep, padding=0, canvas=canvas)
 
+    def _row_override(self, text: str, segments: Any, frame_key: str) -> Any:
+        """Build the `draw_with_emoji` `color_override` callable for one row,
+        or `None` when no token in the row declares a color (byte-identical
+        path). Shared by all three draw sites (default top `:667`, default
+        bottom `:702`, wrap-mode `_draw_row_text_at`) so the colored-token
+        override is built ONE way.
+
+        The `has_emoji` basis is `has_renderable_emoji(text)` — the SAME
+        predicate the row's `draw_with_emoji` uses to select its
+        emoji-EXCLUDING `char_index` space (spec §2). Building the override
+        with that exact basis keeps the per-char list aligned to the drawn
+        char space, so a trailing literal never steals a token's color when a
+        token VALUE resolves to a string that itself contains an emoji slug
+        (e.g. a weather source returning ``:sun: 72``).
+
+        Returns a `Callable[[int], Color | None]` (the shape
+        `draw_with_emoji` expects) or `None`. `None` per-index entries defer
+        to the row's host provider — applied by the caller, never here.
+        """
+        if not segments:
+            return None
+        override = build_token_color_override(
+            segments, text, self.frame_for(frame_key), has_renderable_emoji(text)
+        )
+        if override is None:
+            return None
+        return lambda i, _ov=override: _ov[i] if i < len(_ov) else None
+
     def _draw_row_text_at(
         self,
         canvas: Canvas,
@@ -412,8 +458,15 @@ class TwoRowMessage(FrameAwareBase):
         so tests can patch `tr_mod.draw_text`) and emoji-containing text
         through `draw_with_emoji`. Per-char providers iterate via
         `draw_text_per_char`; whole-string providers materialize a single
-        color per call."""
+        color per call. A colored value token supplies a per-char `override`
+        that wins over the host provider on its own chars (forcing the
+        per-char path even for a constant host); `override is None` (no
+        token color) leaves each branch byte-identical to today."""
         frame_count = self.frame_for(frame_key)
+        segments = (
+            self._top_segments if frame_key == "top_color" else self._bottom_segments
+        )
+        override = self._row_override(text, segments, frame_key)
         if has_renderable_emoji(text):
             draw_with_emoji(
                 canvas,
@@ -425,18 +478,35 @@ class TwoRowMessage(FrameAwareBase):
                 emoji_y=emoji_y,
                 max_emoji_height=emoji_cap,
                 frame=frame_count,
+                color_override=override,
             )
             return
         # Plain text path — dispatch per-char vs whole-string.
         if hasattr(provider, "color_for") and getattr(provider, "per_char", False):
-            draw_text_per_char(
-                canvas,
-                font,
-                x,
-                baseline_y,
-                text,
-                lambda idx, total: provider.color_for(frame_count, idx, total),
-            )
+
+            def _per_char(idx: int, total: int, _o: Any = override) -> Any:
+                if _o is not None:
+                    c = _o(idx)
+                    if c is not None:
+                        return c
+                return provider.color_for(frame_count, idx, total)
+
+            draw_text_per_char(canvas, font, x, baseline_y, text, _per_char)
+            return
+        if override is not None:
+            # A colored token forces the per-char path even under a
+            # whole-string / constant host color so the override can win on
+            # individual chars while literals keep the host constant.
+            if hasattr(provider, "color_for"):
+                host = provider.color_for(frame_count, 0, len(text) or 1)
+            else:
+                host = provider
+
+            def _ws(idx: int, total: int, _o: Any = override, _h: Any = host) -> Any:
+                c = _o(idx)
+                return c if c is not None else _h
+
+            draw_text_per_char(canvas, font, x, baseline_y, text, _ws)
             return
         if hasattr(provider, "color_for"):
             color = provider.color_for(frame_count, 0, len(text) or 1)
@@ -674,6 +744,9 @@ class TwoRowMessage(FrameAwareBase):
             emoji_y=top_emoji_y,
             max_emoji_height=top_emoji_cap,
             frame=self.frame_for("top_color"),
+            color_override=self._row_override(
+                self._resolved_top, self._top_segments, "top_color"
+            ),
         )
 
         # Bottom row: cursor_pos is supplied by the framework. Three
@@ -709,6 +782,9 @@ class TwoRowMessage(FrameAwareBase):
             emoji_y=bottom_emoji_y,
             max_emoji_height=bottom_emoji_cap,
             frame=self.frame_for("bottom_color"),
+            color_override=self._row_override(
+                self._resolved_bottom, self._bottom_segments, "bottom_color"
+            ),
         )
 
         # Report cursor at the bottom-row's right edge so `_swap_and_scroll`

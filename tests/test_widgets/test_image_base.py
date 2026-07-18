@@ -3610,3 +3610,608 @@ class TestImageFisheyeLens:
             "_render_tick branch — rendered pixel count should shrink when "
             "only 1 char is visible"
         )
+
+
+class TestImageColoredTokens:
+    """Phase 2 §3: colored value tokens on the single-row image overlay.
+
+    A `:id:` value token renders in its source-declared `color`; surrounding
+    literal text keeps the widget's `font_color`. Byte-identical when no
+    source declares a color. `_draw_text`'s has_emoji basis is the RAW
+    `self._has_emoji()` cache (spec §3 / `:1028`), NOT the resolved text."""
+
+    def _make_still(self, tmp_path, **kw):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kw)
+
+    @staticmethod
+    def _colored_source(id_, value, rgb):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id=id_, value=value)
+        src.color = _ConstantColor(Color(*rgb))
+        return src
+
+    @staticmethod
+    def _lit(canvas):
+        return {
+            (x, y): canvas.get_pixel(x, y)
+            for x in range(canvas.width)
+            for y in range(canvas.height)
+            if canvas.get_pixel(x, y) != (0, 0, 0)
+        }
+
+    def test_token_uses_source_color_literal_keeps_font_color(self, tmp_path):
+        """'AAPL :id:' with a red-colored token renders 'AAPL ' in host
+        `font_color` (green) and the token value '99' in source red, with
+        the literal strictly LEFT of the token."""
+        from rgbmatrix.graphics import Color
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path, text="AAPL :id:", text_align="left", font_color=Color(*host)
+        )
+        assert w._token_text.has_tokens
+        w._resolve_overlay_text(locked=False)
+        assert w._resolved_text_single == "AAPL 99"
+
+        c = _stub_canvas()
+        w._draw_text(c, 2, 12, w.font_color)
+        lit = self._lit(c)
+        colors = set(lit.values())
+        assert host in colors, "literal 'AAPL' should render host green"
+        assert tok in colors, "token '99' should render source red"
+        assert colors <= {host, tok}, f"only host+token expected; got {colors!r}"
+        green_xs = [x for (x, _y), v in lit.items() if v == host]
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert max(green_xs) < min(red_xs), (
+            "literal (green) must be left of token (red)"
+        )
+
+    def test_no_color_source_is_byte_identical(self, tmp_path):
+        """A token field whose source declares NO color renders the EXACT
+        same pixels (positions + colors) as the pre-change path (override is
+        None, existing branches untouched)."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.sources import StaticSource
+
+        white = Color(255, 255, 255)
+        _set_registry(StaticSource(id="id", value="99"))  # no .color set
+        w = self._make_still(
+            tmp_path, text="AAPL :id:", text_align="left", font_color=white
+        )
+        w._resolve_overlay_text(locked=False)
+        assert w._text_segments is not None  # snapshot built (has tokens)
+        c_tok = _stub_canvas()
+        w._draw_text(c_tok, 2, 12, w.font_color)
+
+        # Control: literal message of the substituted string.
+        _set_registry()
+        control = self._make_still(
+            tmp_path, text="AAPL 99", text_align="left", font_color=white
+        )
+        c_lit = _stub_canvas()
+        control._draw_text(c_lit, 2, 12, control.font_color)
+        assert self._lit(c_tok) == self._lit(c_lit), (
+            "no-color token field must be byte-identical to the literal path"
+        )
+
+    def test_typewriter_prefix_colors_token(self, tmp_path):
+        """A colored token colorizes correctly DURING a typewriter reveal —
+        the override slices to the drawn prefix (`text_override`)."""
+        from rgbmatrix.graphics import Color
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path, text="AAPL :id:", text_align="left", font_color=Color(*host)
+        )
+        w._resolve_overlay_text(locked=False)
+        c = _stub_canvas()
+        # Mid-reveal prefix "AAPL 9": one token char ('9') revealed.
+        w._draw_text(c, 2, 12, w.font_color, text_override="AAPL 9")
+        colors = set(self._lit(c).values())
+        assert tok in colors, "revealed token char '9' should be red mid-reveal"
+        assert host in colors, "literal 'AAPL' keeps host green"
+        assert colors <= {host, tok}
+
+    def test_scroll_x_shift_keeps_token_colored(self, tmp_path):
+        """The colored token stays colored as the row x-shifts (full-string
+        override, no drift): draw at a negative x (scrolled left) and the
+        token still renders red."""
+        from rgbmatrix.graphics import Color
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path, text="AAPL :id:", text_align="left", font_color=Color(*host)
+        )
+        w._resolve_overlay_text(locked=False)
+        c = _stub_canvas()
+        w._draw_text(c, -3, 12, w.font_color)  # scrolled left by 3 px
+        colors = set(self._lit(c).values())
+        assert tok in colors, "token '99' should stay red under an x-shift"
+        assert host in colors
+
+    def test_token_value_with_emoji_aligns_raw_basis(self, tmp_path):
+        """has_emoji-BASIS test (RAW cache): the raw template ':id: END' has
+        NO emoji slug, so `_draw_text` picks the NON-emoji branch and renders
+        the resolved ':sun: 72 END' LITERALLY — EVERY char of ':sun: 72'
+        (the token value, 8 raw chars incl. the literal ':sun:' text) must
+        be token-red and every char of ' END' must be host, with a clean
+        boundary between them.
+
+        A resolved (`has_renderable_emoji(text)`) basis is True here (the
+        resolved string DOES contain a real emoji slug) and re-walks
+        `_parse_segments` skipping the ':sun:' run as a 0-text-char sprite —
+        but the ACTUAL draw still renders it as 5 literal chars (the branch
+        predicate is unchanged). That skips 5 slots off the front of the
+        override, so 'n', the trailing ':', ' ', '7', '2' all fall past the
+        end of the (too-short) override list and wrongly render host instead
+        of red — a coarse "some red / some host / red left of host" check
+        can't see this, since red still appears somewhere left of some host
+        pixels. Exact per-position coloring is the only guard that catches
+        it — this is what failed to catch the reviewer's mutation."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.drawing import get_text_width
+
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        token_value = ":sun: 72"
+        _set_registry(self._colored_source("id", token_value, tok))
+        w = self._make_still(
+            tmp_path, text=":id: END", text_align="left", font_color=Color(*host)
+        )
+        w._resolve_overlay_text(locked=False)
+        assert w._resolved_text_single == ":sun: 72 END"
+        # RAW template has no emoji slug — the branch predicate is False.
+        assert w._has_emoji() is False
+
+        c = _stub_canvas(width=96)
+        x0 = 2
+        w._draw_text(c, x0, 12, w.font_color)
+        lit = self._lit(c)
+
+        # Exact pixel-x boundary between the token value's rendered chars
+        # and the trailing literal, computed with the SAME per-char width
+        # accounting `draw_text_per_char` uses to advance its cursor — so
+        # this is the true boundary, not an approximation.
+        boundary_x = x0 + get_text_width(w.font, token_value, padding=0, canvas=c)
+
+        token_span_colors = {v for (x, _y), v in lit.items() if x < boundary_x}
+        literal_span_colors = {v for (x, _y), v in lit.items() if x >= boundary_x}
+        assert token_span_colors, "token value ':sun: 72' should render pixels"
+        assert literal_span_colors, "trailing literal ' END' should render pixels"
+        assert token_span_colors == {tok}, (
+            "every lit pixel in the token value's x-span "
+            f"(x < {boundary_x}) must be token-red; got "
+            f"{token_span_colors!r} — a resolved has_emoji basis lets host "
+            "bleed onto the token's own trailing chars"
+        )
+        assert literal_span_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {boundary_x}) must be host; got {literal_span_colors!r}"
+        )
+
+    def test_token_adjacent_to_raw_emoji_aligns(self, tmp_path):
+        """Space-less/raw-slug has_emoji-BASIS case: unlike the test above
+        (raw template has NO emoji slug, so `_has_emoji()` is False and
+        `build_token_color_override`'s emoji re-walk branch is never even
+        entered — that test cannot exercise the `+ len(value) + 2` offset
+        line at all), this test puts a REAL `:sun:` emoji slug in the RAW
+        template itself (`text=":sun: :id: END"`), so `self._has_emoji()`
+        is True, `_draw_text` takes the `draw_with_emoji` branch, and the
+        override's emoji re-walk (skipping the ':sun:' sprite's flat-string
+        span) actually runs.
+
+        The token value here is plain digits ('99', no emoji inside it) so
+        the boundary the re-walk must get right is the ':sun:' sprite's own
+        span — an off-by-one offset (`+ len(value) + 1`) shifts the token's
+        first digit ('9') to host color, a VISIBLE divergence (not masked
+        by a space, unlike a value with a space immediately after its own
+        embedded slug)."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import measure_width
+
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path,
+            text=":sun: :id: END",
+            text_align="left",
+            font_color=Color(*host),
+        )
+        w._resolve_overlay_text(locked=False)
+        assert w._resolved_text_single == ":sun: 99 END"
+        assert w._has_emoji() is True
+
+        c = _stub_canvas(width=96)
+        x0 = 2
+        w._draw_text(c, x0, 12, w.font_color)
+        lit = self._lit(c)
+
+        # End of the ':sun:' sprite (+ its trailing pad) — where the
+        # literal ' ' before the token begins.
+        sprite_end_x = x0 + measure_width(w.font, ":sun:", c)
+        digits_start_x = sprite_end_x + get_text_width(w.font, " ", padding=0, canvas=c)
+        digits_end_x = digits_start_x + get_text_width(
+            w.font, "99", padding=0, canvas=c
+        )
+
+        digit_colors = {
+            v for (x, _y), v in lit.items() if digits_start_x <= x < digits_end_x
+        }
+        literal_colors = {v for (x, _y), v in lit.items() if x >= digits_end_x}
+        assert digit_colors, "token digits '99' should render pixels"
+        assert literal_colors, "trailing literal ' END' should render pixels"
+        assert digit_colors == {tok}, (
+            "every lit pixel in the token's digit span "
+            f"(x in [{digits_start_x}, {digits_end_x})) must be token-red; "
+            f"got {digit_colors!r} — an off-by-one emoji re-walk offset "
+            "steals the token's first digit for the host color"
+        )
+        assert literal_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {digits_end_x}) must be host; got {literal_colors!r}"
+        )
+
+    def test_fisheye_lens_colors_token(self):
+        """§5 (I3): a colored token renders colored under `flair.fisheye` on
+        an image widget — the lens shares `_draw_text`, so the per-char color
+        map flows through the geometry-independent warp."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.animations import LensSpec
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = _DummyImage(
+            text="AAPL :id:", text_align="scroll_over", font_color=Color(*host)
+        )
+        w._resolve_overlay_text(locked=False)
+        assert w._resolved_text_single == "AAPL 99"
+
+        real = HeadlessCanvas(width=256, height=64)
+        canvas = ScaledCanvas(real, scale=4, content_height=16)
+        baseline = w._baseline_y(canvas)
+        w._render_tick(
+            canvas,
+            canvas,
+            0,
+            baseline,
+            2,
+            60,
+            lens=LensSpec(magnify=1.3, edge_squeeze=0.6),
+        )
+        colors = {
+            real.get_pixel(x, y)
+            for x in range(real.width)
+            for y in range(real.height)
+            if real.get_pixel(x, y) != (0, 0, 0)
+        }
+        assert tok in colors, "token '99' should render red through the fisheye lens"
+        assert host in colors, "literal 'AAPL' should render host green through lens"
+
+
+class TestImageColoredTokensTwoRow:
+    """Phase 2 §3: colored value tokens on the image/gif TWO-ROW text overlay.
+
+    A `:id:` value token in `top_text` / `bottom_text` renders in its
+    source-declared `color`; surrounding literals keep the ROW's host color
+    (`top_color` / `bottom_color`, falling back to `font_color`). The site is
+    `_draw_row_text`, whose emoji branch predicate is the COMPOUND
+    `self._has_emoji() and has_renderable_emoji(text)` (spec §3 / `:1118`) —
+    the override's has_emoji basis must be that exact expression, NOT the raw
+    cache alone (single-row) and NOT the resolved text alone (two_row wrap).
+    """
+
+    def _make_still(self, tmp_path, **kw):
+        from PIL import Image
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "tiny.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(path=img_path, **kw)
+
+    @staticmethod
+    def _colored_source(id_, value, rgb):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id=id_, value=value)
+        src.color = _ConstantColor(Color(*rgb))
+        return src
+
+    @staticmethod
+    def _lit(canvas):
+        return {
+            (x, y): canvas.get_pixel(x, y)
+            for x in range(canvas.width)
+            for y in range(canvas.height)
+            if canvas.get_pixel(x, y) != (0, 0, 0)
+        }
+
+    def _draw_row(self, w, c, row, x=2, baseline=12, emoji_y=4):
+        w._draw_row_text(
+            c,
+            w._row_font(row),
+            w._row_text(row),
+            w._row_color(row),
+            x,
+            baseline,
+            emoji_y,
+            frame_count=0,
+            row=row,
+        )
+
+    def test_top_token_uses_source_color_literal_keeps_top_color(self, tmp_path):
+        """`top_text='AAPL :id:'` with a red token renders 'AAPL ' in the
+        row host color (top_color green) and the token value '99' in source
+        red, literal strictly LEFT of the token."""
+        from rgbmatrix.graphics import Color
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path,
+            top_text="AAPL :id:",
+            bottom_text="pts",
+            top_color=Color(*host),
+        )
+        assert w._token_top.has_tokens
+        w._resolve_top_text(locked=False)
+        assert w._resolved_top_text == "AAPL 99"
+
+        c = _stub_canvas(width=96)
+        self._draw_row(w, c, 0)
+        lit = self._lit(c)
+        colors = set(lit.values())
+        assert host in colors, "literal 'AAPL' should render top_color green"
+        assert tok in colors, "token '99' should render source red"
+        assert colors <= {host, tok}, f"only host+token expected; got {colors!r}"
+        green_xs = [x for (x, _y), v in lit.items() if v == host]
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert max(green_xs) < min(red_xs), (
+            "literal (green) must be left of token (red)"
+        )
+
+    def test_bottom_token_uses_source_color_literal_keeps_bottom_color(self, tmp_path):
+        """Same as the top-row case, on the BOTTOM row with `bottom_color`."""
+        from rgbmatrix.graphics import Color
+
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path,
+            top_text="hi",
+            bottom_text="AAPL :id:",
+            bottom_color=Color(*host),
+        )
+        assert w._token_bottom.has_tokens
+        w._resolve_bottom_text(locked=False)
+        assert w._resolved_bottom_text == "AAPL 99"
+
+        c = _stub_canvas(width=96)
+        self._draw_row(w, c, 1)
+        lit = self._lit(c)
+        colors = set(lit.values())
+        assert host in colors, "literal 'AAPL' should render bottom_color"
+        assert tok in colors, "token '99' should render source red"
+        assert colors <= {host, tok}, f"only host+token expected; got {colors!r}"
+        blue_xs = [x for (x, _y), v in lit.items() if v == host]
+        red_xs = [x for (x, _y), v in lit.items() if v == tok]
+        assert max(blue_xs) < min(red_xs), "literal (host) must be left of token (red)"
+
+    def test_no_color_source_is_byte_identical(self, tmp_path):
+        """A two-row token field whose source declares NO color renders the
+        EXACT same pixels as the pre-change path (override None)."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.sources import StaticSource
+
+        white = Color(255, 255, 255)
+        _set_registry(StaticSource(id="id", value="99"))  # no .color set
+        w = self._make_still(
+            tmp_path,
+            top_text="hi",
+            bottom_text="AAPL :id:",
+            bottom_color=white,
+        )
+        w._resolve_bottom_text(locked=False)
+        assert w._bottom_segments is not None  # snapshot built (has tokens)
+        c_tok = _stub_canvas(width=96)
+        self._draw_row(w, c_tok, 1)
+
+        # Control: literal bottom text of the substituted string.
+        _set_registry()
+        control = self._make_still(
+            tmp_path,
+            top_text="hi",
+            bottom_text="AAPL 99",
+            bottom_color=white,
+        )
+        c_lit = _stub_canvas(width=96)
+        self._draw_row(control, c_lit, 1)
+        assert self._lit(c_tok) == self._lit(c_lit), (
+            "no-color token field must be byte-identical to the literal path"
+        )
+
+    def test_token_value_with_emoji_aligns_compound_basis(self, tmp_path):
+        """has_emoji-BASIS test (COMPOUND) — the key correctness guard.
+
+        Bottom raw template `:id: END` has NO emoji slug and the widget's
+        raw scan (`text + top_text + bottom_text`) has none either, so
+        `self._has_emoji()` is False → the COMPOUND
+        `self._has_emoji() and has_renderable_emoji(text)` is False → the
+        draw takes the NON-emoji branch and renders the resolved
+        `:sun: 72 END` LITERALLY. EVERY char of the token value `:sun: 72`
+        (8 raw chars incl. the literal `:sun:` text) must be token-red and
+        every char of ` END` must be host, with a clean boundary.
+
+        A RESOLVED-only basis (`has_renderable_emoji(text)`, True here because
+        the resolved string contains a real slug) re-walks `_parse_segments`
+        and SKIPS the `:sun:` run as a 0-text-char sprite — but the draw still
+        renders it as 5 literal chars, so 5 override slots vanish off the
+        front and the trailing token chars steal host color. Only exact
+        per-position coloring catches this — a coarse membership check does
+        not (Task 4's review proved that)."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.drawing import get_text_width
+
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        token_value = ":sun: 72"
+        _set_registry(self._colored_source("id", token_value, tok))
+        w = self._make_still(
+            tmp_path,
+            top_text="hi",
+            bottom_text=":id: END",
+            bottom_color=Color(*host),
+        )
+        w._resolve_bottom_text(locked=False)
+        assert w._resolved_bottom_text == ":sun: 72 END"
+        # Raw scan has no emoji slug — the compound predicate is False.
+        assert w._has_emoji() is False
+        from led_ticker.pixel_emoji import has_renderable_emoji
+
+        assert has_renderable_emoji(w._resolved_bottom_text) is True
+
+        c = _stub_canvas(width=128)
+        x0 = 2
+        self._draw_row(w, c, 1, x=x0)
+        lit = self._lit(c)
+
+        boundary_x = x0 + get_text_width(
+            w._row_font(1), token_value, padding=0, canvas=c
+        )
+        token_span_colors = {v for (x, _y), v in lit.items() if x < boundary_x}
+        literal_span_colors = {v for (x, _y), v in lit.items() if x >= boundary_x}
+        assert token_span_colors, "token value ':sun: 72' should render pixels"
+        assert literal_span_colors, "trailing literal ' END' should render pixels"
+        assert token_span_colors == {tok}, (
+            "every lit pixel in the token value's x-span "
+            f"(x < {boundary_x}) must be token-red; got {token_span_colors!r} "
+            "— a resolved-only has_emoji basis lets host bleed onto the "
+            "token's own trailing chars"
+        )
+        assert literal_span_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {boundary_x}) must be host; got {literal_span_colors!r}"
+        )
+
+    def test_token_adjacent_to_raw_emoji_aligns_compound_basis(self, tmp_path):
+        """Space-less/raw-slug has_emoji-BASIS case (COMPOUND) — unlike the
+        test above (raw scan has NO emoji slug anywhere, so the compound
+        predicate is False and `build_token_color_override`'s emoji
+        re-walk branch — the `+ len(value) + 2` line — is never entered),
+        this test puts a REAL `:sun:` emoji slug directly in `bottom_text`
+        (`":sun: :id: END"`), alongside the colored token, so BOTH halves
+        of the compound (`self._has_emoji()` — raw scan — AND
+        `has_renderable_emoji(text)` — resolved text) are True and the
+        draw takes the `draw_with_emoji` branch, actually exercising the
+        re-walk.
+
+        The token value is plain digits ('99', no emoji embedded in the
+        value itself), so an off-by-one offset (`+ len(value) + 1`) shifts
+        the token's first digit ('9') onto host color — a VISIBLE
+        divergence, not masked by an adjacent space the way a value like
+        ':sun: 72' (space right after its own embedded slug) can be."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import has_renderable_emoji, measure_width
+
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path,
+            top_text="hi",
+            bottom_text=":sun: :id: END",
+            bottom_color=Color(*host),
+        )
+        w._resolve_bottom_text(locked=False)
+        assert w._resolved_bottom_text == ":sun: 99 END"
+        # Raw scan HAS an emoji slug (the literal ':sun:') — the compound
+        # predicate is True on both halves.
+        assert w._has_emoji() is True
+        assert has_renderable_emoji(w._resolved_bottom_text) is True
+
+        c = _stub_canvas(width=128)
+        x0 = 2
+        self._draw_row(w, c, 1, x=x0)
+        lit = self._lit(c)
+
+        font = w._row_font(1)
+        sprite_end_x = x0 + measure_width(font, ":sun:", c)
+        digits_start_x = sprite_end_x + get_text_width(font, " ", padding=0, canvas=c)
+        digits_end_x = digits_start_x + get_text_width(font, "99", padding=0, canvas=c)
+
+        digit_colors = {
+            v for (x, _y), v in lit.items() if digits_start_x <= x < digits_end_x
+        }
+        literal_colors = {v for (x, _y), v in lit.items() if x >= digits_end_x}
+        assert digit_colors, "token digits '99' should render pixels"
+        assert literal_colors, "trailing literal ' END' should render pixels"
+        assert digit_colors == {tok}, (
+            "every lit pixel in the token's digit span "
+            f"(x in [{digits_start_x}, {digits_end_x})) must be token-red; "
+            f"got {digit_colors!r} — an off-by-one emoji re-walk offset "
+            "steals the token's first digit for the host color"
+        )
+        assert literal_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {digits_end_x}) must be host; got {literal_colors!r}"
+        )
+
+    def test_fast_path_bypassed_for_token_field_and_renders_colored(self, tmp_path):
+        """I2: a colored token in a two-row field keeps `_has_overlay_tokens()`
+        True so the static two-row fast path (`:2032`) is bypassed; the token
+        still renders colored via `_draw_row_text`."""
+        from rgbmatrix.graphics import Color
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path,
+            top_text="AAPL :id:",
+            bottom_text="pts",
+            top_color=Color(*host),
+        )
+        # Fast-path gate ANDs `not self._has_overlay_tokens()` — a token
+        # field must report True so the paint-once path is skipped.
+        assert w._has_overlay_tokens() is True
+
+        w._resolve_top_text(locked=False)
+        c = _stub_canvas(width=96)
+        self._draw_row(w, c, 0)
+        colors = set(self._lit(c).values())
+        assert tok in colors, "token '99' should render red on the fast-path field"
+        assert host in colors

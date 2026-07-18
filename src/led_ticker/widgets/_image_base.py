@@ -45,7 +45,11 @@ from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.lens_render import LensTextRenderer
 from led_ticker.pixel_emoji import has_renderable_emoji
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled
-from led_ticker.sources import TokenizedField, get_data_registry
+from led_ticker.sources import (
+    TokenizedField,
+    build_token_color_override,
+    get_data_registry,
+)
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._image_fit import (
@@ -280,6 +284,22 @@ class _BaseImageWidget(FrameAwareBase):
     _resolved_text_single: str = attrs.field(init=False, default="")
     _resolved_top_text: str = attrs.field(init=False, default="")
     _resolved_bottom_text: str = attrs.field(init=False, default="")
+    # Frozen `resolve_segments` snapshot for the single-row `text` field —
+    # typed spans (text, color|None, is_emoji) captured at the SAME registry
+    # read that sets `_resolved_text_single`, so colored value tokens keep
+    # text + colors aligned under a frozen registry (scroll / typewriter).
+    # Built only when `_token_text.has_tokens`; `None` otherwise, in which
+    # case `build_token_color_override` returns `None` and `_draw_text` is
+    # byte-identical to the pre-token path.
+    _text_segments: Any = attrs.field(init=False, default=None)
+    # Per-row segment snapshots for the two-row overlay (`top_text` /
+    # `bottom_text`), DISTINCT from the single-row `_text_segments`. Each is
+    # captured at the SAME registry read that sets `_resolved_top_text` /
+    # `_resolved_bottom_text`; built only when that row's `TokenizedField`
+    # has tokens, else `None` ⇒ `build_token_color_override` returns `None`
+    # and `_draw_row_text` is byte-identical to the pre-token path.
+    _top_segments: Any = attrs.field(init=False, default=None)
+    _bottom_segments: Any = attrs.field(init=False, default=None)
     _anim_resolution_lock: bool = attrs.field(init=False, default=False)
 
     # ------------------------------------------------------------------
@@ -689,8 +709,12 @@ class _BaseImageWidget(FrameAwareBase):
             return
         if locked or self._anim_resolution_lock:
             return
-        resolved, _ = self._token_text.resolve(get_data_registry())
+        reg = get_data_registry()
+        resolved, _ = self._token_text.resolve(reg)
         self._resolved_text_single = resolved
+        # Refresh the segment snapshot from the SAME registry read so the
+        # colored-token override can't drift from the flat text (spec §3).
+        self._text_segments = self._token_text.resolve_segments(reg)
 
     def _resolve_top_text(self, locked: bool) -> None:
         """Resolve the two-row top field (`top_text`). No-op for non-token.
@@ -701,8 +725,12 @@ class _BaseImageWidget(FrameAwareBase):
             return
         if locked or self._anim_resolution_lock:
             return
-        resolved, _ = self._token_top.resolve(get_data_registry())
+        reg = get_data_registry()
+        resolved, _ = self._token_top.resolve(reg)
         self._resolved_top_text = resolved
+        # Refresh the top-row segment snapshot from the SAME registry read so
+        # the colored-token override can't drift from the flat text (spec §3).
+        self._top_segments = self._token_top.resolve_segments(reg)
 
     def _resolve_bottom_text(self, locked: bool) -> None:
         """Resolve the two-row bottom field (`bottom_text`). No-op for
@@ -714,8 +742,12 @@ class _BaseImageWidget(FrameAwareBase):
             return
         if locked or self._anim_resolution_lock:
             return
-        resolved, _ = self._token_bottom.resolve(get_data_registry())
+        reg = get_data_registry()
+        resolved, _ = self._token_bottom.resolve(reg)
         self._resolved_bottom_text = resolved
+        # Refresh the bottom-row segment snapshot from the SAME registry read
+        # so the colored-token override can't drift from the flat text.
+        self._bottom_segments = self._token_bottom.resolve_segments(reg)
 
     def reset_frame(self) -> None:
         """Visit-entry reset: clear the typewriter resolution lock so the
@@ -1025,6 +1057,26 @@ class _BaseImageWidget(FrameAwareBase):
         # reveal (I3). Raw `:t:` (3 chars) vs substituted "ABCDE" (5 chars)
         # differ — we must count the substituted length.
         per_char_total = len(full_display) if full_display else 1
+        # Colored value-token override (spec §3). The `has_emoji` basis MUST
+        # match the branch predicate this method uses (`self._has_emoji()`,
+        # the RAW cache) — passing a resolved-text basis would misalign the
+        # per-char list against the drawn char space and let a trailing
+        # literal steal a token's color. `visible_text=text` is the actually
+        # drawn string (typewriter prefix or full resolved). `None` when no
+        # source in the field declares a color ⇒ byte-identical below.
+        frame = self.frame_for("font_color")
+        override_list = (
+            build_token_color_override(
+                self._text_segments, text, frame, self._has_emoji()
+            )
+            if self._text_segments
+            else None
+        )
+        override = (
+            (lambda i, _ov=override_list: _ov[i] if i < len(_ov) else None)
+            if override_list is not None
+            else None
+        )
         if self._has_emoji():
             from led_ticker.pixel_emoji import count_text_chars, draw_with_emoji
 
@@ -1042,27 +1094,42 @@ class _BaseImageWidget(FrameAwareBase):
                 baseline_y,
                 color,
                 text,
-                frame=self.frame_for("font_color"),
+                frame=frame,
                 total_chars=full_total_chars,
                 hires_downscale=hires_downscale,
+                color_override=override,
             )
         # Plain-text per-char path: rainbow / gradient iterate chars so
         # each character renders with its own hue. Mirrors
-        # `TickerMessage.draw`'s per-char branch.
+        # `TickerMessage.draw`'s per-char branch. A colored token supplies
+        # a per-char override that wins over the host provider on its chars.
         if hasattr(color, "color_for") and color.per_char:
-            return draw_text_per_char(
-                canvas,
-                self.font,
-                x,
-                baseline_y,
-                text,
-                lambda idx, total: color.color_for(
-                    self.frame_for("font_color"), idx, per_char_total
-                ),
-            )
+
+            def _per_char(idx: int, total: int, _o: Any = override) -> Any:
+                if _o is not None:
+                    c = _o(idx)
+                    if c is not None:
+                        return c
+                return color.color_for(frame, idx, per_char_total)
+
+            return draw_text_per_char(canvas, self.font, x, baseline_y, text, _per_char)
+        if override is not None:
+            # A colored token forces the per-char path even under a
+            # whole-string / constant host color so the override can win on
+            # individual chars while literals keep the host constant.
+            if hasattr(color, "color_for"):
+                host = color.color_for(frame, 0, per_char_total)
+            else:
+                host = color
+
+            def _ws(idx: int, total: int, _o: Any = override, _h: Any = host) -> Any:
+                c = _o(idx)
+                return c if c is not None else _h
+
+            return draw_text_per_char(canvas, self.font, x, baseline_y, text, _ws)
         # Whole-string provider or constant Color.
         if hasattr(color, "color_for"):
-            color = color.color_for(self.frame_for("font_color"), 0, per_char_total)
+            color = color.color_for(frame, 0, per_char_total)
         return draw_text(canvas, self.font, x, baseline_y, color, text)
 
     def _measure_row_text(
@@ -1098,6 +1165,7 @@ class _BaseImageWidget(FrameAwareBase):
         emoji_y: int,
         frame_count: int,
         max_emoji_height: int = EMOJI_ROW_CAP,
+        row: int = -1,
     ) -> None:
         """Draw one row's text given pre-resolved font / text / color.
         Caller (`_render_two_row_tick`) resolves these once outside the
@@ -1114,7 +1182,41 @@ class _BaseImageWidget(FrameAwareBase):
         across visits instead of reading the primary engine tick
         counter. Passed explicitly because this helper doesn't know
         which row it's drawing for.
+
+        `row` (0=top, 1=bottom) selects which per-row segment snapshot
+        (`_top_segments` / `_bottom_segments`) to build the colored
+        value-token override from — passed by the composer since this
+        helper is fed pre-resolved tuples with no segment field
+        (Option B: row-id lookup, no tuple widening). The override's
+        `has_emoji` basis MUST equal this site's branch predicate, the
+        COMPOUND `self._has_emoji() and has_renderable_emoji(text)`
+        (spec §3) — a raw-only or resolved-only basis misaligns the
+        per-char list against the drawn char space and lets a trailing
+        literal steal a token's color. `None` (no source declares a
+        color, or a non-token row) ⇒ byte-identical to the pre-token path.
         """
+        segments = (
+            self._top_segments
+            if row == 0
+            else self._bottom_segments
+            if row == 1
+            else None
+        )
+        override_list = (
+            build_token_color_override(
+                segments,
+                text,
+                frame_count,
+                self._has_emoji() and has_renderable_emoji(text),
+            )
+            if segments
+            else None
+        )
+        override = (
+            (lambda i, _ov=override_list: _ov[i] if i < len(_ov) else None)
+            if override_list is not None
+            else None
+        )
         if self._has_emoji() and has_renderable_emoji(text):
             from led_ticker.pixel_emoji import draw_with_emoji
 
@@ -1128,17 +1230,34 @@ class _BaseImageWidget(FrameAwareBase):
                 emoji_y=emoji_y,
                 max_emoji_height=max_emoji_height,
                 frame=frame_count,
+                color_override=override,
             )
         elif hasattr(color, "color_for") and color.per_char:
             # Plain-text per-char path: rainbow / gradient iterate chars.
-            draw_text_per_char(
-                canvas,
-                font,
-                x,
-                baseline_y,
-                text,
-                lambda idx, total: color.color_for(frame_count, idx, total),
-            )
+            # A colored token supplies a per-char override that wins over
+            # the host provider on its chars.
+            def _per_char(idx: int, total: int, _o: Any = override) -> Any:
+                if _o is not None:
+                    c = _o(idx)
+                    if c is not None:
+                        return c
+                return color.color_for(frame_count, idx, total)
+
+            draw_text_per_char(canvas, font, x, baseline_y, text, _per_char)
+        elif override is not None:
+            # A colored token forces the per-char path even under a
+            # whole-string / constant host color so the override can win on
+            # individual chars while literals keep the host constant.
+            if hasattr(color, "color_for"):
+                host = color.color_for(frame_count, 0, len(text) if text else 1)
+            else:
+                host = color
+
+            def _ws(idx: int, total: int, _o: Any = override, _h: Any = host) -> Any:
+                c = _o(idx)
+                return c if c is not None else _h
+
+            draw_text_per_char(canvas, font, x, baseline_y, text, _ws)
         else:
             # Whole-string provider or constant Color.
             if hasattr(color, "color_for"):
@@ -1430,12 +1549,14 @@ class _BaseImageWidget(FrameAwareBase):
             *top,
             frame_count=self.frame_for(self._row_color_attr(0)),
             max_emoji_height=top_emoji_cap,
+            row=0,
         )
         self._draw_row_text(
             text_canvas,
             *bottom,
             frame_count=self.frame_for(self._row_color_attr(1)),
             max_emoji_height=bottom_emoji_cap,
+            row=1,
         )
 
     def _render_two_row_wrap_tick(
@@ -1476,6 +1597,7 @@ class _BaseImageWidget(FrameAwareBase):
             *top,
             frame_count=self.frame_for(self._row_color_attr(0)),
             max_emoji_height=top_emoji_cap,
+            row=0,
         )
 
         # Bottom row: n_copies of (text + separator).
@@ -1496,6 +1618,7 @@ class _BaseImageWidget(FrameAwareBase):
                 bottom_emoji_y,
                 frame_count=self.frame_for(self._row_color_attr(1)),
                 max_emoji_height=bottom_emoji_cap,
+                row=1,
             )
             # separator (whole-string, parameterized helper)
             if sep_width > 0:

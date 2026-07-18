@@ -885,12 +885,15 @@ class TestSnapshotOnceLifecycle:
     def _branch_call_spy(monkeypatch):
         """Return a (draw_text_calls, blit_calls) pair of lists.
 
-        Patches ``led_ticker.widgets.message.draw_text`` with a transparent
+        Patches ``led_ticker.widgets._text_run.draw_text`` with a transparent
         spy (forwards the call), and ``led_ticker.rotate.rotate_blit`` with
         a transparent spy (also forwards). Both lists accumulate call counts.
+        The whole-string branch's ``draw_text`` call was extracted from
+        ``message.draw`` into the shared ``draw_text_run`` helper (Task 2), so
+        the spy patches the helper module where the call now lives.
         """
         import led_ticker.rotate as rotate_mod
-        import led_ticker.widgets.message as msg_mod
+        import led_ticker.widgets._text_run as text_run_mod
         from led_ticker.text_render import draw_text as _real_draw_text
 
         draw_text_calls: list[int] = []
@@ -910,7 +913,7 @@ class TestSnapshotOnceLifecycle:
                 dst, src, angle, cx, cy, src_extent=src_extent, tx=tx, ty=ty
             )
 
-        monkeypatch.setattr(msg_mod, "draw_text", _spy_draw_text)
+        monkeypatch.setattr(text_run_mod, "draw_text", _spy_draw_text)
         monkeypatch.setattr(rotate_mod, "rotate_blit", _spy_rotate_blit)
         return draw_text_calls, blit_calls
 

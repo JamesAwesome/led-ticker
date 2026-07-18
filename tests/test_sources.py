@@ -610,3 +610,11 @@ async def test_prime_ignores_sync_sources():
     reg = DataRegistry()
     reg.add(StaticSource(id="s", value="x"))  # not polled -> not awaited
     await asyncio.wait_for(prime_polled_sources(reg, timeout=0.05), timeout=1.0)
+
+
+def test_build_token_color_override_is_public_in_sources():
+    from led_ticker.sources import build_token_color_override
+
+    # all-literal segments (no color) -> None
+    segs = [("hello", None, False)]
+    assert build_token_color_override(segs, "hello", 0, has_emoji=False) is None

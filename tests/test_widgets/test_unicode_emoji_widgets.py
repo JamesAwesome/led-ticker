@@ -110,10 +110,11 @@ class TestTickerMessageUnicodeEmoji:
         """When text contains a mapped Unicode emoji, draw() must call
         draw_with_emoji (not the plain draw_text path).
 
-        message.py uses draw_with_emoji via a lazy inline import from
-        led_ticker.pixel_emoji, so we patch the source module.
+        message.draw's three-branch dispatch was extracted into the shared
+        draw_text_run helper (Task 2), which binds draw_with_emoji at module
+        import, so we patch the helper module where the call now resolves.
         """
-        import led_ticker.pixel_emoji as pe
+        import led_ticker.widgets._text_run as text_run_mod
 
         calls: list[tuple] = []
 
@@ -121,7 +122,7 @@ class TestTickerMessageUnicodeEmoji:
             calls.append((x, text))
             return 50  # fake advance
 
-        monkeypatch.setattr(pe, "draw_with_emoji", fake_draw_with_emoji)
+        monkeypatch.setattr(text_run_mod, "draw_with_emoji", fake_draw_with_emoji)
 
         from led_ticker.widgets.message import TickerMessage
 
@@ -135,11 +136,12 @@ class TestTickerMessageUnicodeEmoji:
         called (which strips unmapped emoji) — NOT the plain draw_text path
         (which would render a box).
 
-        message.py uses draw_with_emoji via a lazy inline import from
-        led_ticker.pixel_emoji, so we patch the source module.
+        message.draw's three-branch dispatch was extracted into the shared
+        draw_text_run helper (Task 2), which binds draw_with_emoji / draw_text
+        at module import, so we patch the helper module where the calls now
+        resolve.
         """
-        import led_ticker.pixel_emoji as pe
-        import led_ticker.widgets.message as msg_mod
+        import led_ticker.widgets._text_run as text_run_mod
 
         emoji_draw_calls: list = []
         plain_draw_calls: list = []
@@ -151,8 +153,8 @@ class TestTickerMessageUnicodeEmoji:
         def fake_draw_text(canvas, font, x, y, color, text):
             plain_draw_calls.append(text)
 
-        monkeypatch.setattr(pe, "draw_with_emoji", fake_draw_with_emoji)
-        monkeypatch.setattr(msg_mod, "draw_text", fake_draw_text)
+        monkeypatch.setattr(text_run_mod, "draw_with_emoji", fake_draw_with_emoji)
+        monkeypatch.setattr(text_run_mod, "draw_text", fake_draw_text)
 
         from led_ticker.widgets.message import TickerMessage
 

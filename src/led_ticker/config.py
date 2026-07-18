@@ -103,6 +103,12 @@ class TransitionConfig:
     # "pokeball.forward", show_pikachu=false} -> extra={"show_pikachu": False}).
     # Passed to the plugin transition's constructor; empty for built-in transitions.
     extra: dict[str, Any] = field(default_factory=dict)
+    # Whether the parsed table explicitly wrote a `type` key. False only for an
+    # inline table with NO `type` (a bare string or a built-in default is
+    # True). validate rule 66 uses this: a typeless table with non-empty
+    # `extra` silently fell back to the inherited/cut type and ignored those
+    # keys — the classic `{style = "..."}` (should be `type`) mistake.
+    type_specified: bool = True
 
 
 @dataclass
@@ -593,6 +599,7 @@ def _parse_transition(
         separator_font_size=raw.get("separator_font_size"),
         separator_size=raw.get("separator_size"),
         extra=extra,
+        type_specified="type" in raw,
     )
 
 

@@ -1020,6 +1020,61 @@ def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue
     return issues
 
 
+def _check_typeless_transition_table(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 66: an inline transition table with NO `type` key that carries
+    other (non-built-in) keys silently fell back to the inherited/cut type and
+    IGNORED those keys — the sign runs the wrong (usually `cut`) transition.
+
+    The classic case is `{ style = "flair.stickers" }` — `style` is not a
+    transition key, so `type` defaults and `style` lands in `extra`. A typo'd
+    `type` (`{ tpye = "..." }`) behaves the same. Fires only when the user
+    actually wrote the transition home; a bare-string transition or a
+    built-in default is `type_specified=True` and skipped, and an unknown
+    transition NAME is a separate (error-level) check.
+    """
+    from led_ticker.config import TransitionConfig
+
+    issues: list[ValidationIssue] = []
+
+    def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
+        if trans_cfg is None or trans_cfg.type_specified or not trans_cfg.extra:
+            return
+        keys = sorted(trans_cfg.extra)
+        style_hint = (
+            " A `style =` key is the usual mistake — the key is `type`."
+            if "style" in trans_cfg.extra
+            else ""
+        )
+        issues.append(
+            ValidationIssue(
+                rule=66,
+                location=location,
+                severity="warning",
+                message=(
+                    f"transition table has no `type` key — it falls back to "
+                    f"{trans_cfg.type!r} and these keys are ignored: {keys}."
+                    + style_hint
+                ),
+                fix=(
+                    'Pick the transition with `type = "..."`, '
+                    f'e.g. `{location.split(".")[-1]} = {{ type = "..." }}`.'
+                ),
+            )
+        )
+
+    if config.between_sections_specified:
+        _check(config.between_sections, "transitions.between_sections")
+    for i, section in enumerate(config.sections):
+        if section.transition_specified:
+            _check(section.transition, f"section[{i}].transition")
+        if section.entry_transition is not None:
+            _check(section.entry_transition, f"section[{i}].entry_transition")
+        if section.widget_transition is not None:
+            _check(section.widget_transition, f"section[{i}].widget_transition")
+
+    return issues
+
+
 def _check_scroll_separator_font(
     config: AppConfig,
 ) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
@@ -3252,6 +3307,7 @@ def _validate_static_postbuild(
         warnings.extend(_check_lens_hires_font(config))
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
+        warnings.extend(_check_typeless_transition_table(config))
         warnings.extend(_check_plugin_validation_warnings(config, effective_config_dir))
 
     # Phase 2 (strict only): asset path existence check.

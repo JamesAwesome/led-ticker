@@ -4182,3 +4182,144 @@ async def test_wrong_schema_sections_flagged_as_empty_playlist(conf):
     result = await validate_config(conf(cfg))
     assert result.valid is False
     assert any("no sections" in e.message for e in result.errors)
+
+
+# ---------------------------------------------------------------------------
+# Rule 66: transition inline table with no `type` key falls back silently
+# ---------------------------------------------------------------------------
+
+
+async def test_rule66_style_key_instead_of_type_warns(conf):
+    """`{style = "..."}` (the classic mistake) has no `type`, so it falls back
+    to cut and the intended transition never fires — warn."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        transition = { style = "flair.stickers" }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    warns = [w for w in result.warnings if w.rule == 66]
+    assert len(warns) == 1
+    assert "style" in warns[0].message  # calls out the likely fix
+
+
+async def test_rule66_typoed_type_key_warns(conf):
+    """A misspelled `type` key (`tpye`) also lands in extra with no type."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        entry_transition = { tpye = "flair.poker" }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 66 for w in result.warnings)
+
+
+async def test_rule66_correct_type_with_plugin_keys_no_warn(conf):
+    """A table WITH `type` + plugin keys in extra is correct — no warn."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        transition = { type = "flair.stickers", emoji = ["taco"] }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(w.rule == 66 for w in result.warnings)
+
+
+async def test_rule66_builtin_knob_only_no_warn(conf):
+    """`{duration = ...}` adjusts an inherited transition — extra is empty,
+    no type intended — must NOT warn."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [transitions]
+        default = "push_left"
+
+        [[playlist.section]]
+        mode = "slideshow"
+        transition = { duration = 0.8 }
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(w.rule == 66 for w in result.warnings)
+
+
+async def test_rule66_bare_string_no_warn(conf):
+    """A bare string is the type itself — an unknown NAME is a separate check;
+    rule 66 (typeless table) must not fire on a string."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+        transition = "dissolve"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(w.rule == 66 for w in result.warnings)
+
+
+async def test_rule66_on_between_sections_warns(conf):
+    """The global between_sections home is checked too."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [transitions]
+        between_sections = { style = "flair.fireworks" }
+
+        [[playlist.section]]
+        mode = "slideshow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 66 for w in result.warnings)

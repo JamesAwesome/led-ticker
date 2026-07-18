@@ -262,6 +262,18 @@ For other widgets, use `font_color = "rainbow"` or other color effects instead.
 
 ---
 
+## Rule 22: transition inline table MUST use `type`, not `style`
+
+**SOURCE:** Core `validate` rule 66 (`_check_typeless_transition_table`).
+
+**DETECT:** An inline transition table (`transition` / `entry_transition` / `widget_transition` / `[transitions] between_sections`) that OMITS the `type` key — most often `{ style = "flair.stickers" }` (wrong key) or a typo'd `{ tpye = "..." }`.
+
+**SYMPTOM:** With no `type`, the table silently falls back to the inherited/`cut` transition and the stray keys (`style`, plugin knobs) are dropped into `extra` and ignored — the intended transition never fires. No load-time error; `validate` emits a rule-66 WARNING.
+
+**FIX:** The key is `type`. Author every inline transition table as `{ type = "<name>", ...plugin knobs }`, e.g. `transition = { type = "flair.stickers", emoji = ["taco"] }`. Never emit a `style =` key for a transition.
+
+---
+
 ## Rule 2 caveat — font family naming assumption
 
 Rule 2's "same font family" detection relies on standard naming where the family stem is shared and weight is a suffix (e.g., `Inter-Regular` / `Inter-Bold`, `BelovedSans-Regular` / `BelovedSans-Bold`). Unconventional naming (e.g., `BelSans-R` / `BelSans-B`, or two unrelated-looking files in the same family) may evade detection. If using a non-standard naming convention, the skill cannot mechanically pair Bold to Regular — apply the threshold rule manually.

@@ -50,7 +50,7 @@ from led_ticker.sources import (
     build_token_color_override,
     get_data_registry,
 )
-from led_ticker.text_render import draw_text, draw_text_per_char
+from led_ticker.text_render import draw_text
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._image_fit import (
     VALID_IMAGE_ALIGNS,
@@ -1182,57 +1182,29 @@ class _BaseImageWidget(FrameAwareBase):
             if segments
             else None
         )
-        override = (
-            (lambda i, _ov=override_list: _ov[i] if i < len(_ov) else None)
-            if override_list is not None
-            else None
+        # Route the emoji / per-char / whole-string dispatch through the ONE
+        # shared `draw_text_run` helper (was ~3 hand-duplicated branches).
+        # `has_emoji` is the COMPOUND basis this row uses; `color` may be a raw
+        # Color (this method's contract), so coerce to a provider for the
+        # helper's `provider.per_char` dispatch. `total_chars=None` lets the
+        # helper derive the per-branch anchor (count_text_chars for emoji, len
+        # for per-char) — byte-identical to the two-row rows' prior defaults
+        # (they don't anchor to a full-substituted length; there's no
+        # typewriter on two-row rows).
+        provider = color if hasattr(color, "color_for") else _ConstantColor(color)
+        draw_text_run(
+            canvas,
+            font,
+            x,
+            baseline_y,
+            provider,
+            text,
+            frame_count,
+            override=override_list,
+            has_emoji=self._has_emoji() and has_renderable_emoji(text),
+            emoji_y=emoji_y,
+            max_emoji_height=max_emoji_height,
         )
-        if self._has_emoji() and has_renderable_emoji(text):
-            from led_ticker.pixel_emoji import draw_with_emoji
-
-            draw_with_emoji(
-                canvas,
-                font,
-                x,
-                baseline_y,
-                color,
-                text,
-                emoji_y=emoji_y,
-                max_emoji_height=max_emoji_height,
-                frame=frame_count,
-                color_override=override,
-            )
-        elif hasattr(color, "color_for") and color.per_char:
-            # Plain-text per-char path: rainbow / gradient iterate chars.
-            # A colored token supplies a per-char override that wins over
-            # the host provider on its chars.
-            def _per_char(idx: int, total: int, _o: Any = override) -> Any:
-                if _o is not None:
-                    c = _o(idx)
-                    if c is not None:
-                        return c
-                return color.color_for(frame_count, idx, total)
-
-            draw_text_per_char(canvas, font, x, baseline_y, text, _per_char)
-        elif override is not None:
-            # A colored token forces the per-char path even under a
-            # whole-string / constant host color so the override can win on
-            # individual chars while literals keep the host constant.
-            if hasattr(color, "color_for"):
-                host = color.color_for(frame_count, 0, len(text) if text else 1)
-            else:
-                host = color
-
-            def _ws(idx: int, total: int, _o: Any = override, _h: Any = host) -> Any:
-                c = _o(idx)
-                return c if c is not None else _h
-
-            draw_text_per_char(canvas, font, x, baseline_y, text, _ws)
-        else:
-            # Whole-string provider or constant Color.
-            if hasattr(color, "color_for"):
-                color = color.color_for(frame_count, 0, len(text) if text else 1)
-            draw_text(canvas, font, x, baseline_y, color, text)
 
     def _wrap_for_text(self, canvas: Canvas, scale: int) -> Canvas:
         """Return `canvas` wrapped in a ScaledCanvas at the given scale,

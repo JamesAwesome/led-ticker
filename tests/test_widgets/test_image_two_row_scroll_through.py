@@ -97,16 +97,16 @@ _SWAP_SENTINEL = ("__SWAP__", None)
 
 
 def _capture_draws_per_tick(mocker, frame):
-    import led_ticker.widgets._image_base as base_mod
+    import led_ticker.widgets._text_run as text_run_mod
 
-    real_draw = base_mod.draw_text
+    real_draw = text_run_mod.draw_text
     draws: list = []
 
     def _capture(canvas, font, x, baseline_y, color, text):
         draws.append((x, text))
         return real_draw(canvas, font, x, baseline_y, color, text)
 
-    mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+    mocker.patch.object(text_run_mod, "draw_text", side_effect=_capture)
 
     def _swap(c):
         draws.append(_SWAP_SENTINEL)

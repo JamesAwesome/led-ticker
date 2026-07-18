@@ -295,7 +295,7 @@ async def test_scroll_direction_right_advances_positively(
         "led_ticker.widgets._image_base", fromlist=["draw_text"]
     ).draw_text
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: (
             seen_x.append(x) or real_draw(c, f, x, y, col, t)
         ),
@@ -378,7 +378,7 @@ async def test_text_x_offset_shifts_static_text(
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
     )
 
@@ -427,7 +427,7 @@ async def test_top_valign_paints_at_panel_top_when_wrapped(
     seen_canvases: list[object] = []
     seen_y: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: (
             seen_canvases.append(c) or seen_y.append(y) or 12
         ),
@@ -463,7 +463,7 @@ async def test_emoji_routes_through_emoji_painter(tmp_path, mocker, bigsign_canv
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     spy = mocker.patch(
-        "led_ticker.pixel_emoji.draw_with_emoji",
+        "led_ticker.widgets._text_run.draw_with_emoji",
         side_effect=lambda c, *a, **kw: 16,
     )
 
@@ -490,7 +490,7 @@ async def test_wrap_uses_scaled_canvas(tmp_path, mocker, bigsign_canvas):
 
     seen_canvases: list[object] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, *a, **kw: seen_canvases.append(c) or 12,
     )
 
@@ -531,7 +531,7 @@ async def test_text_canvas_follows_back_buffer(tmp_path, mocker, bigsign_canvas)
 
     seen: list[object] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, *a, **kw: seen.append(c) or 6,
     )
 
@@ -683,7 +683,7 @@ async def test_scroll_direction_left_initial_position(tmp_path, mocker, bigsign_
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
     )
 
@@ -715,7 +715,7 @@ async def test_scroll_wrap_around_left_direction(tmp_path, mocker, bigsign_canva
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
     )
 
@@ -751,7 +751,7 @@ async def test_scroll_wrap_around_right_direction(tmp_path, mocker, bigsign_canv
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
     )
 
@@ -803,7 +803,7 @@ async def test_text_x_offset_combined_with_text_y_offset(
 
     seen: list[tuple[int, int]] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen.append((x, y)) or 6,
     )
 
@@ -959,7 +959,7 @@ async def test_text_canvas_follows_back_buffer_when_wrapped(
             seen_wrapped_real.append(canvas.real)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._text_run.draw_text", side_effect=spy)
 
     await widget.play(real, frame)
 
@@ -1024,7 +1024,7 @@ async def test_wrap_around_fires_at_correct_tick(tmp_path, mocker, bigsign_canva
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
     )
 

@@ -613,12 +613,23 @@ def load_config(path: Path) -> AppConfig:
     display = _coerce_display(display_raw, coerce_warnings)
 
     transitions_raw = raw.get("transitions", {})
-    default_transition = TransitionConfig(
-        type=transitions_raw.get("default", "cut"),
+    # Route the GLOBAL `default` through `_parse_transition` (same as
+    # `between_sections` and per-section transitions) so an inline TABLE form
+    # (`default = {type = "flair.x", ...}`) is parsed correctly — a plain
+    # `type=transitions_raw.get("default")` would make `.type` the whole dict
+    # and crash validate's `_check_transition_names` (`dict in set`). The base
+    # carries the top-level `[transitions] duration`/`easing`, which a string
+    # or omitted `default` inherits (preserving the prior behavior); a table
+    # form may override duration/easing per its own keys.
+    _default_base = TransitionConfig(
+        type="cut",
         duration=transitions_raw.get("duration", 0.5),
         easing=_coerce_easing(
             transitions_raw, "linear", "transitions", coerce_warnings
         ),
+    )
+    default_transition = _parse_transition(
+        transitions_raw.get("default"), _default_base
     )
 
     bl_raw = raw.get("busy_light", {})

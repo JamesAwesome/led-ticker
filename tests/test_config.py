@@ -1300,3 +1300,112 @@ def test_load_config_preserves_raw_toml_for_plugin_blocks(tmp_path):
     cfg = load_config(cfg_file)
     assert cfg._raw["storefront"]["font_size"] == 24
     assert cfg._raw["storefront"]["open"]["text"] == "OPEN"
+
+
+# ---------------------------------------------------------------------------
+# Global [transitions] default as an inline TABLE (regression: it used to
+# crash validate — the global default wasn't routed through _parse_transition,
+# so TransitionConfig.type became the whole dict).
+# ---------------------------------------------------------------------------
+
+
+def _load(tmp_path, toml_str):
+    from led_ticker.config import load_config
+
+    p = tmp_path / "c.toml"
+    p.write_text(toml_str)
+    return load_config(p)
+
+
+def test_global_default_table_type_is_a_string(tmp_path):
+    cfg = _load(
+        tmp_path,
+        """
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+[transitions]
+default = {type = "dissolve", duration = 1.2}
+[[playlist.section]]
+mode = "slideshow"
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+""",
+    )
+    assert cfg.default_transition.type == "dissolve"
+    assert cfg.default_transition.duration == 1.2
+    assert cfg.default_transition.type_specified is True
+
+
+def test_global_default_table_plugin_knobs_go_to_extra(tmp_path):
+    cfg = _load(
+        tmp_path,
+        """
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+[transitions]
+default = {type = "flair.stickers", emoji = ["taco"]}
+[[playlist.section]]
+mode = "slideshow"
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+""",
+    )
+    assert cfg.default_transition.type == "flair.stickers"
+    assert cfg.default_transition.extra == {"emoji": ["taco"]}
+
+
+def test_global_default_string_still_uses_top_level_duration(tmp_path):
+    """The pre-existing string/None behavior must be preserved: a bare-string
+    default takes its duration/easing from the top-level [transitions] block."""
+    cfg = _load(
+        tmp_path,
+        """
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+[transitions]
+default = "push_left"
+duration = 0.8
+easing = "ease_out"
+[[playlist.section]]
+mode = "slideshow"
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+""",
+    )
+    assert cfg.default_transition.type == "push_left"
+    assert cfg.default_transition.duration == 0.8
+    assert cfg.default_transition.easing == "ease_out"
+
+
+def test_global_default_omitted_is_cut_with_top_level_duration(tmp_path):
+    cfg = _load(
+        tmp_path,
+        """
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+[transitions]
+duration = 0.9
+[[playlist.section]]
+mode = "slideshow"
+[[playlist.section.widget]]
+type = "message"
+text = "hi"
+""",
+    )
+    assert cfg.default_transition.type == "cut"
+    assert cfg.default_transition.duration == 0.9

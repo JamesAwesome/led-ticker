@@ -3807,6 +3807,71 @@ class TestImageColoredTokens:
             f"(x >= {boundary_x}) must be host; got {literal_span_colors!r}"
         )
 
+    def test_token_adjacent_to_raw_emoji_aligns(self, tmp_path):
+        """Space-less/raw-slug has_emoji-BASIS case: unlike the test above
+        (raw template has NO emoji slug, so `_has_emoji()` is False and
+        `build_token_color_override`'s emoji re-walk branch is never even
+        entered — that test cannot exercise the `+ len(value) + 2` offset
+        line at all), this test puts a REAL `:sun:` emoji slug in the RAW
+        template itself (`text=":sun: :id: END"`), so `self._has_emoji()`
+        is True, `_draw_text` takes the `draw_with_emoji` branch, and the
+        override's emoji re-walk (skipping the ':sun:' sprite's flat-string
+        span) actually runs.
+
+        The token value here is plain digits ('99', no emoji inside it) so
+        the boundary the re-walk must get right is the ':sun:' sprite's own
+        span — an off-by-one offset (`+ len(value) + 1`) shifts the token's
+        first digit ('9') to host color, a VISIBLE divergence (not masked
+        by a space, unlike a value with a space immediately after its own
+        embedded slug)."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import measure_width
+
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path,
+            text=":sun: :id: END",
+            text_align="left",
+            font_color=Color(*host),
+        )
+        w._resolve_overlay_text(locked=False)
+        assert w._resolved_text_single == ":sun: 99 END"
+        assert w._has_emoji() is True
+
+        c = _stub_canvas(width=96)
+        x0 = 2
+        w._draw_text(c, x0, 12, w.font_color)
+        lit = self._lit(c)
+
+        # End of the ':sun:' sprite (+ its trailing pad) — where the
+        # literal ' ' before the token begins.
+        sprite_end_x = x0 + measure_width(w.font, ":sun:", c)
+        digits_start_x = sprite_end_x + get_text_width(w.font, " ", padding=0, canvas=c)
+        digits_end_x = digits_start_x + get_text_width(
+            w.font, "99", padding=0, canvas=c
+        )
+
+        digit_colors = {
+            v for (x, _y), v in lit.items() if digits_start_x <= x < digits_end_x
+        }
+        literal_colors = {v for (x, _y), v in lit.items() if x >= digits_end_x}
+        assert digit_colors, "token digits '99' should render pixels"
+        assert literal_colors, "trailing literal ' END' should render pixels"
+        assert digit_colors == {tok}, (
+            "every lit pixel in the token's digit span "
+            f"(x in [{digits_start_x}, {digits_end_x})) must be token-red; "
+            f"got {digit_colors!r} — an off-by-one emoji re-walk offset "
+            "steals the token's first digit for the host color"
+        )
+        assert literal_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {digits_end_x}) must be host; got {literal_colors!r}"
+        )
+
     def test_fisheye_lens_colors_token(self):
         """§5 (I3): a colored token renders colored under `flair.fisheye` on
         an image widget — the lens shares `_draw_text`, so the per-char color
@@ -4058,6 +4123,71 @@ class TestImageColoredTokensTwoRow:
         assert literal_span_colors == {host}, (
             "every lit pixel in the trailing literal's x-span "
             f"(x >= {boundary_x}) must be host; got {literal_span_colors!r}"
+        )
+
+    def test_token_adjacent_to_raw_emoji_aligns_compound_basis(self, tmp_path):
+        """Space-less/raw-slug has_emoji-BASIS case (COMPOUND) — unlike the
+        test above (raw scan has NO emoji slug anywhere, so the compound
+        predicate is False and `build_token_color_override`'s emoji
+        re-walk branch — the `+ len(value) + 2` line — is never entered),
+        this test puts a REAL `:sun:` emoji slug directly in `bottom_text`
+        (`":sun: :id: END"`), alongside the colored token, so BOTH halves
+        of the compound (`self._has_emoji()` — raw scan — AND
+        `has_renderable_emoji(text)` — resolved text) are True and the
+        draw takes the `draw_with_emoji` branch, actually exercising the
+        re-walk.
+
+        The token value is plain digits ('99', no emoji embedded in the
+        value itself), so an off-by-one offset (`+ len(value) + 1`) shifts
+        the token's first digit ('9') onto host color — a VISIBLE
+        divergence, not masked by an adjacent space the way a value like
+        ':sun: 72' (space right after its own embedded slug) can be."""
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import has_renderable_emoji, measure_width
+
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        _set_registry(self._colored_source("id", "99", tok))
+        w = self._make_still(
+            tmp_path,
+            top_text="hi",
+            bottom_text=":sun: :id: END",
+            bottom_color=Color(*host),
+        )
+        w._resolve_bottom_text(locked=False)
+        assert w._resolved_bottom_text == ":sun: 99 END"
+        # Raw scan HAS an emoji slug (the literal ':sun:') — the compound
+        # predicate is True on both halves.
+        assert w._has_emoji() is True
+        assert has_renderable_emoji(w._resolved_bottom_text) is True
+
+        c = _stub_canvas(width=128)
+        x0 = 2
+        self._draw_row(w, c, 1, x=x0)
+        lit = self._lit(c)
+
+        font = w._row_font(1)
+        sprite_end_x = x0 + measure_width(font, ":sun:", c)
+        digits_start_x = sprite_end_x + get_text_width(font, " ", padding=0, canvas=c)
+        digits_end_x = digits_start_x + get_text_width(font, "99", padding=0, canvas=c)
+
+        digit_colors = {
+            v for (x, _y), v in lit.items() if digits_start_x <= x < digits_end_x
+        }
+        literal_colors = {v for (x, _y), v in lit.items() if x >= digits_end_x}
+        assert digit_colors, "token digits '99' should render pixels"
+        assert literal_colors, "trailing literal ' END' should render pixels"
+        assert digit_colors == {tok}, (
+            "every lit pixel in the token's digit span "
+            f"(x in [{digits_start_x}, {digits_end_x})) must be token-red; "
+            f"got {digit_colors!r} — an off-by-one emoji re-walk offset "
+            "steals the token's first digit for the host color"
+        )
+        assert literal_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {digits_end_x}) must be host; got {literal_colors!r}"
         )
 
     def test_fast_path_bypassed_for_token_field_and_renders_colored(self, tmp_path):

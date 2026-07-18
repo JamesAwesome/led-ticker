@@ -1509,10 +1509,23 @@ class TestTwoRowColoredTokens:
         (` END`). The token's `72` chars colorize red; the trailing ` END`
         literal keeps the host color and NO literal char steals the token
         color (proves the override skips the emoji segment, matching
-        `has_renderable_emoji(resolved)` as the draw path's emoji basis)."""
+        `has_renderable_emoji(resolved)` as the draw path's emoji basis).
+
+        Exact per-position form: `:sun:` renders as an actual SPRITE here
+        (two_row's has_emoji basis is resolved-text, so `draw_with_emoji`
+        takes the emoji branch), so the checked spans start right AFTER the
+        sprite — the ' 72' value-tail span must be ALL token-red and the
+        ' END' literal span must be ALL host, not just "some red left of
+        some host" (a coarse ordering check can't see a partial bleed at
+        the boundary, e.g. one stray host pixel inside '72' or one stray
+        red pixel inside 'END')."""
+        from led_ticker.pixel_emoji import measure_width
+        from led_ticker.widgets._row_layout import EMOJI_ROW_CAP
+
         host = (0, 120, 255)
         tok = (200, 0, 0)
-        self._registry(self._colored_source("x", ":sun: 72", tok))
+        token_value = ":sun: 72"
+        self._registry(self._colored_source("x", token_value, tok))
         w = TwoRowMessage(
             top_text=":x: END",
             bottom_text="",
@@ -1524,17 +1537,93 @@ class TestTwoRowColoredTokens:
         assert w._resolved_top == ":sun: 72 END"
 
         lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
-        colors = set(lit.values())
-        assert tok in colors, "token '72' should render red"
-        assert host in colors, "trailing ' END' literal should render host"
-        red_xs = [x for (x, _y), v in lit.items() if v == tok]
-        host_xs = [x for (x, _y), v in lit.items() if v == host]
-        # ' END' is to the RIGHT of the '72' token — its host pixels must
-        # sit right of every token-red pixel. A wrong has_emoji basis would
-        # shift the override and bleed red into (or steal from) ' END'.
-        assert max(host_xs) > max(red_xs), (
-            "trailing literal ' END' (host) must be right of the token (red) — "
-            "a misaligned override would steal its color"
+        font = w._font_for_row(0)
+        x0 = 0  # top_align="left"
+
+        # End of the sprite (+ its trailing pad) — where the ' 72' text
+        # tail of the token value begins.
+        value_tail_start_x = x0 + measure_width(font, ":sun:", c, EMOJI_ROW_CAP)
+        # End of the token value's own text tail (' 72') — where the
+        # trailing literal (' END') begins. Same per-char width accounting
+        # `draw_text_per_char` uses to advance its cursor, so this is the
+        # TRUE boundary, not an approximation.
+        from led_ticker.drawing import get_text_width
+
+        literal_start_x = value_tail_start_x + get_text_width(
+            font, " 72", padding=0, canvas=c
+        )
+
+        value_tail_colors = {
+            v for (x, _y), v in lit.items() if value_tail_start_x <= x < literal_start_x
+        }
+        literal_colors = {v for (x, _y), v in lit.items() if x >= literal_start_x}
+        assert value_tail_colors, "token value tail ' 72' should render pixels"
+        assert literal_colors, "trailing literal ' END' should render pixels"
+        assert value_tail_colors == {tok}, (
+            "every lit pixel in the token value's text tail "
+            f"(x in [{value_tail_start_x}, {literal_start_x})) must be "
+            f"token-red; got {value_tail_colors!r}"
+        )
+        assert literal_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {literal_start_x}) must be host; got {literal_colors!r}"
+        )
+
+    def test_token_value_no_space_after_slug_aligns(self):
+        """Space-less has_emoji-BASIS case: `":sun:99"` (no space between
+        the slug's closing colon and the value's trailing digits) run
+        directly into a space-less literal suffix (`top_text=":x:END"`,
+        no space before "END" either). The original ':sun: 72' + ' END'
+        composition has a SPACE at exactly the flat-string position an
+        off-by-one emoji re-walk offset (`+ len(value) + 1` instead of
+        `+ len(value) + 2`) would corrupt, which masks the bug (an
+        invisible glyph carrying the wrong color renders no differently).
+        This composition puts the VISIBLE first letter of the trailing
+        literal ('E') at that position instead, so an off-by-one offset
+        steals it for the token color instead of host."""
+        from led_ticker.drawing import get_text_width
+        from led_ticker.pixel_emoji import measure_width
+        from led_ticker.widgets._row_layout import EMOJI_ROW_CAP
+
+        host = (0, 120, 255)
+        tok = (200, 0, 0)
+        token_value = ":sun:99"
+        self._registry(self._colored_source("x", token_value, tok))
+        w = TwoRowMessage(
+            top_text=":x:END",
+            bottom_text="",
+            top_color=host,
+            top_align="left",
+        )
+        c = self._stub()
+        w.draw(c)
+        assert w._resolved_top == ":sun:99END"
+
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        font = w._font_for_row(0)
+        x0 = 0  # top_align="left"
+
+        value_tail_start_x = x0 + measure_width(font, ":sun:", c, EMOJI_ROW_CAP)
+        literal_start_x = value_tail_start_x + get_text_width(
+            font, "99", padding=0, canvas=c
+        )
+
+        value_tail_colors = {
+            v for (x, _y), v in lit.items() if value_tail_start_x <= x < literal_start_x
+        }
+        literal_colors = {v for (x, _y), v in lit.items() if x >= literal_start_x}
+        assert value_tail_colors, "token value tail '99' should render pixels"
+        assert literal_colors, "trailing literal 'END' should render pixels"
+        assert value_tail_colors == {tok}, (
+            "every lit pixel in the token value's digit tail "
+            f"(x in [{value_tail_start_x}, {literal_start_x})) must be "
+            f"token-red; got {value_tail_colors!r}"
+        )
+        assert literal_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {literal_start_x}) must be host; got {literal_colors!r} — "
+            "an off-by-one emoji re-walk offset steals the literal's first "
+            "char ('E') for the token color"
         )
 
     def test_wrap_mode_row_colored(self):

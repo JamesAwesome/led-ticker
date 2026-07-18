@@ -4323,3 +4323,30 @@ async def test_rule66_on_between_sections_warns(conf):
         """
     result = await validate_config(conf(cfg))
     assert any(w.rule == 66 for w in result.warnings)
+
+
+async def test_rule66_on_global_default_table_warns(conf):
+    """A typeless inline table on the GLOBAL [transitions] default is checked
+    too (regression: the global default used to crash before it could even be
+    checked; now it's routed through _parse_transition and rule 66 covers it)."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [transitions]
+        default = { style = "flair.stickers" }
+
+        [[playlist.section]]
+        mode = "slideshow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hi"
+        """
+    result = await validate_config(conf(cfg))
+    warns = [w for w in result.warnings if w.rule == 66]
+    assert len(warns) == 1
+    assert warns[0].location == "transitions.default"

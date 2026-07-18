@@ -1064,6 +1064,10 @@ def _check_typeless_transition_table(config: AppConfig) -> list[ValidationIssue]
 
     if config.between_sections_specified:
         _check(config.between_sections, "transitions.between_sections")
+    # The global `default` too — `_check`'s guard (`not type_specified
+    # and extra`) fires only for a typeless TABLE, so a bare-string /
+    # omitted default is skipped without a separate `default_specified` flag.
+    _check(config.default_transition, "transitions.default")
     for i, section in enumerate(config.sections):
         if section.transition_specified:
             _check(section.transition, f"section[{i}].transition")

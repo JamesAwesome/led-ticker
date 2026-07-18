@@ -61,9 +61,12 @@ def _scaled(real_w=256, real_h=64, scale=4, content_height=16):
 class _Capture:
     """Patches ``message.lens_blit`` (transparent spy) recording the
     ``src_x0`` passed and a snapshot of the strip's lit columns, plus
-    ``message.draw_text`` recording the whole-string branch's x-origin."""
+    ``_text_run.draw_text`` recording the whole-string branch's x-origin
+    (the lens strip now routes its dispatch through the shared
+    ``draw_text_run`` helper, so the plain-text draw lives in ``_text_run``)."""
 
     def __init__(self, monkeypatch):
+        import led_ticker.widgets._text_run as tr_mod
         import led_ticker.widgets.message as msg_mod
         from led_ticker.text_render import draw_text as real_draw_text
 
@@ -88,7 +91,7 @@ class _Capture:
             return real_draw_text(canvas, font, x, y, color, text)
 
         monkeypatch.setattr(msg_mod, "lens_blit", _spy_blit)
-        monkeypatch.setattr(msg_mod, "draw_text", _spy_draw_text)
+        monkeypatch.setattr(tr_mod, "draw_text", _spy_draw_text)
 
 
 # ---------------------------------------------------------------------------
@@ -573,3 +576,60 @@ class TestRotationLensPrecedence:
         )
         # The rotation branch built a surface.
         assert widget._rotation_surface is not None
+
+
+class TestColoredTokenThroughLens:
+    """Closes follow-up #2: a colored value token on a message drawn under
+    flair.fisheye colorizes through the lens (the lens shares the draw path
+    via `_paint_strip` → `draw_text_run` with the token override). Before the
+    fix the lens `_paint_strip` used the host provider only, so a token
+    rendered in the host color. Mutation-grade: the SOURCE color's presence
+    is the regression signal — without the override the token is host-colored
+    and the source color never appears."""
+
+    @staticmethod
+    def _registry(*sources):
+        from led_ticker.sources import DataRegistry, set_data_registry
+
+        reg = DataRegistry()
+        for s in sources:
+            s.refresh()
+            reg.add(s)
+        set_data_registry(reg)
+        return reg
+
+    @staticmethod
+    def _colored_source(value, rgb):
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.color_providers import _ConstantColor
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="x", value=value)
+        src.color = _ConstantColor(Color(*rgb))
+        return src
+
+    def test_token_colorizes_through_fisheye_lens(self):
+        from rgbmatrix.graphics import Color
+
+        host = (255, 255, 255)  # white literal
+        tok = (255, 0, 0)  # red token
+        self._registry(self._colored_source("99", tok))
+        # near-identity lens so the token stays legible; the point is colour,
+        # not geometry.
+        widget = TickerMessage(
+            text="AB :x:",
+            font=FONT_DEFAULT,
+            font_color=Color(*host),
+            animation=_StubLens(LensSpec(magnify=1.05, edge_squeeze=0.9)),
+        )
+        c = _canvas(width=160, height=16)
+        widget.draw(c, 0)
+
+        colors = {v for v in c._pixels.values() if v != (0, 0, 0)}
+        assert tok in colors, (
+            "token '99' must render in the source RED through the lens "
+            "(this is the #2 closure — before the fix the lens painted it host)"
+        )
+        assert host in colors, "literal 'AB' must keep the host WHITE"
+        assert colors <= {host, tok}, f"only host+token expected; got {colors!r}"

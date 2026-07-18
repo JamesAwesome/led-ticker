@@ -301,7 +301,7 @@ class TestImageBaseUnicodeEmoji:
         self, canvas, monkeypatch
     ):
         """_draw_text must call draw_with_emoji when text='⭐ Open'."""
-        import led_ticker.pixel_emoji as pe
+        import led_ticker.widgets._text_run as text_run_mod
 
         calls: list[str] = []
 
@@ -309,7 +309,7 @@ class TestImageBaseUnicodeEmoji:
             calls.append(text)
             return 60
 
-        monkeypatch.setattr(pe, "draw_with_emoji", fake_draw_with_emoji)
+        monkeypatch.setattr(text_run_mod, "draw_with_emoji", fake_draw_with_emoji)
 
         from led_ticker.colors import DEFAULT_COLOR
 
@@ -330,7 +330,7 @@ class TestImageBaseUnicodeEmoji:
         self, canvas, monkeypatch
     ):
         """_draw_row_text must call draw_with_emoji for row text with ❤️."""
-        import led_ticker.pixel_emoji as pe
+        import led_ticker.widgets._text_run as text_run_mod
 
         calls: list[str] = []
 
@@ -338,7 +338,7 @@ class TestImageBaseUnicodeEmoji:
             calls.append(text)
             return 60
 
-        monkeypatch.setattr(pe, "draw_with_emoji", fake_draw_with_emoji)
+        monkeypatch.setattr(text_run_mod, "draw_with_emoji", fake_draw_with_emoji)
 
         from led_ticker.colors import DEFAULT_COLOR
         from led_ticker.fonts import FONT_SMALL

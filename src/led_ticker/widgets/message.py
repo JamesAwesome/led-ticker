@@ -24,7 +24,6 @@ from led_ticker.sources import (
     build_token_color_override,
     get_data_registry,
 )
-from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._text_run import draw_text_run
@@ -545,43 +544,44 @@ class TickerMessage(FrameAwareBase):
         lens-shifted origin. The per-char / emoji totals anchor to
         ``full_text``'s char count so a mid-reveal hue is stable (mirrors the
         normal branch's ``total_chars`` contract)."""
+        # Route the lens strip through the SAME `draw_text_run` dispatch the
+        # normal draw path uses, WITH the colored-token override built from the
+        # frozen `_resolved_segments` snapshot — so a colored value token
+        # colorizes under `flair.fisheye` too (previously the lens painted it
+        # in the host color: the one message-vs-image fisheye asymmetry). The
+        # `has_emoji` basis is the RAW `self._has_emoji` cache (matching the
+        # normal draw); `total_chars` uses the same per-branch anchor
+        # (`count_text_chars(full_text)` for emoji, `len(full_text)` else).
+        token_override: list[Any] | None = None
+        if self._token is not None and self._token.has_tokens:
+            segments = (
+                self._resolved_segments
+                if self._resolved_segments is not None
+                else self._token.resolve_segments(get_data_registry())
+            )
+            token_override = build_token_color_override(
+                segments, visible_text, self.frame_for("font_color"), self._has_emoji
+            )
         if self._has_emoji:
-            from led_ticker.pixel_emoji import (  # noqa: PLC0415
-                count_text_chars,
-                draw_with_emoji,
-            )
+            from led_ticker.pixel_emoji import count_text_chars  # noqa: PLC0415
 
-            draw_with_emoji(
-                target,
-                self.font,
-                x_logical,
-                baseline,
-                provider,
-                visible_text,
-                y_offset=y_offset,
-                frame=self.frame_for("font_color"),
-                total_chars=count_text_chars(full_text),
-                hires_downscale=hires_downscale,
-            )
-        elif provider.per_char:
-            draw_text_per_char(
-                target,
-                self.font,
-                x_logical,
-                baseline + y_offset,
-                visible_text,
-                lambda idx, total: provider.color_for(
-                    self.frame_for("font_color"), idx, total
-                ),
-                total_chars=len(full_text),
-            )
+            run_total = count_text_chars(full_text)
         else:
-            color = provider.color_for(
-                self.frame_for("font_color"), 0, len(visible_text)
-            )
-            draw_text(
-                target, self.font, x_logical, baseline + y_offset, color, visible_text
-            )
+            run_total = len(full_text)
+        draw_text_run(
+            target,
+            self.font,
+            x_logical,
+            baseline,
+            provider,
+            visible_text,
+            self.frame_for("font_color"),
+            override=token_override,
+            has_emoji=self._has_emoji,
+            total_chars=run_total,
+            y_offset=y_offset,
+            hires_downscale=hires_downscale,
+        )
 
 
 class SegmentMessage:

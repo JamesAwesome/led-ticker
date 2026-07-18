@@ -437,10 +437,11 @@ class TestBorderPaintsBeforeText:
         widget = TickerMessage(text="HELLO", border=border)
         canvas = RealStub(width=64, height=16)
 
-        # `draw_text` lives in text_render — patching it here lets us
-        # observe its call relative to border.paint.
+        # `draw_text` lives in text_render — TickerMessage now routes its
+        # text through the shared `_text_run.draw_text` dispatch, so patch
+        # there to observe its call relative to border.paint.
         with mock.patch(
-            "led_ticker.widgets.message.draw_text",
+            "led_ticker.widgets._text_run.draw_text",
             side_effect=lambda *a, **kw: order.append("draw_text") or 30,
         ):
             widget.draw(canvas)
@@ -522,7 +523,7 @@ class TestCountdownBorder:
         canvas = RealStub(width=64, height=16)
 
         with mock.patch(
-            "led_ticker.widgets.message.draw_text",
+            "led_ticker.widgets.count.draw_text",
             side_effect=lambda *a, **kw: order.append("draw_text") or 30,
         ):
             widget.draw(canvas)

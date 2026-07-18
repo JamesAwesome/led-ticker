@@ -289,7 +289,7 @@ async def test_text_x_offset_shifts_static_text(
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 6,
     )
 
@@ -338,7 +338,7 @@ async def test_top_valign_paints_at_panel_top_when_wrapped(
     seen_canvases: list[object] = []
     seen_y: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: (
             seen_canvases.append(c) or seen_y.append(y) or 12
         ),
@@ -383,7 +383,7 @@ async def test_scroll_direction_right_advances_positively(
         seen_x.append(x)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._text_run.draw_text", side_effect=spy)
     await widget.play(real, frame, loop_count=5)
 
     # First tick: scroll_pos = -text_width (off-left); each subsequent
@@ -801,7 +801,7 @@ async def test_play_scroll_text_wraps_after_full_traversal(
         seen_x.append(x)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._text_run.draw_text", side_effect=spy)
 
     # Run for enough ticks to fully traverse + see the wrap. text_w=256,
     # text_width for "X" = 6. One traversal = 256 + 6 = 262 ticks (panel-
@@ -815,7 +815,7 @@ async def test_play_scroll_text_wraps_after_full_traversal(
         text_loops=2,
     )
     seen_x.clear()
-    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._text_run.draw_text", side_effect=spy)
     await widget.play(real, frame, loop_count=1)
 
     # Sequence must contain a wrap: somewhere we go from a low (negative)
@@ -858,7 +858,7 @@ async def test_play_scroll_text_advances_position(tmp_path, mocker, bigsign_canv
         seen_x.append(x)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._text_run.draw_text", side_effect=spy)
 
     # 5 loops × 50ms = 250ms / 50ms tick = 5 ticks natural — but the
     # marquee auto-floor extends to one full traversal, so seen_x
@@ -1004,7 +1004,7 @@ async def test_play_with_emoji_routes_through_emoji_painter(
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     spy = mocker.patch(
-        "led_ticker.pixel_emoji.draw_with_emoji",
+        "led_ticker.widgets._text_run.draw_with_emoji",
         side_effect=lambda c, *a, **kw: 16,
     )
 
@@ -1035,7 +1035,7 @@ async def test_static_text_wider_than_canvas_clamps_to_left_edge(
 
     seen_x: list[int] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, f, x, y, col, t: seen_x.append(x) or 600,
     )
 
@@ -1067,7 +1067,7 @@ async def test_play_emoji_with_wrap_and_scroll(tmp_path, mocker, bigsign_canvas)
     mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
     emoji_calls = mocker.patch(
-        "led_ticker.pixel_emoji.draw_with_emoji",
+        "led_ticker.widgets._text_run.draw_with_emoji",
         side_effect=lambda c, *a, **kw: 30,
     )
 
@@ -1115,7 +1115,7 @@ async def test_play_with_wrap_uses_scaled_canvas(tmp_path, mocker, bigsign_canva
         seen_canvases.append(canvas)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._text_run.draw_text", side_effect=spy)
 
     await widget.play(real, frame, loop_count=1)
 
@@ -1167,7 +1167,7 @@ async def test_play_no_wrap_text_canvas_follows_back_buffer(
         seen.append(canvas)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._text_run.draw_text", side_effect=spy)
 
     await widget.play(real, frame, loop_count=3)
 
@@ -1240,7 +1240,7 @@ async def test_play_two_row_no_wrap_text_canvas_follows_back_buffer(tmp_path, mo
         seen.append(canvas)
         return real_draw(canvas, font, x, y, color, text)
 
-    mocker.patch("led_ticker.widgets._image_base.draw_text", side_effect=spy)
+    mocker.patch("led_ticker.widgets._text_run.draw_text", side_effect=spy)
 
     await widget.play(real, frame, loop_count=1)
 
@@ -1279,7 +1279,7 @@ async def test_play_native_uses_real_canvas(tmp_path, mocker, bigsign_canvas):
 
     seen: list[object] = []
     mocker.patch(
-        "led_ticker.widgets._image_base.draw_text",
+        "led_ticker.widgets._text_run.draw_text",
         side_effect=lambda c, *a, **kw: seen.append(c) or 6,
     )
 

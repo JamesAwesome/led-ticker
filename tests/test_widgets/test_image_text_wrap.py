@@ -244,16 +244,16 @@ def _capture_draws_per_tick(mocker, frame):
 
     Setting this up is fiddly enough to repeat across 3+ tests; the
     helper keeps the strengthened defining tests readable."""
-    import led_ticker.widgets._image_base as base_mod
+    import led_ticker.widgets._text_run as text_run_mod
 
-    real_draw = base_mod.draw_text
+    real_draw = text_run_mod.draw_text
     draws: list = []
 
     def _capture(canvas, font, x, baseline_y, color, text):
         draws.append((x, text))
         return real_draw(canvas, font, x, baseline_y, color, text)
 
-    mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+    mocker.patch.object(text_run_mod, "draw_text", side_effect=_capture)
 
     def _swap(c):
         draws.append(_SWAP_SENTINEL)
@@ -756,16 +756,16 @@ class TestGifPlayerWrap:
         frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-        import led_ticker.widgets._image_base as base_mod
+        import led_ticker.widgets._text_run as text_run_mod
 
-        real_draw = base_mod.draw_text
+        real_draw = text_run_mod.draw_text
         draws = []
 
         def _capture(canvas, font, x, baseline_y, color, text):
             draws.append((x, text))
             return real_draw(canvas, font, x, baseline_y, color, text)
 
-        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+        mocker.patch.object(text_run_mod, "draw_text", side_effect=_capture)
 
         await widget.play(real, frame)
 
@@ -819,16 +819,16 @@ class TestWrapWithBorder:
         frame.swap.side_effect = lambda c: c
         mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
 
-        import led_ticker.widgets._image_base as base_mod
+        import led_ticker.widgets._text_run as text_run_mod
 
-        real_draw = base_mod.draw_text
+        real_draw = text_run_mod.draw_text
         draws = []
 
         def _capture(canvas, font, x, baseline_y, color, text):
             draws.append((x, text))
             return real_draw(canvas, font, x, baseline_y, color, text)
 
-        mocker.patch.object(base_mod, "draw_text", side_effect=_capture)
+        mocker.patch.object(text_run_mod, "draw_text", side_effect=_capture)
 
         # No exception is the primary assertion.
         await widget.play(real, frame)

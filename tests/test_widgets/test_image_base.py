@@ -3749,15 +3749,30 @@ class TestImageColoredTokens:
     def test_token_value_with_emoji_aligns_raw_basis(self, tmp_path):
         """has_emoji-BASIS test (RAW cache): the raw template ':id: END' has
         NO emoji slug, so `_draw_text` picks the NON-emoji branch and renders
-        the resolved ':sun: 72 END' LITERALLY. The token's '72' colorizes red;
-        the trailing ' END' literal keeps host and no literal steals the color.
-        A resolved (has_emoji=True) basis would skip the ':sun:' segment and
-        misalign — this test fails under that bug."""
+        the resolved ':sun: 72 END' LITERALLY — EVERY char of ':sun: 72'
+        (the token value, 8 raw chars incl. the literal ':sun:' text) must
+        be token-red and every char of ' END' must be host, with a clean
+        boundary between them.
+
+        A resolved (`has_renderable_emoji(text)`) basis is True here (the
+        resolved string DOES contain a real emoji slug) and re-walks
+        `_parse_segments` skipping the ':sun:' run as a 0-text-char sprite —
+        but the ACTUAL draw still renders it as 5 literal chars (the branch
+        predicate is unchanged). That skips 5 slots off the front of the
+        override, so 'n', the trailing ':', ' ', '7', '2' all fall past the
+        end of the (too-short) override list and wrongly render host instead
+        of red — a coarse "some red / some host / red left of host" check
+        can't see this, since red still appears somewhere left of some host
+        pixels. Exact per-position coloring is the only guard that catches
+        it — this is what failed to catch the reviewer's mutation."""
         from rgbmatrix.graphics import Color
+
+        from led_ticker.drawing import get_text_width
 
         host = (0, 120, 255)
         tok = (200, 0, 0)
-        _set_registry(self._colored_source("id", ":sun: 72", tok))
+        token_value = ":sun: 72"
+        _set_registry(self._colored_source("id", token_value, tok))
         w = self._make_still(
             tmp_path, text=":id: END", text_align="left", font_color=Color(*host)
         )
@@ -3767,18 +3782,29 @@ class TestImageColoredTokens:
         assert w._has_emoji() is False
 
         c = _stub_canvas(width=96)
-        w._draw_text(c, 2, 12, w.font_color)
+        x0 = 2
+        w._draw_text(c, x0, 12, w.font_color)
         lit = self._lit(c)
-        colors = set(lit.values())
-        assert tok in colors, "token '72' should render red"
-        assert host in colors, "':sun:' + ' END' literals should render host"
-        red_xs = [x for (x, _y), v in lit.items() if v == tok]
-        host_xs = [x for (x, _y), v in lit.items() if v == host]
-        # ' END' is to the RIGHT of '72' — its host pixels must sit right of
-        # every token-red pixel. A wrong (resolved) has_emoji basis shifts the
-        # override and bleeds red into the trailing literal.
-        assert max(host_xs) > max(red_xs), (
-            "trailing literal ' END' (host) must be right of the token (red)"
+
+        # Exact pixel-x boundary between the token value's rendered chars
+        # and the trailing literal, computed with the SAME per-char width
+        # accounting `draw_text_per_char` uses to advance its cursor — so
+        # this is the true boundary, not an approximation.
+        boundary_x = x0 + get_text_width(w.font, token_value, padding=0, canvas=c)
+
+        token_span_colors = {v for (x, _y), v in lit.items() if x < boundary_x}
+        literal_span_colors = {v for (x, _y), v in lit.items() if x >= boundary_x}
+        assert token_span_colors, "token value ':sun: 72' should render pixels"
+        assert literal_span_colors, "trailing literal ' END' should render pixels"
+        assert token_span_colors == {tok}, (
+            "every lit pixel in the token value's x-span "
+            f"(x < {boundary_x}) must be token-red; got "
+            f"{token_span_colors!r} — a resolved has_emoji basis lets host "
+            "bleed onto the token's own trailing chars"
+        )
+        assert literal_span_colors == {host}, (
+            "every lit pixel in the trailing literal's x-span "
+            f"(x >= {boundary_x}) must be host; got {literal_span_colors!r}"
         )
 
     def test_fisheye_lens_colors_token(self):

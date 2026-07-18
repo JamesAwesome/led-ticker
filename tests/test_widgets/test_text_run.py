@@ -348,3 +348,54 @@ def test_explicit_total_chars_threaded_not_recomputed():
     assert c3._pixels != c12._pixels, (
         "per-char color depends on the explicit total_chars anchor"
     )
+
+
+# --------------------------------------------------------------------------
+# hires_downscale pass-through (added for the Phase-2 helper consolidation)
+# --------------------------------------------------------------------------
+
+
+def test_hires_downscale_forwarded_to_draw_with_emoji(monkeypatch):
+    """The emoji branch forwards `hires_downscale` to draw_with_emoji so the
+    image single-row / message fisheye-lens paths can route through the shared
+    helper instead of hand-duplicating the three branches."""
+    import led_ticker.widgets._text_run as tr
+
+    captured = {}
+
+    def _spy(*a, **kw):
+        captured.update(kw)
+        return 0
+
+    monkeypatch.setattr(tr, "draw_with_emoji", _spy)
+    draw_text_run(
+        _stub(),
+        FONT_DEFAULT,
+        0,
+        12,
+        _const((255, 255, 255)),
+        ":sun: 9",
+        0,
+        has_emoji=True,
+        hires_downscale=0.5,
+    )
+    assert captured.get("hires_downscale") == 0.5
+
+
+def test_hires_downscale_ignored_by_plain_branch():
+    """A plain (no-emoji, constant) run still renders when hires_downscale is
+    passed — the plain branches don't take it and must not choke."""
+    c = _stub()
+    adv = draw_text_run(
+        c,
+        FONT_DEFAULT,
+        0,
+        12,
+        _const((0, 200, 0)),
+        "AB",
+        0,
+        has_emoji=False,
+        hires_downscale=0.5,
+    )
+    assert adv > 0
+    assert _lit(c)  # something drew

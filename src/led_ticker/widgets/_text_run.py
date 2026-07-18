@@ -55,6 +55,7 @@ def draw_text_run(
     y_offset: int = 0,
     emoji_y: int | None = None,
     max_emoji_height: int | None = None,
+    hires_downscale: float = 1.0,
 ) -> int:
     """Draw ``visible_text`` at ``x`` through the three-branch dispatch.
 
@@ -69,7 +70,10 @@ def draw_text_run(
 
     ``emoji_y`` / ``max_emoji_height`` are forwarded to ``draw_with_emoji``
     ONLY when not ``None`` (message does not supply them; two_row / image do,
-    for per-row band placement).
+    for per-row band placement). ``hires_downscale`` (default ``1.0`` = no
+    change) is forwarded to ``draw_with_emoji`` in the emoji branch only —
+    the image single-row overlay and message's fisheye lens box-downsample
+    hi-res sprites; the plain-text branches do not take it.
     """
     if has_emoji:
         total = (
@@ -100,6 +104,7 @@ def draw_text_run(
             frame=frame,
             total_chars=total,
             color_override=emoji_override,
+            hires_downscale=hires_downscale,
             **emoji_kwargs,
         )
 

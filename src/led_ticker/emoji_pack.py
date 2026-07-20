@@ -21,8 +21,15 @@ import logging
 import struct
 import zlib
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from led_ticker._types import PixelData
+
+if TYPE_CHECKING:
+    # Deferred at runtime (see `get_sprite`) to avoid a circular import —
+    # pixel_emoji imports this module at module level. Under TYPE_CHECKING
+    # only, so pyright can resolve the "HiResEmoji | None" return type.
+    from led_ticker.pixel_emoji import HiResEmoji
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +41,7 @@ _DEFAULT_PATH = Path(__file__).parent / "assets" / "emoji_pack.bin"
 _index: dict[str, tuple[int, int]] | None = None  # slug -> (offset, length)
 _cp_to_slug: dict[int, str] = {}
 _path_loaded: Path | None = None
-_sprite_cache: dict[str, object] = {}
+_sprite_cache: dict[str, HiResEmoji] = {}
 _load_failed_logged = False
 
 
@@ -127,7 +134,7 @@ def slug_for_codepoint(cp: int) -> str | None:
     return _cp_to_slug.get(cp)
 
 
-def get_sprite(slug: str):
+def get_sprite(slug: str) -> HiResEmoji | None:
     """HiResEmoji for a pack slug, decoding + caching on first use.
     Returns None for unknown slugs or on payload corruption (logged)."""
     if slug in _sprite_cache:

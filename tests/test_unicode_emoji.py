@@ -62,19 +62,32 @@ class TestMappingSamples:
 
 
 class TestUnmapped:
-    """Unmapped emoji return None."""
+    """Emoji outside the ~20-entry curated `_UNICODE_EMOJI_MAP` used to return
+    None unconditionally (stripped). Since the standard-emoji pack (Task 3 of
+    the emoji-pack-spec) landed, `_map_uemoji_to_slug` falls back to
+    `emoji_pack.slug_for_codepoint` for any astral base or allowlisted pack
+    BMP char not in the curated map — bird/dove/pin/calendar are single-
+    codepoint standard emoji the pack ships, so they now resolve to a real
+    slug instead of stripping. A bare BMP dingbat the pack does NOT ship
+    (e.g. a plain ✓/✗/★ with no variation selector) still returns None —
+    see `test_bare_unmapped_bmp_symbol_stays_none` below."""
 
-    def test_bird_is_unmapped(self):
-        assert _map_uemoji_to_slug("🐦") is None
+    def test_bird_resolves_via_pack(self):
+        assert _map_uemoji_to_slug("🐦") == "bird"
 
-    def test_dove_is_unmapped(self):
-        assert _map_uemoji_to_slug("🕊️") is None
+    def test_dove_resolves_via_pack(self):
+        assert _map_uemoji_to_slug("🕊️") == "dove"
 
-    def test_pin_is_unmapped(self):
-        assert _map_uemoji_to_slug("📍") is None
+    def test_pin_resolves_via_pack(self):
+        assert _map_uemoji_to_slug("📍") == "round_pushpin"
 
-    def test_calendar_is_unmapped(self):
-        assert _map_uemoji_to_slug("📅") is None
+    def test_calendar_resolves_via_pack(self):
+        assert _map_uemoji_to_slug("📅") == "calendar"
+
+    def test_bare_unmapped_bmp_symbol_stays_none(self):
+        # ✓ (U+2713) is neither in the curated map nor the pack's BMP
+        # allowlist (`PACK_BMP`) — genuinely unmapped, still strips.
+        assert _map_uemoji_to_slug("✓") is None
 
 
 class TestUemojiRuns:
@@ -142,20 +155,25 @@ class TestUemojiRuns:
 
 
 class TestF5Passthrough:
-    """Bare BMP symbols that are NOT in the allowlist must stay plain text."""
+    """Bare BMP symbols that are NOT in an allowlist (curated `_MAPPED_BMP`
+    OR the pack's generated `PACK_BMP`) must stay plain text.
 
-    def test_checkmark_cross_arrow_are_text(self):
-        # ✓ ✗ ➡ are BMP symbols but NOT in _MAPPED_BMP; without FE0F they
-        # do not match any alternative — the allowlist holds structurally.
-        assert list(_uemoji_runs("✓ done ✗ fail ➡ next")) == []
+    Since Task 3 of the emoji-pack-spec spliced `PACK_BMP` into the same
+    base-allowlist character class as `_MAPPED_BMP` (`pixel_emoji.py`'s
+    `_UEMOJI_RE`), a bare BMP char the pack ships (e.g. ➡ / ⚡) is now a
+    real detected run without needing a variation selector — see
+    `TestPackBmpNowRecognized` below. ✓ / ✗ / ★ / ☆ are NOT in the pack
+    and still require FE0F, so the allowlist-exclusion behavior this class
+    documents still holds for them."""
+
+    def test_checkmark_cross_are_text(self):
+        # ✓ ✗ are BMP symbols in neither allowlist; without FE0F they do
+        # not match any alternative.
+        assert list(_uemoji_runs("✓ done ✗ fail")) == []
 
     def test_stars_are_text(self):
         # ★ and ☆ are BMP dingbats but bare (no FE0F) — must stay text.
         assert list(_uemoji_runs("★★★★☆ 4/5")) == []
-
-    def test_lightning_is_text(self):
-        # ⚡ is a BMP symbol; bare (no FE0F) — must stay text.
-        assert list(_uemoji_runs("⚡ Flash")) == []
 
     def test_vs_qualified_checkmark_is_one_run(self):
         # ✓️ = ✓ + FE0F → matches the "ambiguous char + required VS" branch.
@@ -163,9 +181,29 @@ class TestF5Passthrough:
         assert len(runs) == 1
 
     def test_vs_qualified_arrow_is_one_run(self):
-        # ➡️ = ➡ + FE0F → matches the "ambiguous char + required VS" branch.
+        # ➡️ = ➡ + FE0F → matches the pack-BMP allowlist branch (or the
+        # VS-required branch structurally — either way a single run).
         runs = list(_uemoji_runs("➡️"))
         assert len(runs) == 1
+
+
+class TestPackBmpNowRecognized:
+    """BMP chars the standard-emoji pack ships (`PACK_BMP`) are spliced into
+    the SAME base-allowlist class as the curated `_MAPPED_BMP` (Task 3) —
+    they match bare, with no variation selector required, and fold to a
+    real pack slug via `_map_uemoji_to_slug`."""
+
+    def test_lightning_is_recognized_and_resolves(self):
+        # ⚡ (U+26A1) is in PACK_BMP — matches bare and folds via the pack.
+        runs = list(_uemoji_runs("⚡ Flash"))
+        assert len(runs) == 1
+        assert _map_uemoji_to_slug(runs[0][2]) == "high_voltage"
+
+    def test_arrow_is_recognized_and_resolves(self):
+        # ➡ (U+27A1) is in PACK_BMP — matches bare and folds via the pack.
+        runs = list(_uemoji_runs("➡ next"))
+        assert len(runs) == 1
+        assert _map_uemoji_to_slug(runs[0][2]) == "right_arrow"
 
 
 class TestHasRenderableEmoji:

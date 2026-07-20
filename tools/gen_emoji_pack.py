@@ -49,13 +49,16 @@ def _fetch(cp: int) -> Path | None:
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None
-        raise
+        # Non-404 HTTPError (5xx/429 etc.) falls through to the shared retry
+        # below — it must NOT re-raise here, or the retry never fires.
     except urllib.error.URLError, TimeoutError:
-        # Transient network hiccup — retry once before giving up.
-        time.sleep(1)
-        with urllib.request.urlopen(_NOTO.format(cp=cp), timeout=60) as r:
-            dst.write_bytes(r.read())
-        return dst
+        pass
+    # Transient network hiccup (non-404 HTTPError / URLError / TimeoutError) —
+    # retry once; a second failure propagates.
+    time.sleep(1)
+    with urllib.request.urlopen(_NOTO.format(cp=cp), timeout=60) as r:
+        dst.write_bytes(r.read())
+    return dst
 
 
 def _bake(png: Path) -> list[tuple[int, int, int, int, int]]:
@@ -100,7 +103,7 @@ def main() -> None:
         "BMP (< U+10000) codepoints present in the emoji pack. The unicode\n"
         "run scanner's regex builds at import time, so pack BMP emoji need\n"
         'this static allowlist (astral emoji match by range)."""\n\n'
-        f"PACK_BMP: str = {bmp!r}\n"
+        f"PACK_BMP: str = {bmp!r}  # noqa: E501\n"
     )
     print(
         f"packed {len(entries)} sprites -> {_PACK_OUT} "

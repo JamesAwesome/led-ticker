@@ -1453,59 +1453,58 @@ THUNDER_HIRES = HiResEmoji(
 )
 
 
-# 🔥 Fire — a classic teardrop flame. Multi-colour: deep-red rim, orange
-# body, yellow inner, white-hot core low-centre. The colour gradient is
-# what reads as FIRE (the silhouette alone is teardrop-shaped, like the
-# droplet); both low- and hi-res share the same palette + orientation
-# (tip up, wide base). `:fire:` / 🔥.
+# 🔥 Fire — hand-authored 8×8 flame. The distinguishing feature vs a
+# `:droplet:` at this size is the ASYMMETRIC, FORKED top: a taller main
+# tongue (right) and a shorter side lick (left) split by a notch, rather
+# than a single smooth teardrop tip. Deep-red rim, orange body, yellow
+# inner, white-hot core low-centre (where a flame is hottest). The hi-res
+# `:fire:` is baked from the real Noto Emoji glyph (see `_FIRE_HIRES_PIXELS`
+# below); this lo-res is hand-drawn because a real emoji at 8px is mud.
+# `:fire:` / 🔥.
 _FR = (185, 40, 12)  # deep-red rim / outline
 _FO = (255, 118, 20)  # orange body
 _FY = (255, 205, 45)  # yellow inner
 _FW = (255, 248, 210)  # white-hot core
 FIRE: PixelData = [
-    # Row 0: single wavy tip
-    (3, 0, *_FO),
-    # Row 1
-    (2, 1, *_FR),
+    # Row 0: main tongue tip (leans right of centre)
+    (4, 0, *_FO),
+    # Row 1: main tongue
     (3, 1, *_FO),
     (4, 1, *_FO),
-    # Row 2
-    (2, 2, *_FR),
+    # Row 2: FORKED top — side-lick tip (x1), notch (x2), main tongue (x3-4)
+    (1, 2, *_FO),
     (3, 2, *_FO),
     (4, 2, *_FY),
-    (5, 2, *_FO),
-    # Row 3
-    (1, 3, *_FR),
+    # Row 3: the two tongues start to merge
+    (1, 3, *_FO),
     (2, 3, *_FO),
     (3, 3, *_FY),
     (4, 3, *_FY),
     (5, 3, *_FO),
-    # Row 4: core appears
+    # Row 4
     (1, 4, *_FR),
     (2, 4, *_FO),
     (3, 4, *_FY),
-    (4, 4, *_FW),
-    (5, 4, *_FY),
-    (6, 4, *_FO),
-    # Row 5: widest, white core
+    (4, 4, *_FY),
+    (5, 4, *_FO),
+    # Row 5: white core appears, body widest
     (1, 5, *_FR),
     (2, 5, *_FO),
     (3, 5, *_FY),
     (4, 5, *_FW),
     (5, 5, *_FY),
     (6, 5, *_FO),
-    # Row 6
-    (1, 6, *_FR),
-    (2, 6, *_FO),
+    # Row 6: core
+    (2, 6, *_FR),
     (3, 6, *_FO),
-    (4, 6, *_FY),
-    (5, 6, *_FO),
-    (6, 6, *_FR),
-    # Row 7: rounded base
+    (4, 6, *_FW),
+    (5, 6, *_FW),
+    (6, 6, *_FO),
+    # Row 7: rounded base (slightly asymmetric)
     (2, 7, *_FR),
     (3, 7, *_FO),
-    (4, 7, *_FO),
-    (5, 7, *_FR),
+    (4, 7, *_FY),
+    (5, 7, *_FO),
 ]
 
 

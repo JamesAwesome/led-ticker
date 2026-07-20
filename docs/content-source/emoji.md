@@ -14,6 +14,7 @@ The slug list rots fast as new icons are added. The source of truth is `src/led_
 | `:cloud:` | <img src="/emoji/cloud-low.png" width="64" alt="cloud lowres"> | <img src="/emoji/cloud-hi.png" width="64" alt="cloud hires"> | Cloud icon |
 | `:droplet:` | <img src="/emoji/droplet-low.png" width="64" alt="droplet lowres"> | <img src="/emoji/droplet-hi.png" width="64" alt="droplet hires"> | Water droplet (blue teardrop) |
 | `:email:` | <img src="/emoji/email-low.png" width="64" alt="email lowres"> | <img src="/emoji/email-hi.png" width="64" alt="email hires"> | Envelope (white) |
+| `:fire:` | <img src="/emoji/fire-low.png" width="64" alt="fire lowres"> | <img src="/emoji/fire-hi.png" width="64" alt="fire hires"> | Flame (orange body, white-hot core) |
 | `:flower:` | <img src="/emoji/flower-low.png" width="64" alt="flower lowres"> | <img src="/emoji/flower-hi.png" width="64" alt="flower hires"> | Pink flower |
 | `:fog:` | <img src="/emoji/fog-low.png" width="64" alt="fog lowres"> | <img src="/emoji/fog-hi.png" width="64" alt="fog hires"> | Fog icon |
 | `:heart:` | <img src="/emoji/heart-low.png" width="64" alt="heart lowres"> | <img src="/emoji/heart-hi.png" width="64" alt="heart hires"> | Heart (default red; see color variants below) |

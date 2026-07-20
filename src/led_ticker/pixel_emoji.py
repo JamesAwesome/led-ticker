@@ -3248,6 +3248,27 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
     scanned for Unicode-emoji runs (spec §1). uemoji carries the ORIGINAL
     codepoints so the draw/measure loops (and a future hi-res renderer)
     have them.
+
+    The gate is `_get_registry()` membership OR the standard-emoji pack
+    (mirrors `has_renderable_emoji`'s gate exactly — same shape, same
+    reasons) — NOT bare `HIRES_REGISTRY` membership. A pack slug is
+    hires-only (no low-res 8×8 fallback) but MUST still be classified as
+    an ("emoji", slug) segment so the pack's authoring convention (spec
+    Decision #2: every pack emoji gets a `:slug:` name) actually renders
+    in text — draw/measure then apply the hires-only no-op fallback
+    themselves (`_uemoji_slug_renders`), same as the Unicode-emoji path.
+    Before this fix, the gate was the bare registry check, so a pack slug
+    drew as literal ":slug:" text (visible colons) at every scale.
+
+    Deliberately NOT `is_emoji_slug` (which also admits bare
+    `HIRES_REGISTRY` membership): a plugin may register `hires_emoji`
+    without a paired low-res `emoji` — that slug is intentionally NOT
+    inline-parseable (`_plugin_loader` warns "will not render inline"
+    at load time; pinned by
+    `test_hires_only_plugin_slug_parses_as_text_not_emoji`). Every
+    *curated* `HIRES_REGISTRY` entry currently also has a low-res
+    `EMOJI_REGISTRY` pair, so this narrower gate is byte-identical for
+    curated slugs while still closing the pack gap.
     """
     parts = re.split(f"({EMOJI_PATTERN.pattern})", text)
     segments: list[tuple[str, str]] = []
@@ -3256,7 +3277,7 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
             continue
         if part.startswith(":") and part.endswith(":"):
             slug = part[1:-1]
-            if slug in _get_registry():
+            if slug in _get_registry() or emoji_pack.has_slug(slug):
                 segments.append(("emoji", slug))
             else:
                 _split_uemoji(part, segments)
@@ -3313,6 +3334,14 @@ def measure_width(
     prev_was_text = False  # leading emoji has no pre-pad
     for seg_type, value in segments:
         if seg_type == "emoji":
+            if not _uemoji_slug_renders(value, canvas, use_hires, max_emoji_height):
+                # Pack-only (or HIRES_REGISTRY-only) slug with no low-res
+                # fallback, off a plain/scale-1 canvas (or over
+                # max_emoji_height) — no width, no padding, same as an
+                # unmapped uemoji run. Mirrors `draw_with_emoji`'s emoji
+                # branch (F6 parity) so a scale-1 pack slug never reserves
+                # phantom width.
+                continue
             # Symmetric padding: pad BEFORE an emoji that follows text.
             # Back-to-back emojis don't double-pad — only the trailing
             # pad of the first emoji separates them.
@@ -3601,6 +3630,13 @@ def draw_with_emoji(
             # `:slug:` sprite. The sprite carries its own colors and does
             # NOT advance the per-char hue index (`char_index`) — the
             # rainbow/gradient sweep is continuous across it.
+            if not _uemoji_slug_renders(value, canvas, use_hires, max_emoji_height):
+                # Pack-only (or HIRES_REGISTRY-only) slug with no low-res
+                # fallback, off a plain/scale-1 canvas (or over
+                # max_emoji_height) — no draw, no advance, no pre-pad.
+                # Mirrors the `uemoji` branch below (F6 parity) so a
+                # scale-1 pack slug can't leave a phantom padding gap.
+                continue
             if prev_was_text:
                 total += EMOJI_PADDING
             ix = int(cursor_pos + total)

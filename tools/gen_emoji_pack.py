@@ -103,7 +103,7 @@ def main() -> None:
         "BMP (< U+10000) codepoints present in the emoji pack. The unicode\n"
         "run scanner's regex builds at import time, so pack BMP emoji need\n"
         'this static allowlist (astral emoji match by range)."""\n\n'
-        f"PACK_BMP: str = {bmp!r}  # noqa: E501\n"
+        f'PACK_BMP: str = "{bmp}"  # noqa: E501\n'
     )
     print(
         f"packed {len(entries)} sprites -> {_PACK_OUT} "

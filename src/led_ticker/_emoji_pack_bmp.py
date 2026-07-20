@@ -4,4 +4,4 @@ BMP (< U+10000) codepoints present in the emoji pack. The unicode
 run scanner's regex builds at import time, so pack BMP emoji need
 this static allowlist (astral emoji match by range)."""
 
-PACK_BMP: str = '#*©®‼⁉™ℹ↔↕↖↗↘↙↩↪⌚⌛⌨⏏⏩⏪⏫⏬⏭⏮⏯⏰⏱⏲⏳⏸⏹⏺Ⓜ▪▫▶◀◻◼◽◾☂☃☄☎☑☔☕☘☝☠☢☣☦☪☮☯☸☹☺♀♂♈♉♊♋♌♍♎♏♐♑♒♓♟♠♣♥♦♨♻♾♿⚒⚓⚔⚕⚖⚗⚙⚛⚜⚠⚡⚧⚪⚫⚰⚱⚽⚾⛄⛎⛏⛑⛓⛔⛩⛪⛰⛱⛲⛳⛴⛵⛷⛸⛹⛺⛽✂✅✈✊✋✌✍✏✒✔✖✝✡✳✴❇❌❎❓❔❕❗❣➕➖➗➡➰➿⤴⤵⬅⬆⬇⬛⬜⭕〰〽㊗㊙'  # noqa: E501
+PACK_BMP: str = "#*©®‼⁉™ℹ↔↕↖↗↘↙↩↪⌚⌛⌨⏏⏩⏪⏫⏬⏭⏮⏯⏰⏱⏲⏳⏸⏹⏺Ⓜ▪▫▶◀◻◼◽◾☂☃☄☎☑☔☕☘☝☠☢☣☦☪☮☯☸☹☺♀♂♈♉♊♋♌♍♎♏♐♑♒♓♟♠♣♥♦♨♻♾♿⚒⚓⚔⚕⚖⚗⚙⚛⚜⚠⚡⚧⚪⚫⚰⚱⚽⚾⛄⛎⛏⛑⛓⛔⛩⛪⛰⛱⛲⛳⛴⛵⛷⛸⛹⛺⛽✂✅✈✊✋✌✍✏✒✔✖✝✡✳✴❇❌❎❓❔❕❗❣➕➖➗➡➰➿⤴⤵⬅⬆⬇⬛⬜⭕〰〽㊗㊙"  # noqa: E501

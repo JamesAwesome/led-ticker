@@ -1,6 +1,6 @@
 ---
 title: Sprite and flair transitions
-description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, and flair.poker card-suit ripple transitions."
+description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, flair.poker card-suit ripple, flair.lightning bolt-strike, and flair.fairy pixie-dust transitions."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -301,6 +301,8 @@ font_color = [255, 190, 0]`}
 led-ticker-flair
 ```
 
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
 #### Minimal config
 
 <TomlExample
@@ -328,5 +330,122 @@ font_color = [255, 255, 255]`}
 
 - **The reveal is against black.** Like `flair.fireworks`, the second half reveals the incoming widget inside the ripple wakes against black (hardware can't composite two widgets — there is no `GetPixel`), then covers the whole panel by the end. The suit glyphs and their rings share one shape function, which is what lets the ripples take each suit's outline.
 - **Single-suit is a theme, all-suits is a shuffle.** `suits = ["hearts"]` gives a wall of heart ripples; omitting `suits` mixes all four across the grid.
+
+### `flair.lightning` (flair >= 0.11.0, core >= 4.18)
+
+`flair.lightning` strikes a zigzag bolt across the outgoing widget — a white-hot head with a flickering electric blue-white trail — then the crack it leaves pulls apart into two glowing zigzag edges, revealing the incoming widget in the widening gap.
+
+<DemoGif
+  src="/demos-pinned/transition-flair-lightning.gif"
+  caption="`flair.lightning` — a zigzag bolt strikes across, then the crack opens to reveal the incoming widget"
+/>
+
+#### Install
+
+`flair.lightning` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Fresh bolt every firing"
+  code={`[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+transition = "flair.lightning"
+
+[[playlist.section.widget]]
+type = "message"
+text = "STORM"
+center = true
+font_color = [255, 255, 255]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "STRUCK"
+center = true
+font_color = [120, 190, 255]`}
+/>
+
+#### Knobs
+
+| Knob    | Default                               | Notes                                                                                                         |
+| ------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `seed`  | `None` (OS entropy)                   | Fixes the bolt path for reproducible strikes. Leave unset for a real deploy — every firing gets a fresh bolt. |
+| `color` | electric blue-white `[150, 190, 255]` | Tints the bolt trail and the crack edges as they open. The strike head is always white.                       |
+
+#### Behavior notes
+
+- **Two phases.** The first phase draws the bolt left→right over the outgoing widget; then it cuts to the incoming widget and opens the crack, blacking out everything outside the widening zigzag gap. **The incoming is revealed against black, not composited over the old content** (hardware has no `GetPixel`, so the outgoing's pixels can't be read back and slid apart). Section backgrounds (`bg_color`) show inside the gap from the first sliver.
+- **No warm-up.** Every frame is a pure function of the transition's progress; the first firing after boot costs the same as every other.
+
+### `flair.fairy` (flair >= 0.12.0, core >= 4.18)
+
+`flair.fairy` sends a Tinkerbell-style fairy — a white-hot sparkle-star — across the panel trailing a long cone of gold pixie dust and settling a thin line; when the fairy reaches the far edge the line opens into two twinkling gold edges, revealing the incoming widget in the gap. It comes in three direction variants: `flair.fairy.forward` (left→right), `flair.fairy.reverse` (right→left), and `flair.fairy.alternating` (flips every firing).
+
+<DemoGif
+  src="/demos-pinned/transition-flair-fairy.gif"
+  caption="`flair.fairy` — a fairy trails pixie dust across the panel, then the line opens to reveal the incoming widget"
+/>
+
+#### Install
+
+`flair.fairy` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Direction flips every firing"
+  code={`[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+transition = "flair.fairy.alternating"
+
+[[playlist.section.widget]]
+type = "message"
+text = "PIXIE"
+center = true
+font_color = [255, 215, 120]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "DUST"
+center = true
+font_color = [130, 220, 150]`}
+/>
+
+#### Knobs
+
+| Knob    | Default                | Notes                                                                                                                   |
+| ------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `seed`  | `None` (OS entropy)    | Fixes the flight path and the pixie-dust spark field. Leave unset for a real deploy — every firing gets a fresh flight. |
+| `color` | gold `[255, 215, 120]` | Tints the pixie dust, the settled line, and the edges as the line opens. The fairy head is always white.                |
+
+Direction is **not** a knob — pick the variant (`.forward` / `.reverse` / `.alternating`).
+
+#### Behavior notes
+
+- **Two phases.** The first half flies the fairy across, drawing a dwelling cone of dust over the outgoing widget; the second half opens the settled line to reveal the incoming widget against black outside the gap (same `GetPixel` constraint as `flair.lightning` and `flair.poker`). Section `bg_color` shows inside the gap from the first sliver.
+- **Near-straight flight.** The path is a gentle center-band line — the magic is in the dust, not a loop-de-loop — so the settled line never doubles back on itself and can split cleanly.
+- **Stateless sparks, no warm-up.** Every spark is a pure function of the column and the transition's progress — no particle simulation, no caches — so the first firing after boot costs the same as every other.
 
 <RelatedPages slugs={["transitions/push", "transitions/wipe", "concepts/animations"]} />

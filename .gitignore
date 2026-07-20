@@ -167,3 +167,4 @@ docs/site/node_modules/
 docs/site/dist/
 docs/site/.astro/
 .claude/scheduled_tasks.lock
+tools/assets/_noto_cache/

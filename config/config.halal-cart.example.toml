@@ -26,7 +26,10 @@
 # TACO TUESDAY MADNESS (day-of-week scheduling): Tuesdays the cart goes LOCO —
 # breakfast burritos at sunrise, tacos + burritos + bowls from lunch through
 # the 2am crowd, all delivered with the energy of an upstate used-car salesman
-# whose lot is on fire. Every regular menu section carries
+# who has gazed past the veil and kept right on selling — cosmic dread braided
+# into the hard sell (aeons, the tide, IA! IA!), foretold and foil-wrapped.
+# Every line leads with the taco, then the madness. Every regular menu section
+# carries
 # days = ["mon", "wed", "thu", "fri", "sat", "sun"] and each has a Tuesday
 # twin (the "t" sections) with days = ["tue"]. Overnight wrap + days compose:
 # the post-midnight tail of a wrapped window belongs to the day it STARTED,
@@ -62,7 +65,10 @@ pwm_bits = 8
 timezone = "America/New_York"
 
 [title]
-delay = 3
+# 0 = no pre-roll pause before a marquee's first widget starts scrolling —
+# the banners flow continuously (the sign is "never still"). Per-section
+# start_hold can still override this for any section that wants a beat.
+delay = 0
 
 # Fireworks burst between every section (the big flashy reveal); a white
 # color-flash punches between widgets inside a section.
@@ -125,9 +131,24 @@ hold_time = 10
 transition = {type = "flair.stickers", emoji = ["taco"], backing = "shadow"}
 schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 
+# Three banners rotate one-at-a-time; the madness escalates each pass.
 [[playlist.section.widget]]
 type = "message"
-text = "🌮 TACO TUESDAY MADNESS 🌮 TACOS ★ BURRITOS ★ BOWLS 🌮 WE'VE GONE COMPLETELY LOCO 🌮"
+text = "🌮 TACO TUESDAY MADNESS 🌮 FORETOLD BY AEONS LOST, BORNE IN ON THE TIDE 🌮 TACOS ★ BURRITOS ★ BOWLS 🌮 PRICES SLASHED BY HANDS UNSEEN 🌮 WE ARE LOST TO IT AND SO ARE YOU 🌮"
+font_color = "rainbow"
+animation = "flair.fisheye"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+[[playlist.section.widget]]
+type = "message"
+text = "🌮 TACO TUESDAY! IA! IA! 🌮 THE STARS ALIGN OVER THE GRILL 🌮 TACOS ★ BURRITOS ★ BOWLS 🌮 THAT IS NOT LUNCH WHICH CAN ETERNAL LIE 🌮 AND WITH STRANGE AEONS, EVEN TACOS 🌮"
+font_color = "rainbow"
+animation = "flair.fisheye"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+[[playlist.section.widget]]
+type = "message"
+text = "🌮 TACO TUESDAY MADNESS 🌮 WE GAZED PAST THE VEIL AND IT WAS DELICIOUS 🌮 TACOS ★ BURRITOS ★ BOWLS 🌮 THESE DEALS WON'T LAST 🌮 BUT THEN, NOTHING DOES 🌮"
 font_color = "rainbow"
 animation = "flair.fisheye"
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
@@ -138,9 +159,17 @@ hold_time = 10
 transition = {type = "flair.stickers", emoji = ["taco"], backing = "shadow"}
 schedule = {start = "05:00", end = "11:00", days = ["tue"]}
 
+# Two breakfast banners rotate; both lead with the taco, then the dread.
 [[playlist.section.widget]]
 type = "message"
-text = "🌮 TACO TUESDAY 🌮 BREAKFAST BURRITOS 🌮 THESE DEALS WON'T LAST 🌮"
+text = "🌮 TACO TUESDAY 🌙 THE OMENS SAID BURRITOS 🌮 BREAKFAST, BEFORE THE DEEP TAKES US 🌮 THESE DEALS WON'T LAST 🌮 NOTHING DOES 🌮"
+font_color = "rainbow"
+animation = "flair.fisheye"
+border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+
+[[playlist.section.widget]]
+type = "message"
+text = "🌮 TACO TUESDAY 🌙 DAWN BROKE COLD AND THE PROPHECY SPOKE OF BREAKFAST BURRITOS 🌮 EAT WHILE THE TIDE ALLOWS 🌮"
 font_color = "rainbow"
 animation = "flair.fisheye"
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
@@ -219,8 +248,9 @@ colors = [[230, 40, 30], [255, 190, 0], [255, 244, 214]]
 choreography = "roll_through"
 border = "rainbow"
 
-# --- 3t · TUESDAY draw: two balls, one truth ---------------------------------
-# Runs all Tuesday (both shifts — the pun doesn't change at lunch).
+# --- 3t · TUESDAY draw: three balls, one incantation -------------------------
+# ALL ★ HAIL ★ TACO rolls in like a summoning. Runs all Tuesday (both shifts —
+# the chant doesn't change at lunch).
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
@@ -229,9 +259,9 @@ schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 
 [[playlist.section.widget]]
 type = "flair.lottery"
-words = ["TACO", "LOCO"]
+words = ["ALL", "HAIL", "TACO"]
 ball_style = "classic"
-colors = [[230, 40, 30], [80, 200, 60]]
+colors = [[230, 40, 30], [130, 60, 160], [80, 200, 60]]
 choreography = "roll_through"
 border = "rainbow"
 
@@ -243,9 +273,9 @@ schedule = {start = "05:00", end = "11:00", days = ["tue"]}
 
 [[playlist.section.widget]]
 type = "flair.lottery"
-words = ["TACO", "LOCO"]
+words = ["ALL", "HAIL", "TACO"]
 ball_style = "classic"
-colors = [[230, 40, 30], [80, 200, 60]]
+colors = [[230, 40, 30], [130, 60, 160], [80, 200, 60]]
 choreography = "roll_through"
 border = "rainbow"
 
@@ -306,7 +336,7 @@ schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 [[playlist.section.widget]]
 type = "two_row"
 top_text = "TACOS"
-bottom_text = "tacos • burritos • bowls • prices SLASHED • today only"
+bottom_text = "the grill has seen things • tacos • burritos • bowls • surrender to the value"
 top_color = {style = "shimmer", base = [80, 200, 60], shimmer = "white", speed = 18.0, pause = 0.5}
 top_align = "center"
 bottom_color = "rainbow"
@@ -327,7 +357,7 @@ schedule = {start = "05:00", end = "11:00", days = ["tue"]}
 [[playlist.section.widget]]
 type = "two_row"
 top_text = "BURRITO"
-bottom_text = "breakfast burritos • get here before they're GONE"
+bottom_text = "wrapped in foil, bound by ancient pact • breakfast burritos • get here before they're GONE"
 top_color = {style = "shimmer", base = [80, 200, 60], shimmer = "white", speed = 18.0, pause = 0.5}
 top_align = "center"
 bottom_color = "rainbow"
@@ -387,7 +417,7 @@ font = "Inter-Bold"
 font_size = 44
 border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
 
-# --- 6t · TUESDAY crawls: the going-out-of-business pitch --------------------
+# --- 6t · TUESDAY crawls: the going-out-of-business pitch, possessed ----------
 [[playlist.section]]
 mode = "ticker"
 transition = {type = "flair.stickers", emoji = ["taco"], backing = "shadow"}
@@ -395,7 +425,7 @@ schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 
 [[playlist.section.widget]]
 type = "message"
-text = "TACO TUESDAY MADNESS 🌮 TACOS • BURRITOS • BOWLS 🌮 PRICES SO LOW IT'S LOCO 🌮 EVERYTHING MUST GO 🌮 ONE DAY ONLY 🌮 DON'T WALK — RUN 🌮 CASH ONLY"
+text = "TACO TUESDAY MADNESS 🌮 TACOS • BURRITOS • BOWLS 🌮 PRICES SLASHED BY HANDS UNSEEN 🌮 EVERYTHING MUST GO, FOR NOTHING REMAINS 🌮 ONE DAY ONLY, AND YET ALL DAYS 🌮 DO NOT WALK, THE TIDE IS COMING 🌮 CASH ONLY"
 font_color = "rainbow"
 font = "Inter-Bold"
 font_size = 44
@@ -408,7 +438,7 @@ schedule = {start = "05:00", end = "11:00", days = ["tue"]}
 
 [[playlist.section.widget]]
 type = "message"
-text = "BREAKFAST BURRITOS 🌮 TACO TUESDAY STARTS AT SUNRISE 🌮 THE BOSS SAYS WE'VE LOST OUR MINDS 🌮 ONE DAY ONLY 🌮 CASH ONLY"
+text = "TACO TUESDAY 🌙 BREAKFAST BURRITOS • FORETOLD • FOIL-WRAPPED 🌮 THESE PRICES CANNOT LAST 🌮 NOTHING DOES 🌮 EAT BEFORE THE DEEP TAKES US 🌮 CASH ONLY"
 font_color = "rainbow"
 font = "Inter-Bold"
 font_size = 44

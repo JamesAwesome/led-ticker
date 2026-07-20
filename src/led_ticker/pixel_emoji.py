@@ -1453,6 +1453,125 @@ THUNDER_HIRES = HiResEmoji(
 )
 
 
+# 🔥 Fire — a classic teardrop flame. Multi-colour: deep-red rim, orange
+# body, yellow inner, white-hot core low-centre. The colour gradient is
+# what reads as FIRE (the silhouette alone is teardrop-shaped, like the
+# droplet); both low- and hi-res share the same palette + orientation
+# (tip up, wide base). `:fire:` / 🔥.
+_FR = (185, 40, 12)  # deep-red rim / outline
+_FO = (255, 118, 20)  # orange body
+_FY = (255, 205, 45)  # yellow inner
+_FW = (255, 248, 210)  # white-hot core
+FIRE: PixelData = [
+    # Row 0: single wavy tip
+    (3, 0, *_FO),
+    # Row 1
+    (2, 1, *_FR),
+    (3, 1, *_FO),
+    (4, 1, *_FO),
+    # Row 2
+    (2, 2, *_FR),
+    (3, 2, *_FO),
+    (4, 2, *_FY),
+    (5, 2, *_FO),
+    # Row 3
+    (1, 3, *_FR),
+    (2, 3, *_FO),
+    (3, 3, *_FY),
+    (4, 3, *_FY),
+    (5, 3, *_FO),
+    # Row 4: core appears
+    (1, 4, *_FR),
+    (2, 4, *_FO),
+    (3, 4, *_FY),
+    (4, 4, *_FW),
+    (5, 4, *_FY),
+    (6, 4, *_FO),
+    # Row 5: widest, white core
+    (1, 5, *_FR),
+    (2, 5, *_FO),
+    (3, 5, *_FY),
+    (4, 5, *_FW),
+    (5, 5, *_FY),
+    (6, 5, *_FO),
+    # Row 6
+    (1, 6, *_FR),
+    (2, 6, *_FO),
+    (3, 6, *_FO),
+    (4, 6, *_FY),
+    (5, 6, *_FO),
+    (6, 6, *_FR),
+    # Row 7: rounded base
+    (2, 7, *_FR),
+    (3, 7, *_FO),
+    (4, 7, *_FO),
+    (5, 7, *_FR),
+]
+
+
+def _generate_fire_hires(
+    size: int = 32,
+) -> tuple[tuple[int, int, int, int, int], ...]:
+    """Build a 32×32 teardrop flame: a rounded base + a curved, gently
+    flickering tip, coloured as concentric warm bands (white core → yellow
+    → orange) with a 1-px deep-red rim on the silhouette edge.
+
+    Silhouette mirrors `_generate_droplet_hires` (bulb + tapered tip, tip at
+    top) but the taper is CONCAVE (``frac**0.72``) so the sides curve like a
+    flame rather than a raindrop's straight sides, and the tip axis leans on
+    a slow sine so it reads as a flicker, not a droplet. Colour is by
+    distance from a low-centre core point, so the white-hot core sits in the
+    lower body where a flame is hottest.
+    """
+    import math
+
+    cx = (size - 1) / 2.0
+    base_cy = size * 0.64
+    base_r = size * 0.32
+    tip_y = size * 0.05
+    core_cy = size * 0.60  # white core low-centre (hottest part of a flame)
+
+    inside: set[tuple[int, int]] = set()
+    for y in range(size):
+        for x in range(size):
+            in_bulb = (x - cx) ** 2 + (y - base_cy) ** 2 <= base_r * base_r
+            in_tip = False
+            if tip_y <= y <= base_cy:
+                frac = (y - tip_y) / (base_cy - tip_y)  # 0 tip → 1 bulb
+                # power > 1 keeps the tip a fine point then flares to the
+                # bulb (a flame's concave shoulders); < 1 would balloon into
+                # an onion. A slow sine leans the tip for a flicker.
+                half_w = base_r * (frac**1.5)
+                axis = cx + math.sin((1.0 - frac) * math.pi) * base_r * 0.22
+                in_tip = abs(x - axis) <= half_w
+            if in_bulb or in_tip:
+                inside.add((x, y))
+
+    pixels: list[tuple[int, int, int, int, int]] = []
+    for x, y in inside:
+        # 1-px deep-red rim wherever the silhouette meets empty space.
+        on_edge = any(
+            (x + dx, y + dy) not in inside for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+        )
+        if on_edge:
+            pixels.append((x, y, *_FR))
+            continue
+        d = math.hypot(x - cx, y - core_cy)
+        if d <= base_r * 0.36:
+            pixels.append((x, y, *_FW))
+        elif d <= base_r * 0.66:
+            pixels.append((x, y, *_FY))
+        else:
+            pixels.append((x, y, *_FO))
+    return tuple(pixels)
+
+
+FIRE_HIRES = HiResEmoji(
+    pixels=_generate_fire_hires(size=32),
+    physical_size=32,
+)
+
+
 # 🌫️ 32×32 Fog — 4 horizontal wavy bands (suggest layered fog)
 _FOG_COLOR = (190, 195, 205)
 
@@ -2362,6 +2481,8 @@ def _build_emoji_registry() -> dict[str, PixelData]:
         "star": STAR,
         # Food
         "taco": TACO,
+        # Elemental
+        "fire": FIRE,
         # Weather
         "sun": SUN,
         "cloud": CLOUD,
@@ -2470,6 +2591,8 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = _build_hires_registry(
         "flower": FLOWER_HIRES,
         # Food
         "taco": TACO_HIRES,
+        # Elemental
+        "fire": FIRE_HIRES,
         # Animals
         "bunny": BUNNY_HIRES,
         "cat": CAT_HIRES,
@@ -2619,6 +2742,7 @@ _UNICODE_EMOJI_MAP: dict[str, str] = {
     _emoji_key("💐"): "flower",
     _emoji_key("🌼"): "flower",
     _emoji_key("🌮"): "taco",
+    _emoji_key("🔥"): "fire",
     _emoji_key("📧"): "email",
     _emoji_key("✉️"): "email",
     _emoji_key("📩"): "email",

@@ -1937,9 +1937,8 @@ class TestEmojiSlugs:
         slugs = emoji_slugs()
         assert isinstance(slugs, tuple)
         assert list(slugs) == sorted(set(slugs)), "sorted + deduped"
-        for known in ("taco", "sun", "moon", "star", "heart", "pride"):
+        for known in ("taco", "sun", "moon", "star", "heart", "pride", "fire"):
             assert known in slugs
-        assert "fire" not in slugs  # not in the set; the flagship typo
 
     def test_includes_plugin_committed_slugs(self, monkeypatch):
         from led_ticker import pixel_emoji

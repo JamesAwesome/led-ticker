@@ -82,6 +82,17 @@ _ASCII_GLYPH_FALLBACKS: dict[str, str] = {
 # never silent, but not re-logged every draw tick.
 _WARNED_MISSING: set[tuple[str, str]] = set()
 
+# Pixel-native bundled fonts: name -> native pixel height. A pixel font is
+# crisp ONLY at its native size or an integer multiple (rendering lands
+# exactly on the LED grid, strictly 1-bit); anything else antialiases into
+# mush. Single source of truth for validate rule 69 and the docs. Runtime
+# stays permissive — off-grid renders what was asked, only validate warns.
+_PIXEL_NATIVE: dict[str, int] = {
+    "spleen-6x12": 12,
+    "spleen-8x16": 16,
+    "spleen-16x32": 32,
+}
+
 # A private-use codepoint is guaranteed unassigned, so rasterizing it yields
 # the font's notdef glyph (a box, or empty if the font has no notdef). We
 # fingerprint it once per font and treat any glyph whose lit pixels match as

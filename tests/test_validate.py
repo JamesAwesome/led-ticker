@@ -4542,3 +4542,48 @@ class TestGlyphCoverage:
         cfg = conf(_BDF_CFG.format(text="HELLO 123"))
         result = await validate_config(cfg)
         assert not [i for i in result.warnings if i.rule == 68]
+
+
+_SPLEEN_CFG = """
+[display]
+rows = 64
+cols = 64
+chain = 8
+default_scale = 4
+
+[[playlist.section]]
+mode = "slideshow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "EV 104.6"
+font = "spleen-6x12"
+font_size = {size}
+"""
+
+
+class TestPixelFontSize:
+    async def test_off_grid_size_warns_with_nearest_sizes(self, conf):
+        result = await validate_config(conf(_SPLEEN_CFG.format(size=13)))
+        w = [i for i in result.warnings if i.rule == 69]
+        assert w and "12" in w[0].fix and "24" in w[0].fix
+
+    async def test_below_native_suggests_native_only(self, conf):
+        result = await validate_config(conf(_SPLEEN_CFG.format(size=8)))
+        w = [i for i in result.warnings if i.rule == 69]
+        assert w and "12" in w[0].fix and "24" not in w[0].fix
+
+    async def test_native_and_multiple_silent(self, conf):
+        for size in (12, 24, 36):
+            result = await validate_config(conf(_SPLEEN_CFG.format(size=size)))
+            assert not [i for i in result.warnings if i.rule == 69], size
+
+    async def test_non_pixel_font_never_warns(self, conf):
+        cfg = conf(_SPLEEN_CFG.replace("spleen-6x12", "Inter-Bold").format(size=13))
+        result = await validate_config(cfg)
+        assert not [i for i in result.warnings if i.rule == 69]
+
+    async def test_default_bdf_widget_unaffected(self, conf):
+        cfg = conf(_SPLEEN_CFG.replace('font = "spleen-6x12"\n', "").format(size=13))
+        result = await validate_config(cfg)
+        assert not [i for i in result.warnings if i.rule == 69]

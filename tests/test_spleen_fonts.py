@@ -31,7 +31,7 @@ def _gray_values(name: str, size: int) -> set[int]:
 
 
 class TestSpleenResolves:
-    def test_all_four_names_resolve_at_native(self):
+    def test_all_names_resolve_at_native(self):
         for name, (native, _adv) in _SPLEEN.items():
             font = resolve_font(name, native)
             g = font.resolve_glyph("M")
@@ -71,3 +71,14 @@ class TestBinaryGrid:
             font = resolve_font(name, native)
             g = font.resolve_glyph("M")
             assert g is not None and g.advance == adv, name
+
+
+class TestPixelNativeRegistry:
+    def test_registry_matches_bundled_set(self):
+        from led_ticker.fonts.hires_loader import _PIXEL_NATIVE
+
+        assert _PIXEL_NATIVE == {
+            "spleen-6x12": 12,
+            "spleen-8x16": 16,
+            "spleen-16x32": 32,
+        }

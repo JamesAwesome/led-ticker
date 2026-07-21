@@ -76,15 +76,18 @@ BDF fonts ignore `font_threshold` entirely — their bitmaps are already 1-bit.
 
 ## Character coverage
 
-Hi-res fonts pre-rasterize a fixed character set when the font loads, not lazily on demand. The set covers what most signage actually uses:
+Every character in a hi-res text field is resolved through a four-step ladder as it renders, so a missing-glyph `?` is rare:
 
-- **ASCII printable**: the standard `string.printable` range — letters, digits, punctuation, whitespace.
-- **Extended Latin**: the most common Latin-1 accented characters (`àáâãäåæçèéêëìíîïñòóôõöøùúûüýÿ` + uppercase variants), so European-language RSS feeds render correctly.
-- **Extended punctuation**: bullet (`•`), middle-dot (`·`), ellipsis (`…`), em-dash (`—`), en-dash (`–`), curly quotes (`’‘“”`), and guillemets (`«»`) — the typographic marks that show up in headlines, separator lists, and brand copy.
+1. **The chosen font.** If your font has a real glyph for the character, that draws. The bundled hi-res fonts cover ASCII, common accented Latin, and the typographic marks headlines use — bullet (`•`), ellipsis (`…`), em-dash (`—`), en-dash (`–`), curly quotes (`’‘“”`).
+2. **DejaVu Sans (bundled fallback).** For a character the chosen font lacks — an arrow (`▲`), a math or currency symbol (`Ω`, `×`, `÷`), a less-common mark — the sign rasterizes it from a bundled DejaVu Sans at the same size. Arrows render as arrows, not boxes.
+3. **A look-alike ASCII character.** If neither font has the glyph, a small table maps the typographic codepoint to a plain-ASCII stand-in — a minus sign (`−`) shows as `-`, a division sign (`÷`) as `/`. The substitute is a real glyph, so advance widths and spacing stay correct.
+4. **`?` — and a warning.** Only a character none of the above can render shows a `?`. That case is logged the first time such a character is rendered (once per font and character), and `led-ticker validate` flags it ahead of deploy (`… will render as '?' — no glyph in <font>, DejaVu, or the fallback table`), so you catch it before it reaches the panel. `validate` also flags the step-3 substitutions, so you know when a character is rendering as a look-alike rather than its true form.
 
-Any character outside this set falls back to the `?` glyph at render time. If you see a `?` on the panel where you expected your character, the codepoint isn't in the rasterized set — the fix is to extend `EXTENDED_LATIN` or `EXTENDED_PUNCTUATION` in `src/led_ticker/fonts/hires_loader.py` and rebuild. A tripwire test (`tests/test_hires_font_loader.py:test_glyphs_for_extended_punctuation`) asserts the punctuation set stays rasterized AND that each glyph has lit pixels — catches both "char missing from the set" regressions and "char in set but threshold-clipped to zero pixels" issues.
+A font's own glyph always wins: if your chosen font actually ships a real minus sign, you get that, not the ASCII stand-in. You never need to hand-extend a character set — any codepoint is attempted, and the ladder decides how it renders.
 
-BDF fonts have no fallback mechanism — characters not in the BDF's bitmap are skipped entirely (zero advance, no glyph drawn). For BDF widgets, stick to ASCII unless you've verified the BDF you picked includes the codepoints you need.
+Emoji don't use this ladder at all — `:slug:` names and Unicode emoji render from their own sprite path (see [Emoji](/assets/emoji/)).
+
+BDF fonts (the smallsign default) keep their bitmap behavior: a character not in the BDF's bitmap is skipped (zero advance, no glyph drawn). On BDF widgets, stick to ASCII unless you've verified the codepoints you need are in the bitmap.
 
 ## Decision tree
 

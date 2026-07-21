@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from led_ticker import emoji_pack
+from led_ticker._curated_noto_hires import NOTO_HIRES as _NOTO_ADOPTED_RAW
 from led_ticker._emoji_pack_bmp import PACK_BMP
 from led_ticker._types import Canvas, Font, PixelData
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, paint_hires
@@ -2986,6 +2987,21 @@ def _build_hires_registry(
 # canvas is a `ScaledCanvas`. Falls back to `EMOJI_REGISTRY` if the
 # slug isn't here. Each entry is auto-trimmed at registry assembly so
 # inline-text rows have symmetric gaps around emoji sprites.
+#
+# NOTO-ADOPTED curated hires (James's 2026-07-21 redundancy review, "all
+# recs"): the weather six + moon + droplet render baked Noto glyphs in
+# hi-res — richer than the hand-generated originals — while keeping their
+# curated lowres, unicode aliases, and slugs. fog/email/flower/bunny/taco
+# deliberately stay hand-authored (fog's bars READ on an LED where Noto's
+# smear doesn't; the bunny + taco are house characters; email's crisp
+# envelope beats Noto's blue-E at 32px). The `_NOTO_ADOPTED` overlay wins
+# below; the `*_HIRES` generator constants remain the shape source for the
+# non-adopted slugs. Regenerate via tools/gen_curated_noto_hires.py.
+_NOTO_ADOPTED: dict[str, HiResEmoji] = {
+    slug: HiResEmoji(pixels=pixels, physical_size=32)
+    for slug, pixels in _NOTO_ADOPTED_RAW.items()
+}
+
 HIRES_REGISTRY: dict[str, HiResEmoji] = _build_hires_registry(
     {
         "moon": MOON_HIRES,
@@ -3018,6 +3034,8 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = _build_hires_registry(
         # Pride flags
         "pride": PRIDE_HIRES,
         **PRIDE_HIRES_VARIANTS,
+        # Noto-adopted overlay LAST — wins for its 8 slugs.
+        **_NOTO_ADOPTED,
     }
 )
 
@@ -3182,12 +3200,12 @@ _UNICODE_EMOJI_MAP: dict[str, str] = {
     _emoji_key("🐈"): "cat",
     _emoji_key("🐰"): "bunny",
     _emoji_key("🐇"): "bunny",
-    _emoji_key("🌸"): "flower",
-    _emoji_key("🌺"): "flower",
-    _emoji_key("🌷"): "flower",
-    _emoji_key("🌹"): "flower",
-    _emoji_key("💐"): "flower",
-    _emoji_key("🌼"): "flower",
+    # NOTE: the six flower unicode (🌸🌺🌷🌹💐🌼) are deliberately ABSENT —
+    # unfolded 2026-07-21 (James's redundancy review): each renders its own
+    # Noto pack sprite (a rose as a rose, a bouquet as a bouquet) instead of
+    # folding into the one curated flower. The `:flower:` slug + sprite stay
+    # curated. Re-adding any key here without pruning the pack manifest
+    # would shadow its pack sprite (curated map wins the unicode lookup).
     _emoji_key("🌮"): "taco",
     _emoji_key("🔥"): "fire",
     _emoji_key("📧"): "email",

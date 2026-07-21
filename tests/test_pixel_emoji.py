@@ -241,17 +241,20 @@ def test_hires_moon_registered():
 
 
 def test_hires_moon_logical_width_matches_lowres():
-    """After auto-trim the crescent's lit pixels span 19 cols
-    (cols 0..18 post-shift). `logical_width` ceil-divides:
-    ceil(19/4) = 5 logical cols at scale=4 — matches the low-res
-    MOON's 5-col footprint and matches the previously hand-tuned
-    `physical_width=20` value. At scale=2: ceil(19/2) = 10.
+    """After auto-trim the NOTO moon's lit pixels span 30 cols (the gold
+    Noto crescent adopted 2026-07-21 is thicker than the old hand-drawn
+    one, whose trim was 19 cols / logical 5). `logical_width`
+    ceil-divides: ceil(30/4) = 8 at scale=4; ceil(30/2) = 15 at scale=2.
+    The VALUES here track the current sprite; the MECHANISM under test is
+    that the registry entry is trimmed and ceil-divided, not the raw
+    32-col canvas.
     """
     from led_ticker.pixel_emoji import HIRES_REGISTRY
 
     moon = HIRES_REGISTRY["moon"]
-    assert moon.logical_width(scale=4) == 5
-    assert moon.logical_width(scale=2) == 10
+    assert moon.physical_width == 30  # trimmed lit bbox, not 32
+    assert moon.logical_width(scale=4) == 8
+    assert moon.logical_width(scale=2) == 15
     assert moon.physical_size == 32  # full canvas height preserved
 
 
@@ -272,13 +275,12 @@ def test_hires_moon_paints_real_canvas_at_physical_resolution(bigsign_canvas):
         sc, FONT_SMALL, cursor_pos=0, y=12, color=(255, 255, 255), text=":moon:"
     )
 
-    # The hi-res moon has its leftmost lit pixel at col 11 in row 1
-    # (= real row 17 with emoji_y=4*4=16 offset). If the low-res path
-    # were used, real col 11 in any row would be black (low-res lights
-    # blocks: cols 0-3, 4-7, 8-11... but only where the 8×8 sprite has
-    # lit logical pixels, and MOON's leftmost is logical col 0).
-    assert real.get_pixel(11, 17) != (0, 0, 0), (
-        "real(11, 17) should be lit by the hi-res sprite. If it's black, "
+    # The (Noto) hi-res moon has a lit pixel at sprite (23, 2) — real
+    # col 23 (mod 4 = 3, NOT block-aligned), real row 2+16=18 with the
+    # emoji_y=4*4=16 offset. If the low-res path were used, a lit pixel
+    # could never land on a non-block-aligned column.
+    assert real.get_pixel(23, 18) != (0, 0, 0), (
+        "real(23, 18) should be lit by the hi-res sprite. If it's black, "
         "the hi-res path didn't activate and the wrapper expansion took "
         "over (which can't produce non-block-aligned pixels)."
     )
@@ -881,8 +883,9 @@ def test_partly_cloudy_in_both_registries():
     silhouette anchored bottom (cloud overrides sun on overlap).
 
     After `_auto_trim_hires`, `physical_width` reflects the lit-pixel
-    bbox (27 cols) — not None — so the layout footprint matches the
-    sprite's actual visible content rather than the full 32×32 canvas.
+    bbox (30 cols for the Noto-adopted sprite) — not None — so the layout
+    footprint matches the sprite's actual visible content rather than the
+    full 32×32 canvas.
     """
     from led_ticker.pixel_emoji import HIRES_REGISTRY, _get_registry
 
@@ -891,9 +894,10 @@ def test_partly_cloudy_in_both_registries():
     assert "partly_cloudy" in HIRES_REGISTRY
     h = HIRES_REGISTRY["partly_cloudy"]
     assert h.physical_size == 32
-    # Auto-trim: lit pixels span 27 cols → logical_width(4) = ceil(27/4) = 7.
-    assert h.physical_width == 27
-    assert h.logical_width(scale=4) == 7
+    # Auto-trim: lit pixels span 30 cols (Noto-adopted sprite) →
+    # logical_width(4) = ceil(30/4) = 8.
+    assert h.physical_width == 30
+    assert h.logical_width(scale=4) == 8
 
 
 class TestDrawEmojiAt:
@@ -973,8 +977,8 @@ class TestDrawEmojiAt:
 
     def test_partly_cloudy_resolves_via_hires_on_scaled_canvas(self, bigsign_canvas):
         """partly_cloudy has a hires variant — `draw_emoji_at` picks it
-        on a ScaledCanvas. After auto-trim, lit_w=27 → logical_width(4)
-        = ceil(27/4) = 7, so advance = 7 + EMOJI_PADDING.
+        on a ScaledCanvas. After auto-trim, lit_w=30 (Noto-adopted) →
+        logical_width(4) = ceil(30/4) = 8, so advance = 8 + EMOJI_PADDING.
         """
         from led_ticker.pixel_emoji import EMOJI_PADDING, draw_emoji_at
         from led_ticker.scaled_canvas import ScaledCanvas
@@ -982,7 +986,7 @@ class TestDrawEmojiAt:
         real = bigsign_canvas
         sc = ScaledCanvas(real, scale=4)
         advance = draw_emoji_at(sc, "partly_cloudy", x=0, y=0)
-        assert advance == 7 + EMOJI_PADDING
+        assert advance == 8 + EMOJI_PADDING
 
     def test_draw_emoji_at_bottom_baseline_low_res(self):
         """Low-res branch of bottom_baseline: on a plain canvas (no ScaledCanvas)

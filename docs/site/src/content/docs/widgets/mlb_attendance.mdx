@@ -7,12 +7,16 @@ import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-How packed the ballpark was last night, and what the weather did to it — the paid crowd, the percent full, and a capacity bar that fills up right on the wall. The **baseball.attendance** widget, provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo (`type = "baseball.attendance"`), shows one team's game-day attendance and conditions as a hero card, or the day's league-wide crowd superlatives. On a wide sign the card draws an animated capacity bar that fills from empty to the gate count with a tick marking the team's season average. The same package also ships [`baseball.scores`](/widgets/mlb/), [`baseball.standings`](/widgets/mlb_standings/), [`baseball.promotions`](/widgets/mlb_promotions/), and [`baseball.statcast`](/widgets/mlb_statcast/), plus the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji. Data comes from MLB's free StatsAPI — no API key, no account.
+How packed the ballpark was last night, and what the weather did to it — the paid crowd, the percent full, and a capacity bar that fills up right on the wall.
+
+The **baseball.attendance** widget (`type = "baseball.attendance"`, from the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** plugin) shows one team's game-day attendance and conditions as a hero card, or the day's league-wide crowd superlatives. On a wide sign the card draws an animated capacity bar that fills from empty to the gate count with a tick marking the team's season average. Data comes from MLB's free StatsAPI — **no API key, no account, it just works.**
 
 <DemoGif
   src="/demos-pinned/baseball-attendance.gif"
   caption="baseball.attendance on a long panel: a team card — paid crowd, game-day weather (72° CLEAR), percent full, difference vs season average, and stadium name, with a capacity bar animating from empty to the gate count past a season-average tick — then a league FULLEST PARK superlative card."
 />
+
+That animated capacity bar is the wide- and tall-sign look; the narrowest sign shows a scrolling attendance line instead — same widget, no config change.
 
 **Requires led-ticker-core >= 4.9.** The `demo = true` mode used for the GIF on this page needs led-ticker-baseball >= 1.6.0.
 
@@ -76,20 +80,23 @@ Which mode you get is chosen by whether you set a `team`:
 
 ## One widget, every sign
 
-`layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**:
+On a narrow sign you get a scrolling attendance line; on a wider or taller sign you get the hero card with the animated capacity bar from the GIF above — both wider builds draw the bar, more compact on a mid-width sign and full-width on the longest. You don't pick: `layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**.
 
-| Your sign                     | `auto` resolves to                                                |
-| ----------------------------- | ----------------------------------------------------------------- |
-| scale-1 smallsign (~160×16)   | a scrolling line (`TOR · Rogers Centre 41,212 (90%) · 72° Clear`) |
-| scale>1 bigsign (~256px wide) | the `big` hero card                                               |
-| scale>1 longboi (~512px wide) | the `long` hero card                                              |
+Not sure which you have? Most short DIY builds are **[smallsign](/hardware/smallsign/)** ([scale](/concepts/display/)-1); the 256- and 512-pixel-wide panels are **[bigsign](/hardware/bigsign/)** and **[longboi](/hardware/longboi/)** — see [the hardware guides](/hardware/building-your-own/). New here? [Get a sign running first](/getting-started/).
+
+| Your sign                    | What you see                                                      |
+| ---------------------------- | ----------------------------------------------------------------- |
+| smallsign (~160×16, scale-1) | a scrolling line (`TOR · Rogers Centre 41,212 (90%) · 72° Clear`) |
+| bigsign (~256px, scale>1)    | the `big` hero card — draws the animated capacity bar             |
+| longboi (~512px, scale>1)    | the `long` hero card — full-width, adds the weather line          |
 
 Pin a shape explicitly with `layout = "big"` or `layout = "long"` (both force a hero card regardless of width).
 
 <Aside type="note">
-  On scale-1 signs the scrolling line uses the `font` / `font_color` / `bg_color` options; the
-  scale>1 hero cards are design-pinned to fixed Inter text and a fixed palette and ignore them. See
-  [Color providers](/concepts/color-providers/) for the `font_color` forms.
+  On the big hero-card signs (bigsign, longboi) the colors and text style are baked into the design
+  — the card always looks like the GIF, so `font`, `bg_color`, and `font_color` don't apply there.
+  Those settings shape the scrolling-line look on a narrow (scale-1) sign instead. See [Color
+  providers](/concepts/color-providers/) for the `font_color` forms.
 </Aside>
 
 ## Options
@@ -123,6 +130,10 @@ Attendance and conditions come from [MLB's StatsAPI](https://statsapi.mlb.com/) 
 - **Fill % is missing.** The venue lists no capacity (common at spring-training sites), so there's no denominator for a percentage — the crowd count still shows.
 
 Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. Implementation notes live in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+
+## The rest of the baseball family
+
+The **baseball** plugin ships four more widgets that share this data and design. Put the crowd card in a game-day rotation next to [`baseball.scores`](/widgets/mlb/) for the live game, [`baseball.standings`](/widgets/mlb_standings/) for the division race, the family showpiece [`baseball.statcast`](/widgets/mlb_statcast/) — the day's longest home run drawing its own trajectory arc — and [`baseball.promotions`](/widgets/mlb_promotions/) so you never miss bobblehead night. It also brings the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji.
 
 <RelatedPages
   slugs={[

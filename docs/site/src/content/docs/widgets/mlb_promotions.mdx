@@ -7,12 +7,16 @@ import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-Never miss bobblehead night again — your team's upcoming home-game giveaways and theme nights, held on the wall so anyone walking past knows what's worth the trip. The **baseball.promotions** widget, provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo (`type = "baseball.promotions"`), pulls the home-game promotions feed for a tracked team and renders each promo as a held card on a wide sign or a scrolling crawl on a narrow one. The same package also ships [`baseball.scores`](/widgets/mlb/), [`baseball.standings`](/widgets/mlb_standings/), [`baseball.statcast`](/widgets/mlb_statcast/), and [`baseball.attendance`](/widgets/mlb_attendance/), plus the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji. Promotions come from MLB's free StatsAPI schedule feed — no API key, no account.
+Never miss bobblehead night again — your team's upcoming home-game giveaways and theme nights, held on the wall so anyone walking past knows what's worth the trip.
+
+The **baseball.promotions** widget (`type = "baseball.promotions"`, from the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** plugin) pulls the home-game promotions feed for a tracked team and renders each promo as a held card on a wide sign or a scrolling crawl on a narrow one. Promotions come from MLB's free StatsAPI schedule feed — **no API key, no account, it just works.**
 
 <DemoGif
   src="/demos-pinned/baseball-promotions.gif"
   caption="baseball.promotions on a long panel: same-day home-game promos crawling past — the date, the promo name (BOBBLEHEAD NIGHT), an opponent color chip with VS, the sponsor, and the first-pitch time."
 />
+
+That crawl is the longest-sign look; a mid-width sign holds each promo as a card with paging dots, and the narrowest scrolls classic promo lines — same widget, no config change.
 
 **Requires led-ticker-core >= 4.9.** The `demo = true` mode used for the GIF on this page needs led-ticker-baseball >= 1.6.0.
 
@@ -68,13 +72,15 @@ This is the exact widget block that rendered the hero GIF above (its full render
 
 ## One widget, every sign
 
-`layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**:
+On a narrow sign each promo scrolls past as a classic line; a mid-width sign holds each promo as a card with paging dots; the longest sign runs the hi-res crawl in the GIF above. You don't pick: `layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**.
 
-| Your sign                     | `auto` resolves to                                                               |
-| ----------------------------- | -------------------------------------------------------------------------------- |
-| scale-1 smallsign (~160×16)   | classic scrolling lines, one per promo (`TOR Jun 22 · Retro Domer Hat Giveaway`) |
-| scale>1 bigsign (~256px wide) | a held card, one promo per story with paging dots                                |
-| scale>1 longboi (~512px wide) | a hi-res crawl — the same fields as one continuous scrolling run                 |
+Not sure which you have? Most short DIY builds are **[smallsign](/hardware/smallsign/)** ([scale](/concepts/display/)-1); the 256- and 512-pixel-wide panels are **[bigsign](/hardware/bigsign/)** and **[longboi](/hardware/longboi/)** — see [the hardware guides](/hardware/building-your-own/). New here? [Get a sign running first](/getting-started/).
+
+| Your sign                    | What you see                                                                     |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| smallsign (~160×16, scale-1) | classic scrolling lines, one per promo (`TOR Jun 22 · Retro Domer Hat Giveaway`) |
+| bigsign (~256px, scale>1)    | a held card, one promo per story with paging dots                                |
+| longboi (~512px, scale>1)    | a hi-res crawl — the same fields as one continuous scrolling run                 |
 
 Pin a shape explicitly with `layout = "ticker"` (force the crawl on any sign) or `layout = "card"` (force the held card). The held card's anatomy: the date in amber, the promo name in white (auto-scrolling in a clipped band if it's too long), a team chip plus `VS <opponent>` in violet, `<offer> · BY <sponsor>` in cyan, and the start time in amber. Either the offer or the sponsor half is dropped when the feed doesn't supply it — the widget never invents copy.
 
@@ -103,9 +109,11 @@ The widget shows **today's** promos when there's a home game today, otherwise th
 | `schedule`        | table                                                       | none              | Core visibility window — only show this widget during set hours. See [Scheduling](/concepts/scheduling/).                                                           |
 
 <Aside type="note">
-  On scale>1 signs, the held card and hi-res crawl are design-pinned to fixed Inter text and a fixed
-  palette, so `font` and `bg_color` are ignored and an animated `font_color` renders static there.
-  Those options apply on scale-1 signs, where the widget draws the classic scrolling lines.
+  On the wider signs (bigsign, longboi) the colors and text style are baked into the design — the
+  card and crawl look like the GIF, so `font` and `bg_color` don't apply and an animated
+  `font_color` renders static there. Those settings shape the classic scrolling-lines look on a
+  narrow (scale-1) sign instead. See [Color providers](/concepts/color-providers/) for the
+  `font_color` forms.
 </Aside>
 
 ## Data source
@@ -120,6 +128,10 @@ Promotions come from [MLB's StatsAPI](https://statsapi.mlb.com/) schedule feed �
 - **A highlighted promo isn't amber.** `highlight` matches case-insensitive substrings of the promo _name_ — check the substring actually appears in the feed's wording (sponsor tails are stripped, so match on the promo name, not "presented by …").
 
 Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. Implementation notes live in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+
+## The rest of the baseball family
+
+The **baseball** plugin ships four more widgets that share this data and design. Put your promos in a game-day rotation next to [`baseball.scores`](/widgets/mlb/) for the live game, [`baseball.standings`](/widgets/mlb_standings/) for the division race, the family showpiece [`baseball.statcast`](/widgets/mlb_statcast/) — the day's longest home run drawing its own trajectory arc — and [`baseball.attendance`](/widgets/mlb_attendance/) for last night's crowd. It also brings the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji.
 
 <RelatedPages
   slugs={[

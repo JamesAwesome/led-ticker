@@ -7,12 +7,16 @@ import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The day's longest home run, replayed on your wall as the ball flies its own arc over the wall — the single most striking thing a baseball sign can show. The **baseball.statcast** widget, provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo (`type = "baseball.statcast"`), renders MLB's daily Statcast superlatives — longest home run, hardest-hit ball, fastest and slowest pitch — as a hero card on a wide sign or a scrolling line on a narrow one. On a long sign the batted-ball cards draw an animated trajectory: the ball takes off from the plate and traces the exact curve of the real hit. The same package also ships [`baseball.scores`](/widgets/mlb/), [`baseball.standings`](/widgets/mlb_standings/), [`baseball.promotions`](/widgets/mlb_promotions/), and [`baseball.attendance`](/widgets/mlb_attendance/), plus the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji. Data comes from public MLB and Baseball Savant feeds — no API key, no account.
+The day's longest home run, replayed on your wall as the ball flies its own arc over the wall — the single most striking thing a baseball sign can show.
+
+The **baseball.statcast** widget (`type = "baseball.statcast"`, from the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** plugin) renders MLB's daily Statcast superlatives — longest home run, hardest-hit ball, fastest and slowest pitch — as a hero card on a wide sign or a scrolling line on a narrow one. On a long sign the batted-ball cards draw an animated trajectory: the ball takes off from the plate and traces the exact curve of the real hit. Data comes from public MLB and Baseball Savant feeds — **no API key, no account, it just works.**
 
 <DemoGif
   src="/demos-pinned/baseball-statcast.gif"
   caption="baseball.statcast on a long panel: a 452 ft home run (112.4 mph exit velo, 29° launch) drawing its own parabolic trajectory arc over the wall, then the hardest-hit ball and the fastest pitch."
 />
+
+That trajectory arc is the wide-sign look; a shorter sign draws a more compact arc card, and the narrowest shows a scrolling line — same widget, no config change.
 
 **Requires led-ticker-core >= 4.9.** The `demo = true` mode used for the GIF on this page needs led-ticker-baseball >= 1.6.0.
 
@@ -66,7 +70,9 @@ This is the exact widget block that rendered the hero GIF above (its full render
 
 ## The trajectory arc
 
-On a long sign (`layout = "long"`, or `"auto"` on a longboi ≥ 400px wide), the batted-ball cards — `longest_hr` and `hardest_hit` — draw an animated arc in the card's DISTANCE slot. The ball flies the curve over about 1.5 seconds from a standing start each time the card appears, then rests at one of five landing poses driven by the play's **actual** result, never guessed:
+On a long sign (`layout = "long"`, or `"auto"` on a **[longboi](/hardware/longboi/)** ≥ 400px wide), the batted-ball cards — `longest_hr` and `hardest_hit` — draw an animated arc in the card's DISTANCE slot: the ball takes off from the plate and flies the curve over about 1.5 seconds. This is a real replay, not a canned animation. The arc's shape — how high it peaks, where, and how steeply it drops — is computed from the hit's real launch angle, exit velo, and distance, so a lofted moonshot and a flat liner curve differently, and the _same_ ball always redraws the exact same arc. Re-entering the section always flies the ball again from a standing start — it never resumes mid-flight.
+
+Each flight rests at one of five landing poses, driven by the play's **actual** result, never guessed:
 
 - **clears** — a home run: the ball flies past a white wall tick at the panel's far edge.
 - **fair** — a non-homer hit: it comes to rest on the ground mid-panel.
@@ -74,24 +80,27 @@ On a long sign (`layout = "long"`, or `"auto"` on a longboi ≥ 400px wide), the
 - **caught** — a shallower out: it rests inside a small grey glove ring.
 - **grounder** — a ground ball, or a launch angle at or below zero: a low skip along the ground, no arc.
 
-The arc's shape — how high it peaks, where, and how steeply it drops — comes from the ball's real launch angle, exit velo, and distance, so a lofted moonshot and a flat liner curve differently, while the _same_ ball always redraws the exact same arc on replay. **Pitch superlatives (`fastest_pitch`, `slowest_pitch`) have no launch angle or distance**, so the card skips the arc and shows the pitch type large in that slot instead. Re-entering the section always flies the ball again from the start — it never resumes mid-flight.
+**Pitch superlatives (`fastest_pitch`, `slowest_pitch`) have no launch angle or distance**, so the card skips the arc and shows the pitch type large in that slot instead.
 
 ## One widget, every sign
 
-`layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**:
+On a narrow sign you get a scrolling line; on a wider or taller sign you get the trajectory-arc hero card from the GIF above — both wider builds draw the arc, more compact on a mid-width sign and full-width on the longest. You don't pick: `layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**.
 
-| Your sign                     | `auto` resolves to                                          |
-| ----------------------------- | ----------------------------------------------------------- |
-| scale-1 smallsign (~160×16)   | a scrolling line (`Today · Longest HR 463 ft — Butler OAK`) |
-| scale>1 bigsign (~256px wide) | the `big` hero card with a compact trajectory panel         |
-| scale>1 longboi (~512px wide) | the `long` hero card with the full-width trajectory panel   |
+Not sure which you have? Most short DIY builds are **[smallsign](/hardware/smallsign/)** ([scale](/concepts/display/)-1); the 256- and 512-pixel-wide panels are **[bigsign](/hardware/bigsign/)** and longboi — see [the hardware guides](/hardware/building-your-own/). New here? [Get a sign running first](/getting-started/).
+
+| Your sign                    | What you see                                                      |
+| ---------------------------- | ----------------------------------------------------------------- |
+| smallsign (~160×16, scale-1) | a scrolling line (`Today · Longest HR 463 ft — Butler OAK`)       |
+| bigsign (~256px, scale>1)    | the `big` hero card — draws the arc in a compact trajectory panel |
+| longboi (~512px, scale>1)    | the `long` hero card with the full-width trajectory panel         |
 
 Pin a shape explicitly with `layout = "big"` or `layout = "long"` (both force a hero card regardless of width). Both scale>1 cards draw the arc and show the player, the result in its outcome color (green home run, red out, amber otherwise), exit velo, and the launch-angle / distance / pitch columns; the wide `long` card gets the full DISTANCE panel for it.
 
 <Aside type="note">
-  On scale-1 signs the scrolling line uses the `font` / `font_color` / `bg_color` options; the
-  scale>1 hero cards are design-pinned to fixed Inter text and outcome colors and ignore them. See
-  [Color providers](/concepts/color-providers/) for the `font_color` forms.
+  On the big hero-card signs (bigsign, longboi) the colors and text style are baked into the design
+  — the card always looks like the GIF, so `font`, `bg_color`, and `font_color` don't apply there.
+  Those settings shape the scrolling-line look on a narrow (scale-1) sign instead. See [Color
+  providers](/concepts/color-providers/) for the `font_color` forms.
 </Aside>
 
 ## Options
@@ -125,6 +134,10 @@ Superlatives are derived from [Baseball Savant](https://baseballsavant.mlb.com/)
 - **A pitch superlative has no arc.** Expected — `fastest_pitch` and `slowest_pitch` have no launch angle or distance, so the card shows the pitch type in that slot instead of a trajectory.
 
 Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. Implementation notes live in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+
+## The rest of the baseball family
+
+The **baseball** plugin ships four more widgets that share this data and design. Put the arc in a game-day rotation next to [`baseball.scores`](/widgets/mlb/) for the live game, [`baseball.standings`](/widgets/mlb_standings/) for the division race, [`baseball.promotions`](/widgets/mlb_promotions/) so you never miss bobblehead night, and [`baseball.attendance`](/widgets/mlb_attendance/) for last night's crowd. It also brings the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji.
 
 <RelatedPages
   slugs={[

@@ -297,11 +297,11 @@ class TestDrawHiresText:
             if real.get_pixel(x, y) == (255, 255, 255)
         }
 
-    def test_minus_sign_falls_back_to_hyphen_not_question_mark(self):
-        """U+2212 MINUS SIGN isn't in the rasterized charset; without a
-        fallback it renders the '?' tofu (the LED-sign bug on formatted
-        negatives like '-1.98%'). It must render the font's real hyphen
-        glyph instead."""
+    def test_minus_sign_renders_real_glyph_not_question_mark(self):
+        """Real glyph wins — Inter has a real U+2212, so it renders as that,
+        never the '?' tofu; the #393 protection ("not a mismatched-advance
+        ?") survives because draw and measure both resolve through
+        resolve_glyph."""
         from rgbmatrix.graphics import Color
 
         from led_ticker.fonts import resolve_font
@@ -318,20 +318,24 @@ class TestDrawHiresText:
         hyphen = _render("-")  # HYPHEN-MINUS
         question = _render("?")
         assert minus, "U+2212 should paint something"
-        assert minus == hyphen, "U+2212 should render the real hyphen glyph"
         assert minus != question, "U+2212 must not render the '?' tofu"
+        assert minus != hyphen, "Inter's real U+2212 is a distinct glyph"
 
-    def test_get_text_width_minus_matches_hyphen(self):
-        """The width path must apply the SAME fallback as the draw path, or
-        right-aligned / scrolling negatives drift by the '?'-vs-'-' advance
-        delta."""
+    def test_get_text_width_minus_uses_real_glyph_not_hyphen(self):
+        """The width path must resolve through the same ladder as the draw
+        path (both call resolve_glyph), so whatever glyph − resolves to is
+        the one measured — proving rung 1 (Inter's real minus) won, not the
+        rung-3 hyphen substitute."""
         from led_ticker.drawing import get_text_width
         from led_ticker.fonts import resolve_font
 
         font = resolve_font("Inter-Regular", 24)
-        assert get_text_width(font, "−", padding=0) == get_text_width(
-            font, "-", padding=0
-        )
+        assert font.resolve_glyph("−") is not None
+        assert font.resolve_glyph("−") is not font.resolve_glyph("-")
+        minus_w = get_text_width(font, "−", padding=0)
+        hyphen_w = get_text_width(font, "-", padding=0)
+        assert minus_w > 0
+        assert minus_w != hyphen_w, "Inter's real minus is a distinct width"
 
 
 # ---------------------------------------------------------------------------

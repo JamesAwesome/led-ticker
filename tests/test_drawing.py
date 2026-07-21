@@ -102,12 +102,34 @@ class TestGetTextWidthHiresFont:
         font = resolve_font("Inter-Regular", 24)
         assert get_text_width(font, "", padding=0) == 0
 
-    def test_hires_font_unknown_char_uses_fallback(self):
+    def test_hires_font_unknown_char_uses_fallback(self, monkeypatch):
+        """A char `resolve_glyph` can't resolve at all falls back to the
+        '?' advance in `get_text_width`.
+
+        Pre glyph-resolution-ladder, 'Ω' (outside the eager charset) was a
+        reliable stand-in for "unresolvable" — the charset was a hard wall.
+        Post-ladder (core), an out-of-charset char the font actually ships
+        (as Inter-Regular does for 'Ω' on this Pillow/FreeType build)
+        lazily rasterizes to its REAL glyph instead of falling back — that
+        charset-wall removal is the intended behavior, not a regression.
+        Force the "font genuinely lacks this" case deterministically via
+        `resolve_glyph` instead of relying on a specific codepoint's
+        presence/absence, which now varies by font/platform.
+        """
         from led_ticker.drawing import get_text_width
         from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import HiresFont
 
         font = resolve_font("Inter-Regular", 24)
-        # 'Ω' not in rasterized set — uses '?' advance.
+        original_resolve_glyph = HiresFont.resolve_glyph
+
+        def fake_resolve_glyph(self, ch):
+            if ch == "Ω":
+                return None
+            return original_resolve_glyph(self, ch)
+
+        monkeypatch.setattr(HiresFont, "resolve_glyph", fake_resolve_glyph)
+
         omega_width = get_text_width(font, "Ω", padding=0)
         question_width = get_text_width(font, "?", padding=0)
         assert omega_width == question_width
@@ -453,13 +475,17 @@ class TestHiresTextWidthAndFit:
         w11 = hires_text_width("EUR/USD", 11)
         assert w22 > w11 > 0
 
-    def test_minus_sign_measures_as_hyphen(self):
-        """U+2212 draws as the hyphen glyph (resolve_glyph fallback) — the
-        measurement must agree with the draw, or right-aligned negatives
-        drift (the stocks '?'-overlap class)."""
+    def test_minus_string_measures_via_ladder_not_hyphen(self):
+        """Measure and draw both resolve through `resolve_glyph`, so they
+        agree by construction — but the two strings now measure
+        DIFFERENTLY, because − keeps its own real glyph instead of
+        collapsing to the hyphen substitute (real-glyph-wins, 2026-07-21)."""
         from led_ticker.drawing import hires_text_width
 
-        assert hires_text_width("−1.98%", 22) == hires_text_width("-1.98%", 22)
+        minus_w = hires_text_width("−1.98%", 22)
+        hyphen_w = hires_text_width("-1.98%", 22)
+        assert minus_w > 0
+        assert minus_w != hyphen_w
 
     def test_threshold_param_accepted(self):
         from led_ticker.drawing import hires_text_width

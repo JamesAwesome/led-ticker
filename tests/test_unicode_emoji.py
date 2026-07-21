@@ -51,8 +51,13 @@ class TestMappingSamples:
     def test_cat(self):
         assert _map_uemoji_to_slug("🐱") == "cat"
 
-    def test_flower(self):
-        assert _map_uemoji_to_slug("🌸") == "flower"
+    def test_flower_unicode_unfolded_to_pack(self):
+        # 2026-07-21 unfold: each flower unicode renders its OWN Noto pack
+        # sprite; the curated :flower: slug remains but no unicode maps to
+        # it anymore (a rose renders as a rose, not the generic blossom).
+        assert _map_uemoji_to_slug("🌸") == "cherry_blossom"
+        assert _map_uemoji_to_slug("🌹") == "rose"
+        assert _map_uemoji_to_slug("💐") == "bouquet"
 
     def test_taco(self):
         assert _map_uemoji_to_slug("🌮") == "taco"

@@ -5,7 +5,7 @@ of third-party material under its own license, listed here as required by that
 license. (Sample media used only by example configs / docs demos is CC0 and
 recorded separately in `config/assets/ATTRIBUTION.md`.)
 
-## Noto Emoji — the `:fire:` hi-res sprite and the standard-emoji pack
+## Noto Emoji — hi-res sprites (`:fire:`, adopted curated icons) and the standard-emoji pack
 
 The hi-res `:fire:` 🔥 sprite (`_FIRE_HIRES_PIXELS` in
 `src/led_ticker/pixel_emoji.py`) and the standard-emoji pack

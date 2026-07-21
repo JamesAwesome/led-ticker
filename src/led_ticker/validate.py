@@ -18,7 +18,6 @@ import tomli_w
 
 if TYPE_CHECKING:
     from led_ticker.config import AppConfig, DisplayConfig, SectionConfig
-    from led_ticker.fonts.hires_loader import HiresFont
 
 
 @dataclass
@@ -1164,59 +1163,81 @@ def _non_emoji_chars(
             yield ch
 
 
-def _classify_glyph(font: HiresFont, ch: str) -> str:
-    """'ok' (rung 1-2: font or DejaVu has a real glyph), 'substituted'
-    (rung 3: only the 1:1 ASCII look-alike renders it), or 'tofu' (rung 4:
-    nothing renders it — draws '?'). Uses the real resolve_glyph ladder, so
-    it can't drift from what the renderer actually does."""
-    from led_ticker.fonts.hires_loader import _ASCII_GLYPH_FALLBACKS  # noqa: PLC0415
+def _classify_glyph(font: Any, ch: str) -> str:
+    """Classify how `ch` will render in `font`.
 
-    g = font.resolve_glyph(ch)
-    if g is None:
-        return "tofu"
-    alt = _ASCII_GLYPH_FALLBACKS.get(ch)
-    # rung 3 returns the SAME cached object as resolve_glyph(alt); rung 1-2
-    # return the font's own (distinct) glyph → real glyph wins reads as 'ok'.
-    if alt is not None and alt != ch and g is font.resolve_glyph(alt):
-        return "substituted"
-    return "ok"
+    Hi-res font — via the real `resolve_glyph` ladder (so it can't drift from
+    the renderer): 'ok' (rung 1-2, the font or DejaVu has a real glyph),
+    'substituted' (rung 3, only the 1:1 ASCII look-alike renders it), or
+    'tofu' (rung 4, nothing renders it → draws '?').
 
-
-def _check_glyph_coverage(config: AppConfig) -> list[ValidationIssue]:
-    """Rule 68: warn when a hi-res config text char won't render cleanly in
-    its font. Runs every non-emoji text char through the SAME resolution
-    ladder the renderer uses (`HiresFont.resolve_glyph`) and reports only
-    DEGRADED rungs: a 1:1 ASCII substitution (rung 3, informational) or an
-    unrenderable '?' (rung 4, the tofu the ladder couldn't save). Rungs 1-2
-    (the chosen font or bundled DejaVu has a real glyph) are silent.
-
-    HIRES ONLY: a widget whose resolved font is BDF (or has no `font`) is
-    skipped — the only off-hardware BDF miss-signal (`CharacterWidth`) is
-    unreliable (the stub returns a positive advance for every codepoint), so
-    a BDF coverage check would give false-'ok' confidence. Every recorded
-    tofu incident is hi-res and the render ladder is hires-only. Emoji are
-    excluded (they bypass fonts): both `:slug:` tokens (EMOJI_PATTERN) and
-    raw unicode-emoji runs (`_uemoji_runs`) are stripped before classifying.
-    """
-    from led_ticker.fonts import resolve_font  # noqa: PLC0415
+    BDF font — 'ok' if the parsed bitmap has the glyph, else 'bdf_missing'
+    (BDF has no fallback ladder: a char it lacks renders as NOTHING — zero
+    advance, invisible, worse than a '?'). Coverage is read from the parsed
+    glyph table (`font._bdf.glyphs`), NOT `CharacterWidth` — the latter
+    returns a default advance for missing chars and would falsely read every
+    codepoint as present. A font object with no parsed table (the on-hardware
+    rgbmatrix `Font`, a C object) yields 'unknown' — no reliable off-hardware
+    signal, so the caller skips it rather than warning falsely."""
     from led_ticker.fonts.hires_loader import (  # noqa: PLC0415
         _ASCII_GLYPH_FALLBACKS,
         HiresFont,
     )
+
+    if isinstance(font, HiresFont):
+        g = font.resolve_glyph(ch)
+        if g is None:
+            return "tofu"
+        alt = _ASCII_GLYPH_FALLBACKS.get(ch)
+        # rung 3 returns the SAME cached object as resolve_glyph(alt); rung 1-2
+        # return the font's own (distinct) glyph → real glyph wins reads 'ok'.
+        if alt is not None and alt != ch and g is font.resolve_glyph(alt):
+            return "substituted"
+        return "ok"
+
+    # BDF: consult the parsed glyph table (reliable), never CharacterWidth.
+    glyphs = getattr(getattr(font, "_bdf", None), "glyphs", None)
+    if not isinstance(glyphs, dict):
+        return "unknown"  # on-hardware Font has no parsed table → can't tell
+    return "ok" if ch in glyphs else "bdf_missing"
+
+
+def _check_glyph_coverage(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 68: warn when a config text char won't render cleanly in its
+    font. Runs every non-emoji text char through the SAME resolution the
+    renderer uses and reports only DEGRADED outcomes:
+
+    - Hi-res font: a 1:1 ASCII substitution (rung 3, informational) or an
+      unrenderable '?' (rung 4, the tofu the ladder couldn't save). Rungs 1-2
+      (the chosen font or bundled DejaVu has a real glyph) are silent.
+    - BDF font (an explicit alias, or the default when a widget sets no
+      `font`): a char the bitmap lacks, which renders as NOTHING — BDF has no
+      fallback ladder, so the char silently vanishes. Coverage is read from
+      the parsed glyph table; a font object without one (the on-hardware
+      rgbmatrix `Font`) is skipped rather than falsely reassured — see
+      `_classify_glyph`.
+
+    Emoji are excluded (they bypass fonts): both `:slug:` tokens
+    (EMOJI_PATTERN) and raw unicode-emoji runs (`_uemoji_runs`) are stripped
+    before classifying.
+    """
+    from led_ticker.fonts import FONT_DEFAULT, resolve_font  # noqa: PLC0415
+    from led_ticker.fonts.hires_loader import _ASCII_GLYPH_FALLBACKS  # noqa: PLC0415
     from led_ticker.pixel_emoji import EMOJI_PATTERN, _uemoji_runs  # noqa: PLC0415
 
     issues: list[ValidationIssue] = []
     for i, section in enumerate(config.sections):
         for j, widget_cfg in enumerate(section.widgets):
             name = widget_cfg.get("font")
-            if not isinstance(name, str) or not name:
-                continue  # BDF default — skipped (see docstring)
-            try:
-                font = resolve_font(name, widget_cfg.get("font_size"))
-            except Exception:  # noqa: BLE001
-                continue  # unknown font / missing size → another rule owns it
-            if not isinstance(font, HiresFont):
-                continue  # BDF alias — skipped
+            if isinstance(name, str) and name:
+                try:
+                    font = resolve_font(name, widget_cfg.get("font_size"))
+                except Exception:  # noqa: BLE001
+                    continue  # unknown font / missing size → another rule owns it
+                font_label = name
+            else:
+                font = FONT_DEFAULT  # widget draws in the default BDF font
+                font_label = "the default BDF font"
             for field_name in ("text", "top_text", "bottom_text"):
                 val = widget_cfg.get(field_name)
                 if not isinstance(val, str) or not val:
@@ -1225,9 +1246,10 @@ def _check_glyph_coverage(config: AppConfig) -> list[ValidationIssue]:
                     if ch.isspace():
                         continue
                     verdict = _classify_glyph(font, ch)
-                    if verdict == "ok":
+                    if verdict in ("ok", "unknown"):
                         continue
                     loc = f"section[{i}].widget[{j}].{field_name}"
+                    cp = f"{ch!r} (U+{ord(ch):04X})"
                     if verdict == "substituted":
                         alt = _ASCII_GLYPH_FALLBACKS[ch]
                         issues.append(
@@ -1236,8 +1258,8 @@ def _check_glyph_coverage(config: AppConfig) -> list[ValidationIssue]:
                                 location=loc,
                                 severity="warning",
                                 message=(
-                                    f"{ch!r} (U+{ord(ch):04X}) will render as "
-                                    f"{alt!r} -- {name} and DejaVu lack the glyph"
+                                    f"{cp} will render as {alt!r} -- "
+                                    f"{font_label} and DejaVu lack the glyph"
                                 ),
                                 fix=(
                                     "Use the ASCII form directly, or pick a "
@@ -1245,19 +1267,36 @@ def _check_glyph_coverage(config: AppConfig) -> list[ValidationIssue]:
                                 ),
                             )
                         )
-                    else:  # tofu
+                    elif verdict == "tofu":
                         issues.append(
                             ValidationIssue(
                                 rule=68,
                                 location=loc,
                                 severity="warning",
                                 message=(
-                                    f"{ch!r} (U+{ord(ch):04X}) will render as "
-                                    f"'?' -- no glyph in {name}, DejaVu, or the "
-                                    f"fallback table"
+                                    f"{cp} will render as '?' -- no glyph in "
+                                    f"{font_label}, DejaVu, or the fallback table"
                                 ),
                                 fix=(
                                     "Remove the character or use a font that covers it."
+                                ),
+                            )
+                        )
+                    else:  # bdf_missing
+                        issues.append(
+                            ValidationIssue(
+                                rule=68,
+                                location=loc,
+                                severity="warning",
+                                message=(
+                                    f"{cp} will not render -- {font_label} (BDF) "
+                                    f"has no glyph for it and BDF fonts have no "
+                                    f"fallback"
+                                ),
+                                fix=(
+                                    "Remove the character, or use a hi-res font "
+                                    "(which falls back to DejaVu or an ASCII "
+                                    "look-alike)."
                                 ),
                             )
                         )

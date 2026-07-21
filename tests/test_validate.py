@@ -4461,6 +4461,25 @@ font = "Inter-Bold"
 font_size = 30
 """
 
+# A widget with no `font` draws in the default BDF font (6x12). BDF coverage
+# is read from the parsed glyph table, which is platform-independent — so a
+# genuinely-absent codepoint (U+9FFF) is a deterministic miss here without the
+# U+E000 trick the hires tests need to dodge macOS Pillow font-substitution.
+_BDF_CFG = """
+[display]
+rows = 16
+cols = 32
+chain = 5
+default_scale = 1
+
+[[playlist.section]]
+mode = "slideshow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "{text}"
+"""
+
 
 class TestGlyphCoverage:
     async def test_tofu_char_warns(self, conf):
@@ -4503,3 +4522,23 @@ class TestGlyphCoverage:
             if i.rule == 68
             and ("rocket" in i.message.lower() or "1f680" in i.message.lower())
         ]
+
+    async def test_bdf_missing_char_warns(self, conf):
+        # No `font` → default BDF, which lacks U+9FFF. BDF has no fallback
+        # ladder, so the char renders as NOTHING — a distinct "will not
+        # render" warning, read from the parsed glyph table (deterministic on
+        # any platform).
+        cfg = conf(_BDF_CFG.format(text="ok 鿿 bad"))
+        result = await validate_config(cfg)
+        assert any(
+            i.rule == 68
+            and "9fff" in i.message.lower()
+            and "will not render" in i.message
+            for i in result.warnings
+        )
+
+    async def test_bdf_ascii_silent(self, conf):
+        # Plain ASCII is fully covered by the default BDF → no rule-68 warning.
+        cfg = conf(_BDF_CFG.format(text="HELLO 123"))
+        result = await validate_config(cfg)
+        assert not [i for i in result.warnings if i.rule == 68]

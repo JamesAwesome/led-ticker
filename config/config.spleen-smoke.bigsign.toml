@@ -1,0 +1,149 @@
+# Spleen pixel-font smoke test — BIGSIGN (256x64, P3 2x4 serpentine).
+#
+# Back up config/config.toml, paste this over it, `make restart`, and watch.
+# Exercises the three bundled Spleen sizes (6x12/8x16/16x32) at their native
+# grid + the 24px-via-2x path, and puts Inter next to Spleen at 12px so the
+# small-size difference is visible on the real panel.
+#
+# WHAT TO LOOK FOR:
+#   SPLEEN 12PX      spleen-6x12 @ 12 — stat lines, every glyph crisp (no
+#                    stroke merging, open counters, uniform digit weight).
+#   INTER VS SPLEEN  same lowercase line in Inter-Regular @ 12 then
+#                    spleen-6x12 @ 12 — Inter smooshes (a/o/e fill in),
+#                    Spleen stays clean.
+#   SIZES            spleen-8x16 @ 16, spleen-6x12 @ 24 (2x), spleen-16x32
+#                    @ 32 — all pixel-crisp.
+#   STATCAST         two_row: held Spleen label + scrolling Spleen stat.
+
+[display]
+rows = 32
+cols = 64
+chain_length = 8
+parallel = 1
+pixel_mapper_config = "Remap:256,64|192,32n|192,0n|128,32n|128,0n|64,32n|64,0n|0,32n|0,0n"
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+gpio_slowdown = 3
+pwm_bits = 8
+
+[title]
+delay = 3
+
+[transitions]
+default = "cut"
+between_sections = "dissolve"
+
+# ── spleen-6x12 @ 12 (native) — the small-stat tier ──
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "SPLEEN 12PX"
+center = true
+font = "spleen-8x16"
+font_size = 16
+font_color = [120, 200, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "EV 104.6 LA 28° DIST 412FT"
+center = true
+font = "spleen-6x12"
+font_size = 12
+font_color = [120, 255, 160]
+
+[[playlist.section.widget]]
+type = "message"
+text = "W 8-4 ATT 41,022 #1 NL EAST"
+center = true
+font = "spleen-6x12"
+font_size = 12
+font_color = [160, 210, 255]
+
+# ── Inter vs Spleen at 12px (same lowercase line, back to back) ──
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "INTER VS SPLEEN"
+center = true
+font = "spleen-8x16"
+font_size = 16
+font_color = [255, 200, 120]
+
+[[playlist.section.widget]]
+type = "message"
+text = "avocado toast 12.50 espresso"
+center = true
+font = "Inter-Regular"
+font_size = 12
+font_color = [255, 150, 150]
+
+[[playlist.section.widget]]
+type = "message"
+text = "avocado toast 12.50 espresso"
+center = true
+font = "spleen-6x12"
+font_size = 12
+font_color = [150, 255, 150]
+
+# ── Larger natives + the 2x path ──
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4
+transition = "cut"
+
+[playlist.section.title]
+type = "message"
+text = "SIZES"
+center = true
+font = "spleen-8x16"
+font_size = 16
+font_color = [200, 200, 255]
+
+[[playlist.section.widget]]
+type = "message"
+text = "SPLEEN 8X16 AT 16"
+center = true
+font = "spleen-8x16"
+font_size = 16
+font_color = [255, 220, 120]
+
+[[playlist.section.widget]]
+type = "message"
+text = "24PX = 6X12 @ 2X"
+center = true
+font = "spleen-6x12"
+font_size = 24
+font_color = [255, 180, 120]
+
+[[playlist.section.widget]]
+type = "message"
+text = "32 NATIVE"
+center = true
+font = "spleen-16x32"
+font_size = 32
+font_color = [120, 255, 200]
+
+# ── Two-row: held Spleen label (16) + scrolling Spleen stat (12) ──
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "STATCAST"
+bottom_text = "EV 104.6 MPH  LA 28°  DIST 412 FT  xBA .450  BARREL"
+top_font = "spleen-8x16"
+top_font_size = 16
+bottom_font = "spleen-6x12"
+bottom_font_size = 12
+top_color = [255, 220, 120]
+bottom_color = [150, 220, 255]

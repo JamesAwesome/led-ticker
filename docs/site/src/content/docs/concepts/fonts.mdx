@@ -74,6 +74,22 @@ font_threshold = 80 # match Bold above to preserve weight contrast`} />
 
 BDF fonts ignore `font_threshold` entirely — their bitmaps are already 1-bit.
 
+## Pixel fonts
+
+Inter is an outline font: at small sizes its anti-aliased edges get thresholded to 1-bit and adjacent strokes merge, so letters like `e a o` fill in and text below ~14 px turns muddy. For those sizes, three pixel sizes of [Spleen](https://github.com/fcambus/spleen) — a monospaced font drawn directly on the pixel grid — ship alongside Inter: `spleen-6x12` (12 px), `spleen-8x16` (16 px), and `spleen-16x32` (32 px).
+
+At its **native size — or any integer multiple** — a pixel font rasterizes to exact 1-bit output: no anti-aliasing, no stroke merging, and `font_threshold` has no effect. Need 24 px? Use `spleen-6x12` at 24 — its clean 2× multiple.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "EV 104.6  LA 28° DIST 412FT"
+font = "spleen-6x12"
+font_size = 12   # native — pixel-crisp`}
+/>
+
+Reach for Spleen where Inter gets muddy: small text, and tabular content like stats or prices (the fixed-width digits keep columns aligned). The one rule to respect is the native grid — `spleen-6x12` at 12 or 24 px is pixel-perfect, but at 13 px it lands off the grid and blurs. `led-ticker validate` warns when a config does this and names the nearest crisp sizes.
+
 ## Character coverage
 
 Every character in a hi-res text field is resolved through a four-step ladder as it renders, so a missing-glyph `?` is rare:
@@ -91,11 +107,12 @@ BDF fonts (the smallsign default) keep their bitmap behavior: a character not in
 
 ## Decision tree
 
-| Panel                            | Viewing distance | Recommended                                |
-| -------------------------------- | ---------------- | ------------------------------------------ |
-| Smallsign (160×16, scale=1)      | Any              | BDF `6x12` (default) — pixel-perfect at 1× |
-| Bigsign (256×64, scale=4), close | ≤ 6 ft           | BDF or `Inter-Bold` @ 16–22 px             |
-| Bigsign, medium                  | 6–20 ft          | `Inter-Bold` @ 22–28 px                    |
-| Bigsign, far (across the street) | > 20 ft          | `Inter-Bold` @ 28–32 px                    |
+| Panel                            | Viewing distance | Recommended                                 |
+| -------------------------------- | ---------------- | ------------------------------------------- |
+| Smallsign (160×16, scale=1)      | Any              | BDF `6x12` (default) — pixel-perfect at 1×  |
+| Bigsign (256×64, scale=4), close | ≤ 6 ft           | BDF or `Inter-Bold` @ 16–22 px              |
+| Bigsign, small / tabular text    | Any              | `spleen-6x12` @ 12 px (or 24) — pixel-crisp |
+| Bigsign, medium                  | 6–20 ft          | `Inter-Bold` @ 22–28 px                     |
+| Bigsign, far (across the street) | > 20 ft          | `Inter-Bold` @ 28–32 px                     |
 
 <RelatedPages slugs={["concepts/display", "concepts/color-providers", "widgets/message"]} />

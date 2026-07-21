@@ -1303,6 +1303,45 @@ def _check_glyph_coverage(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _check_pixel_font_size(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 69: a pixel-native font (Spleen) at a `font_size` that is not an
+    integer multiple of its native pixel height renders blurry — the outline
+    lands off the LED grid and antialiases, defeating the point of a pixel
+    font. Warning only; the renderer stays permissive (no size snapping —
+    a silent snap would change layout underneath an existing config)."""
+    from led_ticker.fonts.hires_loader import _PIXEL_NATIVE  # noqa: PLC0415
+
+    issues: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        for j, widget_cfg in enumerate(section.widgets):
+            name = widget_cfg.get("font")
+            native = _PIXEL_NATIVE.get(name) if isinstance(name, str) else None
+            if native is None:
+                continue
+            size = widget_cfg.get("font_size")
+            if not isinstance(size, int) or isinstance(size, bool):
+                continue  # missing/typed-wrong size → other rules own it
+            if size >= native and size % native == 0:
+                continue  # on-grid: native or an integer multiple
+            lo = (size // native) * native
+            hi = lo + native
+            suggest = f"Use {hi}." if lo < native else f"Use {lo} or {hi}."
+            issues.append(
+                ValidationIssue(
+                    rule=69,
+                    location=f"section[{i}].widget[{j}]",
+                    severity="warning",
+                    message=(
+                        f"{name} at {size}px renders blurry -- pixel fonts "
+                        f"are only crisp at their native {native}px or an "
+                        f"integer multiple"
+                    ),
+                    fix=suggest,
+                )
+            )
+    return issues
+
+
 def _check_scroll_separator_font(
     config: AppConfig,
 ) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
@@ -3538,6 +3577,7 @@ def _validate_static_postbuild(
         warnings.extend(_check_typeless_transition_table(config))
         warnings.extend(_check_hires_only_emoji_scale1(config))
         warnings.extend(_check_glyph_coverage(config))
+        warnings.extend(_check_pixel_font_size(config))
         warnings.extend(_check_plugin_validation_warnings(config, effective_config_dir))
 
     # Phase 2 (strict only): asset path existence check.

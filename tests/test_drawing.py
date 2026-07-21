@@ -475,13 +475,17 @@ class TestHiresTextWidthAndFit:
         w11 = hires_text_width("EUR/USD", 11)
         assert w22 > w11 > 0
 
-    def test_minus_sign_measures_as_hyphen(self):
-        """U+2212 draws as the hyphen glyph (resolve_glyph fallback) — the
-        measurement must agree with the draw, or right-aligned negatives
-        drift (the stocks '?'-overlap class)."""
+    def test_minus_string_measures_via_ladder_not_hyphen(self):
+        """Measure and draw both resolve through `resolve_glyph`, so they
+        agree by construction — but the two strings now measure
+        DIFFERENTLY, because − keeps its own real glyph instead of
+        collapsing to the hyphen substitute (real-glyph-wins, 2026-07-21)."""
         from led_ticker.drawing import hires_text_width
 
-        assert hires_text_width("−1.98%", 22) == hires_text_width("-1.98%", 22)
+        minus_w = hires_text_width("−1.98%", 22)
+        hyphen_w = hires_text_width("-1.98%", 22)
+        assert minus_w > 0
+        assert minus_w != hyphen_w
 
     def test_threshold_param_accepted(self):
         from led_ticker.drawing import hires_text_width

@@ -56,18 +56,31 @@ GEOMETRIC_SHAPES: str = "▲▼●○◆◇"
 # which showed as "72?" on the bigsign before this was added.
 SYMBOLS: str = "°"
 
-# Typographic codepoints that number/text formatters emit but that aren't in
-# the rasterized charset above and have no dedicated glyph — map each to a
-# look-alike ASCII char that IS in the charset (so the font's real glyph is
-# used) instead of letting the caller draw the '?' tofu. U+2212 MINUS SIGN is
-# the load-bearing one: any source rendering a negative ("-1.98%") emits it,
-# and it showed as "?" on the panel. Consulted by `HiresFont.resolve_glyph`;
-# extend it as new formatter glyphs surface (keep BOTH sides visually close —
-# this substitutes silently). NOT for chars already in the charset (em/en
-# dash, middle dot) — those rasterize directly.
+# 1:1 ASCII look-alikes for typographic codepoints — rung 3, applied ONLY
+# when the chosen font AND DejaVu both lack the real glyph (real glyph wins).
+# Single char -> single char ONLY: multi-char expansions (½->"1/2") are
+# DEFERRED — they'd desync the per-char colour/token index. Extend as new
+# formatter glyphs surface.
 _ASCII_GLYPH_FALLBACKS: dict[str, str] = {
-    "−": "-",  # U+2212 MINUS SIGN -> HYPHEN-MINUS
+    "−": "-",  # U+2212 MINUS SIGN
+    "—": "-",  # U+2014 EM DASH
+    "–": "-",  # U+2013 EN DASH
+    "‐": "-",  # U+2010 HYPHEN
+    "‘": "'",  # U+2018 LEFT SINGLE QUOTATION MARK
+    "’": "'",  # U+2019 RIGHT SINGLE QUOTATION MARK
+    "“": '"',  # U+201C LEFT DOUBLE QUOTATION MARK
+    "”": '"',  # U+201D RIGHT DOUBLE QUOTATION MARK
+    "′": "'",  # U+2032 PRIME
+    "″": '"',  # U+2033 DOUBLE PRIME
+    "×": "x",  # U+00D7 MULTIPLICATION SIGN
+    "÷": "/",  # U+00F7 DIVISION SIGN
+    " ": " ",  # NO-BREAK SPACE
+    "•": ".",  # U+2022 BULLET
 }
+
+# Once-per-(font name, char) guard for the rung-4 miss WARN — tofu logged,
+# never silent, but not re-logged every draw tick.
+_WARNED_MISSING: set[tuple[str, str]] = set()
 
 # A private-use codepoint is guaranteed unassigned, so rasterizing it yields
 # the font's notdef glyph (a box, or empty if the font has no notdef). We
@@ -79,8 +92,11 @@ _NOTDEF_PROBE = ""  # PUA U+E000
 
 def _is_notdef(glyph: HiresGlyph, notdef_lit: tuple[tuple[int, int], ...]) -> bool:
     """A glyph is 'missing' if it matches the font's notdef fingerprint, or
-    is empty for a non-whitespace request (fonts with no notdef render
-    nothing for unknown chars)."""
+    is empty for a non-whitespace request AND the font ships no notdef
+    glyph at all (`notdef_lit == ()`) — a font WITH a notdef (e.g. Inter,
+    whose notdef renders ~231 lit px) relies solely on the fingerprint
+    match; the empty-glyph clause only covers fonts with no notdef to
+    fingerprint against."""
     return glyph.lit == notdef_lit or (not glyph.lit and notdef_lit == ())
 
 
@@ -114,8 +130,9 @@ class HiresFont:
     `glyphs` maps each rasterized character to its `HiresGlyph`, seeded
     eagerly by `_rasterize` for the common charset and grown lazily by
     `resolve_glyph` for anything outside it. Characters this font truly
-    lacks (detected via the notdef fingerprint) fall back to `'?'` at
-    render time.
+    lacks (detected via the notdef fingerprint) fall through DejaVu Sans
+    and then a 1:1 ASCII look-alike table before finally falling back to
+    `'?'` at render time.
     """
 
     name: str
@@ -129,45 +146,56 @@ class HiresFont:
     pil_font: Any = field(default=None, compare=False, repr=False)
 
     def resolve_glyph(self, ch: str) -> HiresGlyph | None:
-        """Glyph for `ch` via the resolution ladder.
+        """Glyph for `ch` via the resolution ladder (real glyph wins):
+        1. THIS font — cached hit, else lazily rasterize + cache; a
+           notdef/empty result is cached as `_MISSING` and treated as a miss.
+        2. bundled DejaVu Sans at this font's pixel size — real
+           arrows/math/currency/punctuation the chosen font lacks.
+        3. a 1:1 ASCII look-alike (`_ASCII_GLYPH_FALLBACKS`), resolved
+           through rungs 1-2 — fires ONLY when 1-2 both miss, so a font
+           that ships its own real glyph for a typographic codepoint keeps
+           it (e.g. Inter's real U+2212 minus, not the hyphen substitute).
+        4. None — the caller draws '?'. Warn once per (font, char) so tofu
+           is logged, never silent.
 
-        Order: (1) cached hit — a real glyph returns immediately; a
-        cached `_MISSING` sentinel (this font proved it lacks `ch` on a
-        prior call) skips straight to rung 2 rather than short-circuiting
-        to None, since a repeat lookup must still get a chance at DejaVu
-        → (2) the ASCII look-alike table for typographic codepoints that
-        substitute silently (e.g. U+2212 MINUS SIGN -> '-') — checked
-        BEFORE lazy rasterization so a font that happens to ship its own
-        (differently-advanced) real glyph for that codepoint doesn't
-        desync width math from the substituted glyph elsewhere in the
-        pipeline → (3) lazily rasterize an unseen char in THIS font and
-        cache the result, treating a notdef/empty result as MISSING →
-        (4) DejaVu Sans, rasterized at this font's own pixel size — real
-        arrows/math/currency/punctuation glyphs the chosen font lacks.
-        Returns None only when DejaVu ALSO lacks `ch`; that ultimately
-        draws '?' (rung 3, a future task).
-        """
-        glyph = self.glyphs.get(ch)
-        if glyph is not None and glyph is not _MISSING:
-            return glyph
-        if glyph is None:
-            alt = _ASCII_GLYPH_FALLBACKS.get(ch)
-            if alt is not None:
-                return self.glyphs.get(alt)
-            if self.pil_font is not None and ch:
-                glyph = _rasterize_glyph(
-                    self.pil_font, ch, self.ascent, self.descent, self.threshold
-                )
-                if _is_notdef(glyph, self.notdef_lit):
-                    self.glyphs[ch] = _MISSING  # cache the miss (sentinel)
-                else:
-                    self.glyphs[ch] = glyph  # cache the hit
-                    return glyph
-        # Rung 2: DejaVu fallback. Not itself cached per-font (a cached
-        # _MISSING here only records "rung 1 lacks it"), but `_dejavu_glyph`
-        # has its own lru_cache so a repeat lookup is a dict hit, not a
-        # re-rasterize.
-        return _dejavu_glyph(ch, self.size, self.ascent, self.descent, self.threshold)
+        Draw and measure both call this, so whatever `ch` resolves to, the
+        two stay in parity (the #393 lesson: a resolution the measure path
+        doesn't share skews right-aligned / scrolling text)."""
+        g = self.glyphs.get(ch)
+        if g is None and self.pil_font is not None and ch:
+            g = _rasterize_glyph(
+                self.pil_font, ch, self.ascent, self.descent, self.threshold
+            )
+            g = None if _is_notdef(g, self.notdef_lit) else g
+            self.glyphs[ch] = g if g is not None else _MISSING
+        elif g is _MISSING:
+            g = None
+        if g is not None:
+            return g
+        # Rung 2: DejaVu (its own lru_cache makes a repeat lookup a dict hit).
+        dj = _dejavu_glyph(ch, self.size, self.ascent, self.descent, self.threshold)
+        if dj is not None:
+            return dj
+        # Rung 3: 1:1 ASCII look-alike, resolved via rungs 1-2 (recursion
+        # returns None for a missing/`_MISSING` substitute — never the
+        # sentinel itself).
+        alt = _ASCII_GLYPH_FALLBACKS.get(ch)
+        if alt is not None and alt != ch:
+            sub = self.resolve_glyph(alt)
+            if sub is not None:
+                return sub
+        # Rung 4: unrenderable — warn once, caller draws '?'.
+        key = (self.name, ch)
+        if key not in _WARNED_MISSING:
+            _WARNED_MISSING.add(key)
+            logging.getLogger(__name__).warning(
+                "font %r has no glyph for %r (U+%04X) and no fallback — "
+                "it will render as '?'",
+                self.name,
+                ch,
+                ord(ch) if len(ch) == 1 else 0,
+            )
+        return None
 
 
 # Plugin-contributed fonts: ``namespace.name`` -> absolute path to the font

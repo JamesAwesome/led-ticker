@@ -143,3 +143,55 @@ class TestDejaVuRung:
         second = font.resolve_glyph("▲")
         assert first is not None and first.lit
         assert second is not None and second.lit
+
+
+class TestAsciiRungAndWarn:
+    def test_font_real_glyph_wins_over_ascii_table(self, monkeypatch):
+        """REAL GLYPH WINS: U+2212 is in the ASCII table (→ '-'), but Inter
+        ships a real minus, so rung 1 keeps it — the table does NOT fire.
+        DejaVu stubbed off to isolate rung 1 vs rung 3."""
+        import led_ticker.fonts.hires_loader as m
+
+        monkeypatch.setattr(m, "_dejavu_glyph", lambda *a, **k: None)
+        font = load_hires_font(_INTER, 36)
+        minus = font.resolve_glyph("−")
+        hyphen = font.resolve_glyph("-")
+        assert minus is not None and hyphen is not None
+        assert minus is not hyphen  # real minus kept, not the hyphen sub
+        assert minus.advance != hyphen.advance  # Inter's minus is its own glyph
+
+    def test_ascii_table_fires_when_font_and_dejavu_both_miss(self, monkeypatch):
+        """Rung 3: when rung 1 (font) AND rung 2 (DejaVu) miss, − rescues to
+        the hyphen glyph. Seed glyphs[−]=_MISSING to force a deterministic
+        rung-1 miss; stub DejaVu off so only rung 3 can save it."""
+        import led_ticker.fonts.hires_loader as m
+
+        monkeypatch.setattr(m, "_dejavu_glyph", lambda *a, **k: None)
+        font = load_hires_font(_INTER, 37)
+        font.glyphs["−"] = m._MISSING
+        sub = font.resolve_glyph("−")
+        hyph = font.resolve_glyph("-")
+        assert sub is not None and sub is hyph  # rendered as the real hyphen
+
+    def test_unrenderable_returns_none_and_warns_once(self, monkeypatch, caplog):
+        """Rung 4: a char nobody has → None, and exactly one WARN per
+        (font, char). Seed _MISSING + stub DejaVu so the miss is real on any
+        platform."""
+        import logging
+
+        import led_ticker.fonts.hires_loader as m
+
+        monkeypatch.setattr(m, "_dejavu_glyph", lambda *a, **k: None)
+        m._WARNED_MISSING.clear()
+        font = load_hires_font(_INTER, 38)
+        font.glyphs["鿿"] = m._MISSING  # U+9FFF, force deterministic miss
+        cp = f"{ord('鿿'):04x}"
+        with caplog.at_level(logging.WARNING):
+            assert font.resolve_glyph("鿿") is None
+            font.resolve_glyph("鿿")  # second call — must NOT re-warn
+        warns = [
+            r
+            for r in caplog.records
+            if cp in r.getMessage().lower() or "鿿" in r.getMessage()
+        ]
+        assert len(warns) == 1

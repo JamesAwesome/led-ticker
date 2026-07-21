@@ -4442,3 +4442,64 @@ async def test_rule67_unknown_slug_scale1_no_warning(conf):
         """
     result = await validate_config(conf(cfg))
     assert not any(w.rule == 67 for w in result.warnings)
+
+
+_HIRES_CFG = """
+[display]
+rows = 64
+cols = 64
+chain = 8
+default_scale = 4
+
+[[playlist.section]]
+mode = "slideshow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "{text}"
+font = "Inter-Bold"
+font_size = 30
+"""
+
+
+class TestGlyphCoverage:
+    async def test_tofu_char_warns(self, conf):
+        # U+E000 renders nowhere → rule 68 warning it will '?'.
+        cfg = conf(_HIRES_CFG.format(text="price  up"))
+        result = await validate_config(cfg)
+        assert any(
+            i.rule == 68 and ("e000" in i.message.lower() or "?" in i.message)
+            for i in result.warnings
+        )
+
+    async def test_ascii_substituted_char_warns(self, conf, monkeypatch):
+        # Force U+E000 into the ASCII table → it now renders as '-' (rung 3):
+        # an informational "will render as '-'" warning.
+        import led_ticker.fonts.hires_loader as hl
+
+        monkeypatch.setitem(hl._ASCII_GLYPH_FALLBACKS, "", "-")
+        cfg = conf(_HIRES_CFG.format(text="down  2%"))
+        result = await validate_config(cfg)
+        assert any(
+            i.rule == 68 and ("'-'" in i.message or "will render as" in i.message)
+            for i in result.warnings
+        )
+
+    async def test_dejavu_or_real_glyph_silent(self, conf):
+        # '▲' resolves via DejaVu (Linux) / substitution (Mac) — either way a
+        # real glyph, NOT a rung-3/4 degrade → no rule-68 warning about it.
+        cfg = conf(_HIRES_CFG.format(text="up A B C"))
+        result = await validate_config(cfg)
+        assert not [i for i in result.warnings if i.rule == 68]
+
+    async def test_emoji_not_flagged(self, conf):
+        # Raw 🚀 and :rocket: bypass fonts — the rule must strip both and NOT
+        # tofu-warn on the emoji codepoints/slug.
+        cfg = conf(_HIRES_CFG.format(text="go \U0001f680 :rocket: x"))
+        result = await validate_config(cfg)
+        assert not [
+            i
+            for i in result.warnings
+            if i.rule == 68
+            and ("rocket" in i.message.lower() or "1f680" in i.message.lower())
+        ]

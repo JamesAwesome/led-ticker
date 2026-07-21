@@ -6,8 +6,10 @@ import copy
 import datetime
 import json
 import math
+import re
 import tempfile
 import tomllib
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -16,6 +18,7 @@ import tomli_w
 
 if TYPE_CHECKING:
     from led_ticker.config import AppConfig, DisplayConfig, SectionConfig
+    from led_ticker.fonts.hires_loader import HiresFont
 
 
 @dataclass
@@ -1139,6 +1142,125 @@ def _check_hires_only_emoji_scale1(config: AppConfig) -> list[ValidationIssue]:
                             ),
                         )
                     )
+    return issues
+
+
+def _non_emoji_chars(
+    text: str,
+    emoji_pattern: re.Pattern[str],
+    uemoji_runs: Callable[[str], Iterator[tuple[int, int, str]]],
+) -> Iterator[str]:
+    """Yield the literal chars of `text` with BOTH emoji forms removed:
+    `:slug:` tokens (`emoji_pattern`) and raw unicode-emoji runs
+    (`uemoji_runs`). Emoji bypass fonts entirely so they must never reach
+    the glyph-coverage classifier."""
+    excluded: set[int] = set()
+    for m in emoji_pattern.finditer(text):
+        excluded.update(range(m.start(), m.end()))
+    for start, end, _run in uemoji_runs(text):
+        excluded.update(range(start, end))
+    for idx, ch in enumerate(text):
+        if idx not in excluded:
+            yield ch
+
+
+def _classify_glyph(font: HiresFont, ch: str) -> str:
+    """'ok' (rung 1-2: font or DejaVu has a real glyph), 'substituted'
+    (rung 3: only the 1:1 ASCII look-alike renders it), or 'tofu' (rung 4:
+    nothing renders it — draws '?'). Uses the real resolve_glyph ladder, so
+    it can't drift from what the renderer actually does."""
+    from led_ticker.fonts.hires_loader import _ASCII_GLYPH_FALLBACKS  # noqa: PLC0415
+
+    g = font.resolve_glyph(ch)
+    if g is None:
+        return "tofu"
+    alt = _ASCII_GLYPH_FALLBACKS.get(ch)
+    # rung 3 returns the SAME cached object as resolve_glyph(alt); rung 1-2
+    # return the font's own (distinct) glyph → real glyph wins reads as 'ok'.
+    if alt is not None and alt != ch and g is font.resolve_glyph(alt):
+        return "substituted"
+    return "ok"
+
+
+def _check_glyph_coverage(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 68: warn when a hi-res config text char won't render cleanly in
+    its font. Runs every non-emoji text char through the SAME resolution
+    ladder the renderer uses (`HiresFont.resolve_glyph`) and reports only
+    DEGRADED rungs: a 1:1 ASCII substitution (rung 3, informational) or an
+    unrenderable '?' (rung 4, the tofu the ladder couldn't save). Rungs 1-2
+    (the chosen font or bundled DejaVu has a real glyph) are silent.
+
+    HIRES ONLY: a widget whose resolved font is BDF (or has no `font`) is
+    skipped — the only off-hardware BDF miss-signal (`CharacterWidth`) is
+    unreliable (the stub returns a positive advance for every codepoint), so
+    a BDF coverage check would give false-'ok' confidence. Every recorded
+    tofu incident is hi-res and the render ladder is hires-only. Emoji are
+    excluded (they bypass fonts): both `:slug:` tokens (EMOJI_PATTERN) and
+    raw unicode-emoji runs (`_uemoji_runs`) are stripped before classifying.
+    """
+    from led_ticker.fonts import resolve_font  # noqa: PLC0415
+    from led_ticker.fonts.hires_loader import (  # noqa: PLC0415
+        _ASCII_GLYPH_FALLBACKS,
+        HiresFont,
+    )
+    from led_ticker.pixel_emoji import EMOJI_PATTERN, _uemoji_runs  # noqa: PLC0415
+
+    issues: list[ValidationIssue] = []
+    for i, section in enumerate(config.sections):
+        for j, widget_cfg in enumerate(section.widgets):
+            name = widget_cfg.get("font")
+            if not isinstance(name, str) or not name:
+                continue  # BDF default — skipped (see docstring)
+            try:
+                font = resolve_font(name, widget_cfg.get("font_size"))
+            except Exception:  # noqa: BLE001
+                continue  # unknown font / missing size → another rule owns it
+            if not isinstance(font, HiresFont):
+                continue  # BDF alias — skipped
+            for field_name in ("text", "top_text", "bottom_text"):
+                val = widget_cfg.get(field_name)
+                if not isinstance(val, str) or not val:
+                    continue
+                for ch in _non_emoji_chars(val, EMOJI_PATTERN, _uemoji_runs):
+                    if ch.isspace():
+                        continue
+                    verdict = _classify_glyph(font, ch)
+                    if verdict == "ok":
+                        continue
+                    loc = f"section[{i}].widget[{j}].{field_name}"
+                    if verdict == "substituted":
+                        alt = _ASCII_GLYPH_FALLBACKS[ch]
+                        issues.append(
+                            ValidationIssue(
+                                rule=68,
+                                location=loc,
+                                severity="warning",
+                                message=(
+                                    f"{ch!r} (U+{ord(ch):04X}) will render as "
+                                    f"{alt!r} -- {name} and DejaVu lack the glyph"
+                                ),
+                                fix=(
+                                    "Use the ASCII form directly, or pick a "
+                                    "font that has the glyph."
+                                ),
+                            )
+                        )
+                    else:  # tofu
+                        issues.append(
+                            ValidationIssue(
+                                rule=68,
+                                location=loc,
+                                severity="warning",
+                                message=(
+                                    f"{ch!r} (U+{ord(ch):04X}) will render as "
+                                    f"'?' -- no glyph in {name}, DejaVu, or the "
+                                    f"fallback table"
+                                ),
+                                fix=(
+                                    "Remove the character or use a font that covers it."
+                                ),
+                            )
+                        )
     return issues
 
 
@@ -3376,6 +3498,7 @@ def _validate_static_postbuild(
         warnings.extend(_check_transition_fps(config))
         warnings.extend(_check_typeless_transition_table(config))
         warnings.extend(_check_hires_only_emoji_scale1(config))
+        warnings.extend(_check_glyph_coverage(config))
         warnings.extend(_check_plugin_validation_warnings(config, effective_config_dir))
 
     # Phase 2 (strict only): asset path existence check.

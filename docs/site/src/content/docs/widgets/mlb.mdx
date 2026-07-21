@@ -1,11 +1,138 @@
 ---
-title: mlb widget
-description: The MLB scores widget is provided by the baseball package in led-ticker-plugins (type = "baseball.scores").
+title: MLB scores widget
+description: Live MLB game scores on your sign — score, inning, count, and bases in a hero scoreboard, a two-row band, or a scrolling ticker chosen by your panel.
 ---
 
-The **MLB scores** widget is provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo, referenced in config as `type = "baseball.scores"`.
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
-- **To add it to your sign:** add `led-ticker-baseball` to `config/requirements-plugins.txt` and restart (`docker compose restart`) — see [Plugins](/plugins/) for the full flow. It uses MLB's free StatsAPI, so no API key is required.
-- **Full documentation** — options, display modes (pre-game / in-game / final / postponed), team colors, and screenshots — lives in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+Your team's game, live on the wall — the score, the inning, the count, and who's on base, refreshing itself all afternoon without you touching a phone. The **baseball.scores** widget, provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo (`type = "baseball.scores"`), tracks one team's current series and renders it as a full scoreboard, a two-row band, or a scrolling line — auto-picking the shape that fits your sign's real width. The same package also ships [`baseball.standings`](/widgets/mlb_standings/), [`baseball.promotions`](/widgets/mlb_promotions/), [`baseball.statcast`](/widgets/mlb_statcast/), and [`baseball.attendance`](/widgets/mlb_attendance/), plus the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji. Game data comes from MLB's free StatsAPI — no API key, no account.
 
-The same package also ships the [`baseball.standings`](/widgets/mlb_standings/) widget, the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/), and the `:baseball.ball:` emoji. It's another example of led-ticker's [plugin system](/plugins/) — a way to add widgets, transitions, and emoji that aren't part of core.
+<DemoGif
+  src="/demos-pinned/baseball-scores.gif"
+  caption="baseball.scores on a long panel: a scrolling series-record line, then per-game hero scoreboards — a Final (Yankees 7, Red Sox 2), a live at-bat (bottom 8th, 2 outs, 3-2 count, runners on), and an upcoming-game preview with the matchup and first-pitch time."
+/>
+
+**Requires led-ticker-core >= 4.9.** The `demo = true` mode used for every GIF on this page needs led-ticker-baseball >= 1.6.0.
+
+<Aside type="tip">
+  Want to see the live at-bat, the Final, and the upcoming-game card right now? Set `demo = true`
+  and skip to [Try it in demo mode](#try-it-in-demo-mode) below — no API key, no network, about two
+  minutes. Every GIF on this page was rendered that way; live mode looks identical, it just pulls
+  the real game from MLB's StatsAPI instead of a fixed fixture.
+</Aside>
+
+Install the plugin first (steps just below this snippet), then drop it into a section:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+
+[[playlist.section.widget]]
+type = "baseball.scores"
+team = "NYY"
+timezone = "America/New_York"
+```
+
+`team` is the only required field — an MLB abbreviation like `"NYY"`, `"BOS"`, or `"SD"` (case-insensitive). Everything else is optional tuning.
+
+To install the plugin on a Docker deploy, add its line to the plugin manifest and restart:
+
+```bash
+# First plugin? Create your manifest from the example:
+cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
+# Add the package (one name per line), then restart:
+echo "led-ticker-baseball==1.6.0" >> config/requirements-plugins.txt
+docker compose restart
+```
+
+Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/plugins/).
+
+## Try it in demo mode
+
+Set `demo = true` to render a fixed fixture series — a live at-bat, a Final, and an upcoming-game preview — with no StatsAPI call and no network:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4
+
+[[playlist.section.widget]]
+type = "baseball.scores"
+demo = true
+```
+
+This is the exact widget block that rendered the hero GIF above (its full render config is [`baseball-scores.toml`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/site/demos-pinned/baseball-scores.toml), a `[display]` at `default_scale = 4` with this one section). It's the fastest way to see every game state before your tracked team is even playing — and it needs no `team`, since the fixture supplies its own matchup.
+
+## One widget, every sign
+
+`layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**, so the same config works unmodified on a narrow bar, a mid-width panel, or a long board:
+
+| Your sign                     | `auto` resolves to                                       |
+| ----------------------------- | -------------------------------------------------------- |
+| scale-1 smallsign (~160×16)   | `ticker` — a scrolling line                              |
+| scale>1 bigsign (~256px wide) | `two_row` — a held title band over a scrolling game line |
+| scale>1 longboi (~512px wide) | `scoreboard` — the two-column hero board                 |
+
+The hero cards in the GIF above are what `auto` picks on a wide sign. You can also pin a shape explicitly with `layout = "ticker"`, `"scoreboard"`, or `"two_row"`.
+
+- **`ticker`** — one scrolling line: pre-game `NYY @ BOS Today 7:05 PM`, live `NYY 3 BOS 5 ▲6 ◇◆◇ 1·2·1` (score, inning, bases, and balls·strikes·outs in color), final `NYY 4 BOS 5 (Final)` (win green, loss red), postponed `NYY @ BOS (PPD: Rain)`. Spring Training and All-Star games append `(ST)` / `(ASG)`.
+- **`scoreboard`** — a two-column board: away name and score on the left, home on the right, with the inning and outs above the ball-strike count and the base diamonds in the center. Names render in team brand colors; scores go green on a win and red on a loss; base diamonds are yellow when occupied and dim grey when empty.
+- **`two_row`** — a held top band (the series title) over a scrolling bottom band (the per-game line), sized for a bigsign.
+
+<Aside type="note">
+  On scale-1 signs (smallsign), all three layouts use the text-glyph renderers, so the `font` /
+  `small_font` / `top_font` options apply. On scale>1 signs (bigsign, longboi), every layout —
+  `ticker` included — uses the design-pinned physical (pixel-art) renderers with fixed Inter text;
+  the font, `bg_color`, and `font_color` options are ignored there. That's why the hero cards look
+  identical regardless of font settings on a wide sign.
+</Aside>
+
+If you set `layout = "scoreboard"` on a panel narrower than 400 real pixels (a bigsign at 256px), it degrades to `two_row` — the scoreboard's fixed anchors assume a wide panel and would otherwise clip the home team off the edge. Explicit `two_row` or `ticker` always renders as requested at any width.
+
+## Options
+
+`team` is required (unless `demo = true`); everything else is optional.
+
+| Field              | Type                                                        | Default         | Notes                                                                                                                                           |
+| ------------------ | ----------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `team`             | str                                                         | required        | MLB team abbreviation, 2–3 letters (e.g. `"NYY"`, `"KC"`, `"SD"`). Case-insensitive. Optional when `demo = true`.                               |
+| `layout`           | `"auto"` / `"ticker"` / `"scoreboard"` / `"two_row"`        | `"auto"`        | Explicit override; omit to auto-select from real panel width — see [One widget, every sign](#one-widget-every-sign).                            |
+| `final_hold_hours` | int                                                         | `6`             | Hours after a game ends to keep showing its final score before the widget drops out of the rotation.                                            |
+| `timezone`         | str (IANA)                                                  | system local    | Timezone for formatting game times, e.g. `"America/New_York"`. See [Scheduling](/concepts/scheduling/) for the shared timezone convention.      |
+| `font_color`       | color / `"rainbow"` / `"color_cycle"` / `"shimmer"` / table | brand colors    | Override all text color; default keeps per-segment brand and win/loss colors. Scale-1 only — see [Color providers](/concepts/color-providers/). |
+| `font`             | str                                                         | `"6x12"`        | Font for names and scores. A hires name (e.g. `"Inter-Regular"`) needs `font_size`. Scale-1 (smallsign) only.                                   |
+| `top_font`         | str                                                         | same as `font`  | Top-band font, scale-1 `two_row` layout only.                                                                                                   |
+| `top_row_height`   | int, px                                                     | half the canvas | Height of the held top band, scale-1 `two_row` layout only.                                                                                     |
+| `bg_color`         | `[r, g, b]`                                                 | none            | Background fill behind game text. Scale-1 only — the physical renderers paint their own palette.                                                |
+| `padding`          | int, px                                                     | `6`             | Horizontal spacing after each line when scrolling (ticker).                                                                                     |
+| `update_interval`  | int, seconds                                                | `300` (5 min)   | How often to poll StatsAPI for fresh game state — see [Data source](#data-source).                                                              |
+| `demo`             | bool                                                        | `false`         | Render the fixed fixture series instead of calling StatsAPI — see [Try it in demo mode](#try-it-in-demo-mode).                                  |
+| `schedule`         | table                                                       | none            | Core visibility window — only show this widget during set hours. See [Scheduling](/concepts/scheduling/).                                       |
+
+The `top_*` options only apply under `layout = "two_row"` (or `auto` resolving to it) on a scale-1 sign; the widget rejects them at config-load under other explicit layouts.
+
+## Data source
+
+Game state comes from [MLB's StatsAPI](https://statsapi.mlb.com/) — the same free, keyless feed behind MLB's own scoreboards. The widget fetches once every `update_interval` seconds (300 by default) and formats whatever state the API reports: pre-game, live (with inning, count, and bases), final, or postponed. A Final game keeps showing for `final_hold_hours` hours (6 by default), then the widget drops out of the rotation until the next scheduled game — so an off-day shows the upcoming matchup rather than a stale score.
+
+## If it doesn't work
+
+- **Nothing shows up at all — a blank panel.** Most likely the widget block isn't nested inside a `[[playlist.section]]` — a bare `[[playlist.section.widget]]` with no section parent yields zero sections and a blank sign. Every runnable snippet on this page shows the wrapper. Also rule out that the `baseball` plugin isn't installed yet (see the install step near the top), though a missing plugin usually surfaces as `unknown widget type 'baseball.scores'` at config-load rather than a silent blank.
+- **It's showing the upcoming game instead of a live score.** That's expected when your team isn't currently playing — the widget shows the next scheduled game between games. A finished game stops showing after `final_hold_hours` hours (6 by default); raise it to keep last night's final up longer.
+- **The hero scoreboard isn't appearing — I only get a scrolling line.** The physical scoreboard needs a wide sign (real width ≥ 400px, a longboi). On a bigsign (256px) `auto` resolves to `two_row`, and a smallsign always scrolls. To preview the wide card without the hardware, set `demo = true` and render on a `default_scale = 4` config.
+- **My `font` / `bg_color` change had no effect.** Those options only apply on scale-1 signs. Every scale>1 layout is design-pinned to fixed Inter text and a fixed palette.
+
+Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. Implementation notes live in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+
+<RelatedPages
+  slugs={[
+    "widgets/mlb_standings",
+    "widgets/mlb_statcast",
+    "widgets/mlb_attendance",
+    "concepts/scheduling",
+    "plugins/available",
+  ]}
+/>

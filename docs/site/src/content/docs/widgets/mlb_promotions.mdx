@@ -1,0 +1,132 @@
+---
+title: MLB promotions widget
+description: Upcoming home-game giveaways and theme nights on your sign — date, promo name, opponent, sponsor, and first pitch — as a held card or a scrolling crawl.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+Never miss bobblehead night again — your team's upcoming home-game giveaways and theme nights, held on the wall so anyone walking past knows what's worth the trip. The **baseball.promotions** widget, provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo (`type = "baseball.promotions"`), pulls the home-game promotions feed for a tracked team and renders each promo as a held card on a wide sign or a scrolling crawl on a narrow one. The same package also ships [`baseball.scores`](/widgets/mlb/), [`baseball.standings`](/widgets/mlb_standings/), [`baseball.statcast`](/widgets/mlb_statcast/), and [`baseball.attendance`](/widgets/mlb_attendance/), plus the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji. Promotions come from MLB's free StatsAPI schedule feed — no API key, no account.
+
+<DemoGif
+  src="/demos-pinned/baseball-promotions.gif"
+  caption="baseball.promotions on a long panel: same-day home-game promos crawling past — the date, the promo name (BOBBLEHEAD NIGHT), an opponent color chip with VS, the sponsor, and the first-pitch time."
+/>
+
+**Requires led-ticker-core >= 4.9.** The `demo = true` mode used for the GIF on this page needs led-ticker-baseball >= 1.6.0.
+
+<Aside type="tip">
+  Want to see the promo cards right now? Set `demo = true` and skip to [Try it in demo
+  mode](#try-it-in-demo-mode) below — no API key, no network, about two minutes. The GIF above was
+  rendered that way; live mode looks identical, it just pulls your team's real promos from StatsAPI
+  instead of a fixed fixture.
+</Aside>
+
+Install the plugin first (steps just below this snippet), then drop it into a section:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "baseball.promotions"
+team = "TOR"
+highlight = ["Loonie Dogs"]
+```
+
+`team` is the only required field. Here any promo whose name contains "Loonie Dogs" is emphasized — highlighted promos render in amber and sort first.
+
+To install the plugin on a Docker deploy, add its line to the plugin manifest and restart:
+
+```bash
+# First plugin? Create your manifest from the example:
+cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
+# Add the package (one name per line), then restart:
+echo "led-ticker-baseball==1.6.0" >> config/requirements-plugins.txt
+docker compose restart
+```
+
+Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/plugins/).
+
+## Try it in demo mode
+
+Set `demo = true` to render a fixed set of same-day promos with no StatsAPI call and no network:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4
+
+[[playlist.section.widget]]
+type = "baseball.promotions"
+demo = true
+```
+
+This is the exact widget block that rendered the hero GIF above (its full render config is [`baseball-promotions.toml`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/site/demos-pinned/baseball-promotions.toml), a `[display]` at `default_scale = 4` with this one section). It needs no `team`, since the fixture supplies its own promos — the fastest way to see the card shape without waiting for a home game.
+
+## One widget, every sign
+
+`layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**:
+
+| Your sign                     | `auto` resolves to                                                               |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| scale-1 smallsign (~160×16)   | classic scrolling lines, one per promo (`TOR Jun 22 · Retro Domer Hat Giveaway`) |
+| scale>1 bigsign (~256px wide) | a held card, one promo per story with paging dots                                |
+| scale>1 longboi (~512px wide) | a hi-res crawl — the same fields as one continuous scrolling run                 |
+
+Pin a shape explicitly with `layout = "ticker"` (force the crawl on any sign) or `layout = "card"` (force the held card). The held card's anatomy: the date in amber, the promo name in white (auto-scrolling in a clipped band if it's too long), a team chip plus `VS <opponent>` in violet, `<offer> · BY <sponsor>` in cyan, and the start time in amber. Either the offer or the sponsor half is dropped when the feed doesn't supply it — the widget never invents copy.
+
+The widget shows **today's** promos when there's a home game today, otherwise the next home game's. Sponsor tails ("presented by …") are stripped and near-duplicate feed entries collapsed. With nothing to show it falls back to a team-prefixed `Next home game: Jun 22`, `No home games soon` (road trip), or `Opens <date>` (offseason).
+
+## Options
+
+`team` is required (unless `demo = true`); everything else is optional.
+
+| Field             | Type                                                        | Default           | Notes                                                                                                                                                               |
+| ----------------- | ----------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `team`            | str                                                         | required          | MLB team abbreviation (e.g. `"TOR"`). Case-insensitive. Optional when `demo = true`.                                                                                |
+| `layout`          | `"auto"` / `"ticker"` / `"card"`                            | `"auto"`          | Explicit override; omit to auto-select from real panel width — see [One widget, every sign](#one-widget-every-sign).                                                |
+| `highlight`       | list of str                                                 | `[]`              | Case-insensitive substrings; matching promos render amber and sort first. Applies to every layout.                                                                  |
+| `filter`          | list of str                                                 | `[]`              | If non-empty, only promos matching one of these substrings are shown. Applies to every layout.                                                                      |
+| `limit`           | int                                                         | `0`               | Max promos shown (`0` = no limit). Applied after highlight sorting, so highlighted promos are never the ones dropped.                                               |
+| `lookahead_days`  | int                                                         | `14`              | How far ahead to look for the next home game with promotions.                                                                                                       |
+| `title`           | str                                                         | `"<Team> Promos"` | Section title override.                                                                                                                                             |
+| `timezone`        | str (IANA)                                                  | system local      | Timezone governing the "Today" label and date formatting. See [Scheduling](/concepts/scheduling/).                                                                  |
+| `font_color`      | color / `"rainbow"` / `"color_cycle"` / `"shimmer"` / table | callout colors    | RGB list tints promo names; the team prefix, date, and amber highlights keep their callout colors. Scale-1 only. See [Color providers](/concepts/color-providers/). |
+| `font`            | str                                                         | `"6x12"`          | Display font. A hires name needs `font_size`. Scale-1 only.                                                                                                         |
+| `bg_color`        | `[r, g, b]`                                                 | none              | Background fill behind the messages. Scale-1 only.                                                                                                                  |
+| `padding`         | int, px                                                     | `6`               | Horizontal spacing after each line when scrolling.                                                                                                                  |
+| `update_interval` | int, seconds                                                | `21600` (6 hours) | How often to poll the StatsAPI schedule feed for fresh promotions — see [Data source](#data-source).                                                                |
+| `demo`            | bool                                                        | `false`           | Render the fixed promo set instead of calling StatsAPI — see [Try it in demo mode](#try-it-in-demo-mode).                                                           |
+| `schedule`        | table                                                       | none              | Core visibility window — only show this widget during set hours. See [Scheduling](/concepts/scheduling/).                                                           |
+
+<Aside type="note">
+  On scale>1 signs, the held card and hi-res crawl are design-pinned to fixed Inter text and a fixed
+  palette, so `font` and `bg_color` are ignored and an animated `font_color` renders static there.
+  Those options apply on scale-1 signs, where the widget draws the classic scrolling lines.
+</Aside>
+
+## Data source
+
+Promotions come from [MLB's StatsAPI](https://statsapi.mlb.com/) schedule feed — free and keyless. The widget refreshes every `update_interval` seconds (21600, or 6 hours, by default — often enough to keep the "Today" label honest after midnight) and shows the target date's promos: today's home game if there is one, else the next home game within `lookahead_days` that has matching promos. A doubleheader whose two games each carry a promo shows both — one card or crawl segment per game, matching the per-game data the API returns.
+
+## If it doesn't work
+
+- **Nothing shows up at all — a blank panel.** Most likely the widget block isn't nested inside a `[[playlist.section]]` — a bare `[[playlist.section.widget]]` yields zero sections and a blank sign. Every snippet on this page shows the wrapper. Also rule out that the `baseball` plugin isn't installed (see the install step above), which usually surfaces as `unknown widget type 'baseball.promotions'` at config-load.
+- **It says "Next home game" instead of a promo.** The next home game within `lookahead_days` has no promotions in the feed, or your team is on a road trip. Raise `lookahead_days` to reach further ahead, or check the team's schedule — not every home game has a giveaway.
+- **My `filter` is hiding everything.** `filter` is a strict allow-list — only promos whose name contains one of its substrings show. Loosen or remove it; use `highlight` instead if you just want to emphasize some promos without dropping the rest.
+- **A highlighted promo isn't amber.** `highlight` matches case-insensitive substrings of the promo _name_ — check the substring actually appears in the feed's wording (sponsor tails are stripped, so match on the promo name, not "presented by …").
+
+Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. Implementation notes live in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+
+<RelatedPages
+  slugs={[
+    "widgets/mlb",
+    "widgets/mlb_standings",
+    "widgets/mlb_attendance",
+    "concepts/scheduling",
+    "plugins/available",
+  ]}
+/>

@@ -1,0 +1,137 @@
+---
+title: MLB Statcast widget
+description: Daily MLB Statcast superlatives on your sign — the longest home run drawing its own trajectory arc, the hardest-hit ball, and the fastest pitch.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+The day's longest home run, replayed on your wall as the ball flies its own arc over the wall — the single most striking thing a baseball sign can show. The **baseball.statcast** widget, provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo (`type = "baseball.statcast"`), renders MLB's daily Statcast superlatives — longest home run, hardest-hit ball, fastest and slowest pitch — as a hero card on a wide sign or a scrolling line on a narrow one. On a long sign the batted-ball cards draw an animated trajectory: the ball takes off from the plate and traces the exact curve of the real hit. The same package also ships [`baseball.scores`](/widgets/mlb/), [`baseball.standings`](/widgets/mlb_standings/), [`baseball.promotions`](/widgets/mlb_promotions/), and [`baseball.attendance`](/widgets/mlb_attendance/), plus the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji. Data comes from public MLB and Baseball Savant feeds — no API key, no account.
+
+<DemoGif
+  src="/demos-pinned/baseball-statcast.gif"
+  caption="baseball.statcast on a long panel: a 452 ft home run (112.4 mph exit velo, 29° launch) drawing its own parabolic trajectory arc over the wall, then the hardest-hit ball and the fastest pitch."
+/>
+
+**Requires led-ticker-core >= 4.9.** The `demo = true` mode used for the GIF on this page needs led-ticker-baseball >= 1.6.0.
+
+<Aside type="tip">
+  Want to see the trajectory arc fly right now? Set `demo = true` and skip to [Try it in demo
+  mode](#try-it-in-demo-mode) below — no API key, no network, about two minutes. The GIF above was
+  rendered that way; live mode looks identical, it just derives the day's real superlatives from
+  Baseball Savant instead of a fixed fixture.
+</Aside>
+
+Install the plugin first (steps just below this snippet), then drop it into a section:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "baseball.statcast"
+```
+
+There are **no required fields** — with nothing set the widget shows league-wide superlatives. Add `team = "PHI"` to scope every superlative to one team's own players.
+
+To install the plugin on a Docker deploy, add its line to the plugin manifest and restart:
+
+```bash
+# First plugin? Create your manifest from the example:
+cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
+# Add the package (one name per line), then restart:
+echo "led-ticker-baseball==1.6.0" >> config/requirements-plugins.txt
+docker compose restart
+```
+
+Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/plugins/).
+
+## Try it in demo mode
+
+Set `demo = true` to render a fixed set of superlatives — including the 452 ft home run and its arc — with no network:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 5
+
+[[playlist.section.widget]]
+type = "baseball.statcast"
+demo = true
+```
+
+This is the exact widget block that rendered the hero GIF above (its full render config is [`baseball-statcast.toml`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/site/demos-pinned/baseball-statcast.toml), a `[display]` at `default_scale = 4` with this one section). It's the fastest way to watch the trajectory arc without waiting for a real game to produce a superlative.
+
+## The trajectory arc
+
+On a long sign (`layout = "long"`, or `"auto"` on a longboi ≥ 400px wide), the batted-ball cards — `longest_hr` and `hardest_hit` — draw an animated arc in the card's DISTANCE slot. The ball flies the curve over about 1.5 seconds from a standing start each time the card appears, then rests at one of five landing poses driven by the play's **actual** result, never guessed:
+
+- **clears** — a home run: the ball flies past a white wall tick at the panel's far edge.
+- **fair** — a non-homer hit: it comes to rest on the ground mid-panel.
+- **track** — a deep out at or past the warning track: caught in front of a dotted amber warning-track line.
+- **caught** — a shallower out: it rests inside a small grey glove ring.
+- **grounder** — a ground ball, or a launch angle at or below zero: a low skip along the ground, no arc.
+
+The arc's shape — how high it peaks, where, and how steeply it drops — comes from the ball's real launch angle, exit velo, and distance, so a lofted moonshot and a flat liner curve differently, while the _same_ ball always redraws the exact same arc on replay. **Pitch superlatives (`fastest_pitch`, `slowest_pitch`) have no launch angle or distance**, so the card skips the arc and shows the pitch type large in that slot instead. Re-entering the section always flies the ball again from the start — it never resumes mid-flight.
+
+## One widget, every sign
+
+`layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**:
+
+| Your sign                     | `auto` resolves to                                          |
+| ----------------------------- | ----------------------------------------------------------- |
+| scale-1 smallsign (~160×16)   | a scrolling line (`Today · Longest HR 463 ft — Butler OAK`) |
+| scale>1 bigsign (~256px wide) | the `big` hero card with a compact trajectory panel         |
+| scale>1 longboi (~512px wide) | the `long` hero card with the full-width trajectory panel   |
+
+Pin a shape explicitly with `layout = "big"` or `layout = "long"` (both force a hero card regardless of width). Both scale>1 cards draw the arc and show the player, the result in its outcome color (green home run, red out, amber otherwise), exit velo, and the launch-angle / distance / pitch columns; the wide `long` card gets the full DISTANCE panel for it.
+
+<Aside type="note">
+  On scale-1 signs the scrolling line uses the `font` / `font_color` / `bg_color` options; the
+  scale>1 hero cards are design-pinned to fixed Inter text and outcome colors and ignore them. See
+  [Color providers](/concepts/color-providers/) for the `font_color` forms.
+</Aside>
+
+## Options
+
+There are no required fields; everything is optional.
+
+| Field             | Type                                                        | Default         | Notes                                                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `team`            | str                                                         | unset           | Scope superlatives to this team's own players (a batter for `longest_hr`, a pitcher for `fastest_pitch`). Omit for league-wide. Case-insensitive.                                     |
+| `layout`          | `"auto"` / `"big"` / `"long"`                               | `"auto"`        | Explicit override; omit to auto-select from real panel width — see [One widget, every sign](#one-widget-every-sign).                                                                  |
+| `stats`           | list of str                                                 | all four        | Which lines to show, in display order: `"longest_hr"`, `"hardest_hit"`, `"fastest_pitch"`, `"slowest_pitch"`. Omit for all four.                                                      |
+| `title`           | str                                                         | `"Statcast"`    | Section title override.                                                                                                                                                               |
+| `timezone`        | str (IANA)                                                  | system local    | Timezone governing the "Today" label and the day rollover. See [Scheduling](/concepts/scheduling/).                                                                                   |
+| `font_color`      | color / `"rainbow"` / `"color_cycle"` / `"shimmer"` / table | callout colors  | RGB list tints the stat label and name; the day label, amber value, and team abbreviation keep their callout colors. Scale-1 only. See [Color providers](/concepts/color-providers/). |
+| `font`            | str                                                         | `"6x12"`        | Display font. A hires name needs `font_size`. Scale-1 only.                                                                                                                           |
+| `bg_color`        | `[r, g, b]`                                                 | none            | Background fill behind the messages. Scale-1 only.                                                                                                                                    |
+| `padding`         | int, px                                                     | `6`             | Horizontal spacing after each line when scrolling.                                                                                                                                    |
+| `update_interval` | int, seconds                                                | `1800` (30 min) | How often to re-derive the day's superlatives from Baseball Savant — see [Data source](#data-source).                                                                                 |
+| `demo`            | bool                                                        | `false`         | Render the fixed superlative set instead of fetching — see [Try it in demo mode](#try-it-in-demo-mode).                                                                               |
+| `schedule`        | table                                                       | none            | Core visibility window — only show this widget during set hours. See [Scheduling](/concepts/scheduling/).                                                                             |
+
+## Data source
+
+Superlatives are derived from [Baseball Savant](https://baseballsavant.mlb.com/)'s day CSV (via MLB's public data) and re-derived through the day as games progress. It's an undocumented endpoint, so the widget polls at a polite default cadence — `update_interval` is 1800 seconds (30 minutes) — and a small (~10 KB) schedule check skips the larger (~3 MB) data pull entirely when nothing is live or newly final. Mornings fall back to yesterday's finals, labeled with the short date (`6/12 · …`). The slowest-pitch line appends the pitch name when known (`69.6 mph (Slow Curve)`) — where the eephus lives. With no data for today or yesterday it shows `Next games: Mar 26` (offseason) or `No games soon`; a fetch failure shows `No Data`.
+
+## If it doesn't work
+
+- **Nothing shows up at all — a blank panel.** Most likely the widget block isn't nested inside a `[[playlist.section]]` — a bare `[[playlist.section.widget]]` yields zero sections and a blank sign. Every snippet on this page shows the wrapper. Also rule out that the `baseball` plugin isn't installed (see the install step above), which usually surfaces as `unknown widget type 'baseball.statcast'` at config-load.
+- **The trajectory arc isn't drawing — I only get a scrolling line.** The animated arc is on the scale>1 hero cards; a smallsign always scrolls, and even a bigsign draws a compact panel rather than the full one. To watch the full arc without the hardware, set `demo = true` and render on a `default_scale = 4` config.
+- **It says "No Data" or a stale date.** Early in the day there may be no completed games yet, so the widget shows yesterday's finals (short-date labeled); `No Data` specifically means the fetch failed — check the Pi's internet access. Between seasons it shows `Next games: <date>`.
+- **A pitch superlative has no arc.** Expected — `fastest_pitch` and `slowest_pitch` have no launch angle or distance, so the card shows the pitch type in that slot instead of a trajectory.
+
+Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. Implementation notes live in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+
+<RelatedPages
+  slugs={[
+    "widgets/mlb",
+    "widgets/mlb_attendance",
+    "widgets/mlb_standings",
+    "concepts/scheduling",
+    "plugins/available",
+  ]}
+/>

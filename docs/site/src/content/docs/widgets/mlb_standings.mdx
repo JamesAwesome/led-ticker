@@ -1,11 +1,138 @@
 ---
-title: mlb_standings widget
-description: The MLB standings widget is provided by the baseball package in led-ticker-plugins (type = "baseball.standings").
+title: MLB standings widget
+description: A held MLB division standings board on your sign — rank, team chip, W-L, win %, games back, last-10, and streak — or a classic scrolling line.
 ---
 
-The **MLB standings** widget is provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo, referenced in config as `type = "baseball.standings"`.
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
-- **To add it to your sign:** add `led-ticker-baseball` to `config/requirements-plugins.txt` and restart (`docker compose restart`) — see [Plugins](/plugins/) for the full flow. It uses MLB's free StatsAPI, so no API key is required.
-- **Full documentation** — options, top-N + tracked-team selection, offseason behavior, and screenshots — lives in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+Where your division actually stands, held on the wall at a glance — every club's record, games back, and streak, not a number you go looking for. The **baseball.standings** widget, provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo (`type = "baseball.standings"`), renders a held division board on a wide sign and a scrolling row on a narrow one, auto-picking the shape from your panel's real width. The same package also ships [`baseball.scores`](/widgets/mlb/), [`baseball.promotions`](/widgets/mlb_promotions/), [`baseball.statcast`](/widgets/mlb_statcast/), and [`baseball.attendance`](/widgets/mlb_attendance/), plus the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji. Standings come from MLB's free StatsAPI — no API key, no account.
 
-The same package also ships the [`baseball.scores`](/widgets/mlb/) widget, the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/), and the `:baseball.ball:` emoji. It's another example of led-ticker's [plugin system](/plugins/) — a way to add widgets, transitions, and emoji that aren't part of core.
+<DemoGif
+  src="/demos-pinned/baseball-standings.gif"
+  caption="baseball.standings on a long panel: a held AL East board showing rank, a team color chip, wins, losses, win %, games back, last-10, and current streak for all five clubs."
+/>
+
+**Requires led-ticker-core >= 4.9.** The `demo = true` mode used for the GIF on this page needs led-ticker-baseball >= 1.6.0.
+
+<Aside type="tip">
+  Want to see the held board right now? Set `demo = true` and skip to [Try it in demo
+  mode](#try-it-in-demo-mode) below — no API key, no network, about two minutes. The GIF above was
+  rendered that way; live mode looks identical, it just pulls the real division from StatsAPI
+  instead of a fixed AL East fixture.
+</Aside>
+
+Install the plugin first (steps just below this snippet), then drop it into a section:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+
+[[playlist.section.widget]]
+type = "baseball.standings"
+teams = ["NYY", "BOS"]
+```
+
+`teams` is the only required field — the abbreviations you want tracked. Their division(s) become the board(s) shown; each tracked team stays visible even when it's outside the top rows.
+
+To install the plugin on a Docker deploy, add its line to the plugin manifest and restart:
+
+```bash
+# First plugin? Create your manifest from the example:
+cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
+# Add the package (one name per line), then restart:
+echo "led-ticker-baseball==1.6.0" >> config/requirements-plugins.txt
+docker compose restart
+```
+
+Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/plugins/).
+
+## Try it in demo mode
+
+Set `demo = true` to render a fixed AL East board with no StatsAPI call and no network:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+
+[[playlist.section.widget]]
+type = "baseball.standings"
+demo = true
+```
+
+This is the exact widget block that rendered the hero GIF above (its full render config is [`baseball-standings.toml`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/site/demos-pinned/baseball-standings.toml), a `[display]` at `default_scale = 4` with this one section). It needs no `teams`, since the fixture supplies its own division.
+
+## One widget, every sign
+
+`layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**:
+
+| Your sign                     | `auto` resolves to                                                        |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| scale-1 smallsign (~160×16)   | one scrolling row per section visit, cycling through the division's teams |
+| scale>1 bigsign (~256px wide) | a held board: rank, team chip, team, combined W-L, games back, and streak |
+| scale>1 longboi (~512px wide) | the same held board, plus win % and last-10 (with W-L split out)          |
+
+Pin a shape explicitly with `layout = "ticker"` (the scrolling rows on any sign) or `layout = "board"` (a synonym for `auto`'s held board on a wide sign). On a board, **games back is division games back** — each team's distance from its own division leader; the scrolling `ticker` rows show overall (league) games back instead.
+
+### Fewer rows, bigger text
+
+`board_rows` (3–5, default 5) controls how many rows a board shows. Dropping to 4 or 3 rows scales the text and chip size up, so a shorter board still fills the panel readably; 5 rows is the original, unscaled size. When `board_rows` cuts a division below its full roster, every tracked team is still pinned in — the board takes the top rows by division rank, then swaps a tracked team into the last slot if it fell outside the cutoff. The rank digit is always the team's true division rank, so a board reading `1, 2, 5` is that swap working as intended, not a bug. `board_rows` is ignored by `layout = "ticker"`, which always scrolls one row per visit.
+
+### `top_n` (ticker only)
+
+On the scrolling `ticker` layout, `top_n` (default 3) sets how many overall top teams show before your tracked teams; `top_n = 0` shows tracked teams only. Boards ignore `top_n` — they always show a division's full (capped) roster.
+
+<Aside type="note">
+  On scale-1 signs (smallsign), the scrolling rows use the `font` / `font_color` / `bg_color`
+  options. On scale>1 signs, the held board is design-pinned to fixed Inter text and a fixed palette
+  and ignores them. One known limit there: an animated `font_color` provider (`"rainbow"` /
+  `"color_cycle"`) renders static on the `auto` / `board` layouts at scale 1, because the per-visit
+  row cycling doesn't forward frame-advance hooks. Use `layout = "ticker"` for animated colors on a
+  smallsign.
+</Aside>
+
+## Options
+
+`teams` is required; everything else is optional.
+
+| Field             | Type                                                        | Default            | Notes                                                                                                                                          |
+| ----------------- | ----------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `teams`           | list of str                                                 | required           | Tracked team abbreviations (e.g. `["NYY", "BOS"]`) — always shown even outside the top rows, and they decide which division(s) a board covers. |
+| `layout`          | `"auto"` / `"ticker"` / `"board"`                           | `"auto"`           | Explicit override; omit to auto-select from real panel width — see [One widget, every sign](#one-widget-every-sign).                           |
+| `top_n`           | int                                                         | `3`                | Overall top teams before tracked teams. `0` = tracked only. `layout = "ticker"` only.                                                          |
+| `board_rows`      | int                                                         | `5`                | Rows per division board, 3–5. Fewer rows scale the text up. `layout = "board"` / `"auto"` only.                                                |
+| `title`           | str                                                         | `"MLB Standings"`  | Section header before the list.                                                                                                                |
+| `timezone`        | str (IANA)                                                  | system local       | Timezone for offseason detection and the opening-day date. See [Scheduling](/concepts/scheduling/).                                            |
+| `font_color`      | color / `"rainbow"` / `"color_cycle"` / `"shimmer"` / table | rank white + brand | Override all text color; scale-1 only. See [Color providers](/concepts/color-providers/) and the animated-provider note above.                 |
+| `font`            | str                                                         | `"6x12"`           | BDF or hires font for the scrolling rows and scale-1 fallback. Scale>1 boards ignore it.                                                       |
+| `bg_color`        | `[r, g, b]`                                                 | none               | Background fill behind the rows. Scale-1 only.                                                                                                 |
+| `padding`         | int, px                                                     | `6`                | Horizontal spacing after each row when scrolling.                                                                                              |
+| `update_interval` | int, seconds                                                | `86400` (24 hours) | How often to poll StatsAPI for fresh standings — see [Data source](#data-source).                                                              |
+| `demo`            | bool                                                        | `false`            | Render the fixed AL East board instead of calling StatsAPI — see [Try it in demo mode](#try-it-in-demo-mode).                                  |
+| `schedule`        | table                                                       | none               | Core visibility window — only show this widget during set hours. See [Scheduling](/concepts/scheduling/).                                      |
+
+## Data source
+
+Standings come from [MLB's StatsAPI](https://statsapi.mlb.com/) — free and keyless. The widget builds one board per division represented in your `teams` list (in config order, deduped), falling back to the overall leader's division when no tracked team resolves to one. Standings move slowly, so the default `update_interval` is 86400 seconds (24 hours). The board is offseason-aware: before the season it shows `Opens Mar 27`, and between the World Series and Spring Training it keeps the prior final standings rather than going blank.
+
+## If it doesn't work
+
+- **Nothing shows up at all — a blank panel.** Most likely the widget block isn't nested inside a `[[playlist.section]]` — a bare `[[playlist.section.widget]]` yields zero sections and a blank sign. Every snippet on this page shows the wrapper. Also rule out that the `baseball` plugin isn't installed (see the install step above), which usually surfaces as `unknown widget type 'baseball.standings'` at config-load.
+- **I'm seeing scrolling rows, not the held board.** The board needs a scale>1 sign (bigsign or longboi); a smallsign always scrolls. To preview the board without the hardware, set `demo = true` and render on a `default_scale = 4` config.
+- **The board shows ranks like `1, 2, 5`.** That's a tracked team pinned in past the `board_rows` cutoff — the rank digit is the team's true division rank, so the gap is expected, not a bug. Raise `board_rows` to 5 to show the full roster.
+- **A `"rainbow"` color isn't animating.** Animated providers render static on the `auto` / `board` layouts at scale 1 — use `layout = "ticker"` for animated colors on a smallsign.
+
+Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. Implementation notes live in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+
+<RelatedPages
+  slugs={[
+    "widgets/mlb",
+    "widgets/mlb_promotions",
+    "widgets/mlb_attendance",
+    "concepts/scheduling",
+    "plugins/available",
+  ]}
+/>

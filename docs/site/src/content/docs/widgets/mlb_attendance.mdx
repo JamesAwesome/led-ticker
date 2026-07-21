@@ -1,0 +1,135 @@
+---
+title: MLB attendance widget
+description: Ballpark crowds and game-day weather on your sign — paid attendance, % full vs season average, and an animated capacity bar, or league superlatives.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+How packed the ballpark was last night, and what the weather did to it — the paid crowd, the percent full, and a capacity bar that fills up right on the wall. The **baseball.attendance** widget, provided by the **[baseball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball)** package in the led-ticker-plugins monorepo (`type = "baseball.attendance"`), shows one team's game-day attendance and conditions as a hero card, or the day's league-wide crowd superlatives. On a wide sign the card draws an animated capacity bar that fills from empty to the gate count with a tick marking the team's season average. The same package also ships [`baseball.scores`](/widgets/mlb/), [`baseball.standings`](/widgets/mlb_standings/), [`baseball.promotions`](/widgets/mlb_promotions/), and [`baseball.statcast`](/widgets/mlb_statcast/), plus the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji. Data comes from MLB's free StatsAPI — no API key, no account.
+
+<DemoGif
+  src="/demos-pinned/baseball-attendance.gif"
+  caption="baseball.attendance on a long panel: a team card — paid crowd, game-day weather (72° CLEAR), percent full, difference vs season average, and stadium name, with a capacity bar animating from empty to the gate count past a season-average tick — then a league FULLEST PARK superlative card."
+/>
+
+**Requires led-ticker-core >= 4.9.** The `demo = true` mode used for the GIF on this page needs led-ticker-baseball >= 1.6.0.
+
+<Aside type="tip">
+  Want to see the team card and its animated bar right now? Set `demo = true` and skip to [Try it in
+  demo mode](#try-it-in-demo-mode) below — no API key, no network, about two minutes. A team card
+  normally only appears once that team's game is Final (attendance is a post-game number), so demo
+  mode is also how you preview it on demand without waiting for a game to end.
+</Aside>
+
+Install the plugin first (steps just below this snippet), then drop it into a section:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+
+[[playlist.section.widget]]
+type = "baseball.attendance"
+team = "TOR"
+```
+
+There are **no required fields**. Set a `team` for that team's game card; omit it for league-wide superlatives.
+
+To install the plugin on a Docker deploy, add its line to the plugin manifest and restart:
+
+```bash
+# First plugin? Create your manifest from the example:
+cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
+# Add the package (one name per line), then restart:
+echo "led-ticker-baseball==1.6.0" >> config/requirements-plugins.txt
+docker compose restart
+```
+
+Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/plugins/).
+
+## Try it in demo mode
+
+Set `demo = true` to render a fixed team card — with game-day weather and the animated capacity bar — with no StatsAPI call and no network:
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "baseball.attendance"
+demo = true
+```
+
+This is the exact widget block that rendered the hero GIF above (its full render config is [`baseball-attendance.toml`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/site/demos-pinned/baseball-attendance.toml), a `[display]` at `default_scale = 4` with this one section). Because a real team card only appears after the game goes Final, demo mode is the reliable way to see the card and its bar on demand — no waiting for a game to end.
+
+## Two modes: team card or league superlatives
+
+Which mode you get is chosen by whether you set a `team`:
+
+- **Team** (`team` set) — that team's game. The card shows the big paid-attendance number, then — once Final — a `% FULL` column and a `VS AVG` column (the difference against the team's season home average, green at or above average and red below). A capacity bar fills to the game's actual paid/capacity fraction in the home team's brand color, with a bright vertical **season-average tick** marking where a typical crowd would land — a quick "packed house vs. ordinary night" read. Before the game is Final there's no attendance number yet, so it falls back to a scrolling next-game line with the venue and weather.
+- **League-wide** (no `team`) — the day's crowd superlatives: `Biggest crowd 45,123 — Dodger Stadium`, plus smallest crowd and fullest/emptiest park by capacity %. The superlative card shows the label (`BIGGEST CROWD`, `FULLEST`, …), the big value, the venue name, and a team-colored chip identifying the home club, with the bar in that team's color (no season-average tick — a league record isn't tied to one team's history).
+
+**The bar always animates**: on every card entry it grows from empty to its resting fraction over about a second, then holds for the rest of the visit. Re-entering the section always re-fills from empty — it never resumes mid-fill.
+
+## One widget, every sign
+
+`layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**:
+
+| Your sign                     | `auto` resolves to                                                |
+| ----------------------------- | ----------------------------------------------------------------- |
+| scale-1 smallsign (~160×16)   | a scrolling line (`TOR · Rogers Centre 41,212 (90%) · 72° Clear`) |
+| scale>1 bigsign (~256px wide) | the `big` hero card                                               |
+| scale>1 longboi (~512px wide) | the `long` hero card                                              |
+
+Pin a shape explicitly with `layout = "big"` or `layout = "long"` (both force a hero card regardless of width).
+
+<Aside type="note">
+  On scale-1 signs the scrolling line uses the `font` / `font_color` / `bg_color` options; the
+  scale>1 hero cards are design-pinned to fixed Inter text and a fixed palette and ignore them. See
+  [Color providers](/concepts/color-providers/) for the `font_color` forms.
+</Aside>
+
+## Options
+
+There are no required fields; everything is optional.
+
+| Field             | Type                                                        | Default         | Notes                                                                                                                                                                  |
+| ----------------- | ----------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `team`            | str                                                         | unset           | Set → that team's game card; omit → league-wide superlatives. Case-insensitive.                                                                                        |
+| `layout`          | `"auto"` / `"big"` / `"long"`                               | `"auto"`        | Explicit override; omit to auto-select from real panel width — see [One widget, every sign](#one-widget-every-sign).                                                   |
+| `stats`           | list of str                                                 | all four        | League mode only, in display order: `"biggest_crowd"`, `"smallest_crowd"`, `"fullest"`, `"emptiest"`. Omit for all four.                                               |
+| `title`           | str                                                         | `"Attendance"`  | Section title override.                                                                                                                                                |
+| `timezone`        | str (IANA)                                                  | system local    | Timezone for the "Today" label and the day rollover. See [Scheduling](/concepts/scheduling/).                                                                          |
+| `font_color`      | color / `"rainbow"` / `"color_cycle"` / `"shimmer"` / table | callout colors  | RGB list tints body text; the day label, amber value, and venue/team color keep their callout colors. Scale-1 only. See [Color providers](/concepts/color-providers/). |
+| `font`            | str                                                         | `"6x12"`        | Display font. A hires name needs `font_size`. Scale-1 only.                                                                                                            |
+| `bg_color`        | `[r, g, b]`                                                 | none            | Background fill behind the messages. Scale-1 only.                                                                                                                     |
+| `padding`         | int, px                                                     | `6`             | Horizontal spacing after each line when scrolling.                                                                                                                     |
+| `update_interval` | int, seconds                                                | `1800` (30 min) | How often to poll StatsAPI for fresh attendance and conditions — see [Data source](#data-source).                                                                      |
+| `demo`            | bool                                                        | `false`         | Render the fixed team card instead of calling StatsAPI — see [Try it in demo mode](#try-it-in-demo-mode).                                                              |
+| `schedule`        | table                                                       | none            | Core visibility window — only show this widget during set hours. See [Scheduling](/concepts/scheduling/).                                                              |
+
+## Data source
+
+Attendance and conditions come from [MLB's StatsAPI](https://statsapi.mlb.com/) — free and keyless. The widget refreshes every `update_interval` seconds (1800, or 30 minutes, by default), and a schedule check skips the per-game fetches when nothing has changed. Attendance is a post-game number, so a team card only fills in its paid crowd and fill % once the game is Final; before that it shows the venue and weather on a scrolling next-game line. Fill % is omitted when a venue lists no capacity (spring sites). With nothing Final yet it shows yesterday's data (short-date labeled); with no games at all, `Next game: <date>` (team) or `Next games: <date>` (league); a fetch failure shows `No Data`.
+
+## If it doesn't work
+
+- **Nothing shows up at all — a blank panel.** Most likely the widget block isn't nested inside a `[[playlist.section]]` — a bare `[[playlist.section.widget]]` yields zero sections and a blank sign. Every snippet on this page shows the wrapper. Also rule out that the `baseball` plugin isn't installed (see the install step above), which usually surfaces as `unknown widget type 'baseball.attendance'` at config-load.
+- **My team card isn't showing — I only get a scrolling next-game line.** Attendance is a post-game number, so the team card appears once that day's game is Final; before then it falls back to the venue-and-weather scrolling line. To preview the finished card on demand, set `demo = true`.
+- **The capacity bar isn't animating — I only get a scrolling line.** The animated bar is on the scale>1 hero cards; a smallsign always scrolls. Render on a `default_scale = 4` config with `demo = true` to see the bar fill.
+- **Fill % is missing.** The venue lists no capacity (common at spring-training sites), so there's no denominator for a percentage — the crowd count still shows.
+
+Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes about two minutes, no key and no network. Implementation notes live in the [baseball package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/baseball/README.md).
+
+<RelatedPages
+  slugs={[
+    "widgets/mlb",
+    "widgets/mlb_statcast",
+    "widgets/mlb_standings",
+    "concepts/scheduling",
+    "plugins/available",
+  ]}
+/>

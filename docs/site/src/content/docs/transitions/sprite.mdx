@@ -237,7 +237,7 @@ transition = {type = "flair.fireworks", bursts = 3, colors = [[255, 60, 60], [0,
 
 ### `flair.stickers` (flair >= 0.9.0, core >= 4.18)
 
-`flair.stickers` sticker-bombs the panel: emoji "stickers" pop on one at a time in a random order over the outgoing widget until they fully cover it at the halfway point, then pop off in an independent random order, revealing the incoming widget in the gaps. Each sticker sits on a tilted die-cut card so the wall reads as stickers on glass. Pass `emoji = ["taco"]` for a themed wall of one emoji, a list for a mix, or omit it for a random assortment drawn from every drawable slug.
+`flair.stickers` sticker-bombs the panel: emoji "stickers" pop on one at a time in a random order over the outgoing widget until they fully cover it at the halfway point, then pop off in an independent random order, revealing the incoming widget in the gaps. Each sticker sits on a tilted die-cut card so the wall reads as stickers on glass. Pass `emoji = ["taco"]` for a themed wall of one emoji, a list for a mix, or omit it for a random assortment. Since core 4.21.0 the drawable set includes the ~1,360-emoji [standard-emoji pack](/assets/emoji/#standard-emoji), so random mode (flair >= 0.13.0) samples up to **12 distinct emoji per firing** and builds the wall from those — wildly different stickers every firing, a coherent wall within one.
 
 <DemoGif
   src="/demos-pinned/transition-flair-stickers.gif"
@@ -272,17 +272,17 @@ font_color = [255, 190, 0]`}
 
 #### Knobs
 
-| Knob      | Default                     | Notes                                                                                                                                                                                                                                                              |
-| --------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `emoji`   | omitted (random assortment) | List of emoji slugs (no colons), e.g. `["taco"]` or `["sun", "moon", "star_yellow"]`. A single-item list is a themed wall; a list mixes; omitting it draws a random slug per sticker from the full drawable set. An unknown slug fails at `led-ticker validate`.   |
-| `backing` | `"card"`                    | Sticker body. `"card"`: tilted black card with a white rim — the only mode that fully covers the panel at the midpoint. `"shadow"`: black silhouette halo, no card. `"none"`: bare sprites. Shadow/none read as an emoji **swarm** — gaps stay visible, by design. |
-| `seed`    | `None` (OS entropy)         | Fixes sticker positions, angles, and pop-on/off order for reproducible runs. Leave unset for a real deploy (every firing varies).                                                                                                                                  |
+| Knob      | Default                     | Notes                                                                                                                                                                                                                                                                                                                                                          |
+| --------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `emoji`   | omitted (random assortment) | List of emoji slugs (no colons), e.g. `["taco"]` or `["sun", "moon", "star_yellow"]`. A single-item list is a themed wall; a list mixes (never capped); omitting it samples ≤ 12 distinct slugs per firing from the full drawable set (~1,360 with the standard-emoji pack) and draws each sticker from those. An unknown slug fails at `led-ticker validate`. |
+| `backing` | `"card"`                    | Sticker body. `"card"`: tilted black card with a white rim — the only mode that fully covers the panel at the midpoint. `"shadow"`: black silhouette halo, no card. `"none"`: bare sprites. Shadow/none read as an emoji **swarm** — gaps stay visible, by design.                                                                                             |
+| `seed`    | `None` (OS entropy)         | Fixes sticker positions, angles, and pop-on/off order for reproducible runs. Leave unset for a real deploy (every firing varies).                                                                                                                                                                                                                              |
 
 #### Behavior notes
 
 - **The card is what guarantees full coverage.** Each `"card"` sticker is squared to its grid cell, so a jittered grid of cards covers the panel completely at the midpoint regardless of the emoji's shape. `"shadow"` and `"none"` deliberately trade that guarantee for a lighter, see-through swarm.
 - **Only real slugs.** A typo like `emoji = ["fire"]` (there is no `fire` slug) fails at config-load with the bad slug named — see [Emoji](/assets/emoji/) for the full list.
-- **Random mode is a themed run, not confetti.** With no `emoji`, each sticker independently picks a slug, so a bare `transition = "flair.stickers"` gives a genuine mixed assortment (cats, hearts, weather, pride flags…).
+- **Random mode is chaos across firings, coherence within one.** With no `emoji`, each firing samples up to 12 distinct slugs from the full drawable set and builds the wall from those — one firing might be lobsters, dice, and hearts; the next guitars, planets, and pizza. Explicit `emoji = [...]` lists are never capped.
 
 ### `flair.poker` (flair >= 0.10.0, core >= 4.18)
 

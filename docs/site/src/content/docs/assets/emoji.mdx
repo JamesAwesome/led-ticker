@@ -32,6 +32,14 @@ pack derived from [Noto Emoji](https://github.com/googlefonts/noto-emoji)
 (Apache 2.0). Skin-tone variants render as their base emoji; multi-person
 (ZWJ) sequences fold to their first member; letter flags are not included.
 
+Standard emoji work everywhere curated emoji do — message text, `two_row`
+rows, gif/image text overlays, inline value tokens, and through the
+[`flair.fisheye`](/concepts/animations/#flairfisheye-flair-pack) lens
+(sprites swell through the center and compress at the edges just like
+letters). Each of the flower emoji (🌸 🌺 🌷 🌹 💐 🌼) renders its own
+sprite — a rose is a rose, a bouquet is a bouquet — while the `:flower:`
+slug keeps the curated blossom.
+
 **Scale-1 displays (smallsign):** standard emoji are hires-only — unicode
 is stripped from the text, and `led-ticker validate` warns if a config
 uses a hires-only `:slug:` at scale 1. The curated 8×8 set above is the

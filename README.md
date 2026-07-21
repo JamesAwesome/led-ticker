@@ -25,7 +25,7 @@ A few of the things a config can put on the wall — every cell links to the pag
 | | | |
 |:---:|:---:|:---:|
 | [![Two-row layout](https://docs.ledticker.dev/demos-long/widget-two_row.gif)](https://docs.ledticker.dev/widgets/two_row/) | [![Inline emoji in a message](https://docs.ledticker.dev/demos-pinned/message-inline-emoji.gif)](https://docs.ledticker.dev/assets/emoji/) | [![Hi-res "grand opening" message](https://docs.ledticker.dev/demos-pinned/message-hires-grand-opening.gif)](https://docs.ledticker.dev/concepts/fonts/) |
-| Held top + scrolling bottom | Inline `:slug:` emoji | Hi-res fonts |
+| Held top + scrolling bottom | Inline emoji — curated set + ~1,360 standard emoji (🚀 or `:rocket:`) on hires signs | Hi-res fonts |
 | [![Nyancat sprite-trail transition](https://docs.ledticker.dev/demos-long/transitions-nyancat.gif)](https://docs.ledticker.dev/transitions/) | [![Animated lightbulb border](https://docs.ledticker.dev/demos-pinned/border-lightbulbs-rainbow.gif)](https://docs.ledticker.dev/concepts/borders/) | [![Typewriter reveal with rainbow color](https://docs.ledticker.dev/demos-pinned/message-typewriter-rainbow.gif)](https://docs.ledticker.dev/concepts/animations/) |
 | Sprite-trail transitions | Animated borders | Animations + color providers |
 

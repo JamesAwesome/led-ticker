@@ -1,0 +1,19 @@
+# render-duration: 15
+# DEMO-mode baseball.statcast hero cards on a long (512x64) panel. No network,
+# no API key — demo = true renders a fixed set of Statcast superlatives,
+# including a 452 ft home run with an animated trajectory arc.
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "baseball.statcast"
+demo = true

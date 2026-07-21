@@ -1,0 +1,19 @@
+# render-duration: 15
+# DEMO-mode baseball.scores hero cards on a long (512x64) panel. No network,
+# no API key — demo = true renders a fixed live/final/preview series. Real
+# signs add their pixel_mapper Remap block; the demo doesn't need it.
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "baseball.scores"
+demo = true

@@ -13,6 +13,7 @@ directly to the unwrapped real canvas at native physical resolution.
 """
 
 import functools
+import logging
 import string
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -130,33 +131,43 @@ class HiresFont:
     def resolve_glyph(self, ch: str) -> HiresGlyph | None:
         """Glyph for `ch` via the resolution ladder.
 
-        Order: (1) cached hit (real glyph or a cached `_MISSING` miss) →
-        (2) the ASCII look-alike table for typographic codepoints that
+        Order: (1) cached hit — a real glyph returns immediately; a
+        cached `_MISSING` sentinel (this font proved it lacks `ch` on a
+        prior call) skips straight to rung 2 rather than short-circuiting
+        to None, since a repeat lookup must still get a chance at DejaVu
+        → (2) the ASCII look-alike table for typographic codepoints that
         substitute silently (e.g. U+2212 MINUS SIGN -> '-') — checked
         BEFORE lazy rasterization so a font that happens to ship its own
         (differently-advanced) real glyph for that codepoint doesn't
         desync width math from the substituted glyph elsewhere in the
-        pipeline → (3) lazily rasterize an unseen char and cache the
-        result, treating a notdef/empty result as MISSING. Returns None
-        on a miss so the caller (and Tasks 2-3) can fall to the next
-        rung; None ultimately draws '?'.
+        pipeline → (3) lazily rasterize an unseen char in THIS font and
+        cache the result, treating a notdef/empty result as MISSING →
+        (4) DejaVu Sans, rasterized at this font's own pixel size — real
+        arrows/math/currency/punctuation glyphs the chosen font lacks.
+        Returns None only when DejaVu ALSO lacks `ch`; that ultimately
+        draws '?' (rung 3, a future task).
         """
         glyph = self.glyphs.get(ch)
-        if glyph is not None:
-            return None if glyph is _MISSING else glyph
-        alt = _ASCII_GLYPH_FALLBACKS.get(ch)
-        if alt is not None:
-            return self.glyphs.get(alt)
-        if self.pil_font is not None and ch:
-            glyph = _rasterize_glyph(
-                self.pil_font, ch, self.ascent, self.descent, self.threshold
-            )
-            if _is_notdef(glyph, self.notdef_lit):
-                self.glyphs[ch] = _MISSING  # cache the miss (sentinel)
-                return None
-            self.glyphs[ch] = glyph  # cache the hit
+        if glyph is not None and glyph is not _MISSING:
             return glyph
-        return None
+        if glyph is None:
+            alt = _ASCII_GLYPH_FALLBACKS.get(ch)
+            if alt is not None:
+                return self.glyphs.get(alt)
+            if self.pil_font is not None and ch:
+                glyph = _rasterize_glyph(
+                    self.pil_font, ch, self.ascent, self.descent, self.threshold
+                )
+                if _is_notdef(glyph, self.notdef_lit):
+                    self.glyphs[ch] = _MISSING  # cache the miss (sentinel)
+                else:
+                    self.glyphs[ch] = glyph  # cache the hit
+                    return glyph
+        # Rung 2: DejaVu fallback. Not itself cached per-font (a cached
+        # _MISSING here only records "rung 1 lacks it"), but `_dejavu_glyph`
+        # has its own lru_cache so a repeat lookup is a dict hit, not a
+        # re-rasterize.
+        return _dejavu_glyph(ch, self.size, self.ascent, self.descent, self.threshold)
 
 
 # Plugin-contributed fonts: ``namespace.name`` -> absolute path to the font
@@ -327,6 +338,56 @@ def _rasterize(
 # suite spawns many one-off entries. Each entry is ~100-300 KB
 # (rasterized glyph dict).
 _FONT_CACHE_MAXSIZE: int = 16
+
+# Bundled DejaVu Sans TTF — the glyph ladder's rung 2 (Task 2). Covers
+# Latin/Cyrillic/Greek plus a wide swath of arrows, math, currency, and
+# punctuation that many display/hires fonts don't ship. See
+# THIRD_PARTY_NOTICES.md for licensing.
+_DEJAVU_PATH: Path = Path(__file__).parent.parent / "assets" / "DejaVuSans.ttf"
+
+
+@functools.lru_cache(maxsize=_FONT_CACHE_MAXSIZE)
+def _dejavu_pil(size: int) -> Any:
+    """DejaVu Sans PIL font at `size`, or None if the asset is missing.
+
+    Degrades gracefully — a stripped-down install (e.g. someone deletes
+    `src/led_ticker/assets/DejaVuSans.ttf` from a vendored copy) just loses
+    rung 2; rung 1 and the eventual '?' fallback are unaffected.
+    """
+    try:
+        return ImageFont.truetype(str(_DEJAVU_PATH), size)
+    except OSError:
+        logging.getLogger(__name__).warning(
+            "DejaVu fallback font unavailable at %s — glyph ladder rung 2 disabled",
+            _DEJAVU_PATH,
+        )
+        return None
+
+
+@functools.lru_cache(maxsize=2048)
+def _dejavu_glyph(
+    ch: str, size: int, ascent: int, descent: int, threshold: int
+) -> HiresGlyph | None:
+    """Rasterize `ch` from DejaVu Sans at `size`/`threshold`, or None if
+    DejaVu also lacks it (e.g. CJK ideographs — DejaVu is Latin/Cyrillic/
+    Greek-focused).
+
+    `ascent`/`descent` are the CALLING font's metrics — folded into the
+    cache key (alongside `size`/`threshold`) purely to mirror
+    `HiresFont`'s identity; the actual raster uses DejaVu's own metrics
+    (`pil.getmetrics()`) so glyph shape/position is internally consistent
+    regardless of which font missed the char. Cached across all fonts —
+    `size` and `threshold` alone already determine the DejaVu render.
+    """
+    pil = _dejavu_pil(size)
+    if pil is None:
+        return None
+    d_ascent, d_descent = pil.getmetrics()
+    notdef = _rasterize_glyph(pil, _NOTDEF_PROBE, d_ascent, d_descent, threshold)
+    g = _rasterize_glyph(pil, ch, d_ascent, d_descent, threshold)
+    if _is_notdef(g, notdef.lit):
+        return None
+    return g
 
 
 @functools.lru_cache(maxsize=_FONT_CACHE_MAXSIZE)

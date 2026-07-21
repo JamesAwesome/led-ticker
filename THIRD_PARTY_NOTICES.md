@@ -23,3 +23,16 @@ constant from the vendored source at `tools/assets/noto_emoji_u1f525.png`).
 
 The low-res 8×8 `:fire:` sprite is project-original (hand-authored) and not
 derived from Noto.
+
+## DejaVu Sans — the hi-res glyph fallback font
+
+The hi-res glyph resolution ladder (`fonts/hires_loader.py`) falls back to
+DejaVu Sans for characters a config's chosen font lacks (arrows, math and
+currency symbols, extended punctuation), rasterized at the same pixel size.
+Vendored at `src/led_ticker/assets/DejaVuSans.ttf` (from the upstream
+`dejavu-sans-ttf-2.37.zip` release asset).
+
+- **Source:** DejaVu Fonts — https://dejavu-fonts.github.io/
+- **License:** Bitstream Vera Fonts Copyright, as amended by the DejaVu
+  project (permissive, attribution-only; renaming required for modified
+  derivatives) — see `src/led_ticker/assets/DejaVuSans-LICENSE.txt`.

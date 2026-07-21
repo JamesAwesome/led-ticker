@@ -83,3 +83,63 @@ class TestLazyRasterization:
         a = font.resolve_glyph("ǽ")
         b = font.resolve_glyph("ǽ")
         assert a is b  # same object → cached, not re-rasterized
+
+
+class TestDejaVuRung:
+    def test_arrow_font_lacks_resolves_via_dejavu(self):
+        # ▲ U+25B2: the brief's premise is that Inter lacks it, so rung 1
+        # returns None and rung 2 (DejaVu) fills it. On THIS machine's
+        # Pillow/FreeType build that premise doesn't hold deterministically
+        # — per TestNotdefDetection's note above, macOS font-substitution
+        # can make Inter appear to "have" ▲ via a substituted system glyph,
+        # which would mask rung 1's miss and make this test pass without
+        # ever touching rung 2.
+        #
+        # To exercise the REAL production path — resolve_glyph falling
+        # through to `_dejavu_glyph` — deterministically on any platform,
+        # seed the font's glyph cache directly with the `_MISSING`
+        # sentinel for "▲": exactly what rung 1 caches on a genuine miss,
+        # per `resolve_glyph`'s own contract. From there the rest of
+        # `resolve_glyph` runs unmodified. Fresh size (33) so mutating the
+        # shared `glyphs` dict (cached forever by `load_hires_font`'s
+        # `lru_cache`) can't leak into any other test using `_INTER`.
+        font = load_hires_font(_INTER, 33)
+        assert font is not None
+        font.glyphs["▲"] = hires_loader._MISSING
+        g = font.resolve_glyph("▲")
+        assert g is not None and g.lit  # real arrow from DejaVu, not a box
+
+    def test_dejavu_glyph_is_not_notdef(self):
+        from led_ticker.fonts.hires_loader import _dejavu_glyph
+
+        g = _dejavu_glyph("▲", 30, 24, 6, 128)
+        assert g is not None and g.lit
+
+    def test_dejavu_also_lacking_returns_none(self):
+        # A rare CJK ideograph (鿿, U+9FBF) neither Inter nor DejaVu cover →
+        # still None (→ ? later, a future rung). Verified directly against
+        # `_dejavu_glyph` that DejaVu genuinely lacks it (not a platform
+        # substitution artifact). Force rung 1's miss deterministically too
+        # — per the notes above, this Mac's Pillow/FreeType build can
+        # substitute a real system glyph for CJK requests even on a font
+        # like Inter that ships none, which would mask rung 1 ever
+        # reaching rung 2 here. Fresh size (35) to isolate the seeded
+        # `glyphs` mutation from other tests.
+        font = load_hires_font(_INTER, 35)
+        assert font is not None
+        font.glyphs["鿿"] = hires_loader._MISSING
+        assert font.resolve_glyph("鿿") is None
+
+    def test_repeat_lookup_after_cached_miss_still_reaches_dejavu(self):
+        # A cached _MISSING sentinel (rung 1 already proved it lacks `ch`)
+        # must not short-circuit resolve_glyph to None on a repeat lookup —
+        # every call has to keep falling through to rung 2. Regression
+        # guard for the cache-hit branch rewrite in resolve_glyph. Fresh
+        # size (34), same reasoning as above.
+        font = load_hires_font(_INTER, 34)
+        assert font is not None
+        font.glyphs["▲"] = hires_loader._MISSING
+        first = font.resolve_glyph("▲")
+        second = font.resolve_glyph("▲")
+        assert first is not None and first.lit
+        assert second is not None and second.lit

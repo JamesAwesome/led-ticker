@@ -1,6 +1,6 @@
 ---
 title: Inline emoji
-description: 41 pixel-art glyphs (21 base + heart/cat/pride color variants) you can drop into any message text via `:slug:`.
+description: 41 curated pixel-art glyphs (21 base + heart/cat/pride color variants) plus ~1,350 standard emoji on hires displays — all droppable into any message text via `:slug:`.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -22,5 +22,63 @@ text = ":taco: Taco Tuesday!"`}
 ## Available slugs
 
 <OptionsTable source="emoji" />
+
+## Standard emoji
+
+Beyond the curated set above, **any standard emoji** renders on hires
+(scaled) displays — typed as real unicode (🚀) in widget text, or as its
+CLDR-short-name slug (`:rocket:`). ~1,350 emoji ship in a lazy-loaded
+pack derived from [Noto Emoji](https://github.com/googlefonts/noto-emoji)
+(Apache 2.0). Skin-tone variants render as their base emoji; multi-person
+(ZWJ) sequences fold to their first member; letter flags are not included.
+
+**Scale-1 displays (smallsign):** standard emoji are hires-only — unicode
+is stripped from the text, and `led-ticker validate` warns if a config
+uses a hires-only `:slug:` at scale 1. The curated 8×8 set above is the
+smallsign emoji set.
+
+The full pack, grouped by Unicode block for browsing:
+
+### Smileys
+
+<img
+  src="/emoji/pack-smileys.png"
+  alt="Contact sheet of standard-emoji pack sprites in the Smileys & Emotion Unicode block, each labeled with its slug."
+/>
+
+### Animals & nature
+
+<img
+  src="/emoji/pack-animals-nature.png"
+  alt="Contact sheet of standard-emoji pack sprites covering animals, plants, and weather/sky, each labeled with its slug."
+/>
+
+### Food & drink
+
+<img
+  src="/emoji/pack-food-drink.png"
+  alt="Contact sheet of standard-emoji pack sprites covering food and drink, each labeled with its slug."
+/>
+
+### Activities & objects
+
+<img
+  src="/emoji/pack-activities-objects.png"
+  alt="Contact sheet of standard-emoji pack sprites covering activities, celebration, and everyday objects, each labeled with its slug."
+/>
+
+### Symbols
+
+<img
+  src="/emoji/pack-symbols.png"
+  alt="Contact sheet of standard-emoji pack sprites covering symbols, dingbats, and arrows, each labeled with its slug."
+/>
+
+### Misc
+
+<img
+  src="/emoji/pack-misc.png"
+  alt="Contact sheet of standard-emoji pack sprites from the newer supplemental Unicode blocks — people, food, animals, and objects, each labeled with its slug."
+/>
 
 <RelatedPages slugs={["widgets/message", "concepts/color-providers"]} />

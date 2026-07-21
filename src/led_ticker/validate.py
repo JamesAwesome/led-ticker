@@ -1079,6 +1079,69 @@ def _check_typeless_transition_table(config: AppConfig) -> list[ValidationIssue]
     return issues
 
 
+def _check_hires_only_emoji_scale1(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 67: a hires-only emoji slug from the standard-emoji pack, used
+    inline in a scale-1 section, parses as an emoji segment but has no
+    8x8 low-res sprite to fall back to — it silently paints nothing.
+
+    Predicate: ``emoji_pack.has_slug(slug) and slug not in _get_registry()``.
+    This is deliberately narrower than ``is_emoji_slug`` (which also admits
+    bare ``HIRES_REGISTRY`` membership): the precise "renders as an emoji
+    segment but paints nothing at scale 1" set is really (slug in the pack)
+    OR (slug in curated HIRES_REGISTRY and not in the low-res registry) —
+    but every *curated* HIRES_REGISTRY entry currently also has a low-res
+    pair (see ``pixel_emoji._parse_segments``'s docstring), so in practice
+    that reduces to the pack-only predicate above. A plugin-registered
+    hires-only slug (HIRES_REGISTRY without a paired low-res entry) is
+    deliberately EXCLUDED here: `_parse_segments`'s inline-parsing gate is
+    `slug in _get_registry() or emoji_pack.has_slug(slug)` — NOT bare
+    HIRES_REGISTRY membership — so that slug never parses as an emoji
+    segment in the first place; it renders as literal ":slug:" text, and
+    the plugin loader already warns "will not render inline" at load time.
+    Warning about it here too would be a false positive (nothing silently
+    vanishes — the colons are right there on the panel).
+
+    Gate is per-section (``section.scale``, which falls back to
+    ``display.default_scale`` at load), mirroring rules 63/64: a section
+    that overrides scale back to 1 under an otherwise-scaled display must
+    still be caught.
+    """
+    from led_ticker import emoji_pack  # noqa: PLC0415
+    from led_ticker.pixel_emoji import EMOJI_PATTERN, _get_registry  # noqa: PLC0415
+
+    issues: list[ValidationIssue] = []
+    lowres = _get_registry()
+    for i, section in enumerate(config.sections):
+        if getattr(section, "scale", 1) != 1:
+            continue
+        for j, widget_cfg in enumerate(section.widgets):
+            for field_name in ("text", "top_text", "bottom_text"):
+                val = widget_cfg.get(field_name)
+                if not isinstance(val, str):
+                    continue
+                for m in EMOJI_PATTERN.finditer(val):
+                    slug = m.group(0)[1:-1]
+                    if slug in lowres or not emoji_pack.has_slug(slug):
+                        continue
+                    issues.append(
+                        ValidationIssue(
+                            rule=67,
+                            location=f"section[{i}].widget[{j}].{field_name}",
+                            severity="warning",
+                            message=(
+                                f":{slug}: is a hires-only emoji and this "
+                                f"section is scale 1 -- it will not render"
+                            ),
+                            fix=(
+                                "Use a curated low-res emoji, or run this "
+                                "section on a scaled display "
+                                "(default_scale > 1)."
+                            ),
+                        )
+                    )
+    return issues
+
+
 def _check_scroll_separator_font(
     config: AppConfig,
 ) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
@@ -3312,6 +3375,7 @@ def _validate_static_postbuild(
         warnings.extend(_check_held_top_text_overflow(config))
         warnings.extend(_check_transition_fps(config))
         warnings.extend(_check_typeless_transition_table(config))
+        warnings.extend(_check_hires_only_emoji_scale1(config))
         warnings.extend(_check_plugin_validation_warnings(config, effective_config_dir))
 
     # Phase 2 (strict only): asset path existence check.

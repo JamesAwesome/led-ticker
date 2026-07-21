@@ -39,7 +39,14 @@ REPO = Path(__file__).resolve().parent.parent
 # removing it from NEEDLES or silently widening the allow-list.
 NEEDLES = ["moonbunny", "moon bunny", "moonbunnyaerial", "aerial"]
 # Archival design docs record the old brand as written at the time — allowed.
-ALLOW_PREFIXES = ("docs/superpowers/",)
+ALLOW_PREFIXES = (
+    "docs/superpowers/",
+    # CLDR emoji names, not brand references. The packed slug "aerial_tramway"
+    # (a legitimate emoji) trips the "aerial" needle (the real studio is an
+    # aerial-arts studio) in both the manifest and the packed binary.
+    "tools/assets/emoji_manifest.txt",
+    "src/led_ticker/assets/emoji_pack.bin",
+)
 
 # Retired Moon Bunny pastel palette — must not appear in brand/example contexts.
 # These are EXTENDED regex patterns for `git grep -E`.

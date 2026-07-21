@@ -27,6 +27,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from led_ticker import emoji_pack
+from led_ticker._emoji_pack_bmp import PACK_BMP
 from led_ticker._types import Canvas, Font, PixelData
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, paint_hires
 from led_ticker.text_render import draw_text, draw_text_per_char
@@ -3020,6 +3022,16 @@ HIRES_REGISTRY: dict[str, HiResEmoji] = _build_hires_registry(
 )
 
 
+def _hires_for(slug: str) -> HiResEmoji | None:
+    """Hires sprite for `slug`: curated registry first, then the standard-
+    emoji pack (lazy). The ONE lookup every hires gate routes through so
+    curated-wins can't drift per-site."""
+    hit = HIRES_REGISTRY.get(slug)
+    if hit is not None:
+        return hit
+    return emoji_pack.get_sprite(slug)
+
+
 _EMOJI_BUILTINS_LOADED = False
 
 
@@ -3045,24 +3057,32 @@ def emoji_slugs() -> tuple[str, ...]:
     """Sorted slugs currently drawable inline (built-ins + plugin-registered).
 
     Union of the low-res registry (via the lazy `_get_registry()`
-    materializer) and `HIRES_REGISTRY`, so a slug present in either form is
-    listed. Public via `led_ticker.plugin` — plugins use it to enumerate or
-    validate emoji (e.g. flair.stickers' random mode / knob validation).
+    materializer), `HIRES_REGISTRY`, and the standard-emoji pack, so a slug
+    present in any form is listed. Public via `led_ticker.plugin` — plugins
+    use it to enumerate or validate emoji (e.g. flair.stickers' random mode
+    / knob validation).
     """
-    return tuple(sorted(set(_get_registry()) | set(HIRES_REGISTRY)))
+    return tuple(
+        sorted(
+            set(_get_registry()) | set(HIRES_REGISTRY) | set(emoji_pack.pack_slugs())
+        )
+    )
 
 
 def is_emoji_slug(slug: str) -> bool:
     """True if `slug` (no surrounding colons) is a registered emoji.
 
-    Checks both the low-res `EMOJI_REGISTRY` (via the lazy `_get_registry()`
-    materializer) AND `HIRES_REGISTRY`, so a hires-only slug (present in
-    `HIRES_REGISTRY` but not in `EMOJI_REGISTRY`) is correctly recognised.
-    This keeps the source-id collision check in `validate` airtight: any slug
-    that would be rendered as an emoji — in either resolution — wins over a
-    source ``id`` of the same name.
+    Checks the low-res `EMOJI_REGISTRY` (via the lazy `_get_registry()`
+    materializer), `HIRES_REGISTRY`, AND the standard-emoji pack, so a
+    hires-only slug (present in `HIRES_REGISTRY` or the pack but not in
+    `EMOJI_REGISTRY`) is correctly recognised. This keeps the source-id
+    collision check in `validate` airtight: any slug that would be
+    rendered as an emoji — in any resolution — wins over a source ``id``
+    of the same name.
     """
-    return slug in _get_registry() or slug in HIRES_REGISTRY
+    return (
+        slug in _get_registry() or slug in HIRES_REGISTRY or emoji_pack.has_slug(slug)
+    )
 
 
 # --- Unicode emoji recognition (spec §1; antagonist-corrected ALLOWLIST) ----
@@ -3082,6 +3102,20 @@ _EMOJI_ASTRAL = (
 # ONLY the BMP codepoints the map targets are bases (F5 allowlist — a bare
 # ★/♥/⚡/➡ is therefore NEVER a base and stays plain text, structurally).
 _MAPPED_BMP = "❤⭐✨☀☁⛅❄⛈✉"
+# BMP codepoints the standard-emoji pack ships (Task 2's generated
+# allowlist) — also bare bases, same F5 rationale: a pack BMP emoji is a
+# real emoji even without a VS, so it belongs in the same allowlist class
+# as `_MAPPED_BMP`, not the VS-required ambiguous branch. EXCEPT the ASCII
+# keycap bases ('#', '*', digits): the pack ships keycap sprites keyed by
+# these codepoints, but a BARE '#'/'*' is ordinary punctuation (hashtags,
+# footnotes, markdown emphasis, bullet-style separators like " * ") — it is
+# only a legitimate emoji together with the combining enclosing-keycap mark
+# U+20E3, which the dedicated keycap branch above already requires. Treating
+# them as unconditional bare bases here would silently swallow arbitrary '#'
+# / '*' out of real ticker text (caught by
+# `TestBottomSeparatorColorInheritance` — a " * " separator was vanishing).
+_PACK_KEYCAP_BASES = "0123456789#*"
+_PACK_BMP_CLASS = re.escape("".join(c for c in PACK_BMP if c not in _PACK_KEYCAP_BASES))
 # Broad BMP symbol span — used ONLY after a ZWJ (safe: inside a sequence) and
 # in the VS-required "ambiguous char + FE0F" branch (never a bare base).
 _BMP_SYM = "☀-⛿✀-➿⬀-⯿"  # U+2600-26FF, U+2700-27BF, U+2B00-2BFF
@@ -3092,7 +3126,7 @@ _UEMOJI_RE = re.compile(
     "(?:"
     r"[\U0001F1E6-\U0001F1FF]{2}"  # regional flag PAIR
     r"|[0-9#*]️?⃣"  # keycap (needs U+20E3)
-    r"|(?:[" + _EMOJI_ASTRAL + _MAPPED_BMP + r"]"  # ALLOWLIST base
+    r"|(?:[" + _EMOJI_ASTRAL + _MAPPED_BMP + _PACK_BMP_CLASS + r"]"  # ALLOWLIST base
     r"[" + _VS + _SKIN + r"]*"
     r"(?:" + _ZWJ + r"[" + _EMOJI_ASTRAL + _BMP_SYM + r"][" + _VS + _SKIN + r"]*)*)"
     r"|[" + _BMP_SYM + r"]️"  # ambiguous char + REQUIRED VS
@@ -3165,15 +3199,28 @@ _UNICODE_EMOJI_MAP: dict[str, str] = {
 
 
 def _map_uemoji_to_slug(chars: str) -> str | None:
-    """Unicode-emoji → sprite-slug. Pure; no canvas. None = strip (today)."""
-    return _UNICODE_EMOJI_MAP.get(_emoji_key(chars))
+    """Unicode-emoji → sprite-slug. Curated map first; then the pack via
+    fold-to-first-base (spec fold rules). None = strip."""
+    key = _emoji_key(chars)
+    hit = _UNICODE_EMOJI_MAP.get(key)
+    if hit is not None:
+        return hit
+    if not key:
+        return None
+    first = key[0]
+    if first == _ZWJ:
+        return None  # defensive: ZWJ never sorts first in a valid sequence
+    if "\U0001f1e6" <= first <= "\U0001f1ff":
+        return None  # letter flags excluded
+    return emoji_pack.slug_for_codepoint(ord(first))
 
 
 def has_renderable_emoji(text: str) -> bool:
     """True if `text` contains a registry :slug: OR a Unicode-emoji run.
     Replaces every inline EMOJI_PATTERN.search gate (spec §4)."""
     for m in EMOJI_PATTERN.finditer(text):
-        if m.group(0)[1:-1] in _get_registry():
+        slug = m.group(0)[1:-1]
+        if slug in _get_registry() or emoji_pack.has_slug(slug):
             return True
     for _ in _uemoji_runs(text):
         return True
@@ -3201,6 +3248,27 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
     scanned for Unicode-emoji runs (spec §1). uemoji carries the ORIGINAL
     codepoints so the draw/measure loops (and a future hi-res renderer)
     have them.
+
+    The gate is `_get_registry()` membership OR the standard-emoji pack
+    (mirrors `has_renderable_emoji`'s gate exactly — same shape, same
+    reasons) — NOT bare `HIRES_REGISTRY` membership. A pack slug is
+    hires-only (no low-res 8×8 fallback) but MUST still be classified as
+    an ("emoji", slug) segment so the pack's authoring convention (spec
+    Decision #2: every pack emoji gets a `:slug:` name) actually renders
+    in text — draw/measure then apply the hires-only no-op fallback
+    themselves (`_uemoji_slug_renders`), same as the Unicode-emoji path.
+    Before this fix, the gate was the bare registry check, so a pack slug
+    drew as literal ":slug:" text (visible colons) at every scale.
+
+    Deliberately NOT `is_emoji_slug` (which also admits bare
+    `HIRES_REGISTRY` membership): a plugin may register `hires_emoji`
+    without a paired low-res `emoji` — that slug is intentionally NOT
+    inline-parseable (`_plugin_loader` warns "will not render inline"
+    at load time; pinned by
+    `test_hires_only_plugin_slug_parses_as_text_not_emoji`). Every
+    *curated* `HIRES_REGISTRY` entry currently also has a low-res
+    `EMOJI_REGISTRY` pair, so this narrower gate is byte-identical for
+    curated slugs while still closing the pack gap.
     """
     parts = re.split(f"({EMOJI_PATTERN.pattern})", text)
     segments: list[tuple[str, str]] = []
@@ -3209,13 +3277,34 @@ def _parse_segments(text: str) -> list[tuple[str, str]]:
             continue
         if part.startswith(":") and part.endswith(":"):
             slug = part[1:-1]
-            if slug in _get_registry():
+            if slug in _get_registry() or emoji_pack.has_slug(slug):
                 segments.append(("emoji", slug))
             else:
                 _split_uemoji(part, segments)
         else:
             _split_uemoji(part, segments)
     return segments
+
+
+def _uemoji_slug_renders(
+    slug: str, canvas: Canvas, use_hires: bool, max_emoji_height: int | None
+) -> bool:
+    """True if a mapped Unicode-emoji `slug` will actually paint/measure as
+    non-zero — i.e. NOT the pack-only-no-low-res-fallback no-op. A pack-only
+    slug (hires-only) off a `ScaledCanvas`, or whose hires sprite exceeds
+    `max_emoji_height`, has nothing to fall back to and must be treated
+    exactly like an unmapped run: no draw, no width, no pre-emoji pad.
+    `draw_with_emoji`'s uemoji branch and `measure_width`'s uemoji branch
+    both consult this BEFORE applying the pre-pad, so a skipped sprite
+    can't contribute a stray padding gap on one side and not the other
+    (the parity `TestUemojiParity` tripwire enforces this)."""
+    if use_hires:
+        candidate = _hires_for(slug)
+        if candidate is not None:
+            logical_h = candidate.physical_size // canvas.scale
+            if max_emoji_height is None or logical_h <= max_emoji_height:
+                return True
+    return _get_registry().get(slug) is not None
 
 
 def measure_width(
@@ -3245,17 +3334,26 @@ def measure_width(
     prev_was_text = False  # leading emoji has no pre-pad
     for seg_type, value in segments:
         if seg_type == "emoji":
+            if not _uemoji_slug_renders(value, canvas, use_hires, max_emoji_height):
+                # Pack-only (or HIRES_REGISTRY-only) slug with no low-res
+                # fallback, off a plain/scale-1 canvas (or over
+                # max_emoji_height) — no width, no padding, same as an
+                # unmapped uemoji run. Mirrors `draw_with_emoji`'s emoji
+                # branch (F6 parity) so a scale-1 pack slug never reserves
+                # phantom width.
+                continue
             # Symmetric padding: pad BEFORE an emoji that follows text.
             # Back-to-back emojis don't double-pad — only the trailing
             # pad of the first emoji separates them.
             if prev_was_text:
                 width += EMOJI_PADDING
             measured = None
-            if use_hires and value in HIRES_REGISTRY:
-                hires = HIRES_REGISTRY[value]
-                logical_h = hires.physical_size // canvas.scale
-                if max_emoji_height is None or logical_h <= max_emoji_height:
-                    measured = hires.logical_width(canvas.scale)
+            if use_hires:
+                candidate = _hires_for(value)
+                if candidate is not None:
+                    logical_h = candidate.physical_size // canvas.scale
+                    if max_emoji_height is None or logical_h <= max_emoji_height:
+                        measured = candidate.logical_width(canvas.scale)
             if measured is None:
                 measured = _emoji_width(_get_registry()[value])
             width += measured + EMOJI_PADDING
@@ -3271,16 +3369,22 @@ def measure_width(
                 # renderer would add _measure_standard_emoji(value, scale)
                 # here, mirroring the draw branch, so width stays in lockstep.
                 continue
-            if prev_was_text:
-                width += EMOJI_PADDING
+            if not _uemoji_slug_renders(slug, canvas, use_hires, max_emoji_height):
+                # Pack-only slug with no low-res fallback, off a
+                # ScaledCanvas (or over max_emoji_height) — no draw, no
+                # width, same as an unmapped run.
+                continue
             measured = None
-            if use_hires and slug in HIRES_REGISTRY:
-                hires = HIRES_REGISTRY[slug]
-                logical_h = hires.physical_size // canvas.scale
-                if max_emoji_height is None or logical_h <= max_emoji_height:
-                    measured = hires.logical_width(canvas.scale)
+            if use_hires:
+                candidate = _hires_for(slug)
+                if candidate is not None:
+                    logical_h = candidate.physical_size // canvas.scale
+                    if max_emoji_height is None or logical_h <= max_emoji_height:
+                        measured = candidate.logical_width(canvas.scale)
             if measured is None:
                 measured = _emoji_width(_get_registry()[slug])
+            if prev_was_text:
+                width += EMOJI_PADDING
             width += measured + EMOJI_PADDING
             prev_was_text = False
         else:
@@ -3368,11 +3472,12 @@ def _paint_inline_sprite(
     advance the per-char hue index for it.
     """
     hires: HiResEmoji | None = None
-    if use_hires and slug in HIRES_REGISTRY:
-        candidate = HIRES_REGISTRY[slug]
-        logical_h = candidate.physical_size // canvas.scale
-        if max_emoji_height is None or logical_h <= max_emoji_height:
-            hires = candidate
+    if use_hires:
+        candidate = _hires_for(slug)
+        if candidate is not None:
+            logical_h = candidate.physical_size // canvas.scale
+            if max_emoji_height is None or logical_h <= max_emoji_height:
+                hires = candidate
 
     if hires is not None:
         # `hires_downscale < 1.0` shrinks the sprite (a box-downsample)
@@ -3399,7 +3504,13 @@ def _paint_inline_sprite(
     # Low-res 8×8 sprite paints through the wrapper (logical space), so a
     # logical `baseline - 8` bottom-anchor is exact at any scale.
     iy = (y + y_offset) - 8 if emoji_y is None else emoji_y
-    icon = _get_registry()[slug]
+    icon = _get_registry().get(slug)
+    if icon is None:
+        if emoji_pack.has_slug(slug):
+            # Pack emoji are hires-only — silently skip at scale 1 (no
+            # low-res 8×8 fallback exists); `led-ticker validate` warns.
+            return 0
+        raise KeyError(slug)  # genuine unknown slug — intentional
     iw = _emoji_width(icon)
     w = canvas.width
     h = getattr(canvas, "height", 16)
@@ -3519,6 +3630,13 @@ def draw_with_emoji(
             # `:slug:` sprite. The sprite carries its own colors and does
             # NOT advance the per-char hue index (`char_index`) — the
             # rainbow/gradient sweep is continuous across it.
+            if not _uemoji_slug_renders(value, canvas, use_hires, max_emoji_height):
+                # Pack-only (or HIRES_REGISTRY-only) slug with no low-res
+                # fallback, off a plain/scale-1 canvas (or over
+                # max_emoji_height) — no draw, no advance, no pre-pad.
+                # Mirrors the `uemoji` branch below (F6 parity) so a
+                # scale-1 pack slug can't leave a phantom padding gap.
+                continue
             if prev_was_text:
                 total += EMOJI_PADDING
             ix = int(cursor_pos + total)
@@ -3553,6 +3671,11 @@ def draw_with_emoji(
                 # available to the mapped branch below — `ix` (after the
                 # pre-pad), the baseline `y` / `y_offset`, `hires_downscale`,
                 # and `max_emoji_height`.
+                continue
+            if not _uemoji_slug_renders(slug, canvas, use_hires, max_emoji_height):
+                # Pack-only slug with no low-res fallback, off a
+                # ScaledCanvas (or over max_emoji_height) — no draw, no
+                # advance, no pre-pad. Mirrors `measure_width` (F6 parity).
                 continue
             if prev_was_text:
                 total += EMOJI_PADDING
@@ -3649,11 +3772,15 @@ def draw_emoji_at(
     `draw_with_emoji`'s convention so callers can `cursor_pos += advance`.
 
     Hires fires only when (a) `canvas` is a `ScaledCanvas`, (b) a hires
-    variant exists in `HIRES_REGISTRY`, and (c) the sprite fits within
-    `max_emoji_height` (if specified). Otherwise falls back to the 8x8
-    low-res sprite painted via `canvas.SetPixel`.
+    variant exists in `HIRES_REGISTRY` or the standard-emoji pack, and
+    (c) the sprite fits within `max_emoji_height` (if specified).
+    Otherwise falls back to the 8x8 low-res sprite painted via
+    `canvas.SetPixel`.
 
-    Raises `KeyError` if `slug` isn't in the low-res `EMOJI_REGISTRY`.
+    Raises `KeyError` if `slug` isn't in the low-res `EMOJI_REGISTRY` and
+    isn't a pack slug. A pack-only slug (hires-only, no low-res 8×8
+    fallback) off a `ScaledCanvas` — or when its hires variant doesn't
+    fit `max_emoji_height` — silently draws nothing and returns 0.
     """
     if (y is None) == (bottom_baseline is None):
         raise ValueError("draw_emoji_at requires exactly one of y / bottom_baseline")
@@ -3661,11 +3788,12 @@ def draw_emoji_at(
     use_hires = is_scaled(canvas)
 
     hires: HiResEmoji | None = None
-    if use_hires and slug in HIRES_REGISTRY:
-        candidate = HIRES_REGISTRY[slug]
-        logical_h = candidate.physical_size // canvas.scale
-        if max_emoji_height is None or logical_h <= max_emoji_height:
-            hires = candidate
+    if use_hires:
+        candidate = _hires_for(slug)
+        if candidate is not None:
+            logical_h = candidate.physical_size // canvas.scale
+            if max_emoji_height is None or logical_h <= max_emoji_height:
+                hires = candidate
 
     if hires is not None:
         if bottom_baseline is not None:
@@ -3683,7 +3811,13 @@ def draw_emoji_at(
     else:
         assert y is not None  # enforced by the ValueError check above
         iy = y
-    icon = _get_registry()[slug]  # KeyError on unknown slug — intentional
+    icon = _get_registry().get(slug)
+    if icon is None:
+        if emoji_pack.has_slug(slug):
+            # Pack emoji are hires-only — silently skip at scale 1 (no
+            # low-res 8×8 fallback exists); `led-ticker validate` warns.
+            return 0
+        raise KeyError(slug)  # genuine unknown slug — intentional
     iw = _emoji_width(icon)
     w = canvas.width
     h = getattr(canvas, "height", 16)
@@ -3716,15 +3850,24 @@ def measure_emoji_at(
     `TestMeasureEmojiAtMatchesDrawEmojiAt` enforces this across plain
     canvas, scale=2, and scale=4.
 
-    Raises `KeyError` if `slug` isn't in the low-res `EMOJI_REGISTRY`.
+    Raises `KeyError` if `slug` isn't in the low-res `EMOJI_REGISTRY` and
+    isn't a pack slug. A pack-only slug off a `ScaledCanvas` (or over
+    `max_emoji_height`) has no low-res fallback and measures as 0,
+    matching `draw_emoji_at`'s no-op skip.
     """
     use_hires = is_scaled(canvas)
-    if use_hires and slug in HIRES_REGISTRY:
-        candidate = HIRES_REGISTRY[slug]
-        logical_h = candidate.physical_size // canvas.scale
-        if max_emoji_height is None or logical_h <= max_emoji_height:
-            return candidate.logical_width(canvas.scale) + EMOJI_PADDING
-    return _emoji_width(_get_registry()[slug]) + EMOJI_PADDING
+    if use_hires:
+        candidate = _hires_for(slug)
+        if candidate is not None:
+            logical_h = candidate.physical_size // canvas.scale
+            if max_emoji_height is None or logical_h <= max_emoji_height:
+                return candidate.logical_width(canvas.scale) + EMOJI_PADDING
+    icon = _get_registry().get(slug)
+    if icon is None:
+        if emoji_pack.has_slug(slug):
+            return 0
+        raise KeyError(slug)  # genuine unknown slug — intentional
+    return _emoji_width(icon) + EMOJI_PADDING
 
 
 def _draw_hires_emoji(

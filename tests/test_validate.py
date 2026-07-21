@@ -4350,3 +4350,95 @@ async def test_rule66_on_global_default_table_warns(conf):
     warns = [w for w in result.warnings if w.rule == 66]
     assert len(warns) == 1
     assert warns[0].location == "transitions.default"
+
+
+# ---------------------------------------------------------------------------
+# Rule 67: hires-only emoji slug (standard-emoji pack) on a scale-1 section
+# ---------------------------------------------------------------------------
+
+
+async def test_rule67_pack_slug_on_scale1_warns(conf):
+    """A pack-only emoji (no low-res 8x8 fallback) inline at scale 1 parses
+    as an emoji segment but paints nothing — warn."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "liftoff :rocket:"
+        """
+    result = await validate_config(conf(cfg))
+    warns = [w for w in result.warnings if w.rule == 67]
+    assert len(warns) == 1
+    assert "rocket" in warns[0].message
+    assert "scale 1" in warns[0].message
+
+
+async def test_rule67_same_config_scale4_no_warning(conf):
+    """The same pack slug on a scale-4 section renders hires natively —
+    no warning."""
+    cfg = """\
+        [display]
+        rows = 32
+        cols = 64
+        chain_length = 8
+        default_scale = 4
+
+        [[playlist.section]]
+        mode = "slideshow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "liftoff :rocket:"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(w.rule == 67 for w in result.warnings)
+
+
+async def test_rule67_curated_lowres_slug_scale1_no_warning(conf):
+    """A curated emoji with a low-res 8x8 sprite renders fine at scale 1 —
+    no warning."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = ":taco: tuesday"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(w.rule == 67 for w in result.warnings)
+
+
+async def test_rule67_unknown_slug_scale1_no_warning(conf):
+    """An unrecognized slug isn't an emoji at all — this rule stays silent
+    (other rules, or none, may comment on the raw text)."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "hello :notaslug: world"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(w.rule == 67 for w in result.warnings)

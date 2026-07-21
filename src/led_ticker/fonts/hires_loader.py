@@ -68,6 +68,20 @@ _ASCII_GLYPH_FALLBACKS: dict[str, str] = {
     "−": "-",  # U+2212 MINUS SIGN -> HYPHEN-MINUS
 }
 
+# A private-use codepoint is guaranteed unassigned, so rasterizing it yields
+# the font's notdef glyph (a box, or empty if the font has no notdef). We
+# fingerprint it once per font and treat any glyph whose lit pixels match as
+# MISSING — this is what makes "▲ in a font that lacks it" a detectable miss
+# instead of a silently-painted tofu box.
+_NOTDEF_PROBE = ""  # PUA U+E000
+
+
+def _is_notdef(glyph: HiresGlyph, notdef_lit: tuple[tuple[int, int], ...]) -> bool:
+    """A glyph is 'missing' if it matches the font's notdef fingerprint, or
+    is empty for a non-whitespace request (fonts with no notdef render
+    nothing for unknown chars)."""
+    return glyph.lit == notdef_lit or (not glyph.lit and notdef_lit == ())
+
 
 @dataclass(frozen=True)
 class HiresGlyph:
@@ -87,12 +101,20 @@ class HiresGlyph:
     lit: tuple[tuple[int, int], ...]
 
 
+# Sentinel cached in `glyphs` for a char proven missing (notdef) — avoids
+# re-rasterizing a known miss on every draw tick.
+_MISSING = HiresGlyph(width=0, height=0, advance=0, bearing_x=0, bearing_y=0, lit=())
+
+
 @dataclass(frozen=True)
 class HiresFont:
     """A loaded TTF/OTF font at one specific pixel size.
 
-    `glyphs` maps each rasterized character to its `HiresGlyph`.
-    Characters not in `glyphs` fall back to `'?'` at render time.
+    `glyphs` maps each rasterized character to its `HiresGlyph`, seeded
+    eagerly by `_rasterize` for the common charset and grown lazily by
+    `resolve_glyph` for anything outside it. Characters this font truly
+    lacks (detected via the notdef fingerprint) fall back to `'?'` at
+    render time.
     """
 
     name: str
@@ -101,26 +123,39 @@ class HiresFont:
     descent: int
     line_height: int
     glyphs: dict[str, HiresGlyph] = field(default_factory=dict)
+    threshold: int = THRESHOLD
+    notdef_lit: tuple[tuple[int, int], ...] = ()
+    pil_font: Any = field(default=None, compare=False, repr=False)
 
     def resolve_glyph(self, ch: str) -> HiresGlyph | None:
-        """Glyph for `ch`, applying an ASCII fallback for typographic
-        codepoints that aren't in the rasterized charset.
+        """Glyph for `ch` via the resolution ladder.
 
-        The charset (`_rasterize`) covers Latin + common punctuation but not
-        every look-alike. U+2212 MINUS SIGN in particular is emitted by
-        number formatters (e.g. a data source rendering ``-1.98%``) yet is
-        absent here — so a plain ``glyphs.get(ch)`` misses and the caller
-        draws the ``'?'`` tofu (the LED-panel bug on negative values). Redirect
-        those to their real ASCII glyph (``'-'``), which the font ships and
-        the charset rasterizes. Returns None only when neither the char nor
-        its fallback is present, so the caller can still drop to ``'?'``.
+        Order: (1) cached hit (real glyph or a cached `_MISSING` miss) →
+        (2) the ASCII look-alike table for typographic codepoints that
+        substitute silently (e.g. U+2212 MINUS SIGN -> '-') — checked
+        BEFORE lazy rasterization so a font that happens to ship its own
+        (differently-advanced) real glyph for that codepoint doesn't
+        desync width math from the substituted glyph elsewhere in the
+        pipeline → (3) lazily rasterize an unseen char and cache the
+        result, treating a notdef/empty result as MISSING. Returns None
+        on a miss so the caller (and Tasks 2-3) can fall to the next
+        rung; None ultimately draws '?'.
         """
         glyph = self.glyphs.get(ch)
         if glyph is not None:
-            return glyph
+            return None if glyph is _MISSING else glyph
         alt = _ASCII_GLYPH_FALLBACKS.get(ch)
         if alt is not None:
             return self.glyphs.get(alt)
+        if self.pil_font is not None and ch:
+            glyph = _rasterize_glyph(
+                self.pil_font, ch, self.ascent, self.descent, self.threshold
+            )
+            if _is_notdef(glyph, self.notdef_lit):
+                self.glyphs[ch] = _MISSING  # cache the miss (sentinel)
+                return None
+            self.glyphs[ch] = glyph  # cache the hit
+            return glyph
         return None
 
 
@@ -253,6 +288,8 @@ def _rasterize(
     """
     pil_font = ImageFont.truetype(str(path), size)
     ascent, descent = pil_font.getmetrics()
+    notdef = _rasterize_glyph(pil_font, _NOTDEF_PROBE, ascent, descent, threshold)
+    notdef_lit = notdef.lit
     chars = (
         string.printable
         + EXTENDED_LATIN
@@ -262,7 +299,14 @@ def _rasterize(
     )
     glyphs: dict[str, HiresGlyph] = {}
     for ch in chars:
-        glyphs[ch] = _rasterize_glyph(pil_font, ch, ascent, descent, threshold)
+        g = _rasterize_glyph(pil_font, ch, ascent, descent, threshold)
+        # Prune eager notdef glyphs: GEOMETRIC_SHAPES (▲▼●○◆◇) rasterize to
+        # a box in fonts that lack them — pre-ladder this WAS the tofu. Skip
+        # ASCII space/control chars (string.printable) — their empty raster
+        # is a legitimate glyph, not a miss.
+        if _is_notdef(g, notdef_lit) and ch not in string.printable:
+            continue
+        glyphs[ch] = g
     return HiresFont(
         name=name,
         size=size,
@@ -270,6 +314,9 @@ def _rasterize(
         descent=descent,
         line_height=ascent + descent,
         glyphs=glyphs,
+        threshold=threshold,
+        notdef_lit=notdef_lit,
+        pil_font=pil_font,
     )
 
 

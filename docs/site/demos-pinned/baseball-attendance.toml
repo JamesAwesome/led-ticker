@@ -1,0 +1,19 @@
+# render-duration: 14
+# DEMO-mode baseball.attendance hero card on a long (512x64) panel. No network,
+# no API key — demo = true renders a fixed team card with game-day weather and
+# an animated capacity bar.
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "baseball.attendance"
+demo = true

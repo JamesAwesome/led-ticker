@@ -87,7 +87,7 @@ A font's own glyph always wins: if your chosen font actually ships a real minus 
 
 Emoji don't use this ladder at all — `:slug:` names and Unicode emoji render from their own sprite path (see [Emoji](/assets/emoji/)).
 
-BDF fonts (the smallsign default) keep their bitmap behavior: a character not in the BDF's bitmap is skipped (zero advance, no glyph drawn). On BDF widgets, stick to ASCII unless you've verified the codepoints you need are in the bitmap.
+BDF fonts (the smallsign default) keep their bitmap behavior: a character not in the BDF's bitmap is skipped (zero advance, no glyph drawn — it silently vanishes, with no `?` and no fallback). `led-ticker validate` flags those too, so a character your BDF font can't render is caught before deploy rather than quietly dropped on the panel.
 
 ## Decision tree
 

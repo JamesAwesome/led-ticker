@@ -2,10 +2,29 @@
 
 import dataclasses
 
+import pytest
+
 from led_ticker.fonts import hires_loader
 from led_ticker.fonts.hires_loader import load_hires_font
 
 _INTER = "Inter-Bold"  # bundled
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ladder_state():
+    """Keep ladder module state from bleeding between tests. Several tests
+    seed ``font.glyphs[ch] = _MISSING`` on the ``load_hires_font`` lru-cache
+    (to force a deterministic rung-1 miss past this Pillow build's font
+    substitution) and populate the ``_WARNED_MISSING`` rung-4 guard. Clear
+    both around every test so a seeded miss or a recorded warning can't leak
+    into a neighbour — this project has a history of glyph/font
+    test-isolation flakes, and the previous defence (a distinct font size
+    per test) was easy to forget."""
+    hires_loader._WARNED_MISSING.clear()
+    load_hires_font.cache_clear()
+    yield
+    hires_loader._WARNED_MISSING.clear()
+    load_hires_font.cache_clear()
 
 
 class TestNotdefDetection:

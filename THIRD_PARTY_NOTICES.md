@@ -36,3 +36,16 @@ Vendored at `src/led_ticker/assets/DejaVuSans.ttf` (from the upstream
 - **License:** Bitstream Vera Fonts Copyright, as amended by the DejaVu
   project (permissive, attribution-only; renaming required for modified
   derivatives) — see `src/led_ticker/assets/DejaVuSans-LICENSE.txt`.
+
+## Spleen — bundled pixel fonts for small hi-res sizes
+
+Three sizes of the Spleen monospaced pixel-font family ship as hi-res fonts
+(`spleen-6x12`, `spleen-8x16`, `spleen-16x32` — native 12, 16, and 32 px).
+At their native pixel size (or an integer multiple) they rasterize to exact
+1-bit output — crisp on LED panels at sizes where outline fonts blur (e.g.
+24 px via `spleen-6x12` at 2×). Vendored at
+`src/led_ticker/fonts/hires/spleen-*.otf`.
+
+- **Source:** Spleen 2.2.0 — https://github.com/fcambus/spleen
+- **License:** BSD 2-Clause (c) 2018-2026 Frederic Cambus — see
+  `src/led_ticker/fonts/hires/SPLEEN-LICENSE.txt`.

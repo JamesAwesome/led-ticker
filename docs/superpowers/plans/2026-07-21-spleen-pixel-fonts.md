@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-07-21-spleen-pixel-fonts-design.md`.
-- Vendored set is EXACTLY four OTFs from the Spleen **2.2.0** release tarball (`https://github.com/fcambus/spleen/releases/download/2.2.0/spleen-2.2.0.tar.gz`): `spleen-6x12.otf` (native 12), `spleen-8x16.otf` (16), `spleen-12x24.otf` (24), `spleen-16x32.otf` (32). NOT `spleen-32x64` (YAGNI) and NOT `spleen-5x8` (no upstream OTF). License BSD-2-Clause (Frederic Cambus) — vendor upstream `LICENSE` as `src/led_ticker/fonts/hires/SPLEEN-LICENSE.txt` + a `THIRD_PARTY_NOTICES.md` section (same posture as DejaVu).
+- Vendored set is EXACTLY **three** OTFs from the Spleen **2.2.0** release tarball (`https://github.com/fcambus/spleen/releases/download/2.2.0/spleen-2.2.0.tar.gz`): `spleen-6x12.otf` (native 12), `spleen-8x16.otf` (16), `spleen-16x32.otf` (32). **`spleen-12x24` is DROPPED** — the upstream 2.2.0 OTF for that size renders off-grid (`unitsPerEm=1023` vs 1024; glyph outlines antialias at native 24px), verified; a crisp 24px is reached instead via `spleen-6x12` at 24 (clean 2× upscale, verified binary). NOT `spleen-32x64` (YAGNI) and NOT `spleen-5x8` (no upstream OTF). License BSD-2-Clause (Frederic Cambus) — vendor upstream `LICENSE` as `src/led_ticker/fonts/hires/SPLEEN-LICENSE.txt` + a `THIRD_PARTY_NOTICES.md` section (same posture as DejaVu).
 - Rule number is **69** (68 is the current max). Warning only — NO runtime size-snapping, no loader behavior change for off-grid sizes.
 - Exact-advance assertions ARE allowed for Spleen at native sizes (integer grid by construction) — this is a deliberate exception to the "never exact-pin hires advances" project gotcha, which remains in force for OUTLINE fonts (Inter/DejaVu).
 - No `from __future__ import annotations`. Lint gates from repo root: `uv run --extra dev ruff check src/ tests/`, `uv run --extra dev ruff format --check src/ tests/`, `PYRIGHT_PYTHON_FORCE_VERSION=latest uv run --extra dev pyright src/` (2 pre-existing errors in `app/run.py`+`ticker.py` are known-acceptable).
@@ -38,7 +38,7 @@ cd /tmp && curl -sL -o spleen.tar.gz \
   "https://github.com/fcambus/spleen/releases/download/2.2.0/spleen-2.2.0.tar.gz"
 tar xzf spleen.tar.gz
 REPO=/Users/james/projects/github/jamesawesome/led-ticker
-for f in spleen-6x12 spleen-8x16 spleen-12x24 spleen-16x32; do
+for f in spleen-6x12 spleen-8x16 spleen-16x32; do
   cp spleen-2.2.0/$f.otf $REPO/src/led_ticker/fonts/hires/$f.otf
 done
 cp spleen-2.2.0/LICENSE $REPO/src/led_ticker/fonts/hires/SPLEEN-LICENSE.txt
@@ -47,7 +47,7 @@ head -3 $REPO/src/led_ticker/fonts/hires/SPLEEN-LICENSE.txt
 # expect: "Copyright (c) 2018-2026, Frederic Cambus" BSD-2 text
 ```
 
-Verify wheel inclusion (the dir ships whole, same as DejaVu): `cd $REPO && uv build --wheel >/dev/null 2>&1 && unzip -l dist/*.whl | grep -c "spleen-" && rm -rf dist` — expect 5 (4 OTFs + license).
+Verify wheel inclusion (the dir ships whole, same as DejaVu): `cd $REPO && uv build --wheel >/dev/null 2>&1 && unzip -l dist/*.whl | grep -ci "spleen-" && rm -rf dist` — expect 4 (3 OTFs + license; case-insensitive since the license file is uppercase).
 
 - [ ] **Step 2: Add the THIRD_PARTY_NOTICES section**
 
@@ -56,11 +56,12 @@ Append to `THIRD_PARTY_NOTICES.md` (match the DejaVu section's formatting):
 ```markdown
 ## Spleen — bundled pixel fonts for small hi-res sizes
 
-Four sizes of the Spleen monospaced pixel-font family ship as hi-res fonts
-(`spleen-6x12`, `spleen-8x16`, `spleen-12x24`, `spleen-16x32` — native 12,
-16, 24, and 32 px). At their native pixel size (or an integer multiple) they
-rasterize to exact 1-bit output — crisp on LED panels at sizes where outline
-fonts blur. Vendored at `src/led_ticker/fonts/hires/spleen-*.otf`.
+Three sizes of the Spleen monospaced pixel-font family ship as hi-res fonts
+(`spleen-6x12`, `spleen-8x16`, `spleen-16x32` — native 12, 16, and 32 px).
+At their native pixel size (or an integer multiple) they rasterize to exact
+1-bit output — crisp on LED panels at sizes where outline fonts blur (e.g.
+24 px via `spleen-6x12` at 2×). Vendored at
+`src/led_ticker/fonts/hires/spleen-*.otf`.
 
 - **Source:** Spleen 2.2.0 — https://github.com/fcambus/spleen
 - **License:** BSD 2-Clause (c) 2018-2026 Frederic Cambus — see
@@ -89,7 +90,6 @@ from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR, load_hires_font
 _SPLEEN = {  # name -> (native_px, advance_px at native)
     "spleen-6x12": (12, 6),
     "spleen-8x16": (16, 8),
-    "spleen-12x24": (24, 12),
     "spleen-16x32": (32, 16),
 }
 _SAMPLE = "EV 104.6e MA%?"
@@ -235,7 +235,6 @@ class TestPixelNativeRegistry:
         assert _PIXEL_NATIVE == {
             "spleen-6x12": 12,
             "spleen-8x16": 16,
-            "spleen-12x24": 24,
             "spleen-16x32": 32,
         }
 ```
@@ -258,7 +257,6 @@ In `src/led_ticker/fonts/hires_loader.py`, next to the other module constants (a
 _PIXEL_NATIVE: dict[str, int] = {
     "spleen-6x12": 12,
     "spleen-8x16": 16,
-    "spleen-12x24": 24,
     "spleen-16x32": 32,
 }
 ```
@@ -345,12 +343,13 @@ In `docs/site/src/content/docs/concepts/fonts.mdx`, insert a `## Pixel fonts` se
 ```markdown
 ## Pixel fonts
 
-Four sizes of [Spleen](https://github.com/fcambus/spleen), a monospaced
+Three sizes of [Spleen](https://github.com/fcambus/spleen), a monospaced
 pixel font, ship alongside Inter: `spleen-6x12` (12 px), `spleen-8x16`
-(16 px), `spleen-12x24` (24 px), and `spleen-16x32` (32 px). Every stroke
-is designed on the pixel grid, so at the font's **native size — or any
-integer multiple** — glyphs rasterize to exact 1-bit output: no
-anti-aliasing, no stroke merging, and `font_threshold` has no effect.
+(16 px), and `spleen-16x32` (32 px). Every stroke is designed on the pixel
+grid, so at the font's **native size — or any integer multiple** — glyphs
+rasterize to exact 1-bit output: no anti-aliasing, no stroke merging, and
+`font_threshold` has no effect. (Need 24 px? Use `spleen-6x12` at 24 — its
+clean 2× multiple.)
 
 Use them where Inter gets muddy: text below ~14 px, and tabular content
 like stats or prices (the fixed-width digits keep columns aligned).
@@ -376,7 +375,7 @@ Write `$CLAUDE_JOB_DIR/tmp/spleen-gate.toml` — bigsign flat render (`rows = 64
 1. `text = "EV 104.6 LA 28 DIST 412FT"`, `font = "Inter-Regular"`, `font_size = 11`, `font_threshold = 80` — the today-status-quo (expect smoosh)
 2. same text, `font = "spleen-6x12"`, `font_size = 12` — the fix
 3. `text = "W 8-4 ATT 41,022 #1 NL EAST"`, `font = "spleen-6x12"`, `font_size = 12`
-4. `text = "SPLEEN 24PX"`, `font = "spleen-12x24"`, `font_size = 24`
+4. `text = "SPLEEN 24PX (2X)"`, `font = "spleen-6x12"`, `font_size = 24` (the 2× path to a crisp 24 px)
 
 Render: `uv run --no-sync python tools/render_demo/render.py $CLAUDE_JOB_DIR/tmp/spleen-gate.toml -o $CLAUDE_JOB_DIR/tmp/spleen-gate.gif --duration 8`. Build a contact sheet (all frames stacked, PIL), READ it yourself first: widget 1 shows Inter's merging, widgets 2–4 crisp with fully open counters. Then STOP.
 

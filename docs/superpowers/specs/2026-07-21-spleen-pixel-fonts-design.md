@@ -33,18 +33,22 @@ No bold weight exists; the target call sites are predominantly
 
 ## What ships
 
-Vendor four OTFs into `src/led_ticker/fonts/hires/` (from the upstream
+Vendor three OTFs into `src/led_ticker/fonts/hires/` (from the upstream
 2.2.0 release tarball):
 
 - `spleen-6x12.otf` — native **12 px** (the 9–13 px replacement tier)
 - `spleen-8x16.otf` — native **16 px**
-- `spleen-12x24.otf` — native **24 px**
 - `spleen-16x32.otf` — native **32 px**
 
-Excluded: `spleen-32x64` (64 px on a 64 px panel — YAGNI) and `spleen-5x8`
-(upstream ships no OTF for it). License: vendor Spleen's `LICENSE` alongside
-(one file for the family) + a `THIRD_PARTY_NOTICES.md` section — same posture
-as DejaVu and Noto.
+**`spleen-12x24` dropped (upstream defect, 2026-07-21):** the 2.2.0 OTF for
+that size has `unitsPerEm=1023` (vs 1024 on the others) and its glyph
+outlines sit off the pixel grid, so it antialiases at its own native 24 px
+instead of rendering 1-bit (verified through our loader). A crisp 24 px is
+reached instead via `spleen-6x12` at **2×** (24 px renders strictly binary —
+verified), so no native-24 asset is needed. Also excluded: `spleen-32x64`
+(64 px on a 64 px panel — YAGNI) and `spleen-5x8` (upstream ships no OTF).
+License: vendor Spleen's `LICENSE` alongside (one file for the family) + a
+`THIRD_PARTY_NOTICES.md` section — same posture as DejaVu and Noto.
 
 ## Architecture
 
@@ -59,7 +63,6 @@ are discovered today.
 _PIXEL_NATIVE: dict[str, int] = {
     "spleen-6x12": 12,
     "spleen-8x16": 16,
-    "spleen-12x24": 24,
     "spleen-16x32": 32,
 }
 ```

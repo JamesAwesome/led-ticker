@@ -13,10 +13,10 @@ The **baseball.promotions** widget (`type = "baseball.promotions"`, from the **[
 
 <DemoGif
   src="/demos-pinned/baseball-promotions.gif"
-  caption="baseball.promotions on a long panel: same-day home-game promos crawling past — the date, the promo name (BOBBLEHEAD NIGHT), an opponent color chip with VS, the sponsor, and the first-pitch time."
+  caption="baseball.promotions on a long panel: each home-game promo held as a card — the date, the promo name (BOBBLEHEAD NIGHT, then FIREWORKS FRIDAY), an opponent color chip with VS, the sponsor, the first-pitch time, and paging dots for the rest."
 />
 
-That crawl is the longest-sign look; a mid-width sign holds each promo as a card with paging dots, and the narrowest scrolls classic promo lines — same widget, no config change.
+That held card is what a mid-width sign shows by default, and what `layout = "card"` pins on any sign (it's what the GIF above does). By default the widest signs run a hi-res crawl of the same fields instead, and the narrowest scroll classic promo lines — same widget, no config change.
 
 **Requires led-ticker-core >= 4.9.** The `demo = true` mode used for the GIF on this page needs led-ticker-baseball >= 1.6.0.
 
@@ -66,13 +66,14 @@ hold_time = 4
 [[playlist.section.widget]]
 type = "baseball.promotions"
 demo = true
+layout = "card"
 ```
 
-This is the exact widget block that rendered the hero GIF above (its full render config is [`baseball-promotions.toml`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/site/demos-pinned/baseball-promotions.toml), a `[display]` at `default_scale = 4` with this one section). It needs no `team`, since the fixture supplies its own promos — the fastest way to see the card shape without waiting for a home game.
+This is the exact widget block that rendered the hero GIF above (its full render config is [`baseball-promotions.toml`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/site/demos-pinned/baseball-promotions.toml), a `[display]` at `default_scale = 4` with this one section). The `layout = "card"` line pins the held card on the wide panel — on a wide sign `auto` would run the crawl, so this shows off the richer card. It needs no `team`, since the fixture supplies its own promos — the fastest way to see the card shape without waiting for a home game.
 
 ## One widget, every sign
 
-On a narrow sign each promo scrolls past as a classic line; a mid-width sign holds each promo as a card with paging dots; the longest sign runs the hi-res crawl in the GIF above. You don't pick: `layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**.
+On a narrow sign each promo scrolls past as a classic line; a mid-width sign holds each promo as a card with paging dots; the longest sign runs a hi-res crawl of the same fields. You don't pick the default: `layout` (omit it — the default `"auto"`) resolves at draw time from your sign's **real physical width**. The GIF above pins the held card (`layout = "card"`) on a long panel — the richest of the three, and worth forcing on a wide sign if you prefer it to the crawl.
 
 Not sure which you have? Most short DIY builds are **[smallsign](/hardware/smallsign/)** ([scale](/concepts/display/)-1); the 256- and 512-pixel-wide panels are **[bigsign](/hardware/bigsign/)** and **[longboi](/hardware/longboi/)** — see [the hardware guides](/hardware/building-your-own/). New here? [Get a sign running first](/getting-started/).
 
@@ -110,10 +111,10 @@ The widget shows **today's** promos when there's a home game today, otherwise th
 
 <Aside type="note">
   On the wider signs (bigsign, longboi) the colors and text style are baked into the design — the
-  card and crawl look like the GIF, so `font` and `bg_color` don't apply and an animated
-  `font_color` renders static there. Those settings shape the classic scrolling-lines look on a
-  narrow (scale-1) sign instead. See [Color providers](/concepts/color-providers/) for the
-  `font_color` forms.
+  card (in the GIF above) and the crawl use that fixed look, so `font` and `bg_color` don't apply
+  and an animated `font_color` renders static there. Those settings shape the classic
+  scrolling-lines look on a narrow (scale-1) sign instead. See [Color
+  providers](/concepts/color-providers/) for the `font_color` forms.
 </Aside>
 
 ## Data source

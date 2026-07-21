@@ -1,6 +1,9 @@
 # render-duration: 14
-# DEMO-mode baseball.promotions hero cards on a long (512x64) panel. No network,
+# DEMO-mode baseball.promotions held card on a long (512x64) panel. No network,
 # no API key — demo = true renders a fixed set of same-day promos.
+# layout = "card" is explicit: on a wide sign `auto` picks the scrolling crawl,
+# so we pin the held card here to showcase its full anatomy (the card is also
+# what a mid-width sign's `auto` shows).
 [display]
 rows = 64
 cols = 128
@@ -16,3 +19,4 @@ loop_count = 1
 [[playlist.section.widget]]
 type = "baseball.promotions"
 demo = true
+layout = "card"

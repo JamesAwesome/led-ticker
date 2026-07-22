@@ -93,6 +93,20 @@ _PIXEL_NATIVE: dict[str, int] = {
     "spleen-16x32": 32,
 }
 
+
+def pixel_native_size(name: str) -> int | None:
+    """Native pixel height of a bundled pixel font (``spleen-6x12`` -> 12),
+    or ``None`` if ``name`` isn't a pixel-native font.
+
+    A pixel font is crisp (exact 1-bit, no antialiasing) ONLY at its native
+    size or an integer multiple. A caller that computes a font size
+    dynamically (e.g. auto-fitting text to a shape) should restrict its
+    candidates to native multiples so the result stays sharp. Outline fonts
+    (Inter, DejaVu, user TTFs) return ``None`` — they render at any size, so
+    callers leave them on their existing continuous path."""
+    return _PIXEL_NATIVE.get(name)
+
+
 # A private-use codepoint is guaranteed unassigned, so rasterizing it yields
 # the font's notdef glyph (a box, or empty if the font has no notdef). We
 # fingerprint it once per font and treat any glyph whose lit pixels match as

@@ -61,7 +61,7 @@ from led_ticker.fonts import (
     font_line_height_logical,
     resolve_font,
 )
-from led_ticker.fonts.hires_loader import HiresFont
+from led_ticker.fonts.hires_loader import HiresFont, pixel_native_size
 from led_ticker.pixel_emoji import (
     HiResEmoji,
     count_text_chars,
@@ -132,6 +132,7 @@ __all__ = [
     "HiResEmoji",
     "HiresFont",
     "HiresSpec",
+    "pixel_native_size",
     "LensSpec",
     "PixelData",
     "RotationSurface",

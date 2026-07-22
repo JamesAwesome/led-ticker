@@ -4,8 +4,12 @@
 # and rebuild before running:
 #   led-ticker-weather   weather.current
 #   led-ticker-rss       rss.feed
-#   led-ticker-flair     nyancat / pokeball / pacman / sailor_moon transitions
-#   led-ticker-baseball  baseball.scores, baseball.standings, baseball.roll*, :baseball.ball:
+#   led-ticker-flair     nyancat / pokeball / pacman / sailor_moon / stickers /
+#                        poker / fireworks / spinout / fairy transitions
+#   led-ticker-baseball  baseball.scores/standings/statcast/attendance/promotions,
+#                        baseball.roll*, :baseball.ball:
+#   led-ticker-stocks    stocks.ticker
+#   led-ticker-flight    flight.overhead
 #   led-ticker-pool      pool.monitor
 # Built-in widgets (message/clock/image/gif/two_row), color/border/emoji
 # flair, and the foundational transitions need no plugins.
@@ -96,6 +100,31 @@ font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
 
+# --- Stocks ---
+# stocks.ticker (led-ticker-stocks). Needs a quote-provider key in .env
+# (finnhub default: FINNHUB_API_KEY; or set provider = "twelvedata" + its key).
+# Renders hires on scale=4. DKS = Dick's Sporting Goods, ties the sports theme.
+
+[[playlist.section]]
+mode = "slideshow"
+transition = "flair.stickers"
+hold_time = 7
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":chart_increasing: Stonks :chart_increasing:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "stocks.ticker"
+symbols = ["DKS", "NKE", "AAPL", "NVDA", "SPY"]
+layout = "crawl"
+update_interval = 60
+
 # --- Weather ---
 # Requires WEATHERAPI_KEY in .env (https://www.weatherapi.com/).
 
@@ -158,6 +187,29 @@ font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
 
+# --- MLB Statcast (Phillies) ---
+# baseball.statcast — hires cards; fireworks entry fits a home-run readout.
+
+[[playlist.section]]
+mode = "slideshow"
+transition = "flair.fireworks"
+hold_time = 7
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball.ball: Statcast :baseball.ball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "baseball.statcast"
+team = "PHI"
+stats = ["longest_hr", "hardest_hit"]
+timezone = "America/New_York"
+
 # --- Countdowns ---
 
 [[playlist.section]]
@@ -172,14 +224,6 @@ font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
 font_color = "random"
-
-[[playlist.section.widget]]
-type = "countdown"
-text = "4th of July"
-countdown_date = 2026-07-04
-font = "Inter-Regular"
-font_size = 32
-font_threshold = 80
 
 [[playlist.section.widget]]
 type = "countdown"
@@ -212,6 +256,35 @@ countdown_date = 2027-01-01
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
+
+# --- Flight Tracker ---
+# flight.overhead (led-ticker-flight — add it to config/requirements-plugins.txt
+# and rebuild). demo = true shows sample traffic immediately; set your sign's
+# real latitude/longitude for live overhead flights (adsb.lol, no API key).
+# Renders hires on scale=4.
+
+[[playlist.section]]
+mode = "slideshow"
+transition = "flair.fairy.alternating"
+hold_time = 8
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":airplane: Overhead :airplane:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "flight.overhead"
+demo = true
+# latitude = 39.9526      # Philadelphia — SET to your sign's location
+# longitude = -75.1652
+# radius_km = 30
+# max_aircraft = 4
+# interval = 10
 
 # --- Nintendo Life RSS ---
 # Hires pokeball_alternating auto-activates at default_scale = 4.
@@ -274,6 +347,28 @@ font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
 
+# --- MLB Attendance (Phillies) ---
+# baseball.attendance — hires crowd cards.
+
+[[playlist.section]]
+mode = "slideshow"
+transition = "flair.poker"
+hold_time = 7
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball.ball: Attendance :baseball.ball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "baseball.attendance"
+team = "PHI"
+timezone = "America/New_York"
+
 # --- MLB Standings ---
 # Hires baseball.roll_alternating auto-activates at default_scale = 4.
 
@@ -295,13 +390,35 @@ font_color = "random"
 
 [[playlist.section.widget]]
 type = "baseball.standings"
-teams = ["PHI", "NYM"]
+teams = ["PHI"]
 title = "MLB Standings"
 top_n = 3
 timezone = "America/New_York"
 font = "Inter-Regular"
 font_size = 32
 font_threshold = 80
+
+# --- MLB Promotions (Phillies) ---
+# baseball.promotions — upcoming giveaway/theme nights.
+
+[[playlist.section]]
+mode = "slideshow"
+transition = "flair.spinout"
+hold_time = 7
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":baseball.ball: Promos :baseball.ball:"
+font = "Inter-Regular"
+font_size = 32
+font_threshold = 80
+font_color = "random"
+
+[[playlist.section.widget]]
+type = "baseball.promotions"
+team = "PHI"
+timezone = "America/New_York"
 
 # --- Pool Temps ---
 # Requires INFLUXDB_TOKEN (and URL/ORG/BUCKET) in .env.

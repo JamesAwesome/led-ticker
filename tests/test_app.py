@@ -2898,6 +2898,52 @@ class TestResolveFonts:
             _resolve_fonts(cfg, None, panel_h_for_warning=14)
         assert not any("clip vertically" in r.message for r in caplog.records)
 
+    def test_resolves_own_font_leaves_raw_name(self):
+        import attrs
+
+        from led_ticker.app.factories import _resolve_fonts
+
+        @attrs.define
+        class _SelfSizer:
+            RESOLVES_OWN_FONT = True
+            font: str = "Inter-Bold"
+
+        cfg = {"font": "Inter-Bold"}  # hires name, NO font_size
+        _resolve_fonts(cfg, _SelfSizer, None)
+        assert cfg["font"] == "Inter-Bold"  # raw name, not a Font object, no raise
+
+    def test_resolves_own_font_absent_marker_still_requires_font_size(self):
+        from led_ticker.app.factories import _resolve_fonts
+
+        class _Normal:  # no marker
+            pass
+
+        with pytest.raises(ValueError, match="requires font_size"):
+            _resolve_fonts({"font": "Inter-Bold"}, _Normal, None)
+
+    def test_resolves_own_font_false_still_requires_font_size(self):
+        import attrs
+
+        from led_ticker.app.factories import _resolve_fonts
+
+        @attrs.define
+        class _NotSelfSizer:
+            RESOLVES_OWN_FONT = False
+            font: str = "Inter-Bold"
+
+        with pytest.raises(ValueError, match="requires font_size"):
+            _resolve_fonts({"font": "Inter-Bold"}, _NotSelfSizer, None)
+
+    def test_resolves_own_font_field_dropped_when_cls_lacks_font_field(self):
+        from led_ticker.app.factories import _resolve_fonts
+
+        class _SelfSizerNoFontField:
+            RESOLVES_OWN_FONT = True
+
+        cfg = {"font": "Inter-Bold"}
+        _resolve_fonts(cfg, _SelfSizerNoFontField, None)
+        assert "font" not in cfg
+
 
 class TestValidateCfgFields:
     def test_unknown_field_raises_with_name(self):

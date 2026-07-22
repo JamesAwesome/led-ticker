@@ -105,7 +105,7 @@ schedule = {start = "11:00", end = "05:00", days = ["mon", "wed", "thu", "fri", 
 
 [[playlist.section.widget]]
 type = "message"
-text = "★ HALAL FOOD ★ GYRO ★ CHICKEN OVER RICE ★ FALAFEL ★"
+text = ":flatbread: HALAL FOOD • GYRO • :poultry_leg: CHICKEN OVER RICE :cooked_rice: • :falafel: FALAFEL"
 font_color = "rainbow"
 animation = "flair.fisheye"
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
@@ -118,7 +118,7 @@ schedule = {start = "05:00", end = "11:00", days = ["mon", "wed", "thu", "fri", 
 
 [[playlist.section.widget]]
 type = "message"
-text = "★ COFFEE ★ BACON EGG AND CHEESE ★ BAGELS ★ DONUTS ★"
+text = ":hot_beverage: COFFEE • :bacon: :egg: BACON EGG AND CHEESE • :bagel: BAGELS • :doughnut: DONUTS"
 font_color = "rainbow"
 animation = "flair.fisheye"
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
@@ -293,7 +293,7 @@ schedule = {start = "11:00", end = "05:00", days = ["mon", "wed", "thu", "fri", 
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "CHICKEN"
+top_text = ":poultry_leg: CHICKEN :poultry_leg:"
 bottom_text = "over rice • white sauce • hot sauce • $8"
 top_color = {style = "shimmer", base = "gold", shimmer = "white", speed = 18.0, pause = 0.5}
 top_align = "center"
@@ -317,7 +317,7 @@ schedule = {start = "05:00", end = "11:00", days = ["mon", "wed", "thu", "fri", 
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "COFFEE"
+top_text = ":hot_beverage: COFFEE :hot_beverage:"
 bottom_text = "bacon egg & cheese • bagels • donuts • $5"
 top_color = {style = "shimmer", base = "gold", shimmer = "white", speed = 18.0, pause = 0.5}
 top_align = "center"
@@ -339,7 +339,7 @@ schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "TACOS"
+top_text = ":taco: TACOS :taco:"
 bottom_text = "the grill has seen things • tacos • burritos • bowls • surrender to the value"
 top_color = {style = "shimmer", base = [80, 200, 60], shimmer = "white", speed = 18.0, pause = 0.5}
 top_align = "center"
@@ -360,7 +360,7 @@ schedule = {start = "05:00", end = "11:00", days = ["tue"]}
 
 [[playlist.section.widget]]
 type = "two_row"
-top_text = "BURRITO"
+top_text = ":burrito: BURRITO :burrito:"
 bottom_text = "wrapped in foil, bound by ancient pact • breakfast burritos • get here before they're GONE"
 top_color = {style = "shimmer", base = [80, 200, 60], shimmer = "white", speed = 18.0, pause = 0.5}
 top_align = "center"
@@ -400,7 +400,7 @@ schedule = {start = "11:00", end = "05:00", days = ["mon", "wed", "thu", "fri", 
 
 [[playlist.section.widget]]
 type = "message"
-text = "GYRO • CHICKEN OVER RICE • LAMB OVER RICE • FALAFEL • SHAWARMA • COMBO PLATTER • WHITE SAUCE • HOT SAUCE • $8 CASH ONLY"
+text = ":flatbread: GYRO • :poultry_leg: CHICKEN OVER RICE :cooked_rice: • :meat_on_bone: LAMB OVER RICE • :falafel: FALAFEL • SHAWARMA • :green_salad: COMBO PLATTER • WHITE SAUCE • :fire: HOT SAUCE • $8 CASH ONLY"
 font_color = "rainbow"
 font = "Inter-Bold"
 font_size = 44
@@ -415,7 +415,7 @@ schedule = {start = "05:00", end = "11:00", days = ["mon", "wed", "thu", "fri", 
 
 [[playlist.section.widget]]
 type = "message"
-text = "BACON EGG AND CHEESE • COFFEE • BAGELS • DONUTS • HASH BROWNS • ICED COFFEE • OJ • $5 CASH ONLY"
+text = ":bacon: :egg: BACON EGG AND CHEESE • :hot_beverage: COFFEE • :bagel: BAGELS • :doughnut: DONUTS • :potato: HASH BROWNS • :cup_with_straw: ICED COFFEE • :tangerine: OJ • $5 CASH ONLY"
 font_color = "rainbow"
 font = "Inter-Bold"
 font_size = 44

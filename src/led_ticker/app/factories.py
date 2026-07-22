@@ -469,6 +469,10 @@ def _resolve_fonts(
     the matching ``*_size`` key (the rasterizer requires an explicit
     target height).  Logs a warning when ``panel_h_for_warning`` is set
     and a hi-res ``font_size`` exceeds it.
+
+    A widget class that sets ``RESOLVES_OWN_FONT = True`` opts out: its
+    ``font`` is left as the raw NAME string (not resolved, and NOT subject
+    to the ``font_size`` requirement) so the widget can size it itself.
     """
     from led_ticker.fonts import resolve_font
     from led_ticker.fonts.hires_loader import HiresFont
@@ -480,36 +484,46 @@ def _resolve_fonts(
     cls_fields = {a.name for a in getattr(cls, "__attrs_attrs__", ())}
 
     if font_name is not None:
-        if _is_hires_font_name(font_name) and font_size is None:
-            raise ValueError(
-                f"HiresFont {font_name!r} requires font_size (real "
-                f"pixels). e.g. font_size = 24 for bigsign, "
-                f"font_size = 12 for small sign."
-            )
-        font = resolve_font(font_name, font_size, threshold=font_threshold)
-        # Only re-insert the resolved font when cls has a `font` attrs field.
-        # When cls is None (direct / test calls), insert unconditionally.
-        # This prevents widgets without a font field (e.g. rss_feed) from
-        # getting an unexpected key that _validate_cfg_fields later rejects.
-        if cls is None or "font" in cls_fields:
-            widget_cfg["font"] = font
+        if getattr(cls, "RESOLVES_OWN_FONT", False):
+            # Widget self-resolves its font (e.g. flair.lottery auto-sizes
+            # each ball face) — leave the raw NAME string in place; no
+            # coercion to a Font object, no font_size requirement. font_size/
+            # font_threshold fall through to the existing "re-insert only if
+            # the class declares the field" logic below (dropped otherwise).
+            if cls is None or "font" in cls_fields:
+                widget_cfg["font"] = font_name
+        else:
+            if _is_hires_font_name(font_name) and font_size is None:
+                raise ValueError(
+                    f"HiresFont {font_name!r} requires font_size (real "
+                    f"pixels). e.g. font_size = 24 for bigsign, "
+                    f"font_size = 12 for small sign."
+                )
+            font = resolve_font(font_name, font_size, threshold=font_threshold)
+            # Only re-insert the resolved font when cls has a `font` attrs
+            # field. When cls is None (direct / test calls), insert
+            # unconditionally. This prevents widgets without a font field
+            # (e.g. rss_feed) from getting an unexpected key that
+            # _validate_cfg_fields later rejects.
+            if cls is None or "font" in cls_fields:
+                widget_cfg["font"] = font
 
-        if (
-            isinstance(font, HiresFont)
-            and panel_h_for_warning is not None
-            and font_size is not None
-            and font_size > panel_h_for_warning - 2
-        ):
-            logging.warning(
-                "font_size=%d exceeds panel height %dpx (-2 margin) for "
-                "font %r — text will clip vertically. Hi-res fonts are "
-                "intended for the bigsign (64px); on the small sign, "
-                "stick to BDF aliases (5x8, 6x12) or font_size <= %d.",
-                font_size,
-                panel_h_for_warning,
-                font_name,
-                panel_h_for_warning - 2,
-            )
+            if (
+                isinstance(font, HiresFont)
+                and panel_h_for_warning is not None
+                and font_size is not None
+                and font_size > panel_h_for_warning - 2
+            ):
+                logging.warning(
+                    "font_size=%d exceeds panel height %dpx (-2 margin) for "
+                    "font %r — text will clip vertically. Hi-res fonts are "
+                    "intended for the bigsign (64px); on the small sign, "
+                    "stick to BDF aliases (5x8, 6x12) or font_size <= %d.",
+                    font_size,
+                    panel_h_for_warning,
+                    font_name,
+                    panel_h_for_warning - 2,
+                )
 
     if font_size is not None and "font_size" in cls_fields:
         widget_cfg["font_size"] = font_size

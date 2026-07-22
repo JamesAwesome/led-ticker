@@ -285,3 +285,128 @@ Commit (`config(halal): lottery balls in spleen-6x12 — crisp pixel faces`), pu
 - **Spec coverage:** §1 core helper = Task 1; §2 flair snap = Task 3; §3 config = Task 4; sequencing/gates = Tasks 2/3/4 hard stops; longboi additions ride Task 2; tests (core helper, flair native-multiples/zero/outline-unchanged, visual gate) all present; API_VERSION-no-bump + api-reference drift = Task 1.
 - **Placeholder scan:** none.
 - **Type consistency:** `pixel_native_size(name: str) -> int | None` identical across Task 1 (def), Task 1 tests, Task 3 (consume). `native` local reused consistently in the flair loop. `auto_font_size(word, diameter_px, font_name, scale) -> int` signature unchanged.
+
+---
+
+## Rework (2026-07-21) — lottery accepts a config-selected font
+
+The original Tasks 1–2 SHIPPED (core `pixel_native_size` + longboi config, core v4.26.0). The original Task 3 flair grid-snap was built (commit `c20c316`, reviewed clean) but NOT merged — it folds into Task B below. This rework adds the missing piece (spec Addendum): a self-sizing widget can keep its `font` as a raw name. Same 3-gate cadence; all gates are James's.
+
+### Task A: Core — `RESOLVES_OWN_FONT` opt-out
+
+**Files:**
+- Modify: `src/led_ticker/app/factories.py` (`_resolve_fonts`, ~line 482)
+- Modify: `docs/site/src/content/docs/plugins/api-reference.mdx` (a note; the marker is read off the widget class — no new `__all__` name, so the drift test is unaffected, but document the contract)
+- Test: `tests/test_factories.py` (or wherever `_resolve_fonts` is tested — grep `_resolve_fonts`; append there)
+
+**Interfaces:**
+- Produces: core honors a widget class attribute `RESOLVES_OWN_FONT: bool` (default `False`). When `True`, `_resolve_fonts` leaves the widget's `font` value as the raw NAME string (no resolve-to-`Font`, no "requires font_size"). Task B (flair) sets this on the lottery.
+
+- [ ] **Step 1: Write the failing tests** (find the existing `_resolve_fonts` tests first — `grep -rn "_resolve_fonts" tests/` — and match their idiom)
+
+```python
+def test_resolves_own_font_leaves_raw_name():
+    import attrs
+    from led_ticker.app.factories import _resolve_fonts
+
+    @attrs.define
+    class _SelfSizer:
+        RESOLVES_OWN_FONT = True
+        font: str = "Inter-Bold"
+
+    cfg = {"font": "spleen-6x12"}  # hires name, NO font_size
+    _resolve_fonts(cfg, _SelfSizer, None)
+    assert cfg["font"] == "spleen-6x12"  # raw name, not a Font object, no raise
+
+def test_normal_widget_still_requires_font_size_for_hires():
+    import pytest
+
+    from led_ticker.app.factories import _resolve_fonts
+
+    class _Normal:  # no marker
+        pass
+
+    with pytest.raises(ValueError, match="requires font_size"):
+        _resolve_fonts({"font": "spleen-6x12"}, _Normal, None)
+```
+
+- [ ] **Step 2: Run to verify failure** — `test_resolves_own_font_leaves_raw_name` raises "requires font_size".
+
+- [ ] **Step 3: Implement the opt-out** — in `_resolve_fonts`, after `cls_fields = ...` (line 480) and inside `if font_name is not None:` (line 482), branch on the marker BEFORE the hires-size check:
+
+```python
+    if font_name is not None:
+        if getattr(cls, "RESOLVES_OWN_FONT", False):
+            # Widget self-resolves its font (e.g. flair.lottery auto-sizes
+            # each ball face) — leave the raw NAME string in place; no
+            # coercion to a Font object, no font_size requirement. font_size/
+            # font_threshold fall through to the existing "re-insert only if
+            # the class declares the field" logic below (dropped otherwise).
+            if cls is None or "font" in cls_fields:
+                widget_cfg["font"] = font_name
+        else:
+            if _is_hires_font_name(font_name) and font_size is None:
+                raise ValueError(
+                    f"HiresFont {font_name!r} requires font_size (real "
+                    f"pixels). e.g. font_size = 24 for bigsign, "
+                    f"font_size = 12 for small sign."
+                )
+            font = resolve_font(font_name, font_size, threshold=font_threshold)
+            if cls is None or "font" in cls_fields:
+                widget_cfg["font"] = font
+            # ... keep the existing hires-panel-height warning block here ...
+```
+
+(Preserve the existing panel-height warning block inside the `else`. The `font_size`/`small_font`/`top_font`/`bottom_font` handling AFTER the `if font_name` block is unchanged.)
+
+- [ ] **Step 4: API-reference note** — in `docs/site/src/content/docs/plugins/api-reference.mdx`, add a short line (in the widget-authoring prose or a nearby note) that a widget class may set `RESOLVES_OWN_FONT = True` to receive its `font` as a raw name it resolves itself. Prettier-format + `pnpm run build`.
+
+- [ ] **Step 5: Run tests + gates** — the new tests + the existing `_resolve_fonts`/factories tests + the three lint gates. `pnpm run build` (docs).
+
+- [ ] **Step 6: Commit** — `git commit --no-verify -m "feat(factories): RESOLVES_OWN_FONT — let a self-sizing widget keep its font as a raw name"`.
+
+- [ ] **Step 7: Longboi/other configs unaffected** — full suite green (only known stale-worktree failure). Push + core PR. **HARD STOP: James merges + releases core v4.27.0** (BLOCKS Task B's floor bump).
+
+### Task B: Flair — lottery takes a config font (folds in the grid-snap)
+
+**Repo:** `led-ticker-plugins`. Rebase/cherry-pick the grid-snap commit `c20c316` (Task 3) onto a fresh branch off `origin/main`, then add this task's changes on top. Bump core floor to `>=4.27`.
+
+**Files:**
+- Modify: `plugins/flair/src/led_ticker_flair/flair/lottery.py` (add `RESOLVES_OWN_FONT = True` to the widget class; relax `_font_is_a_name`; keep the grid-aware `auto_font_size` from `c20c316`)
+- Modify: `plugins/flair/pyproject.toml` (`led-ticker-core>=4.26` → `>=4.27`)
+- Test: `plugins/flair/tests/test_flair_lottery.py`
+
+**Interfaces:** Consumes core v4.27.0's `RESOLVES_OWN_FONT` honoring + v4.26.0's `pixel_native_size`.
+
+- [ ] **Step 1: Write the failing test** — a config-set `font` on the lottery now loads and is used:
+
+```python
+def test_config_font_is_accepted_and_used():
+    # With RESOLVES_OWN_FONT, core leaves `font` a raw name; the lottery
+    # accepts it and auto-sizes it. A pixel font stays on-grid.
+    from led_ticker.app.factories import validate_widget_cfg  # or the build path
+
+    cfg = {"type": "flair.lottery", "words": ["HALAL"], "font": "spleen-6x12"}
+    # Must NOT raise (previously rejected by _font_is_a_name / requires font_size)
+    validate_widget_cfg(cfg)  # adapt to the test's actual call/signature
+```
+
+Plus: the lottery widget class has `RESOLVES_OWN_FONT = True`; `_font_is_a_name` accepts `"spleen-6x12"` (a valid name) and still rejects an unknown font name.
+
+- [ ] **Step 2: Run to verify failure** — currently `_font_is_a_name` rejects any config font.
+
+- [ ] **Step 3: Implement** — set `RESOLVES_OWN_FONT = True` on the lottery widget class. Rewrite `_font_is_a_name` to accept a font NAME string (validate it resolves — e.g. via a cheap `resolve_font` name check or the known-font set — erroring clearly on an unknown name) instead of rejecting all strings-that-came-from-config. Keep the grid-aware `auto_font_size` (`c20c316`). The lottery's existing default (`font = "Inter-Bold"`, omitted-config path) stays working.
+
+- [ ] **Step 4: Floor bump** — `pyproject.toml` core floor → `>=4.27`.
+
+- [ ] **Step 5: Run tests + gates** — new tests + all existing lottery tests (86+) + monorepo lint. (The 5 pre-existing `test_flair_stickers_transition.py` failures on main are unrelated — ignore, but flag.)
+
+- [ ] **Step 6: Commit.**
+
+- [ ] **Step 7: Visual gate + PR — HARD STOP** — render the halal lottery in `spleen-6x12` (from the monorepo env: `uv run --no-sync python <core>/tools/render_demo/render.py <cfg> -o out.gif`), contact sheet. Confirm ball faces are crisp Spleen vs auto-sized Inter-Bold. Send James. **OFF-RAMP:** if Spleen isn't clearly better at ~12–24px, stop before Task C. On approval: flair PR. James merges + releases flair.
+
+### Task C: Config — halal lottery → Spleen (HARD GATE)
+
+**Repo:** core. **File:** `config/config.halal-cart.example.toml` (the four `flair.lottery` widgets).
+
+- [ ] Add `font = "spleen-6x12"` to each of the four lottery widgets. Validate (0 errors — now accepted). Commit + core PR. **HARD STOP: James merges.**

@@ -127,3 +127,67 @@ the core PR.
 
 Core minor (new public API). Flair minor (new capability, consumes the API).
 Config is content (no release of its own).
+
+---
+
+## Addendum (2026-07-21) — the lottery must ACCEPT a config font first
+
+**Discovered mid-implementation:** the original design assumed setting
+`font = "spleen-6x12"` on a `flair.lottery` widget was a plain config change.
+It is not. Two core/flair mechanisms block it:
+
+1. Core's `app/factories._resolve_fonts` eagerly coerces EVERY widget's
+   `font` name → a `Font` OBJECT at config-load, and raises
+   "HiresFont requires font_size" for a hires name without `font_size`.
+2. The lottery's `_font_is_a_name` validator then REJECTS a config `font`
+   outright ("the 'font' config key is reserved by the core loader … ball
+   faces are too small for other faces to matter") — it wants only its
+   internal `Inter-Bold` default, which it re-resolves at auto-computed
+   sizes.
+
+So the grid-aware `auto_font_size` (§2) is necessary but not sufficient:
+there is no way to select a pixel font on the lottery via config. James's
+decision (2026-07-21): **do the full rework** so the lottery accepts a
+config-selected font that it self-sizes.
+
+### Core — `RESOLVES_OWN_FONT` opt-out
+
+A widget class may set the class attribute `RESOLVES_OWN_FONT = True`
+(default `False`). When `_resolve_fonts` sees it, the widget's `font` field
+is left as the **raw name string**: no resolve-to-`Font`, and NO
+"requires font_size" check (the widget sizes the font itself). `font_size`/
+`font_threshold` for such a widget are also left untouched (passed through
+only if the class declares those attrs fields). Every other widget is
+unaffected (marker absent/`False` → today's behavior exactly). This is the
+minimal seam and the natural companion to `pixel_native_size` — core already
+owns the font-coercion policy; this lets a self-sizing widget opt out of it.
+Documented on the plugin surface (a note in the API reference; the marker is
+read off the widget class, no `api.*` call).
+
+### Flair — accept the name
+
+Set `RESOLVES_OWN_FONT = True` on the lottery widget and relax
+`_font_is_a_name`: now that core leaves `font` a string, the validator
+accepts a valid font *name* (still erroring on an unknown font, and keeping
+the lottery's existing default when `font` is omitted). Combined with the
+grid-aware `auto_font_size` (§2), a config `font = "spleen-6x12"` now loads
+AND renders crisp.
+
+### Sequencing (revised)
+
+The original core PR (helper `pixel_native_size` + longboi config) already
+SHIPPED as **core v4.26.0**. The rework adds:
+
+1. **Core PR:** `RESOLVES_OWN_FONT` opt-out + tests + API-reference note.
+   Merge → release **core v4.27.0**.
+2. **Flair PR:** the grid-aware `auto_font_size` (from §2) + the
+   `RESOLVES_OWN_FONT` marker + relaxed validator + core-floor bump to
+   `>=4.27` + tests + visual gate. Merge → release flair minor.
+3. **Config:** halal lottery → `spleen-6x12`. Merge.
+
+### Off-ramp
+
+Ball faces are ~12–24px. If the visual gate (flair PR) shows Spleen isn't a
+clear improvement over auto-sized Inter-Bold at that size, stop before the
+config switch — the core opt-out + grid-snap remain as correct latent
+capability, no harm.

@@ -231,6 +231,7 @@ words = ["HALAL", "GYRO", "RICE"]
 ball_style = "classic"
 colors = [[230, 40, 30], [255, 190, 0], [255, 244, 214]]
 choreography = "roll_through"
+font = "spleen-6x12"
 border = "rainbow"
 
 # --- AM version: the breakfast draw ------------------------------------------
@@ -246,6 +247,7 @@ words = ["BACON", "EGG", "CHEESE"]
 ball_style = "classic"
 colors = [[230, 40, 30], [255, 190, 0], [255, 244, 214]]
 choreography = "roll_through"
+font = "spleen-6x12"
 border = "rainbow"
 
 # --- 3t · TUESDAY draw: three balls, one incantation -------------------------
@@ -263,6 +265,7 @@ words = ["ALL", "HAIL", "TACO"]
 ball_style = "classic"
 colors = [[230, 40, 30], [130, 60, 160], [80, 200, 60]]
 choreography = "roll_through"
+font = "spleen-6x12"
 border = "rainbow"
 
 [[playlist.section]]
@@ -277,6 +280,7 @@ words = ["ALL", "HAIL", "TACO"]
 ball_style = "classic"
 colors = [[230, 40, 30], [130, 60, 160], [80, 200, 60]]
 choreography = "roll_through"
+font = "spleen-6x12"
 border = "rainbow"
 
 # ===========================================================================

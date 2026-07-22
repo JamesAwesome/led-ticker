@@ -469,6 +469,10 @@ def _resolve_fonts(
     the matching ``*_size`` key (the rasterizer requires an explicit
     target height).  Logs a warning when ``panel_h_for_warning`` is set
     and a hi-res ``font_size`` exceeds it.
+
+    A widget class that sets ``RESOLVES_OWN_FONT = True`` opts out: its
+    ``font`` is left as the raw NAME string (not resolved, and NOT subject
+    to the ``font_size`` requirement) so the widget can size it itself.
     """
     from led_ticker.fonts import resolve_font
     from led_ticker.fonts.hires_loader import HiresFont

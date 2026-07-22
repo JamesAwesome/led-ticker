@@ -82,3 +82,25 @@ class TestPixelNativeRegistry:
             "spleen-8x16": 16,
             "spleen-16x32": 32,
         }
+
+
+class TestPixelNativeSize:
+    def test_spleen_names_return_native(self):
+        from led_ticker.fonts.hires_loader import pixel_native_size
+
+        assert pixel_native_size("spleen-6x12") == 12
+        assert pixel_native_size("spleen-8x16") == 16
+        assert pixel_native_size("spleen-16x32") == 32
+
+    def test_outline_and_unknown_return_none(self):
+        from led_ticker.fonts.hires_loader import pixel_native_size
+
+        assert pixel_native_size("Inter-Bold") is None
+        assert pixel_native_size("Inter-Regular") is None
+        assert pixel_native_size("nonesuch") is None
+
+    def test_exposed_on_plugin_surface(self):
+        import led_ticker.plugin as plugin
+
+        assert "pixel_native_size" in plugin.__all__
+        assert plugin.pixel_native_size("spleen-6x12") == 12

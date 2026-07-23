@@ -122,7 +122,7 @@ font_color = "random"
 [[playlist.section.widget]]
 type = "stocks.ticker"
 symbols = ["DKS", "NKE", "AAPL", "NVDA", "SPY"]
-layout = "crawl"
+layout = "dashboard"  # hires held longboi layout (crawl uses the lores BDF font)
 update_interval = 60
 
 # --- Weather ---

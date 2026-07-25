@@ -3127,7 +3127,16 @@ def suspend_image_emoji() -> dict[str, tuple[PixelData, HiResEmoji]]:
     an image config is rejected. Restore the returned dict with the tested
     stage/commit machinery (``abort_image_emoji`` -> ``stage_image_emoji`` per
     entry -> ``commit_image_emoji``); validate's ``finally`` does exactly that.
-    Returns an empty dict when nothing is committed."""
+    Returns an empty dict when nothing is committed.
+
+    LOAD-BEARING SERIALIZATION ASSUMPTION: while suspended, the live slugs
+    are ABSENT from the registries — a draw tick inside the window would
+    parse their tokens as literal text and shift scroll geometry. Safe today
+    because every display-process validate (boot preflight, reload preflight)
+    is awaited inline on the display task, never concurrent with a draw. If
+    validation is ever offloaded off the display task's critical path (the
+    parked reload-validate to_thread idea, issue #302), this suspension must
+    be redesigned first — do not offload validate while it suspends."""
     reg = _get_registry()  # materialize built-ins so the pop targets are real
     snapshot = {slug: (reg[slug], HIRES_REGISTRY[slug]) for slug in _CONFIG_IMAGE_SLUGS}
     for slug in snapshot:

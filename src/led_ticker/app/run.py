@@ -469,7 +469,18 @@ def build_source_registry(
             )
     from led_ticker.pixel_emoji import commit_image_emoji  # noqa: PLC0415
 
-    commit_image_emoji()
+    # A commit failure must never crash startup / go dark — the "never darks"
+    # guarantee is structural, not just per-source. A raised commit would take
+    # down the whole boot even though every source built fine.
+    try:
+        commit_image_emoji()
+    except Exception as exc:  # noqa: BLE001 - image commit must not crash startup
+        logging.error(
+            "startup: committing config image slugs failed (%s: %s) — "
+            "image tokens may render as literal text",
+            type(exc).__name__,
+            exc,
+        )
     return registry
 
 

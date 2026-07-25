@@ -4718,6 +4718,60 @@ class TestImageSourceValidate:
         )
         assert "bad_logo" in rule_70[0].message
 
+    @pytest.mark.parametrize(
+        "bad_id",
+        ["Logo", "my cart", "9lives", "café", ""],
+    )
+    async def test_untokenizable_id_errors_and_skips_commit(
+        self, conf, tmp_path, bad_id
+    ):
+        """An image id that can't form a `:token:` (uppercase, space, leading
+        digit, non-ASCII, empty) -> rule-70 ERROR, and the unusable slug is
+        never staged/committed into the emoji registries."""
+        from led_ticker import pixel_emoji
+
+        _write_png(tmp_path / "assets" / "logo.png")
+        cfg = _IMAGE_BASE + textwrap.dedent(f"""\
+
+            [[source]]
+            type = "image"
+            id = "{bad_id}"
+            path = "assets/logo.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :{bad_id}:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_70 = [e for e in result.errors if e.rule == 70]
+        assert any("token" in e.message for e in rule_70), (
+            f"expected rule-70 untokenizable-id error for id={bad_id!r}; got "
+            f"errors={[(e.rule, e.message) for e in result.errors]}"
+        )
+        # The unusable slug must never land in the live registries.
+        assert bad_id not in pixel_emoji._CONFIG_IMAGE_SLUGS
+        assert bad_id not in pixel_emoji.EMOJI_REGISTRY
+        assert bad_id not in pixel_emoji.HIRES_REGISTRY
+
+    async def test_valid_dotted_id_unaffected_by_tokencheck(self, conf, tmp_path):
+        """A token-safe dotted id decodes/commits with no rule-70 id error."""
+        _write_png(tmp_path / "assets" / "logo.png")
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "cart.logo"
+            path = "assets/logo.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :cart.logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert result.valid, [(e.rule, e.message) for e in result.errors]
+        assert not any("token" in e.message for e in result.errors if e.rule == 70)
+
     async def test_collision_names_origin_and_suggests_dotted(self, conf, tmp_path):
         """An image source id equal to a curated emoji slug ("taco") -> a
         rule-56 ERROR whose message names the collision's origin and

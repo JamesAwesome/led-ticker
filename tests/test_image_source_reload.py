@@ -244,6 +244,49 @@ class TestReloadAtomicity:
         assert "img.a" not in pixel_emoji._get_registry()
 
 
+class TestReloadValidatesCommittedSlug:
+    """A running config with an image source must be able to hot-reload the
+    SAME file: validate (`load_and_validate` -> `validate_config`) runs in the
+    live process where the source's slug is already committed. Rule 56's
+    `is_emoji_slug(src.id)` collision check must not treat the source's own
+    live commit as a pre-existing emoji and reject the reload — validate
+    suspends the committed image slugs so static checks see pristine state."""
+
+    async def _boot_then_validate(self, tmp_path, slug: str):
+        _png(tmp_path, "logo.png", (255, 0, 0, 255))
+        toml = (
+            _DISPLAY
+            + f'[[source]]\nid = "{slug}"\ntype = "image"\npath = "logo.png"\n\n'
+            + _SECTION
+            + f'[[playlist.section.widget]]\ntype="message"\ntext=":{slug}:"\n'
+        )
+        cfg_path = _write(tmp_path / "c.toml", toml)
+        # "Boot": build + commit the image slug into the live registries.
+        old_reg = build_source_registry(
+            load_config(cfg_path).sources, session=None, config_dir=tmp_path
+        )
+        set_data_registry(old_reg)
+        assert slug in pixel_emoji._get_registry()
+        # Hot-reload preflight on the same file, in the same live process.
+        config, errors, transient = await rl.load_and_validate(cfg_path)
+        return config, errors, transient
+
+    async def test_reload_of_own_image_source_is_valid(self, tmp_path):
+        config, errors, transient = await self._boot_then_validate(tmp_path, "logo")
+        assert not any("collides with an existing emoji slug" in e for e in errors)
+        assert not errors
+        assert config is not None
+        assert transient is False
+
+    async def test_reload_of_dotted_image_source_is_valid(self, tmp_path):
+        config, errors, transient = await self._boot_then_validate(
+            tmp_path, "cart.logo"
+        )
+        assert not any("collides with an existing emoji slug" in e for e in errors)
+        assert not errors
+        assert config is not None
+
+
 class TestWidgetCacheFlush:
     async def test_image_source_change_flushes_widget_cache(self, tmp_path):
         set_data_registry(DataRegistry())

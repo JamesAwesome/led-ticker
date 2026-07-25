@@ -3115,6 +3115,28 @@ def commit_image_emoji() -> None:
     _PENDING_IMAGE_EMOJI.clear()
 
 
+def suspend_image_emoji() -> dict[str, tuple[PixelData, HiResEmoji]]:
+    """Remove the currently committed config-image slugs from the live
+    registries and return them as a snapshot.
+
+    Static validation (``validate.validate_config``) calls this at entry so
+    ALL checks — rule 56's ``is_emoji_slug`` collision check included — run
+    against pristine curated/pack/plugin state plus only the CANDIDATE's own
+    staged commits. Without it, a live image slug looks like a pre-existing
+    emoji that the source's own ``id`` collides with, and every hot-reload of
+    an image config is rejected. Restore the returned dict with the tested
+    stage/commit machinery (``abort_image_emoji`` -> ``stage_image_emoji`` per
+    entry -> ``commit_image_emoji``); validate's ``finally`` does exactly that.
+    Returns an empty dict when nothing is committed."""
+    reg = _get_registry()  # materialize built-ins so the pop targets are real
+    snapshot = {slug: (reg[slug], HIRES_REGISTRY[slug]) for slug in _CONFIG_IMAGE_SLUGS}
+    for slug in snapshot:
+        reg.pop(slug, None)
+        HIRES_REGISTRY.pop(slug, None)
+    _CONFIG_IMAGE_SLUGS.clear()
+    return snapshot
+
+
 def emoji_slugs() -> tuple[str, ...]:
     """Sorted slugs currently drawable inline (built-ins + plugin-registered).
 

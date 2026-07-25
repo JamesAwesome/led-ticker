@@ -432,8 +432,14 @@ def _emoji_slug_origin(slug: str) -> str:
     `api.emoji`/`api.hires_emoji` convention always qualifies with a dot);
     anything else is a curated core built-in.
     """
-    from led_ticker import emoji_pack  # noqa: PLC0415
+    from led_ticker import emoji_pack, pixel_emoji  # noqa: PLC0415
 
+    # Defensive: after `suspend_image_emoji`, a live image slug is removed
+    # during validate so this branch rarely fires — but if it ever does (e.g.
+    # a caller invoking rule 56 outside the suspend bracket), attribute it
+    # honestly rather than mislabeling it as a curated/pack/plugin emoji.
+    if slug in pixel_emoji._CONFIG_IMAGE_SLUGS:
+        return "an image source's committed slug"
     if emoji_pack.has_slug(slug):
         return "the standard-emoji pack"
     if "." in slug:
@@ -513,6 +519,30 @@ def _check_image_sources(
 
     for src in image_sources:
         loc = f"source[{src.id!r}]"
+
+        # An id that can't form a `:token:` (EMOJI_PATTERN is
+        # `:[a-z_][a-z0-9_.]*:`) would commit a slug the emoji parser can
+        # never match — the token renders as literal text and rule 70's
+        # dangling-declaration warning below would mislead ("no widget text
+        # references :Logo:" when the text DOES). ERROR and SKIP staging so
+        # the runtime never commits an unusable slug either.
+        if not re.fullmatch(r"[a-z_][a-z0-9_.]*", src.id):
+            errors.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="error",
+                    message=(
+                        f'[[source]] id {src.id!r} (type="image") can\'t form a '
+                        f":token: — an image id must be lowercase letters, "
+                        f"digits, underscore, or dot, start with a letter or "
+                        f"underscore, and not be empty."
+                    ),
+                    fix='Rename the source to a token-safe id, e.g. id = "cart.logo".',
+                )
+            )
+            continue  # Unusable id — don't stage/commit it.
+
         raw_path = src.raw.get("path", "")
         candidate = Path(raw_path)
         path = candidate if candidate.is_absolute() else (config_dir / candidate)
@@ -3948,16 +3978,21 @@ async def validate_config(
     # validating a REJECTED (or simply not-adopted) candidate config
     # permanently swaps the live process's committed image-slug set: the
     # running config's slugs vanish and the candidate's persist. See the
-    # Task-4 review Critical. Snapshot the currently-committed set BEFORE
-    # the prebuild bracket runs, then restore it in `finally` regardless of
-    # how validation concludes (early return, success, exception) — reusing
-    # the same tested stage/commit machinery so the restore is atomic.
+    # Task-4 review Critical. SUSPEND the currently-committed set BEFORE the
+    # prebuild bracket runs (capture + REMOVE from the live registries), then
+    # restore it in `finally` regardless of how validation concludes (early
+    # return, success, exception) — reusing the same tested stage/commit
+    # machinery so the restore is atomic. Removal (not just capture) is
+    # load-bearing: it makes every static check — rule 56's
+    # `is_emoji_slug(src.id)` collision check included — run against pristine
+    # curated/pack/plugin state plus only the candidate's own staged commits
+    # (rule 70 re-stages+commits the candidate set). Without it, hot-reloading
+    # an image config in the live process is ALWAYS rejected: the source's own
+    # live commit looks like a pre-existing emoji its `id` collides with
+    # (adversarial-review BLOCKER; regression: TestReloadValidatesCommittedSlug).
     from led_ticker import pixel_emoji  # noqa: PLC0415
 
-    snapshot = {
-        slug: (pixel_emoji._get_registry()[slug], pixel_emoji.HIRES_REGISTRY[slug])
-        for slug in pixel_emoji._CONFIG_IMAGE_SLUGS
-    }
+    snapshot = pixel_emoji.suspend_image_emoji()
     try:
         pre = await asyncio.to_thread(
             _validate_static_prebuild, path, strict=strict, config_dir=config_dir

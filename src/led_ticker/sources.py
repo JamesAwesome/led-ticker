@@ -74,11 +74,19 @@ def load_image_sprites(path):
     (Phase 1 is static; inline animation is the planned follow-up).
     Raises on a missing/undecodable file — the CALLER decides posture
     (build_source_registry skips + logs; validate errors loudly).
+
+    Memory cost: the full source frame is decoded to RGBA BEFORE the
+    downscale, so peak memory scales with the ORIGINAL image dimensions
+    (1x-2x of Pillow's MAX_IMAGE_PIXELS band for a very large source), not the
+    tiny sprite it becomes. The >512x512 validate warning (rule 70) is the
+    guard against pathologically large sources.
     """
     from PIL import Image  # noqa: PLC0415
 
     from led_ticker.pixel_emoji import HiResEmoji  # noqa: PLC0415
 
+    # Phase-2 candidate: bounded decode (draft-mode / thumbnail-first load)
+    # to cap peak memory on oversized sources before the full RGBA convert.
     img = Image.open(path)  # frame 0 of a multi-frame file by default
     img = img.convert("RGBA")
 
@@ -121,6 +129,19 @@ class ImageSource(DataSource):
     def prepare(self) -> None:
         from led_ticker.pixel_emoji import stage_image_emoji  # noqa: PLC0415
 
+        # An id that can't form a `:token:` (EMOJI_PATTERN's
+        # `[a-z_][a-z0-9_.]*` body) would commit a slug the emoji parser can
+        # never match — the token renders as literal text. validate errors on
+        # this (rule 70); the runtime just skips staging so it never commits
+        # an unusable slug. One WARNING, no raise (a bad id must not go dark).
+        if not re.fullmatch(r"[a-z_][a-z0-9_.]*", self.id):
+            logging.getLogger(__name__).warning(
+                "image source id %r can't form a :token: (needs lowercase "
+                "letters, digits, underscore, or dot; must start with a "
+                "letter or underscore) — skipping; the token will not render",
+                self.id,
+            )
+            return
         lowres, hires = load_image_sprites(self.path)
         stage_image_emoji(self.id, lowres, hires)
 

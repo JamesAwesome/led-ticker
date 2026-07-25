@@ -147,6 +147,34 @@ def nonreloadable_changed(old: Any, new: Any) -> list[str]:
     return changed
 
 
+def _image_source_fingerprint(
+    sources: Any, config_dir: Path | None
+) -> frozenset[tuple[str, str, int]]:
+    """``(id, resolved_path, mtime_ns)`` for every ``type == "image"`` source,
+    resolving a relative ``path`` against ``config_dir`` (mirrors
+    ``build_source``'s own resolution so the fingerprint matches what actually
+    gets staged). ``mtime_ns`` is 0 when the file is missing, so a broken path
+    still fingerprints distinctly from "no image source". Used by
+    ``_apply_reload`` to decide whether the image-source set changed enough to
+    require flushing the ENTIRE widget cache — widgets cache ``_has_emoji`` at
+    construction and are otherwise only evicted when their OWN config
+    changed, so an added/retargeted image source would never reach an
+    unchanged widget without this."""
+    result: set[tuple[str, str, int]] = set()
+    for source_cfg in sources:
+        if getattr(source_cfg, "type", None) != "image":
+            continue
+        candidate = Path(source_cfg.raw.get("path", ""))
+        if not candidate.is_absolute() and config_dir is not None:
+            candidate = (config_dir / candidate).resolve()
+        try:
+            mtime = candidate.stat().st_mtime_ns
+        except OSError:
+            mtime = 0
+        result.add((source_cfg.id, str(candidate), mtime))
+    return frozenset(result)
+
+
 async def _apply_reload(
     new_config: Any,
     *,
@@ -158,6 +186,7 @@ async def _apply_reload(
     respawn_schedule: Any,
     source_refresh_task: Any = None,
     session: Any = None,
+    config_dir: Path | None = None,
 ) -> tuple[Any, Any, list[str]]:
     """Apply a validated new config in place. Evicts changed/removed widgets
     (cancelling their captured background tasks), resets the render breaker and its
@@ -173,9 +202,23 @@ async def _apply_reload(
     spawned; on a build failure the old list is returned unchanged (atomic-or-nothing).
     ``session`` is the shared aiohttp.ClientSession; forwarded to ``build_source`` so
     polled (network-backed) sources constructed during a reload share the same session
-    as those built at startup."""
+    as those built at startup. ``config_dir`` is the directory containing config.toml;
+    forwarded to ``build_source`` so a relative ``[[source]]`` image ``path`` resolves
+    the same way it does at boot, and used to fingerprint the image-source set (see
+    ``_image_source_fingerprint``) for the widget-cache-flush decision below.
+
+    Image-emoji commit rides the SAME atomicity as the registry swap:
+    ``commit_image_emoji()`` lands the staged slugs immediately before
+    ``set_data_registry`` (both or neither); ``abort_image_emoji()`` drops a
+    partially-staged set in the atomic-failure branch so a reload that fails
+    on source N never leaves sources 0..N-1's slugs half-applied. See
+    docs/superpowers/specs/2026-07-25-inline-image-source-design.md §2."""
     from led_ticker import status_board  # noqa: PLC0415
     from led_ticker.app.factories import _cache_key, build_source  # noqa: PLC0415
+    from led_ticker.pixel_emoji import (  # noqa: PLC0415
+        abort_image_emoji,
+        commit_image_emoji,
+    )
     from led_ticker.sources import (  # noqa: PLC0415
         DataRegistry,
         set_data_registry,
@@ -183,6 +226,12 @@ async def _apply_reload(
     )
 
     restart_required = nonreloadable_changed(old_config, new_config)
+    old_image_set = _image_source_fingerprint(
+        getattr(old_config, "sources", []), config_dir
+    )
+    new_image_set = _image_source_fingerprint(
+        getattr(new_config, "sources", []), config_dir
+    )
 
     valid_keys = {_cache_key(dict(w)) for s in new_config.sections for w in s.widgets}
     for key in list(widget_cache):
@@ -212,8 +261,11 @@ async def _apply_reload(
     try:
         new_reg = DataRegistry()
         for source_cfg in new_config.sources:
-            new_reg.add(build_source(source_cfg, session=session))
+            new_reg.add(
+                build_source(source_cfg, session=session, config_dir=config_dir)
+            )
     except Exception as exc:  # noqa: BLE001 - a bad source must not crash the loop
+        abort_image_emoji()  # drop any partially-staged image slugs (atomic-or-nothing)
         _log.error(
             "reload: source registry rebuild failed (%s: %s) — "
             "keeping old sources; fix the config and reload again",
@@ -221,6 +273,10 @@ async def _apply_reload(
             exc,
         )
         return schedule_task, source_refresh_task, restart_required
+    commit_image_emoji()  # commits atomically alongside the registry swap below
+    if new_image_set != old_image_set:
+        widget_cache.clear()
+        _log.info("image sources changed — widget cache flushed")
     set_data_registry(new_reg)
     # Cancel every old handle: the 1 Hz sync task AND any polled-source loops.
     # source_refresh_task is a list (Task 5 shape from spawn_source_refresh), or

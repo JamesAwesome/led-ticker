@@ -522,6 +522,7 @@ async def _detect_and_apply_reload(
         respawn_schedule=lambda ot, cfg: _respawn_schedule(ot, cfg, led_frame),
         source_refresh_task=source_refresh_task,
         session=session,
+        config_dir=config_path.parent if config_path is not None else None,
     )
     default_section_trans = _build_trans_obj_guarded(new_config.between_sections)
     for w in getattr(new_config, "_coerce_warnings", []):

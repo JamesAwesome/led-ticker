@@ -1,0 +1,206 @@
+"""Reload atomicity for config-declared image emoji (Task 3).
+
+Mirrors the `_apply_reload` harness idiom in tests/test_reload.py: build old/new
+configs via `load_config`, seed the global DataRegistry, invoke `rl._apply_reload`
+directly with a `fake_respawn`, then assert on `pixel_emoji`'s registries + the
+threaded widget_cache.
+
+The image-emoji commit must ride the SAME atomicity as `set_data_registry`:
+a failed source rebuild must leave BOTH the old registry AND the old committed
+emoji slugs untouched (never a torn half-set); a successful rebuild must commit
+the new slugs atomically with the registry swap. Separately, an image-source-set
+change must flush the ENTIRE widget cache even when no individual widget's own
+config changed (widgets cache `_has_emoji` at construction).
+"""
+
+from pathlib import Path
+
+import pytest
+from PIL import Image
+
+from led_ticker import pixel_emoji
+from led_ticker import reload as rl
+from led_ticker.app.factories import _cache_key
+from led_ticker.app.run import build_source_registry
+from led_ticker.config import load_config
+from led_ticker.pixel_emoji import abort_image_emoji
+from led_ticker.render_breaker import RenderBreaker
+from led_ticker.sources import DataRegistry, get_data_registry, set_data_registry
+
+_DISPLAY = "[display]\nrows=16\ncols=32\n\n"
+_SECTION = '[[playlist.section]]\nmode = "slideshow"\n'
+
+
+def _write(path: Path, body: str) -> Path:
+    path.write_text(body)
+    return path
+
+
+def _png(tmp_path: Path, name: str, color: tuple[int, int, int, int]) -> Path:
+    img = Image.new("RGBA", (8, 8), color)
+    p = tmp_path / name
+    img.save(p)
+    return p
+
+
+async def _fake_respawn(old_task, cfg):
+    return None
+
+
+def _first_pixel_rgb(slug: str) -> tuple[int, int, int]:
+    """(r, g, b) of the first lit lowres pixel for `slug` — used to tell a
+    same-id-different-content image apart (both sprites share the slug "img.a"
+    but are baked from differently-colored source PNGs)."""
+    px = pixel_emoji._get_registry()[slug][0]
+    return px[2], px[3], px[4]
+
+
+def _reset_emoji_state():
+    abort_image_emoji()
+    for slug in list(pixel_emoji._CONFIG_IMAGE_SLUGS):
+        pixel_emoji.EMOJI_REGISTRY.pop(slug, None)
+        pixel_emoji.HIRES_REGISTRY.pop(slug, None)
+    pixel_emoji._CONFIG_IMAGE_SLUGS.clear()
+
+
+@pytest.fixture(autouse=True)
+def _clean_emoji_state():
+    """Mirrors test_image_source.py's `_clean` fixture: a committed/staged
+    image slug from one test must never leak into the next."""
+    _reset_emoji_state()
+    yield
+    _reset_emoji_state()
+
+
+class TestReloadAtomicity:
+    async def test_failed_reload_keeps_old_image_slugs(self, tmp_path):
+        # old config: image source "img.a", red — committed at "boot".
+        _png(tmp_path, "a.png", (255, 0, 0, 255))
+        a = load_config(
+            _write(
+                tmp_path / "a.toml",
+                _DISPLAY
+                + '[[source]]\nid = "img.a"\ntype = "image"\npath = "a.png"\n\n'
+                + _SECTION,
+            )
+        )
+        old_reg = build_source_registry(a.sources, session=None, config_dir=tmp_path)
+        set_data_registry(old_reg)
+        assert "img.a" in pixel_emoji._get_registry()
+        assert _first_pixel_rgb("img.a") == (255, 0, 0)
+
+        # new config: img.a retargeted to blue (A') + a broken source (missing file).
+        _png(tmp_path, "a_prime.png", (0, 0, 255, 255))
+        b = load_config(
+            _write(
+                tmp_path / "b.toml",
+                _DISPLAY
+                + '[[source]]\nid = "img.a"\ntype = "image"\npath = "a_prime.png"\n\n'
+                + '[[source]]\nid = "img.b"\ntype = "image"\npath = "missing.png"\n\n'
+                + _SECTION,
+            )
+        )
+
+        await rl._apply_reload(
+            b,
+            old_config=a,
+            widget_cache={},
+            widget_tasks={},
+            render_breaker=RenderBreaker(),
+            schedule_task=None,
+            respawn_schedule=_fake_respawn,
+            source_refresh_task=None,
+            config_dir=tmp_path,
+        )
+
+        # registry identity unchanged (old sources kept)
+        assert get_data_registry() is old_reg
+        # slug img.a still renders the OLD (red) sprite, not A' (blue)
+        assert "img.a" in pixel_emoji._get_registry()
+        assert _first_pixel_rgb("img.a") == (255, 0, 0)
+        # nothing from the broken source was applied
+        assert "img.b" not in pixel_emoji._get_registry()
+
+    async def test_successful_reload_swaps_slug_set(self, tmp_path):
+        _png(tmp_path, "a.png", (255, 0, 0, 255))
+        a = load_config(
+            _write(
+                tmp_path / "a.toml",
+                _DISPLAY
+                + '[[source]]\nid = "img.a"\ntype = "image"\npath = "a.png"\n\n'
+                + _SECTION,
+            )
+        )
+        old_reg = build_source_registry(a.sources, session=None, config_dir=tmp_path)
+        set_data_registry(old_reg)
+        assert "img.a" in pixel_emoji._get_registry()
+
+        _png(tmp_path, "b.png", (0, 255, 0, 255))
+        b = load_config(
+            _write(
+                tmp_path / "b.toml",
+                _DISPLAY
+                + '[[source]]\nid = "img.b"\ntype = "image"\npath = "b.png"\n\n'
+                + _SECTION,
+            )
+        )
+
+        await rl._apply_reload(
+            b,
+            old_config=a,
+            widget_cache={},
+            widget_tasks={},
+            render_breaker=RenderBreaker(),
+            schedule_task=None,
+            respawn_schedule=_fake_respawn,
+            source_refresh_task=None,
+            config_dir=tmp_path,
+        )
+
+        assert get_data_registry() is not old_reg
+        assert "img.b" in pixel_emoji._get_registry()
+        assert "img.a" not in pixel_emoji._get_registry()
+
+
+class TestWidgetCacheFlush:
+    async def test_image_source_change_flushes_widget_cache(self, tmp_path):
+        set_data_registry(DataRegistry())
+        widget_toml = '[[playlist.section.widget]]\ntype="message"\ntext=":b:"\n'
+
+        a = load_config(_write(tmp_path / "a.toml", _DISPLAY + _SECTION + widget_toml))
+        _png(tmp_path, "b.png", (0, 255, 0, 255))
+        b = load_config(
+            _write(
+                tmp_path / "b.toml",
+                _DISPLAY
+                + '[[source]]\nid = "b"\ntype = "image"\npath = "b.png"\n\n'
+                + _SECTION
+                + widget_toml,
+            )
+        )
+
+        # widget config is byte-identical between a and b -> same cache key
+        key_a = _cache_key(dict(a.sections[0].widgets[0]))
+        key_b = _cache_key(dict(b.sections[0].widgets[0]))
+        assert key_a == key_b, "fixture must keep the widget config unchanged"
+
+        widget_cache = {key_a: object()}
+        widget_tasks: dict = {}
+
+        await rl._apply_reload(
+            b,
+            old_config=a,
+            widget_cache=widget_cache,
+            widget_tasks=widget_tasks,
+            render_breaker=RenderBreaker(),
+            schedule_task=None,
+            respawn_schedule=_fake_respawn,
+            source_refresh_task=None,
+            config_dir=tmp_path,
+        )
+
+        # Even though the widget's OWN config never changed (so the pre-existing
+        # changed/removed-widget eviction would have kept it), the image-source
+        # set changed (none -> "b") -> the whole cache must be flushed so the
+        # reconstructed widget picks up the new :b: slug (_has_emoji recomputed).
+        assert widget_cache == {}

@@ -46,6 +46,7 @@ from led_ticker.sources import (
     ClockSource,
     DataSource,
     DateSource,
+    ImageSource,
     PolledDataSource,
     StaticSource,
 )
@@ -1463,6 +1464,7 @@ _SOURCE_TYPES: dict[str, type[DataSource]] = {
     "clock": ClockSource,
     "date": DateSource,
     "static": StaticSource,
+    "image": ImageSource,
 }
 
 
@@ -1481,12 +1483,19 @@ def get_source_class(source_type: str) -> type[DataSource]:
     return cls
 
 
-def build_source(cfg: SourceConfig, session: Any = None) -> DataSource:
+def build_source(
+    cfg: SourceConfig, session: Any = None, config_dir: Path | None = None
+) -> DataSource:
     """Instantiate a DataSource from a parsed SourceConfig.
 
     Maps TOML config keys to constructor kwargs:
     - clock / date: format → fmt, timezone → tz
     - static: value → value
+    - image: path → path (resolved against config_dir, mirroring
+      `_resolve_asset_paths`), then decoded + STAGED via `prepare()` — a
+      raise here propagates; the caller's per-source try/except (boot:
+      `build_source_registry`; reload: its own guard) gives the skip
+      posture, never darkening the panel.
     - PolledDataSource subclasses (plugin sources): id + injected session/interval
       + remaining cfg.raw keys as generic kwargs (location, format, placeholder, …).
     """
@@ -1529,9 +1538,21 @@ def build_source(cfg: SourceConfig, session: Any = None) -> DataSource:
         )
     elif cls is StaticSource:
         source = cls(id=cfg.id, value=cfg.raw.get("value", ""))
+    elif cls is ImageSource:
+        source = cls(id=cfg.id, path=cfg.raw.get("path", ""))
     else:
         # Generic fallback for future core types that only need id= (rare).
         source = cls(id=cfg.id)
+
+    if isinstance(source, ImageSource):
+        # Same relative-path convention as widget assets (_resolve_asset_paths,
+        # ~line 593): a relative path anchors at the config file's directory.
+        candidate = Path(source.path)
+        if not candidate.is_absolute() and config_dir is not None:
+            source.path = str((config_dir / candidate).resolve())
+        # Decode + STAGE now; a raise propagates to the caller, which decides
+        # the skip-and-log posture (never darkens the panel).
+        source.prepare()
 
     raw_color = cfg.raw.get("color")
     if raw_color is not None:

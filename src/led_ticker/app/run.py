@@ -429,7 +429,9 @@ def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
         return None
 
 
-def build_source_registry(sources: list, session: Any) -> DataRegistry:
+def build_source_registry(
+    sources: list, session: Any, config_dir: Any = None
+) -> DataRegistry:
     """Build a DataRegistry from a list of SourceConfig objects.
 
     Each source is built with ``build_source``; failures are logged and skipped
@@ -441,11 +443,21 @@ def build_source_registry(sources: list, session: Any) -> DataRegistry:
     ``_apply_reload``, but at per-source granularity instead of atomic-or-nothing:
     at startup we want as many sources as possible; on reload the atomic swap
     protects a running display from a half-built registry.
+
+    An ``ImageSource`` decodes + STAGES its slug during ``build_source``
+    (via its ``prepare()``); once every source in this pass has built (or
+    been skipped), ``commit_image_emoji()`` lands the staged set into the
+    emoji registries. This runs before widget construction (see the ~980
+    call site in ``run()``), preserving the ordering invariant that
+    TokenizedField/emoji-parse checks made during widget build see an
+    already-committed slug set.
     """
     registry = DataRegistry()
     for source_cfg in sources:
         try:
-            registry.add(build_source(source_cfg, session=session))
+            registry.add(
+                build_source(source_cfg, session=session, config_dir=config_dir)
+            )
         except Exception as exc:  # noqa: BLE001 - bad source must not crash startup
             logging.error(
                 "startup: source %r (type %r) failed to build (%s: %s) — "
@@ -455,6 +467,9 @@ def build_source_registry(sources: list, session: Any) -> DataRegistry:
                 type(exc).__name__,
                 exc,
             )
+    from led_ticker.pixel_emoji import commit_image_emoji  # noqa: PLC0415
+
+    commit_image_emoji()
     return registry
 
 
@@ -977,7 +992,9 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
             # can resolve against an already-populated registry. Uses only
             # spawn_tracked (asyncio task) and no privileged FS — safe regardless
             # of whether the rgbmatrix backend has dropped root (constraint #13).
-            _source_registry = build_source_registry(config.sources, session=session)
+            _source_registry = build_source_registry(
+                config.sources, session=session, config_dir=config_path.parent
+            )
             set_data_registry(_source_registry)
             # spawn_source_refresh returns a LIST: the 1 Hz sync task + one
             # run_monitor_loop task per polled source. Store as a list so

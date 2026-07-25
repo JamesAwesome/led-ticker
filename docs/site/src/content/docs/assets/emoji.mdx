@@ -89,4 +89,45 @@ The full pack, grouped by Unicode block for browsing:
   alt="Contact sheet of standard-emoji pack sprites from the newer supplemental Unicode blocks — people, food, animals, and objects, each labeled with its slug."
 />
 
-<RelatedPages slugs={["widgets/message", "concepts/color-providers"]} />
+## Your own images as emoji
+
+Any local PNG or GIF can become a custom emoji: declare it with a
+`[[source]]` block and embed its `:id:` token anywhere text renders —
+mid-sentence, in titles, on two-row cards.
+
+```toml
+[[source]]
+type = "image"
+id = "cart.logo"
+path = "assets/cart-logo.png"
+
+[[playlist.section.widget]]
+type = "message"
+text = "HALAL CART :cart.logo: OPEN LATE"
+```
+
+**Where the file goes.** Drop it in `config/assets/` next to your
+`config.toml` (the same folder the [gif](/widgets/gif/) and
+[image](/widgets/image/) widgets use — it's mounted into Docker
+automatically). Getting the file onto the Pi is up to you today: `scp`, a
+network share, or a USB stick. The web UI can't upload assets yet — that's
+planned, not implied.
+
+**Naming.** Use a dotted id (`cart.logo`, `me.parrot`). The standard-emoji
+pack owns ~1,400 bare English words (`fire`, `taco`, `star` are all real
+slugs), and a colliding id is a validate error — the dotted form sidesteps
+the whole problem.
+
+**Sizing.** On scaled displays (bigsign, longboi) the image renders as a
+32-pixel-tall sprite, width proportional up to 128 px. On a scale-1 sign
+(smallsign) it auto-downscales to 8×8 — recognizable for simple marks,
+approximate for detailed art; `led-ticker validate` reminds you.
+
+**Animated GIFs render as their first frame** for now — inline animation
+is a planned follow-up.
+
+If something's wrong (missing file, name collision), the sign never goes
+dark: the bad source is skipped with a logged error and the token renders
+as literal text. Run `led-ticker validate` to catch it before deploy.
+
+<RelatedPages slugs={["widgets/message", "concepts/color-providers", "concepts/value-tokens"]} />

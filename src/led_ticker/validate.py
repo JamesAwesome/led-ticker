@@ -187,7 +187,7 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
 
     from led_ticker.app.factories import get_source_class
     from led_ticker.pixel_emoji import is_emoji_slug
-    from led_ticker.sources import ClockSource, DateSource, StaticSource
+    from led_ticker.sources import ClockSource, DateSource, ImageSource, StaticSource
 
     issues: list[ValidationIssue] = []
     seen_ids: set[str] = set()
@@ -195,7 +195,9 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
     for src in config.sources:
         loc = f"source[{src.id!r}]"
 
-        # Duplicate id
+        # Duplicate id — unconditional (any two [[source]] blocks sharing an
+        # id, regardless of type: e.g. a type="clock" and a type="image"
+        # block both declaring id="x").
         if src.id in seen_ids:
             issues.append(
                 ValidationIssue(
@@ -216,31 +218,62 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
 
         seen_ids.add(src.id)
 
-        # id collides with an emoji slug
-        if is_emoji_slug(src.id):
-            issues.append(
-                ValidationIssue(
-                    rule=56,
-                    location=loc,
-                    severity="error",
-                    message=(
-                        f"[[source]] id {src.id!r} is also a registered emoji slug. "
-                        f"Emoji resolution takes priority over source tokens — a "
-                        f"widget using :{src.id}: will render the emoji, not the "
-                        f"source value."
-                    ),
-                    fix=(
-                        f"Rename the source to a non-emoji id "
-                        f'(e.g. id = "my_{src.id}").'
-                    ),
-                )
-            )
-            # Fall through: still check type / format / tz for this source
-
-        # Unknown type
+        # Resolve the source class EARLY (before the emoji-collision check
+        # below) so an image source gets the tailored collision message.
+        # An unknown type is reported after the collision check — same
+        # "fall through" behavior the collision check already had for other
+        # error classes on this source.
         try:
             cls = get_source_class(src.type)
         except ValueError:
+            cls = None
+
+        # id collides with an emoji slug
+        if is_emoji_slug(src.id):
+            if cls is ImageSource:
+                origin = _emoji_slug_origin(src.id)
+                issues.append(
+                    ValidationIssue(
+                        rule=56,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f'[[source]] id {src.id!r} (type="image") collides '
+                            f"with an existing emoji slug from {origin}. Emoji "
+                            f"resolution wins over source tokens — a widget "
+                            f"using :{src.id}: would render the emoji, not "
+                            f"your image. Use a dotted id instead, e.g. "
+                            f'"cart.{src.id}".'
+                        ),
+                        fix=(
+                            f"Rename the source id to a dotted form, e.g. "
+                            f'id = "cart.{src.id}".'
+                        ),
+                    )
+                )
+            else:
+                issues.append(
+                    ValidationIssue(
+                        rule=56,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f"[[source]] id {src.id!r} is also a registered "
+                            f"emoji slug. Emoji resolution takes priority "
+                            f"over source tokens — a widget using "
+                            f":{src.id}: will render the emoji, not the "
+                            f"source value."
+                        ),
+                        fix=(
+                            f"Rename the source to a non-emoji id "
+                            f'(e.g. id = "my_{src.id}").'
+                        ),
+                    )
+                )
+            # Fall through: still check type / format / tz for this source
+
+        # Unknown type
+        if cls is None:
             issues.append(
                 ValidationIssue(
                     rule=56,
@@ -248,7 +281,7 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
                     severity="error",
                     message=(
                         f"Unknown [[source]] type {src.type!r}. "
-                        f"Core types: clock, date, static. "
+                        f"Core types: clock, date, static, image. "
                         f"Plugin types are namespaced (e.g. 'myplugin.weather')."
                     ),
                     fix=(
@@ -383,6 +416,237 @@ def _check_sources(config: AppConfig) -> list[ValidationIssue]:
                 )
 
     return issues
+
+
+def _emoji_slug_origin(slug: str) -> str:
+    """Best-effort human-readable description of where an existing emoji
+    slug lives, for the rule-56 image-collision message.
+
+    Not exhaustive — a plugin CAN in principle register a bare-word slug,
+    and this reports it as "a curated core emoji" in that rare case — but
+    the message's actionable part is the dotted-id suggestion, not this
+    label, so an occasionally-imprecise origin is acceptable. Ordering:
+    the standard-emoji pack is checked first (its ~1,360 slugs are the
+    dominant collision source for common English words); a dotted slug not
+    in the pack is assumed to be a namespaced plugin registration (the
+    `api.emoji`/`api.hires_emoji` convention always qualifies with a dot);
+    anything else is a curated core built-in.
+    """
+    from led_ticker import emoji_pack, pixel_emoji  # noqa: PLC0415
+
+    # Defensive: after `suspend_image_emoji`, a live image slug is removed
+    # during validate so this branch rarely fires — but if it ever does (e.g.
+    # a caller invoking rule 56 outside the suspend bracket), attribute it
+    # honestly rather than mislabeling it as a curated/pack/plugin emoji.
+    if slug in pixel_emoji._CONFIG_IMAGE_SLUGS:
+        return "an image source's committed slug"
+    if emoji_pack.has_slug(slug):
+        return "the standard-emoji pack"
+    if "." in slug:
+        return "a plugin"
+    return "a curated core emoji"
+
+
+def _check_image_sources(
+    config: AppConfig, config_dir: Path
+) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
+    """Rule 70: validate `[[source]] type = "image"` blocks.
+
+    Decodes each image source via the SAME decode path
+    `app/run.py:build_source_registry` uses at boot (`sources.
+    load_image_sprites`) so what validate blesses is what boot renders.
+    On successful decode the slug is STAGED; once every image source has
+    been processed, the whole batch is COMMITTED in one call (mirroring
+    `build_source_registry`'s batch-then-commit shape) so the widget-build
+    checks that run AFTER this function in the runner (Phase 1c,
+    `_run_build_checks` — which constructs widgets, and therefore
+    `TokenizedField`) see an already-committed slug set — the load-bearing
+    ordering invariant from
+    docs/superpowers/specs/2026-07-25-inline-image-source-design.md §1/§6.
+
+    This function itself must run AFTER `_check_sources` (rule 56) in the
+    runner: rule 56's `is_emoji_slug(src.id)` collision check must see the
+    PRE-image registry state, or a brand-new image source would appear to
+    collide with the very slug it is about to stage (a false positive
+    against itself).
+
+    Errors:
+    - missing/undecodable file (``load_image_sprites`` raises).
+
+    Warnings:
+    - animated source (Pillow ``n_frames > 1``) — renders as first frame
+      only (Phase 1 is static-only; inline animation is a planned
+      follow-up).
+    - source (pre-downscale) frame area > 512×512 — decoded anyway.
+    - dangling declaration — no widget `text`/`top_text`/`bottom_text`
+      references `:id:` (same fields rule 68 walks).
+    - the id is referenced from a section whose effective scale is 1 — the
+      committed lowres form is a machine-downscaled 8×8 approximation.
+    """
+    from PIL import Image  # noqa: PLC0415
+
+    from led_ticker.pixel_emoji import (  # noqa: PLC0415
+        EMOJI_PATTERN,
+        commit_image_emoji,
+        stage_image_emoji,
+    )
+    from led_ticker.sources import load_image_sprites  # noqa: PLC0415
+
+    errors: list[ValidationIssue] = []
+    warnings: list[ValidationIssue] = []
+
+    image_sources = [src for src in config.sources if src.type == "image"]
+    if not image_sources:
+        return errors, warnings
+
+    # Scan the same text fields rule 68 walks for `:id:` references, and
+    # separately track which ids are referenced from a scale-1 section
+    # (mirrors rule 67's per-section scale logic).
+    referenced_ids: set[str] = set()
+    referenced_scale1_ids: set[str] = set()
+    for section in config.sections:
+        section_scale = getattr(section, "scale", 1)
+        for widget_cfg in section.widgets:
+            for field_name in ("text", "top_text", "bottom_text"):
+                val = widget_cfg.get(field_name)
+                if not isinstance(val, str):
+                    continue
+                for m in EMOJI_PATTERN.finditer(val):
+                    slug = m.group(0)[1:-1]
+                    referenced_ids.add(slug)
+                    if section_scale == 1:
+                        referenced_scale1_ids.add(slug)
+
+    for src in image_sources:
+        loc = f"source[{src.id!r}]"
+
+        # An id that can't form a `:token:` (EMOJI_PATTERN is
+        # `:[a-z_][a-z0-9_.]*:`) would commit a slug the emoji parser can
+        # never match — the token renders as literal text and rule 70's
+        # dangling-declaration warning below would mislead ("no widget text
+        # references :Logo:" when the text DOES). ERROR and SKIP staging so
+        # the runtime never commits an unusable slug either.
+        if not re.fullmatch(r"[a-z_][a-z0-9_.]*", src.id):
+            errors.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="error",
+                    message=(
+                        f'[[source]] id {src.id!r} (type="image") can\'t form a '
+                        f":token: — an image id must be lowercase letters, "
+                        f"digits, underscore, or dot, start with a letter or "
+                        f"underscore, and not be empty."
+                    ),
+                    fix='Rename the source to a token-safe id, e.g. id = "cart.logo".',
+                )
+            )
+            continue  # Unusable id — don't stage/commit it.
+
+        raw_path = src.raw.get("path", "")
+        candidate = Path(raw_path)
+        path = candidate if candidate.is_absolute() else (config_dir / candidate)
+
+        # Probe frame count + native size directly (best-effort; a failure
+        # here is swallowed and re-surfaced as the ERROR below, from the
+        # exact same decode path boot uses).
+        n_frames = 1
+        src_w = src_h = 0
+        with contextlib.suppress(Exception), Image.open(path) as probe:
+            n_frames = getattr(probe, "n_frames", 1)
+            src_w, src_h = probe.size
+
+        try:
+            lowres, hires = load_image_sprites(path)
+        except Exception as exc:
+            errors.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="error",
+                    message=(
+                        f'[[source]] {src.id!r} (type="image") could not '
+                        f"decode {str(path)!r}: {exc}"
+                    ),
+                    fix=(
+                        "Check the path is correct (relative paths resolve "
+                        "against the config file's directory) and that the "
+                        "file is a valid image (PNG, GIF, etc)."
+                    ),
+                )
+            )
+            continue  # No sprite to stage; downstream checks moot.
+
+        if n_frames > 1:
+            warnings.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="warning",
+                    message=(
+                        f"[[source]] {src.id!r} is an animated image "
+                        f"({n_frames} frames) — it renders as its first "
+                        f"frame; inline animation is a planned follow-up."
+                    ),
+                    fix=("Use a static PNG, or accept the first-frame render for now."),
+                )
+            )
+
+        if src_w * src_h > 512 * 512:
+            warnings.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="warning",
+                    message=(
+                        f"[[source]] {src.id!r} source image is "
+                        f"{src_w}x{src_h} ({src_w * src_h} px) — over the "
+                        f"512x512 size cap. Decoded anyway."
+                    ),
+                    fix="Downscale the source image to 512x512 or smaller.",
+                )
+            )
+
+        if src.id not in referenced_ids:
+            warnings.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="warning",
+                    message=(
+                        f'[[source]] {src.id!r} (type="image") is declared '
+                        f"but no widget text references :{src.id}: — it "
+                        f"will never render."
+                    ),
+                    fix=(
+                        f"Reference :{src.id}: in a widget's text, top_text, "
+                        f"or bottom_text, or remove the source."
+                    ),
+                )
+            )
+
+        if src.id in referenced_scale1_ids:
+            warnings.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="warning",
+                    message=(
+                        f"[[source]] {src.id!r} is used in a scale-1 "
+                        f"section — it renders as a machine-downscaled 8x8 "
+                        f"approximation of the source image."
+                    ),
+                    fix=(
+                        "Use a scaled section (default_scale > 1) for a "
+                        "crisper render, or accept the 8x8 approximation."
+                    ),
+                )
+            )
+
+        stage_image_emoji(src.id, lowres, hires)
+
+    commit_image_emoji()
+    return errors, warnings
 
 
 def _check_static(config: AppConfig) -> list[ValidationIssue]:
@@ -3359,6 +3623,11 @@ def _validate_static_prebuild(
             early_result=ValidationResult(path=path, errors=errors, warnings=warnings),
         )
 
+    # Resolved once, up front: needed early by rule 70's image-source path
+    # resolution (below) as well as the later font-dir configuration / build
+    # checks — a single definition avoids the two spots drifting.
+    effective_config_dir = config_dir if config_dir is not None else path.parent
+
     # Phase 1b: [display] backend — must name a registered backend.
     # `from led_ticker.backends import known_backends` triggers the package
     # __init__, which eagerly imports both built-in backends and self-registers
@@ -3409,6 +3678,18 @@ def _validate_static_prebuild(
     # Phase 1b (cont.): Rule 56 — [[source]] block validation.
     errors.extend(_check_sources(config))
 
+    # Phase 1b (cont.): Rule 70 — [[source]] type="image" blocks. Runs AFTER
+    # rule 56 so an image source's own id can't self-collide against a slug
+    # it hasn't staged yet (rule 56's collision check sees the pre-image
+    # registry state); stages + commits the whole image-source batch here
+    # (mirrors app/run.py:build_source_registry's batch-then-commit shape)
+    # so the widget-build checks in Phase 1c below (which construct widgets,
+    # and therefore TokenizedField) see an already-committed slug set — see
+    # docs/superpowers/specs/2026-07-25-inline-image-source-design.md §1/§6.
+    _image_errors, _image_warnings = _check_image_sources(config, effective_config_dir)
+    errors.extend(_image_errors)
+    warnings.extend(_image_warnings)
+
     # Phase 1b (cont.): Rule 39 — transition name registry check.
     # Always runs (not just --strict): a typo in a transition name always
     # fails at startup and has no deploy-target excuse.
@@ -3447,7 +3728,6 @@ def _validate_static_prebuild(
     # "unknown font" failures are downgraded to warnings (rule 24): the
     # font may live on the deploy target but not the laptop drafting
     # the config. Type / required-field errors stay hard.
-    effective_config_dir = config_dir if config_dir is not None else path.parent
     _configure_user_font_dir(effective_config_dir)
     return _PrebuildResult(
         path=path,
@@ -3668,7 +3948,17 @@ async def validate_config(
     ``set_schedule_timezone`` are reachable only from ``_build_widget`` /
     ``app.run`` (the real engine build path), never from
     ``validate_widget_cfg`` or the sync brackets (pinned by
-    ``test_validate_never_binds_schedules``).
+    ``test_validate_never_binds_schedules``). One deliberate
+    NON-idempotent mutation exists: rule 70 commits the candidate's
+    image-source emoji slugs so the token/widget checks see them, and the
+    ``finally`` restores the entry-time committed set on every exit (the
+    live-process leak fix — see ``TestValidateDoesNotLeakImageSlugs``).
+    Two truly concurrent validates in ONE process could interleave that
+    snapshot→restore (accepted edge: the display process serializes its
+    validates — boot + inline reload preflight — and the webui runs in a
+    separate container where the worst case is a skewed rule-56
+    diagnostic on a later draft, self-correcting on the next
+    non-overlapping validate).
 
     Known tradeoff (Ctrl-C during a stuck prebuild): a worker-thread
     prebuild that hangs (e.g. a plugin import blocking on network) cannot
@@ -3681,23 +3971,57 @@ async def validate_config(
     control) or killing threads outright (unsafe in CPython). Accept the
     delayed exit.
     """
-    pre = await asyncio.to_thread(
-        _validate_static_prebuild, path, strict=strict, config_dir=config_dir
-    )
-    if pre.early_result is not None:
-        return pre.early_result
-    assert pre.config is not None
-    build_errors, build_warnings, migration_errors = await _run_build_checks(
-        pre.config.sections, pre.effective_config_dir
-    )
-    return await asyncio.to_thread(
-        _validate_static_postbuild,
-        pre,
-        build_errors,
-        build_warnings,
-        migration_errors,
-        strict=strict,
-    )
+    # validate is diagnostic — its image-emoji commits (rule 70,
+    # _check_image_sources, invoked inside the prebuild bracket below) must
+    # not outlive THIS call in a long-running process (hot-reload preflight
+    # inside the live display process; webui draft validation). Without this,
+    # validating a REJECTED (or simply not-adopted) candidate config
+    # permanently swaps the live process's committed image-slug set: the
+    # running config's slugs vanish and the candidate's persist. See the
+    # Task-4 review Critical. SUSPEND the currently-committed set BEFORE the
+    # prebuild bracket runs (capture + REMOVE from the live registries), then
+    # restore it in `finally` regardless of how validation concludes (early
+    # return, success, exception) — reusing the same tested stage/commit
+    # machinery so the restore is atomic. Removal (not just capture) is
+    # load-bearing: it makes every static check — rule 56's
+    # `is_emoji_slug(src.id)` collision check included — run against pristine
+    # curated/pack/plugin state plus only the candidate's own staged commits
+    # (rule 70 re-stages+commits the candidate set). Without it, hot-reloading
+    # an image config in the live process is ALWAYS rejected: the source's own
+    # live commit looks like a pre-existing emoji its `id` collides with
+    # (adversarial-review BLOCKER; regression: TestReloadValidatesCommittedSlug).
+    from led_ticker import pixel_emoji  # noqa: PLC0415
+
+    snapshot = pixel_emoji.suspend_image_emoji()
+    try:
+        pre = await asyncio.to_thread(
+            _validate_static_prebuild, path, strict=strict, config_dir=config_dir
+        )
+        if pre.early_result is not None:
+            return pre.early_result
+        assert pre.config is not None
+        build_errors, build_warnings, migration_errors = await _run_build_checks(
+            pre.config.sections, pre.effective_config_dir
+        )
+        return await asyncio.to_thread(
+            _validate_static_postbuild,
+            pre,
+            build_errors,
+            build_warnings,
+            migration_errors,
+            strict=strict,
+        )
+    finally:
+        # Undo whatever this call committed (abort drops any half-staged
+        # leftovers), then re-stage + re-commit the exact snapshot. Commit's
+        # swap semantics (remove previously committed, insert pending) mean
+        # this atomically restores the prior set even when the snapshot is
+        # empty (correctly clearing this call's commits with nothing to
+        # replace them).
+        pixel_emoji.abort_image_emoji()
+        for slug, (lowres, hires) in snapshot.items():
+            pixel_emoji.stage_image_emoji(slug, lowres, hires)
+        pixel_emoji.commit_image_emoji()
 
 
 async def validate_config_text(

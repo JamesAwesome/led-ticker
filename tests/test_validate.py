@@ -4587,3 +4587,523 @@ class TestPixelFontSize:
         cfg = conf(_SPLEEN_CFG.replace('font = "spleen-6x12"\n', "").format(size=13))
         result = await validate_config(cfg)
         assert not [i for i in result.warnings if i.rule == 69]
+
+
+# ---------------------------------------------------------------------------
+# Rule 70: [[source]] type = "image" blocks, + the rule-56 extension
+# (image-tailored collision messaging + same-config cross-type id check).
+# ---------------------------------------------------------------------------
+
+# Bigsign-shaped geometry (rows=64, chain_length=8, default_scale=4):
+# content_height (16, default) x scale (4) = 64 == panel height, so rule 1's
+# content_height-x-scale hard error never fires and doesn't suppress the
+# Phase-2 soft-warning pass these tests exercise.
+_IMAGE_BASE = """\
+[display]
+rows = 64
+cols = 64
+chain_length = 8
+default_scale = 4
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3
+"""
+
+# Smallsign-shaped geometry (default_scale = 1) for the scale-1-approximation
+# warning specifically — every section is scale 1 by construction.
+_IMAGE_BASE_SCALE1 = """\
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 3
+"""
+
+
+def _write_png(path: Path, size: tuple[int, int] = (4, 4)) -> None:
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGBA", size, (255, 0, 0, 255)).save(path)
+
+
+def _write_gif(path: Path, n_frames: int = 3, size: tuple[int, int] = (4, 4)) -> None:
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frames = [Image.new("RGB", size, (i * 60, 0, 0)) for i in range(n_frames)]
+    frames[0].save(path, save_all=True, append_images=frames[1:], duration=100, loop=0)
+
+
+class TestImageSourceValidate:
+    """Rule 70: [[source]] type="image" validation, plus rule 56's
+    image-tailored collision message and the same-config cross-type id
+    collision (already covered by rule 56's generic duplicate-id check,
+    confirmed here to fire for a clock+image pair).
+
+    Every test in this class drives `validate_config`, which — same as
+    boot — commits decoded image slugs into the real, process-global
+    `pixel_emoji` registries. The autouse fixture below wipes that state
+    before and after each test (mirrors `tests/test_image_emoji_
+    registration.py`'s cleanup fixture) so tests can't leak slugs into each
+    other or into unrelated test modules in the same run.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clean_image_emoji_registration(self):
+        from led_ticker import pixel_emoji
+
+        def _wipe() -> None:
+            pixel_emoji.abort_image_emoji()
+            for slug in list(pixel_emoji._CONFIG_IMAGE_SLUGS):
+                pixel_emoji.EMOJI_REGISTRY.pop(slug, None)
+                pixel_emoji.HIRES_REGISTRY.pop(slug, None)
+            pixel_emoji._CONFIG_IMAGE_SLUGS.clear()
+
+        _wipe()
+        yield
+        _wipe()
+
+    async def test_missing_file_errors(self, conf):
+        """A [[source]] type="image" path that doesn't exist -> rule-70 ERROR
+        naming the path."""
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "missing_logo"
+            path = "assets/does-not-exist.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :missing_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_70 = [e for e in result.errors if e.rule == 70]
+        assert rule_70, (
+            f"expected rule-70 error for missing file; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "does-not-exist.png" in rule_70[0].message
+
+    async def test_undecodable_file_errors(self, conf, tmp_path):
+        """A file that exists but isn't a decodable image -> rule-70 ERROR."""
+        bad_path = tmp_path / "assets" / "bad.png"
+        bad_path.parent.mkdir(parents=True, exist_ok=True)
+        bad_path.write_bytes(b"this is not a real image file, just bytes")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "bad_logo"
+            path = "assets/bad.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :bad_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_70 = [e for e in result.errors if e.rule == 70]
+        assert rule_70, (
+            f"expected rule-70 error for undecodable file; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "bad_logo" in rule_70[0].message
+
+    @pytest.mark.parametrize(
+        "bad_id",
+        ["Logo", "my cart", "9lives", "café", ""],
+    )
+    async def test_untokenizable_id_errors_and_skips_commit(
+        self, conf, tmp_path, bad_id
+    ):
+        """An image id that can't form a `:token:` (uppercase, space, leading
+        digit, non-ASCII, empty) -> rule-70 ERROR, and the unusable slug is
+        never staged/committed into the emoji registries."""
+        from led_ticker import pixel_emoji
+
+        _write_png(tmp_path / "assets" / "logo.png")
+        cfg = _IMAGE_BASE + textwrap.dedent(f"""\
+
+            [[source]]
+            type = "image"
+            id = "{bad_id}"
+            path = "assets/logo.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :{bad_id}:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_70 = [e for e in result.errors if e.rule == 70]
+        assert any("token" in e.message for e in rule_70), (
+            f"expected rule-70 untokenizable-id error for id={bad_id!r}; got "
+            f"errors={[(e.rule, e.message) for e in result.errors]}"
+        )
+        # The unusable slug must never land in the live registries.
+        assert bad_id not in pixel_emoji._CONFIG_IMAGE_SLUGS
+        assert bad_id not in pixel_emoji.EMOJI_REGISTRY
+        assert bad_id not in pixel_emoji.HIRES_REGISTRY
+
+    async def test_valid_dotted_id_unaffected_by_tokencheck(self, conf, tmp_path):
+        """A token-safe dotted id decodes/commits with no rule-70 id error."""
+        _write_png(tmp_path / "assets" / "logo.png")
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "cart.logo"
+            path = "assets/logo.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :cart.logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert result.valid, [(e.rule, e.message) for e in result.errors]
+        assert not any("token" in e.message for e in result.errors if e.rule == 70)
+
+    async def test_collision_names_origin_and_suggests_dotted(self, conf, tmp_path):
+        """An image source id equal to a curated emoji slug ("taco") -> a
+        rule-56 ERROR whose message names the collision's origin and
+        suggests a dotted id like "cart.taco"."""
+        _write_png(tmp_path / "assets" / "taco.png")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "taco"
+            path = "assets/taco.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :taco:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 collision error for id='taco'; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        msg = rule_56[0].message
+        assert "curated" in msg or "pack" in msg, msg
+        assert "cart.taco" in msg, msg
+
+    async def test_same_config_source_id_collision(self, conf, tmp_path):
+        """type="clock" id="x" + type="image" id="x" in the SAME config ->
+        rule-56 ERROR (the pre-existing generic duplicate-id check, which is
+        type-agnostic and already fires for this cross-type pair)."""
+        _write_png(tmp_path / "assets" / "x.png")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "clock"
+            id = "x"
+
+            [[source]]
+            type = "image"
+            id = "x"
+            path = "assets/x.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :x:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_56 = [e for e in result.errors if e.rule == 56]
+        assert rule_56, (
+            f"expected rule-56 duplicate-id error for cross-type id='x'; got "
+            f"errors={[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "x" in rule_56[0].message
+
+    async def test_animated_gif_warns_frame_zero(self, conf, tmp_path):
+        """An animated (multi-frame) GIF image source -> rule-70 WARNING
+        mentioning it renders as its first frame."""
+        _write_gif(tmp_path / "assets" / "anim.gif", n_frames=3)
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "anim_logo"
+            path = "assets/anim.gif"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :anim_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        rule_70_warn = [w for w in result.warnings if w.rule == 70]
+        assert any("first frame" in w.message for w in rule_70_warn), (
+            f"expected rule-70 first-frame warning; got warnings="
+            f"{[(w.rule, w.message) for w in result.warnings]}"
+        )
+
+    async def test_scale1_section_warns_approximate(self, conf, tmp_path):
+        """An image id referenced from a scale-1 section -> rule-70 WARNING
+        that the committed lowres form is an 8x8 approximation."""
+        _write_png(tmp_path / "assets" / "logo.png")
+
+        cfg = _IMAGE_BASE_SCALE1 + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "small_logo"
+            path = "assets/logo.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :small_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        rule_70_warn = [w for w in result.warnings if w.rule == 70]
+        assert any(
+            "8x8" in w.message or "approxim" in w.message for w in rule_70_warn
+        ), (
+            f"expected rule-70 scale-1 approximation warning; got warnings="
+            f"{[(w.rule, w.message) for w in result.warnings]}"
+        )
+
+    async def test_dangling_image_source_warns(self, conf, tmp_path):
+        """An image source with no widget text referencing :id: -> rule-70
+        WARNING (dangling declaration; the token will never render)."""
+        _write_png(tmp_path / "assets" / "unused.png")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "unused_logo"
+            path = "assets/unused.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hello world"
+            """)
+        result = await validate_config(conf(cfg))
+        rule_70_warn = [w for w in result.warnings if w.rule == 70]
+        assert any(
+            "unused_logo" in w.message and "declared" in w.message for w in rule_70_warn
+        ), (
+            f"expected rule-70 dangling-source warning; got warnings="
+            f"{[(w.rule, w.message) for w in result.warnings]}"
+        )
+
+    async def test_oversized_source_warns(self, conf, tmp_path):
+        """A source image whose (pre-downscale) frame area exceeds 512x512
+        -> rule-70 WARNING; the image is still decoded."""
+        _write_png(tmp_path / "assets" / "big.png", size=(600, 600))
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "big_logo"
+            path = "assets/big.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :big_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        rule_70_warn = [w for w in result.warnings if w.rule == 70]
+        assert any("512" in w.message for w in rule_70_warn), (
+            f"expected rule-70 oversized-source warning; got warnings="
+            f"{[(w.rule, w.message) for w in result.warnings]}"
+        )
+
+    async def test_valid_image_config_is_clean_and_token_not_unknown(
+        self, conf, tmp_path, monkeypatch
+    ):
+        """A fully-valid image source referenced by a widget -> 0 errors, AND
+        the ordering invariant holds: images register through the same
+        decode path BEFORE token/widget checks, so WHILE Phase 1c's
+        widget-build checks run (validate_widget_cfg, spied on below), the
+        id is a recognized emoji slug (not "unknown") — proven directly via
+        is_emoji_slug, not inferred.
+
+        validate_config is diagnostic-only (Task-4 review Critical): its
+        image-emoji commit must NOT outlive the call in a long-running
+        process (hot-reload preflight, webui), so — unlike the ordering
+        invariant this test used to assert — the slug must NOT still be a
+        recognized emoji once validate_config has returned.
+        """
+        from led_ticker.app import factories
+        from led_ticker.pixel_emoji import is_emoji_slug
+
+        _write_png(tmp_path / "assets" / "clean_logo.png")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "cart.logo"
+            path = "assets/clean_logo.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "OPEN LATE :cart.logo:"
+            """)
+
+        seen_during_build: list[bool] = []
+        real_validate_widget_cfg = factories.validate_widget_cfg
+
+        async def _spy(*args, **kwargs):
+            seen_during_build.append(is_emoji_slug("cart.logo"))
+            return await real_validate_widget_cfg(*args, **kwargs)
+
+        monkeypatch.setattr(factories, "validate_widget_cfg", _spy)
+
+        result = await validate_config(conf(cfg))
+        assert result.errors == [], (
+            f"expected 0 errors for a valid image config; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert seen_during_build and all(seen_during_build), (
+            "cart.logo must be a recognized emoji slug DURING Phase 1c's "
+            f"widget-build checks — saw {seen_during_build}"
+        )
+        assert not is_emoji_slug("cart.logo"), (
+            "cart.logo must NOT remain a recognized emoji slug after "
+            "validate_config returns — its commit is diagnostic-only and "
+            "must not outlive the call (Task-4 review Critical)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Task-4 review Critical: validate_config's rule-70 stage/commit must not
+# leak into the live, process-global pixel_emoji registries. validate_config
+# is invoked as the hot-reload PREFLIGHT inside the live display process
+# (reload.load_and_validate -> validate_config), so validating a REJECTED
+# (or simply not-yet-adopted) candidate config must not permanently swap the
+# live process's committed image-emoji set: the running config's slugs must
+# survive, and the candidate's slugs must never leak in. Same root cause
+# affects webui draft validations (lower severity — separate process — but
+# the same fix closes it too).
+# ---------------------------------------------------------------------------
+class TestValidateDoesNotLeakImageSlugs:
+    """Reviewer's exact repro, turned into a pin: validate a candidate with
+    image source img.a2 (a live process already has img-equivalent slug
+    "live.slug" committed from its running config) -> after validate_config
+    returns, "live.slug" must still be committed and "img.a2" must not be."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_image_emoji_registration(self):
+        from led_ticker import pixel_emoji
+
+        def _wipe() -> None:
+            pixel_emoji.abort_image_emoji()
+            for slug in list(pixel_emoji._CONFIG_IMAGE_SLUGS):
+                pixel_emoji.EMOJI_REGISTRY.pop(slug, None)
+                pixel_emoji.HIRES_REGISTRY.pop(slug, None)
+            pixel_emoji._CONFIG_IMAGE_SLUGS.clear()
+            pixel_emoji.EMOJI_REGISTRY.pop("live.slug", None)
+            pixel_emoji.HIRES_REGISTRY.pop("live.slug", None)
+
+        _wipe()
+        yield
+        _wipe()
+
+    @staticmethod
+    def _commit_live_slug() -> None:
+        """Simulate the live display process's already-committed image
+        source (analogous to the reviewer's `img.a`) via the exact same
+        stage/commit calls rule 70 itself uses."""
+        from led_ticker.pixel_emoji import (
+            HiResEmoji,
+            commit_image_emoji,
+            stage_image_emoji,
+        )
+
+        lowres = [(0, 0, 0, 255, 0)]
+        hires = HiResEmoji(
+            pixels=tuple((x, y, 10, 20, 30) for x in range(4) for y in range(4)),
+            physical_size=32,
+            physical_width=4,
+        )
+        stage_image_emoji("live.slug", lowres, hires)
+        commit_image_emoji()
+
+    async def test_valid_candidate_does_not_evict_live_slug(self, conf, tmp_path):
+        """Candidate is otherwise VALID (0 errors) — even so, validate is
+        diagnostic-only: its commit of the candidate's image slug must not
+        replace the live process's already-committed set."""
+        from led_ticker.pixel_emoji import is_emoji_slug
+
+        self._commit_live_slug()
+        _write_png(tmp_path / "assets" / "a2.png")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.a2"
+            path = "assets/a2.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :img.a2:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert result.errors == [], (
+            f"expected a valid candidate; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert is_emoji_slug("live.slug"), (
+            "the live process's committed slug must survive a validate "
+            "call regardless of whether the candidate is valid"
+        )
+        assert not is_emoji_slug("img.a2"), (
+            "a validated-but-not-adopted candidate's slug must not leak "
+            "into the live registry"
+        )
+
+    async def test_rejected_candidate_does_not_evict_live_slug(self, conf, tmp_path):
+        """Reviewer's exact repro: candidate declares img.a2 PLUS an
+        unrelated error (an unknown widget kwarg, rule 38) -> the reload is
+        rejected. Before the fix, rule 70's commit of img.a2 (and the
+        eviction of the live process's prior committed set) outlived the
+        call regardless of the rejection."""
+        from led_ticker.pixel_emoji import is_emoji_slug
+
+        self._commit_live_slug()
+        _write_png(tmp_path / "assets" / "a2.png")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.a2"
+            path = "assets/a2.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :img.a2:"
+            text_color = [255, 0, 0]
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid, (
+            "expected the unrelated (unknown-kwarg) error to reject this "
+            f"candidate; got errors={[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert is_emoji_slug("live.slug"), (
+            "the live registry's slug must not vanish just because a "
+            "rejected candidate was validated"
+        )
+        assert not is_emoji_slug("img.a2"), (
+            "the rejected candidate's slug must not persist in the live registry"
+        )

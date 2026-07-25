@@ -65,6 +65,90 @@ class StaticSource(DataSource):
         return self.value
 
 
+def load_image_sprites(path):
+    """Decode an image file into the two inline-sprite forms.
+
+    Returns ``(lowres, hires)``: an 8x8 ``PixelData`` and a 32-px-tall
+    ``HiResEmoji`` (width proportional, capped at 128 px; RGBA alpha >= 110
+    keeps a pixel — the Noto bake recipe). A GIF contributes frame 0 only
+    (Phase 1 is static; inline animation is the planned follow-up).
+    Raises on a missing/undecodable file — the CALLER decides posture
+    (build_source_registry skips + logs; validate errors loudly).
+
+    Memory cost: the full source frame is decoded to RGBA BEFORE the
+    downscale, so peak memory scales with the ORIGINAL image dimensions
+    (1x-2x of Pillow's MAX_IMAGE_PIXELS band for a very large source), not the
+    tiny sprite it becomes. The >512x512 validate warning (rule 70) is the
+    guard against pathologically large sources.
+    """
+    from PIL import Image  # noqa: PLC0415
+
+    from led_ticker.pixel_emoji import HiResEmoji  # noqa: PLC0415
+
+    # Phase-2 candidate: bounded decode (draft-mode / thumbnail-first load)
+    # to cap peak memory on oversized sources before the full RGBA convert.
+    img = Image.open(path)  # frame 0 of a multi-frame file by default
+    img = img.convert("RGBA")
+
+    def _bake(im, target_h, cap_w) -> list[tuple[int, int, int, int, int]]:
+        w = max(1, round(im.width * target_h / im.height))
+        if w > cap_w:
+            im2 = im.resize((cap_w, target_h), Image.Resampling.LANCZOS)
+        else:
+            im2 = im.resize((w, target_h), Image.Resampling.LANCZOS)
+        px = im2.load()
+        out: list[tuple[int, int, int, int, int]] = []
+        for y in range(im2.height):
+            for x in range(im2.width):
+                r, g, b, a = px[x, y]
+                if a >= 110:
+                    out.append((x, y, r, g, b))
+        return out
+
+    hires_pixels = _bake(img, 32, 128)
+    lowres = _bake(img, 8, 8)
+    lit_w = (max(p[0] for p in hires_pixels) + 1) if hires_pixels else 1
+    hires = HiResEmoji(
+        pixels=tuple(hires_pixels), physical_size=32, physical_width=lit_w
+    )
+    return lowres, hires
+
+
+@attrs.define(eq=False)
+class ImageSource(DataSource):
+    """Declaration-only source: registers a config-declared image as an
+    inline emoji slug (`:id:`). No polling, no monitor entry. `prepare()`
+    decodes + STAGES (pixel_emoji.stage_image_emoji); the boot/reload path
+    commits atomically alongside set_data_registry. `compute()` returns the
+    literal token as a defensive value — once the slug is committed,
+    `is_emoji_slug` excludes it from TokenizedField._candidate_ids and the
+    emoji parser owns the token outright."""
+
+    path: str = ""
+
+    def prepare(self) -> None:
+        from led_ticker.pixel_emoji import stage_image_emoji  # noqa: PLC0415
+
+        # An id that can't form a `:token:` (EMOJI_PATTERN's
+        # `[a-z_][a-z0-9_.]*` body) would commit a slug the emoji parser can
+        # never match — the token renders as literal text. validate errors on
+        # this (rule 70); the runtime just skips staging so it never commits
+        # an unusable slug. One WARNING, no raise (a bad id must not go dark).
+        if not re.fullmatch(r"[a-z_][a-z0-9_.]*", self.id):
+            logging.getLogger(__name__).warning(
+                "image source id %r can't form a :token: (needs lowercase "
+                "letters, digits, underscore, or dot; must start with a "
+                "letter or underscore) — skipping; the token will not render",
+                self.id,
+            )
+            return
+        lowres, hires = load_image_sprites(self.path)
+        stage_image_emoji(self.id, lowres, hires)
+
+    def compute(self) -> str:
+        return f":{self.id}:"
+
+
 @attrs.define(eq=False)
 class ClockSource(DataSource):
     fmt: str = "%H:%M"

@@ -22,6 +22,7 @@ Two resolutions are supported:
 """
 
 import functools
+import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -3069,6 +3070,80 @@ def _get_registry() -> dict[str, PixelData]:
             EMOJI_REGISTRY.setdefault(slug, data)
         _EMOJI_BUILTINS_LOADED = True
     return EMOJI_REGISTRY
+
+
+# Config-declared image emoji ([[source]] type = "image") — two-phase so the
+# registries commit atomically with set_data_registry: build STAGES, the
+# boot/reload path COMMITS on overall success or ABORTS on failure. A failed
+# reload therefore keeps BOTH the old sources and the old image slugs (never
+# a torn half-set). See docs/superpowers/specs/2026-07-25-inline-image-source-design.md §2.
+_PENDING_IMAGE_EMOJI: dict[str, tuple[PixelData, HiResEmoji]] = {}
+_CONFIG_IMAGE_SLUGS: set[str] = set()
+
+
+def stage_image_emoji(slug: str, lowres: PixelData, hires: HiResEmoji) -> None:
+    """Buffer a config-image slug; no global mutation until commit."""
+    _PENDING_IMAGE_EMOJI[slug] = (lowres, hires)
+
+
+def abort_image_emoji() -> None:
+    """Drop the pending set untouched (failed boot/reload build)."""
+    _PENDING_IMAGE_EMOJI.clear()
+
+
+def commit_image_emoji() -> None:
+    """Swap the pending image slugs in: remove the previously committed set,
+    insert the pending one. Refuses (skip + log) a slug already present from
+    a non-image origin — curated/pack/plugin always win."""
+    reg = _get_registry()  # materialize built-ins BEFORE collision checks
+    for slug in _CONFIG_IMAGE_SLUGS:
+        reg.pop(slug, None)
+        HIRES_REGISTRY.pop(slug, None)
+    _CONFIG_IMAGE_SLUGS.clear()
+    for slug, (lowres, hires) in _PENDING_IMAGE_EMOJI.items():
+        if slug in reg or slug in HIRES_REGISTRY or emoji_pack.has_slug(slug):
+            logging.getLogger(__name__).error(
+                "image source id %r collides with an existing emoji slug — "
+                "skipped (use a dotted id like 'cart.%s')",
+                slug,
+                slug,
+            )
+            continue
+        reg[slug] = lowres
+        HIRES_REGISTRY[slug] = hires
+        _CONFIG_IMAGE_SLUGS.add(slug)
+    _PENDING_IMAGE_EMOJI.clear()
+
+
+def suspend_image_emoji() -> dict[str, tuple[PixelData, HiResEmoji]]:
+    """Remove the currently committed config-image slugs from the live
+    registries and return them as a snapshot.
+
+    Static validation (``validate.validate_config``) calls this at entry so
+    ALL checks — rule 56's ``is_emoji_slug`` collision check included — run
+    against pristine curated/pack/plugin state plus only the CANDIDATE's own
+    staged commits. Without it, a live image slug looks like a pre-existing
+    emoji that the source's own ``id`` collides with, and every hot-reload of
+    an image config is rejected. Restore the returned dict with the tested
+    stage/commit machinery (``abort_image_emoji`` -> ``stage_image_emoji`` per
+    entry -> ``commit_image_emoji``); validate's ``finally`` does exactly that.
+    Returns an empty dict when nothing is committed.
+
+    LOAD-BEARING SERIALIZATION ASSUMPTION: while suspended, the live slugs
+    are ABSENT from the registries — a draw tick inside the window would
+    parse their tokens as literal text and shift scroll geometry. Safe today
+    because every display-process validate (boot preflight, reload preflight)
+    is awaited inline on the display task, never concurrent with a draw. If
+    validation is ever offloaded off the display task's critical path (the
+    parked reload-validate to_thread idea, issue #302), this suspension must
+    be redesigned first — do not offload validate while it suspends."""
+    reg = _get_registry()  # materialize built-ins so the pop targets are real
+    snapshot = {slug: (reg[slug], HIRES_REGISTRY[slug]) for slug in _CONFIG_IMAGE_SLUGS}
+    for slug in snapshot:
+        reg.pop(slug, None)
+        HIRES_REGISTRY.pop(slug, None)
+    _CONFIG_IMAGE_SLUGS.clear()
+    return snapshot
 
 
 def emoji_slugs() -> tuple[str, ...]:

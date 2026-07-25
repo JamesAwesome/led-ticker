@@ -3918,7 +3918,17 @@ async def validate_config(
     ``set_schedule_timezone`` are reachable only from ``_build_widget`` /
     ``app.run`` (the real engine build path), never from
     ``validate_widget_cfg`` or the sync brackets (pinned by
-    ``test_validate_never_binds_schedules``).
+    ``test_validate_never_binds_schedules``). One deliberate
+    NON-idempotent mutation exists: rule 70 commits the candidate's
+    image-source emoji slugs so the token/widget checks see them, and the
+    ``finally`` restores the entry-time committed set on every exit (the
+    live-process leak fix — see ``TestValidateDoesNotLeakImageSlugs``).
+    Two truly concurrent validates in ONE process could interleave that
+    snapshot→restore (accepted edge: the display process serializes its
+    validates — boot + inline reload preflight — and the webui runs in a
+    separate container where the worst case is a skewed rule-56
+    diagnostic on a later draft, self-correcting on the next
+    non-overlapping validate).
 
     Known tradeoff (Ctrl-C during a stuck prebuild): a worker-thread
     prebuild that hangs (e.g. a plugin import blocking on network) cannot

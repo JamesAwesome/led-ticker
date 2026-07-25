@@ -94,6 +94,14 @@ location = "New York, NY"
 interval = 900
 format = "{temp_f}°"
 
+# Your own image as an inline emoji: drop a PNG/GIF in config/assets/,
+# declare it here, then embed :cart.logo: in any text. Animated GIFs show
+# their first frame for now. Docs: https://docs.ledticker.dev/assets/emoji/
+# [[source]]
+# type = "image"
+# id = "cart.logo"
+# path = "assets/cart-logo.png"
+
 # ===========================================================================
 #  1 · THE BANNER — rainbow marquee bulging through a fisheye lens
 #      PM version (lunch through the 2am crowd; start > end wraps overnight)

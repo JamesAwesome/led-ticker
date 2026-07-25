@@ -159,7 +159,29 @@ def _image_source_fingerprint(
     require flushing the ENTIRE widget cache — widgets cache ``_has_emoji`` at
     construction and are otherwise only evicted when their OWN config
     changed, so an added/retargeted image source would never reach an
-    unchanged widget without this."""
+    unchanged widget without this.
+
+    ``mtime_ns`` is read LIVE at reload time (not stored from a prior config),
+    so for a source present in both configs at the SAME path, mtime is
+    identical on both sides — this fingerprint can never distinguish
+    "same id, same path, file content changed" from "nothing changed". That's
+    harmless: a content-only change doesn't need a flush at all — the image
+    is re-decoded and re-staged every reload via ``commit_image_emoji()``
+    regardless of this fingerprint, so the sprite itself always refreshes.
+    What this function exists to catch is add / remove / retarget (a
+    different id set, or the same id resolving to a different path), which
+    DO change what an unrelated widget's cached ``_has_emoji`` needs to see.
+    Known narrow edge (accepted limitation): both fingerprints are computed
+    LIVE, at the SAME instant, during the SAME reload — so if a source's
+    id/path is unchanged in old and new config but its file was missing
+    at boot and has since appeared on disk, both sides now stat the same
+    (found) mtime and the sets compare equal: no flush fires even though
+    the source now stages an emoji it couldn't before. ``commit_image_emoji``
+    still lands the newly-stageable slug into the global registry either
+    way (that part isn't gated by this fingerprint), but a widget whose OWN
+    config didn't change keeps its construction-time cached ``_has_emoji``
+    (still False) until some LATER reload actually changes the image-source
+    set and forces a flush — or until that widget's own config changes."""
     result: set[tuple[str, str, int]] = set()
     for source_cfg in sources:
         if getattr(source_cfg, "type", None) != "image":

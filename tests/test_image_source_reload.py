@@ -121,6 +121,88 @@ class TestReloadAtomicity:
         # nothing from the broken source was applied
         assert "img.b" not in pixel_emoji._get_registry()
 
+    async def test_failed_reload_does_not_leak_staged_slugs_into_next_reload(
+        self, tmp_path
+    ):
+        """The abort's real job isn't visible in the single-reload test above
+        (that failure path returns before commit either way regardless of
+        whether abort actually clears anything). Its load-bearing effect only
+        shows up across TWO reloads: reload #1 stages "img.a" then fails (a
+        broken sibling source raises) -> abort must drop the staged "img.a".
+        Reload #2 succeeds with a config that does NOT declare "img.a" at
+        all. Without the abort, the leaked `_PENDING_IMAGE_EMOJI["img.a"]`
+        entry would still be sitting there and reload #2's `commit_image_emoji`
+        would resurrect it even though nothing in reload #2's config asked
+        for it."""
+        # config #0 ("a"): no image sources — registry starts empty.
+        a = load_config(_write(tmp_path / "a.toml", _DISPLAY + _SECTION))
+        old_reg = build_source_registry(a.sources, session=None, config_dir=tmp_path)
+        set_data_registry(old_reg)
+        assert "img.a" not in pixel_emoji._get_registry()
+
+        # reload #1 ("b"): stages a brand-new "img.a" + a broken sibling
+        # source (missing file) -> the registry rebuild raises, so the
+        # reload fails and abort_image_emoji() must drop the staged "img.a".
+        _png(tmp_path, "a.png", (255, 0, 0, 255))
+        b = load_config(
+            _write(
+                tmp_path / "b.toml",
+                _DISPLAY
+                + '[[source]]\nid = "img.a"\ntype = "image"\npath = "a.png"\n\n'
+                + '[[source]]\nid = "img.broken"\ntype = "image"\n'
+                + 'path = "missing.png"\n\n'
+                + _SECTION,
+            )
+        )
+
+        await rl._apply_reload(
+            b,
+            old_config=a,
+            widget_cache={},
+            widget_tasks={},
+            render_breaker=RenderBreaker(),
+            schedule_task=None,
+            respawn_schedule=_fake_respawn,
+            source_refresh_task=None,
+            config_dir=tmp_path,
+        )
+
+        # reload #1 failed: old registry kept, "img.a" never committed.
+        assert get_data_registry() is old_reg
+        assert "img.a" not in pixel_emoji._get_registry()
+
+        # reload #2 ("c"): succeeds; its config does NOT mention "img.a" at
+        # all. old_config is still "a" — the caller never swapped config on
+        # reload #1's failure.
+        _png(tmp_path, "c.png", (0, 255, 0, 255))
+        c = load_config(
+            _write(
+                tmp_path / "c.toml",
+                _DISPLAY
+                + '[[source]]\nid = "img.c"\ntype = "image"\npath = "c.png"\n\n'
+                + _SECTION,
+            )
+        )
+
+        await rl._apply_reload(
+            c,
+            old_config=a,
+            widget_cache={},
+            widget_tasks={},
+            render_breaker=RenderBreaker(),
+            schedule_task=None,
+            respawn_schedule=_fake_respawn,
+            source_refresh_task=None,
+            config_dir=tmp_path,
+        )
+
+        assert "img.c" in pixel_emoji._get_registry()
+        # The slug staged only by the FAILED reload #1 must not have been
+        # resurrected by reload #2's commit.
+        assert "img.a" not in pixel_emoji._get_registry()
+        assert "img.a" not in pixel_emoji.HIRES_REGISTRY
+        assert "img.a" not in pixel_emoji._CONFIG_IMAGE_SLUGS
+
     async def test_successful_reload_swaps_slug_set(self, tmp_path):
         _png(tmp_path, "a.png", (255, 0, 0, 255))
         a = load_config(

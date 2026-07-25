@@ -4873,13 +4873,22 @@ class TestImageSourceValidate:
         )
 
     async def test_valid_image_config_is_clean_and_token_not_unknown(
-        self, conf, tmp_path
+        self, conf, tmp_path, monkeypatch
     ):
         """A fully-valid image source referenced by a widget -> 0 errors, AND
         the ordering invariant holds: images register through the same
-        decode path BEFORE token/widget checks, so by the time
-        validate_config returns, the id is a recognized emoji slug (not
-        "unknown") — proven directly via is_emoji_slug, not inferred."""
+        decode path BEFORE token/widget checks, so WHILE Phase 1c's
+        widget-build checks run (validate_widget_cfg, spied on below), the
+        id is a recognized emoji slug (not "unknown") — proven directly via
+        is_emoji_slug, not inferred.
+
+        validate_config is diagnostic-only (Task-4 review Critical): its
+        image-emoji commit must NOT outlive the call in a long-running
+        process (hot-reload preflight, webui), so — unlike the ordering
+        invariant this test used to assert — the slug must NOT still be a
+        recognized emoji once validate_config has returned.
+        """
+        from led_ticker.app import factories
         from led_ticker.pixel_emoji import is_emoji_slug
 
         _write_png(tmp_path / "assets" / "clean_logo.png")
@@ -4895,12 +4904,152 @@ class TestImageSourceValidate:
             type = "message"
             text = "OPEN LATE :cart.logo:"
             """)
+
+        seen_during_build: list[bool] = []
+        real_validate_widget_cfg = factories.validate_widget_cfg
+
+        async def _spy(*args, **kwargs):
+            seen_during_build.append(is_emoji_slug("cart.logo"))
+            return await real_validate_widget_cfg(*args, **kwargs)
+
+        monkeypatch.setattr(factories, "validate_widget_cfg", _spy)
+
         result = await validate_config(conf(cfg))
         assert result.errors == [], (
             f"expected 0 errors for a valid image config; got errors="
             f"{[(e.rule, e.message) for e in result.errors]}"
         )
-        assert is_emoji_slug("cart.logo"), (
-            "image slug should be committed (recognized) by the time "
-            "validate_config returns — the load-bearing ordering invariant"
+        assert seen_during_build and all(seen_during_build), (
+            "cart.logo must be a recognized emoji slug DURING Phase 1c's "
+            f"widget-build checks — saw {seen_during_build}"
+        )
+        assert not is_emoji_slug("cart.logo"), (
+            "cart.logo must NOT remain a recognized emoji slug after "
+            "validate_config returns — its commit is diagnostic-only and "
+            "must not outlive the call (Task-4 review Critical)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Task-4 review Critical: validate_config's rule-70 stage/commit must not
+# leak into the live, process-global pixel_emoji registries. validate_config
+# is invoked as the hot-reload PREFLIGHT inside the live display process
+# (reload.load_and_validate -> validate_config), so validating a REJECTED
+# (or simply not-yet-adopted) candidate config must not permanently swap the
+# live process's committed image-emoji set: the running config's slugs must
+# survive, and the candidate's slugs must never leak in. Same root cause
+# affects webui draft validations (lower severity — separate process — but
+# the same fix closes it too).
+# ---------------------------------------------------------------------------
+class TestValidateDoesNotLeakImageSlugs:
+    """Reviewer's exact repro, turned into a pin: validate a candidate with
+    image source img.a2 (a live process already has img-equivalent slug
+    "live.slug" committed from its running config) -> after validate_config
+    returns, "live.slug" must still be committed and "img.a2" must not be."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_image_emoji_registration(self):
+        from led_ticker import pixel_emoji
+
+        def _wipe() -> None:
+            pixel_emoji.abort_image_emoji()
+            for slug in list(pixel_emoji._CONFIG_IMAGE_SLUGS):
+                pixel_emoji.EMOJI_REGISTRY.pop(slug, None)
+                pixel_emoji.HIRES_REGISTRY.pop(slug, None)
+            pixel_emoji._CONFIG_IMAGE_SLUGS.clear()
+            pixel_emoji.EMOJI_REGISTRY.pop("live.slug", None)
+            pixel_emoji.HIRES_REGISTRY.pop("live.slug", None)
+
+        _wipe()
+        yield
+        _wipe()
+
+    @staticmethod
+    def _commit_live_slug() -> None:
+        """Simulate the live display process's already-committed image
+        source (analogous to the reviewer's `img.a`) via the exact same
+        stage/commit calls rule 70 itself uses."""
+        from led_ticker.pixel_emoji import (
+            HiResEmoji,
+            commit_image_emoji,
+            stage_image_emoji,
+        )
+
+        lowres = [(0, 0, 0, 255, 0)]
+        hires = HiResEmoji(
+            pixels=tuple((x, y, 10, 20, 30) for x in range(4) for y in range(4)),
+            physical_size=32,
+            physical_width=4,
+        )
+        stage_image_emoji("live.slug", lowres, hires)
+        commit_image_emoji()
+
+    async def test_valid_candidate_does_not_evict_live_slug(self, conf, tmp_path):
+        """Candidate is otherwise VALID (0 errors) — even so, validate is
+        diagnostic-only: its commit of the candidate's image slug must not
+        replace the live process's already-committed set."""
+        from led_ticker.pixel_emoji import is_emoji_slug
+
+        self._commit_live_slug()
+        _write_png(tmp_path / "assets" / "a2.png")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.a2"
+            path = "assets/a2.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :img.a2:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert result.errors == [], (
+            f"expected a valid candidate; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert is_emoji_slug("live.slug"), (
+            "the live process's committed slug must survive a validate "
+            "call regardless of whether the candidate is valid"
+        )
+        assert not is_emoji_slug("img.a2"), (
+            "a validated-but-not-adopted candidate's slug must not leak "
+            "into the live registry"
+        )
+
+    async def test_rejected_candidate_does_not_evict_live_slug(self, conf, tmp_path):
+        """Reviewer's exact repro: candidate declares img.a2 PLUS an
+        unrelated error (an unknown widget kwarg, rule 38) -> the reload is
+        rejected. Before the fix, rule 70's commit of img.a2 (and the
+        eviction of the live process's prior committed set) outlived the
+        call regardless of the rejection."""
+        from led_ticker.pixel_emoji import is_emoji_slug
+
+        self._commit_live_slug()
+        _write_png(tmp_path / "assets" / "a2.png")
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.a2"
+            path = "assets/a2.png"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :img.a2:"
+            text_color = [255, 0, 0]
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid, (
+            "expected the unrelated (unknown-kwarg) error to reject this "
+            f"candidate; got errors={[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert is_emoji_slug("live.slug"), (
+            "the live registry's slug must not vanish just because a "
+            "rejected candidate was validated"
+        )
+        assert not is_emoji_slug("img.a2"), (
+            "the rejected candidate's slug must not persist in the live registry"
         )

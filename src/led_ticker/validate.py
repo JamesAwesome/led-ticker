@@ -3931,23 +3931,52 @@ async def validate_config(
     control) or killing threads outright (unsafe in CPython). Accept the
     delayed exit.
     """
-    pre = await asyncio.to_thread(
-        _validate_static_prebuild, path, strict=strict, config_dir=config_dir
-    )
-    if pre.early_result is not None:
-        return pre.early_result
-    assert pre.config is not None
-    build_errors, build_warnings, migration_errors = await _run_build_checks(
-        pre.config.sections, pre.effective_config_dir
-    )
-    return await asyncio.to_thread(
-        _validate_static_postbuild,
-        pre,
-        build_errors,
-        build_warnings,
-        migration_errors,
-        strict=strict,
-    )
+    # validate is diagnostic — its image-emoji commits (rule 70,
+    # _check_image_sources, invoked inside the prebuild bracket below) must
+    # not outlive THIS call in a long-running process (hot-reload preflight
+    # inside the live display process; webui draft validation). Without this,
+    # validating a REJECTED (or simply not-adopted) candidate config
+    # permanently swaps the live process's committed image-slug set: the
+    # running config's slugs vanish and the candidate's persist. See the
+    # Task-4 review Critical. Snapshot the currently-committed set BEFORE
+    # the prebuild bracket runs, then restore it in `finally` regardless of
+    # how validation concludes (early return, success, exception) — reusing
+    # the same tested stage/commit machinery so the restore is atomic.
+    from led_ticker import pixel_emoji  # noqa: PLC0415
+
+    snapshot = {
+        slug: (pixel_emoji._get_registry()[slug], pixel_emoji.HIRES_REGISTRY[slug])
+        for slug in pixel_emoji._CONFIG_IMAGE_SLUGS
+    }
+    try:
+        pre = await asyncio.to_thread(
+            _validate_static_prebuild, path, strict=strict, config_dir=config_dir
+        )
+        if pre.early_result is not None:
+            return pre.early_result
+        assert pre.config is not None
+        build_errors, build_warnings, migration_errors = await _run_build_checks(
+            pre.config.sections, pre.effective_config_dir
+        )
+        return await asyncio.to_thread(
+            _validate_static_postbuild,
+            pre,
+            build_errors,
+            build_warnings,
+            migration_errors,
+            strict=strict,
+        )
+    finally:
+        # Undo whatever this call committed (abort drops any half-staged
+        # leftovers), then re-stage + re-commit the exact snapshot. Commit's
+        # swap semantics (remove previously committed, insert pending) mean
+        # this atomically restores the prior set even when the snapshot is
+        # empty (correctly clearing this call's commits with nothing to
+        # replace them).
+        pixel_emoji.abort_image_emoji()
+        for slug, (lowres, hires) in snapshot.items():
+            pixel_emoji.stage_image_emoji(slug, lowres, hires)
+        pixel_emoji.commit_image_emoji()
 
 
 async def validate_config_text(

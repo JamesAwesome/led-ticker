@@ -419,6 +419,7 @@ font_color = "random"
 type = "baseball.promotions"
 team = "PHI"
 timezone = "America/New_York"
+layout = "card"  # hires held card; auto picks the lores BDF crawl on a wide sign
 
 # --- Pool Temps ---
 # Requires INFLUXDB_TOKEN (and URL/ORG/BUCKET) in .env.

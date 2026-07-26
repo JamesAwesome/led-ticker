@@ -1,8 +1,10 @@
 # Inline image animation (Phase 2) — animated GIFs as live inline emoji
 
-**Date:** 2026-07-25
-**Status:** approved (brainstorm with James; architecture choice: registry
-frame-swapping)
+**Date:** 2026-07-25 (rev 2 after antagonistic ENG review; rev 1 in git
+history)
+**Status:** approved (brainstorm with James; architecture: registry
+frame-swapping; rev-2 findings adjudicated with James — animation is
+HIRES-ONLY, smallsign stays static)
 **Relation:** Phase 2 of the inline image source
 (`2026-07-25-inline-image-source-design.md`, shipped static in core
 v4.28.0). That spec's §9 recorded this phase's hard requirements; this
@@ -24,8 +26,15 @@ geometries.
   widget, is in phase; sprites keep animating through transitions
   (wall-clock is deliberately decoupled from the `pause_frame`
   frame-counter machinery).
-- **Smallsign animates too** (8×8 forms per frame) and is in the visual
-  gate.
+- **Animation is HIRES-ONLY (rev 2).** The lowres path computes a
+  sprite's advance INTRINSICALLY from its pixels (`_emoji_width` =
+  max lit x + 1) — there is no width field to normalize, so per-frame
+  lowres advances would wobble and jitter the surrounding text (proven
+  against the real decode in review). Rather than build a new per-slug
+  lowres-advance seam into the ~4 lowres measure/draw sites (exactly the
+  consumption-site surgery this architecture exists to avoid), smallsign
+  keeps Phase 1's static frame 0; a validate note says so. Smallsign
+  animation is a possible Phase 3 behind that seam if ever wanted.
 
 ## Architecture — registry frame-swapping (Approach A)
 
@@ -37,30 +46,42 @@ concern:
 ### 1. Decode: layout-invariant frame sets
 
 `load_image_sprites` grows an animated path: for a multi-frame file it
-decodes EVERY frame (up to the caps, §4) and bakes per-frame lowres+hires
-sprites **normalized to identical layout geometry** — the hires
-`physical_width` is computed once from the UNION of all frames' lit
-bboxes and applied to every frame; all frames share `physical_size=32`.
-Any frame therefore measures exactly like any other, so the pure
-`measure_width` and a draw at any instant agree BY CONSTRUCTION (the F6
-parity requirement) — pinned by a parity tripwire test. Durations come
-from the GIF (`frame.info["duration"]`, min-clamped to 20 ms; a missing
-duration defaults to 100 ms, Pillow convention).
+decodes EVERY frame (up to the caps, §4) and bakes per-frame HIRES
+sprites **normalized to identical layout geometry**. The exact formula
+(rev 2, from review): `physical_width = max over frames of
+(max_x_f + 1)` — the union EXTENT, not the max bbox width — applied
+unchanged to every frame, and pixels are NOT origin-shifted (image
+sprites bypass `_auto_trim_hires`; a frame's content keeps its natural
+inset). A tripwire asserts no frame's rightmost lit pixel exceeds the
+applied `physical_width` (getting extent vs width wrong silently clips
+wide frames). All frames share `physical_size=32`. Any frame therefore
+measures exactly like any other on the hires path — the F6 parity
+requirement — pinned by a parity test. The LOWRES form is baked from
+frame 0 only (smallsign is static, see Decisions). Durations come from
+the GIF (`frame.info["duration"]`, min-clamped to 20 ms; a missing
+duration defaults to 100 ms, Pillow convention; the clamp slightly
+stretches pathological <20 ms GIFs — documented, accepted).
 
 The decode returns the existing `(lowres, hires)` pair for frame 0 PLUS an
-optional animation record: `frames: tuple[(lowres_i, hires_i), ...]`,
-`durations_ms`, `total_ms`.
+optional animation record: `hires_frames: tuple[HiResEmoji, ...]`,
+`durations_ms`, `total_ms`, and a precomputed CUMULATIVE duration array
+for O(log frames) frame lookup.
 
 ### 2. Registration: an animation table beside the registries
 
 `pixel_emoji` gains a private per-slug table
-`_IMAGE_ANIMATIONS: dict[slug, _ImageAnimation]` (frames, durations,
-total, last-committed frame index), staged/committed/aborted/suspended by
-the SAME two-phase machinery as Phase 1 (`stage_image_emoji` grows an
-optional `animation=` argument; `commit/abort/suspend_image_emoji` carry
-the table with the slug set — one lifecycle, no second protocol). The
-registries hold the CURRENT frame's static sprites; the table is the
-source the ticker swaps from.
+`_IMAGE_ANIMATIONS: dict[slug, _ImageAnimation]` (hires frames,
+cumulative durations, total, last-committed frame index),
+staged/committed/aborted/suspended by the SAME two-phase machinery as
+Phase 1 (`stage_image_emoji` grows an optional `animation=` argument;
+`commit/abort/suspend_image_emoji` carry the table with the slug set —
+one lifecycle, no second protocol). **Commit REBUILDS the table from the
+pending set exactly** (rev 2): it first clears every `_CONFIG_IMAGE_SLUGS`
+entry from the table, then inserts only the pending animation records —
+so an animated→static reload (same id, GIF swapped for a PNG) cannot
+leave a dead table entry re-animating stale frames over the new static
+sprite (tripwire test). The registries hold the CURRENT frame's static
+sprites; the table is the source the ticker swaps from.
 
 ### 3. The tick: one call at the swap chokepoint
 
@@ -68,14 +89,18 @@ source the ticker swaps from.
 `LedFrame.swap()` (frame.py) inside a `try/except` that logs at most once
 (the overlay-invariant posture: nothing in swap may raise). Semantics:
 
-- `elapsed = (monotonic() - _ANIM_EPOCH) % total_ms` per slug → frame
-  index via the duration walk (the `GifPlayer._pick_frame_for_elapsed`
-  algorithm).
+- `now_ms = monotonic() * 1000` hoisted ONCE per tick; per slug,
+  `elapsed = (now_ms - _ANIM_EPOCH_MS) % total_ms` → frame index via
+  `bisect` on the precomputed cumulative-duration array — O(log frames)
+  per slug, so the tick is O(slugs · log frames) per swap (rev 2: rev 1
+  claimed O(slugs) with a linear walk, which was wrong twice — corrected
+  and improved). The index lookup runs on every swap for a non-empty
+  table (that IS the work of discovering nothing changed); only the dict
+  write is conditional. Empty table = one len check.
 - ONLY when the index differs from the last-committed one: write that
-  frame's lowres into `EMOJI_REGISTRY[slug]` and hires into
-  `HIRES_REGISTRY[slug]`. Dict writes on the render task (single-task
-  asyncio) — no races, O(animated slugs) per swap, zero work when nothing
-  changed or the table is empty.
+  frame's HiResEmoji into `HIRES_REGISTRY[slug]` (hires-only —
+  `EMOJI_REGISTRY` keeps frame 0's lowres permanently). Dict writes on
+  the render task (single-task asyncio) — no races.
 
 Because EVERY pixel that reaches the panel passes through `swap()` (the
 documented "single centralized swap point" — engine ticks, play-widgets,
@@ -118,7 +143,17 @@ evaluation keep it correct across config changes.
   LOAD-BEARING SERIALIZATION INVARIANT (validate inline on the display
   task, never concurrent with a draw) already pinned in Phase 1 covers the
   table's absence during the window. Rule 70's first-frame WARNING is
-  REMOVED (animation is now real); its frame caps (§4) take its place.
+  RESCOPED: gone for scaled sections (animation is real there), retained
+  for scale-1 sections ("animates on scaled displays; smallsign shows the
+  first frame"). The frame caps (§6) are enforced at validate AND in
+  `load_image_sprites` itself (rev 2) — validate alone cannot stop the
+  boot/reload build path from decoding an over-cap file; on an over-cap
+  file the build path decodes NOTHING beyond the probe, skips the source
+  with a log (never darks; its token renders as literal text, matching
+  the Phase-1 bad-file posture). Note: enforcing caps means validate
+  decodes every frame of every animated source — a transient
+  ~24 MB-per-max-sprite spike inside the suspend window; accepted at the
+  §6 caps.
 - **Stickers/capture:** registry values are always static, so
   `capture_sprite` keeps working untouched — it captures whichever frame
   is current at plan time (documented; strictly better than a frozen
@@ -127,12 +162,23 @@ evaluation keep it correct across config changes.
 ### 6. Caps (§9's frames×area budget, concretized)
 
 - frames > 24 → validate WARNING (memory note).
-- frames > 60 → validate ERROR + build-time skip-with-log (never darks).
-  Worst case at the cap: 60 frames × 32×128 all-opaque ≈ 20 MB of pixel
-  tuples for one sprite — bounded on a Pi; the >512×512 source-area
-  warning from Phase 1 still applies.
-- Total animated-slug budget: no additional cap in this phase (source
-  count is small in practice); revisit if real configs prove otherwise.
+- frames > 60 → validate ERROR **and** `load_image_sprites` build-time
+  refusal (skip-with-log, never darks) — both enforcement points (rev 2).
+  Worst case at the cap: measured ~88 B per hires pixel tuple → an
+  all-opaque 32×128 frame ≈ 384 KB → 60 frames ≈ **~23 MB per slug**
+  (rev 2: rev 1 said 20 — corrected from a real measurement); the
+  >512×512 source-area warning from Phase 1 still applies.
+- Aggregate: validate WARNS when the summed decoded-frame estimate across
+  all animated sources exceeds ~64 MB (three max-cap slugs) — a nudge,
+  not a hard cap; revisit if real configs prove otherwise.
+- Known cache interaction (documented, accepted): `_downsample_hires` is
+  an unbounded `functools.cache` keyed on the HiResEmoji object — an
+  animated slug rendered through a downscaling lens caches one entry per
+  frame, and reload replaces frame objects, so repeated reloads of
+  lens-downscaled animated slugs grow that cache. Pre-existing class
+  (static image slugs already leak one entry per reload); animation
+  multiplies it by frame count. Mitigation deferred: bound or key that
+  cache in a follow-up if lens+animated usage materializes.
 
 ## Testing
 
@@ -150,14 +196,23 @@ evaluation keep it correct across config changes.
 - Lifecycle: reload atomicity + suspend/restore now carry the table
   (extend the Phase-1 tests); rule 70 cap tests; first-frame warning
   removed.
-- **Visual gate (James): bigsign AND smallsign** — the animated GIF
-  visibly cycling in held and scrolling text on both geometries (two
-  time-separated contact-sheet rows proving different frames), static PNG
-  unaffected.
+- Union-extent tripwire: no frame's rightmost lit pixel exceeds the
+  applied `physical_width` (synthetic GIF with right-shifted content).
+- Animated→static reload tripwire: table entry purged; the new static
+  sprite never gets stale frames swapped over it.
+- Build-path cap: an over-cap GIF is refused by `load_image_sprites`
+  (skip posture), independent of validate.
+- **Visual gate (James): bigsign animated, smallsign static-confirmed** —
+  bigsign shows the GIF visibly cycling in held and scrolling text (two
+  time-separated contact-sheet rows proving different frames); smallsign
+  shows the stable frame-0 8×8 with NO jitter in surrounding text; static
+  PNG unaffected on both.
 
 ## Non-goals
 
-- No `AnimatedSprite` registry type (that was §9's assumption; Approach A
+- No smallsign/lowres animation (rev 2 — needs a per-slug lowres-advance
+  seam in the lowres measure/draw sites; possible Phase 3). No
+  `AnimatedSprite` registry type (that was §9's assumption; Approach A
   supersedes it). No per-widget phase offsets or play-once modes (loop
   forever, shared epoch). No animated PLUGIN emoji API (`api.emoji` is
   untouched; the table is config-image-only this phase). No webp/apng

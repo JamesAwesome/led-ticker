@@ -4215,3 +4215,103 @@ class TestImageColoredTokensTwoRow:
         colors = set(self._lit(c).values())
         assert tok in colors, "token '99' should render red on the fast-path field"
         assert host in colors
+
+
+class TestImageAnimationFastPathExclusion:
+    """Phase 2 inline-image animation: an animated `:slug:` in the
+    overlay text must bypass BOTH paint-once fast paths (single-row
+    and two-row). Same freeze class as test_gif.py's
+    `test_gif_static_text_does_not_freeze_animation` — there a
+    multi-frame gif source forced the per-tick loop via `_is_static()`;
+    here a STATIC image source with an ANIMATED inline-image emoji
+    token must force it via `has_animated_emoji()`, because the
+    sprite's frames advance on the wall clock (via the
+    `pixel_emoji.tick_image_animations()` tick wired into
+    `LedFrame.swap()`) rather than via any per-tick widget state the
+    fast path would otherwise preserve correctly."""
+
+    @pytest.fixture
+    def _animated_slug(self):
+        from led_ticker import pixel_emoji
+
+        slug = "anim.fp"
+        frame0 = pixel_emoji.HiResEmoji(
+            pixels=tuple((x, y, 200, 0, 0) for x in range(4) for y in range(4)),
+            physical_size=32,
+            physical_width=4,
+        )
+        frame1 = pixel_emoji.HiResEmoji(
+            pixels=tuple((x, y, 0, 0, 200) for x in range(4) for y in range(4)),
+            physical_size=32,
+            physical_width=4,
+        )
+        anim = pixel_emoji._ImageAnimation(
+            hires_frames=(frame0, frame1),
+            cumulative_ms=(100, 200),
+            total_ms=200,
+        )
+        pixel_emoji.stage_image_emoji(slug, [(0, 0, 255, 0, 0)], frame0, animation=anim)
+        pixel_emoji.commit_image_emoji()
+        try:
+            yield slug
+        finally:
+            pixel_emoji.abort_image_emoji()
+            pixel_emoji._IMAGE_ANIMATIONS.pop(slug, None)
+            pixel_emoji._ANIM_LAST_INDEX.pop(slug, None)
+            pixel_emoji._CONFIG_IMAGE_SLUGS.discard(slug)
+            pixel_emoji.EMOJI_REGISTRY.pop(slug, None)
+            pixel_emoji.HIRES_REGISTRY.pop(slug, None)
+
+    async def test_still_image_with_animated_slug_not_frozen(
+        self, _animated_slug, swapping_frame
+    ):
+        """Single-row gate (~line 1725): a StillImage-shaped widget
+        whose overlay `text` contains an animated image slug must NOT
+        take the paint-once fast path. Fast path: `_frame_count` stays
+        0 (one paint, no tick loop). Slow path: `_frame_count` reaches
+        `n_ticks` — proof the per-tick loop actually ran so the sprite
+        can advance."""
+        from rgbmatrix import _StubCanvas
+
+        w = _DummyImage(text=f":{_animated_slug}:", text_align="left")
+        w._logical_scale = 1
+
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
+
+        await w._play_with_text(real, swapping_frame, n_ticks=3)
+
+        assert w._frame_count == 3, (
+            f"animated image slug ':{_animated_slug}:' must force the "
+            f"per-tick loop; got _frame_count={w._frame_count} (==0 means "
+            f"the fast path ran, freezing the sprite on its first frame)"
+        )
+
+    async def test_two_row_image_with_animated_slug_not_frozen(
+        self, _animated_slug, swapping_frame
+    ):
+        """Two-row gate (~line 2040): an animated image slug in EITHER
+        `top_text` or `bottom_text` must NOT take the paint-once fast
+        path. Mirrors the single-row test above via the same
+        `_frame_count` slow-path proxy."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.fonts import FONT_SMALL
+
+        w = _DummyImage(
+            top_text="hi",
+            bottom_text=f":{_animated_slug}:",
+            font=FONT_SMALL,
+        )
+        w._logical_scale = 1
+
+        real = _StubCanvas(width=160, height=16)
+        swapping_frame.swap.return_value = _StubCanvas(width=160, height=16)
+
+        await w._play_with_two_row_text(real, swapping_frame, n_ticks=3)
+
+        assert w._frame_count == 3, (
+            f"animated image slug ':{_animated_slug}:' in bottom_text must "
+            f"force the two-row per-tick loop; got "
+            f"_frame_count={w._frame_count} (==0 means the fast path ran)"
+        )

@@ -3,6 +3,8 @@
 import pytest
 
 from led_ticker import pixel_emoji
+from led_ticker.backends.headless import HeadlessBackend
+from led_ticker.frame import LedFrame
 from led_ticker.pixel_emoji import (
     HiResEmoji,
     _ImageAnimation,
@@ -139,3 +141,49 @@ class TestHasAnimatedEmoji:
         assert has_animated_emoji("x :me.p: y")
         assert not has_animated_emoji("x :me.s: y")
         assert not has_animated_emoji("no tokens here")
+
+
+def _swap_frame():
+    """Setup-ready LedFrame with a HeadlessBackend (tests/test_frame.py's
+    `_frame` idiom, duplicated here so this file has no test-module
+    cross-import)."""
+    backend = HeadlessBackend(160, 16)
+    frame = LedFrame(backend=backend)
+    frame.setup()
+    return frame
+
+
+class TestSwapTick:
+    def test_swap_advances_a_due_animation(self, monkeypatch):
+        anim = _anim(2, 100)  # frames at [0,100) and [100,200)
+        stage_image_emoji("me.p", _LOW, anim.hires_frames[0], animation=anim)
+        commit_image_emoji()
+        t = {"now": pixel_emoji._ANIM_EPOCH_MS + 50}  # inside frame 0
+        monkeypatch.setattr(pixel_emoji, "_now_ms", lambda: t["now"])
+
+        frame = _swap_frame()
+        canvas = frame.get_clean_canvas()
+        canvas = frame.swap(canvas)
+        assert pixel_emoji.HIRES_REGISTRY["me.p"] is anim.hires_frames[0]
+
+        t["now"] += 100  # into frame 1
+        canvas = frame.get_clean_canvas()
+        frame.swap(canvas)
+        assert pixel_emoji.HIRES_REGISTRY["me.p"] is anim.hires_frames[1]
+
+    def test_raising_tick_never_blocks_swap(self, monkeypatch):
+        # A committed animation is required — tick_image_animations()
+        # no-ops (never calls _now_ms) when the table is empty.
+        anim = _anim()
+        stage_image_emoji("me.p", _LOW, anim.hires_frames[0], animation=anim)
+        commit_image_emoji()
+
+        def _boom():
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(pixel_emoji, "_now_ms", _boom)
+
+        frame = _swap_frame()
+        canvas = frame.get_clean_canvas()
+        swapped = frame.swap(canvas)  # must not raise
+        assert swapped is not canvas  # backend.swap ran (headless: new object)

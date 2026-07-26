@@ -4019,8 +4019,8 @@ async def validate_config(
         # empty (correctly clearing this call's commits with nothing to
         # replace them).
         pixel_emoji.abort_image_emoji()
-        for slug, (lowres, hires) in snapshot.items():
-            pixel_emoji.stage_image_emoji(slug, lowres, hires)
+        for slug, (lowres, hires, animation) in snapshot.items():
+            pixel_emoji.stage_image_emoji(slug, lowres, hires, animation=animation)
         pixel_emoji.commit_image_emoji()
 
 

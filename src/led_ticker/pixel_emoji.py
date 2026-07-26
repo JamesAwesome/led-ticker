@@ -21,9 +21,11 @@ Two resolutions are supported:
    version if no `ScaledCanvas` is in use.
 """
 
+import bisect
 import functools
 import logging
 import re
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -3081,25 +3083,130 @@ _PENDING_IMAGE_EMOJI: dict[str, tuple[PixelData, HiResEmoji]] = {}
 _CONFIG_IMAGE_SLUGS: set[str] = set()
 
 
-def stage_image_emoji(slug: str, lowres: PixelData, hires: HiResEmoji) -> None:
-    """Buffer a config-image slug; no global mutation until commit."""
+# Phase 2: per-slug animation (hires-only, wall-clock frame swap). The
+# animation table only ever holds config-image slugs, so its lifecycle is
+# threaded through the SAME stage/commit/abort/suspend machinery above rather
+# than a parallel one. See docs/superpowers/specs — animation design rev 2.
+@dataclass(frozen=True)
+class _ImageAnimation:
+    """Per-slug animation record: layout-normalized hires frames + timing.
+
+    `cumulative_ms` is strictly increasing; its last element == `total_ms`.
+    Frames all share one `physical_width` (union extent — spec rev 2), so
+    any frame measures identically: the F6 parity requirement holds by
+    construction on the hires path. Lowres is NOT animated (smallsign shows
+    frame 0; its advance is intrinsic to the pixels and would wobble)."""
+
+    hires_frames: tuple[HiResEmoji, ...]
+    cumulative_ms: tuple[int, ...]
+    total_ms: int
+
+
+_IMAGE_ANIMATIONS: dict[str, _ImageAnimation] = {}
+_PENDING_IMAGE_ANIMATIONS: dict[str, _ImageAnimation] = {}
+_ANIM_LAST_INDEX: dict[str, int] = {}
+_ANIM_EPOCH_MS: float = time.monotonic() * 1000  # shared phase for all slugs
+_ANIM_TICK_ERROR_LOGGED = False
+
+
+def _now_ms() -> float:
+    """Monkeypatch seam for the tick tests."""
+    return time.monotonic() * 1000
+
+
+def frame_index_for(anim: _ImageAnimation, elapsed_ms: float) -> int:
+    """Pure: current frame index for an elapsed position in [0, total_ms)."""
+    return min(
+        bisect.bisect_right(anim.cumulative_ms, elapsed_ms),
+        len(anim.hires_frames) - 1,
+    )
+
+
+def has_animated_emoji(text: str) -> bool:
+    """True when any `:slug:` token in `text` is an ANIMATED image slug.
+
+    Feeds the image-overlay fast-path gates: a paint-once path would freeze
+    the sprite (the gif static-text freeze class), so animated slugs force
+    the per-tick slow path. Static image slugs and everything else are
+    unaffected."""
+    if not _IMAGE_ANIMATIONS:
+        return False
+    return any(
+        m.group(0)[1:-1] in _IMAGE_ANIMATIONS for m in EMOJI_PATTERN.finditer(text)
+    )
+
+
+def tick_image_animations() -> None:
+    """Advance animated image slugs to their wall-clock frame.
+
+    Called at the top of `LedFrame.swap()` — the single centralized swap
+    point — so frames advance on every path that reaches the panel (engine
+    ticks, play-widgets, transitions, idle keepalive). O(slugs · log frames)
+    per call; writes `HIRES_REGISTRY` ONLY when a slug's index changed
+    (hires-only: `EMOJI_REGISTRY` keeps frame 0's lowres — smallsign is
+    static by design, spec rev 2). MUST NOT raise into swap: any error is
+    swallowed and logged once."""
+    global _ANIM_TICK_ERROR_LOGGED  # noqa: PLW0603
+    if not _IMAGE_ANIMATIONS:
+        return
+    try:
+        now = _now_ms()
+        for slug, anim in _IMAGE_ANIMATIONS.items():
+            elapsed = (now - _ANIM_EPOCH_MS) % anim.total_ms
+            idx = frame_index_for(anim, elapsed)
+            if _ANIM_LAST_INDEX.get(slug) != idx:
+                HIRES_REGISTRY[slug] = anim.hires_frames[idx]
+                _ANIM_LAST_INDEX[slug] = idx
+    except Exception:
+        if not _ANIM_TICK_ERROR_LOGGED:
+            _ANIM_TICK_ERROR_LOGGED = True
+            logging.getLogger(__name__).exception(
+                "tick_image_animations failed — inline animation frozen"
+            )
+
+
+def stage_image_emoji(
+    slug: str,
+    lowres: PixelData,
+    hires: HiResEmoji,
+    animation: _ImageAnimation | None = None,
+) -> None:
+    """Buffer a config-image slug; no global mutation until commit.
+
+    `animation`, when given, buffers a per-slug frame-swap record alongside
+    the static lowres/hires pair (frame 0 of `hires` IS `animation`'s first
+    frame — commit lands both the static entry and the animation table
+    together, see `commit_image_emoji`)."""
     _PENDING_IMAGE_EMOJI[slug] = (lowres, hires)
+    if animation is not None:
+        _PENDING_IMAGE_ANIMATIONS[slug] = animation
 
 
 def abort_image_emoji() -> None:
     """Drop the pending set untouched (failed boot/reload build)."""
     _PENDING_IMAGE_EMOJI.clear()
+    _PENDING_IMAGE_ANIMATIONS.clear()
 
 
 def commit_image_emoji() -> None:
     """Swap the pending image slugs in: remove the previously committed set,
     insert the pending one. Refuses (skip + log) a slug already present from
-    a non-image origin — curated/pack/plugin always win."""
+    a non-image origin — curated/pack/plugin always win.
+
+    The animation table is REBUILT wholesale here, not merged: since
+    `_IMAGE_ANIMATIONS` only ever holds config-image slugs, clearing it in
+    the same pass that removes the previously-committed slugs and then
+    inserting only the pending animations that land alongside a
+    successfully-inserted static entry keeps the two tables from drifting —
+    a slug that goes from animated to static on reload MUST lose its stale
+    animation record (`test_commit_purges_dead_entry_on_animated_to_static`)."""
     reg = _get_registry()  # materialize built-ins BEFORE collision checks
     for slug in _CONFIG_IMAGE_SLUGS:
         reg.pop(slug, None)
         HIRES_REGISTRY.pop(slug, None)
     _CONFIG_IMAGE_SLUGS.clear()
+    _IMAGE_ANIMATIONS.clear()
+    _ANIM_LAST_INDEX.clear()
     for slug, (lowres, hires) in _PENDING_IMAGE_EMOJI.items():
         if slug in reg or slug in HIRES_REGISTRY or emoji_pack.has_slug(slug):
             logging.getLogger(__name__).error(
@@ -3112,10 +3219,15 @@ def commit_image_emoji() -> None:
         reg[slug] = lowres
         HIRES_REGISTRY[slug] = hires
         _CONFIG_IMAGE_SLUGS.add(slug)
+        if slug in _PENDING_IMAGE_ANIMATIONS:
+            _IMAGE_ANIMATIONS[slug] = _PENDING_IMAGE_ANIMATIONS[slug]
     _PENDING_IMAGE_EMOJI.clear()
+    _PENDING_IMAGE_ANIMATIONS.clear()
 
 
-def suspend_image_emoji() -> dict[str, tuple[PixelData, HiResEmoji]]:
+def suspend_image_emoji() -> dict[
+    str, tuple[PixelData, HiResEmoji, _ImageAnimation | None]
+]:
     """Remove the currently committed config-image slugs from the live
     registries and return them as a snapshot.
 
@@ -3129,6 +3241,11 @@ def suspend_image_emoji() -> dict[str, tuple[PixelData, HiResEmoji]]:
     entry -> ``commit_image_emoji``); validate's ``finally`` does exactly that.
     Returns an empty dict when nothing is committed.
 
+    Snapshot entries are 3-tuples (`lowres, hires, animation`) — `animation`
+    is `None` for a static slug and the slug's `_ImageAnimation` record
+    otherwise, so restoring re-stages with `animation=` and round-trips the
+    animation table exactly.
+
     LOAD-BEARING SERIALIZATION ASSUMPTION: while suspended, the live slugs
     are ABSENT from the registries — a draw tick inside the window would
     parse their tokens as literal text and shift scroll geometry. Safe today
@@ -3138,10 +3255,15 @@ def suspend_image_emoji() -> dict[str, tuple[PixelData, HiResEmoji]]:
     parked reload-validate to_thread idea, issue #302), this suspension must
     be redesigned first — do not offload validate while it suspends."""
     reg = _get_registry()  # materialize built-ins so the pop targets are real
-    snapshot = {slug: (reg[slug], HIRES_REGISTRY[slug]) for slug in _CONFIG_IMAGE_SLUGS}
+    snapshot = {
+        slug: (reg[slug], HIRES_REGISTRY[slug], _IMAGE_ANIMATIONS.get(slug))
+        for slug in _CONFIG_IMAGE_SLUGS
+    }
     for slug in snapshot:
         reg.pop(slug, None)
         HIRES_REGISTRY.pop(slug, None)
+        _IMAGE_ANIMATIONS.pop(slug, None)
+        _ANIM_LAST_INDEX.pop(slug, None)
     _CONFIG_IMAGE_SLUGS.clear()
     return snapshot
 

@@ -125,7 +125,29 @@ class TestBootWiring:
 
 def _gif_frames(tmp_path, name, frames_spec):
     """frames_spec: list of (lit_width, duration_ms). 64x64 canvas,
-    frame i lights columns [0, lit_width) rows [0, 8)."""
+    frame i lights columns [0, lit_width) rows [0, 8).
+
+    Saves an animated PNG (APNG) with raw RGBA frames — NOT
+    ``.convert("P")``. A palette round-trip drops the alpha channel (no
+    transparency index survives), so every decoded frame comes back fully
+    opaque and identical in extent regardless of how many columns were
+    actually lit — that would make extent-sensitive assertions (e.g. the
+    union-extent test below) pass vacuously even for a broken
+    implementation. RGBA APNG frames preserve alpha through the
+    save/reload round-trip, so per-frame extents differ for real. The
+    decode path (``load_image_sprites``) is format-agnostic — it only
+    uses Pillow's ``n_frames``/``seek``/``convert("RGBA")`` — so this
+    works as a drop-in for every caller below, GIF-named or not.
+
+    Deliberately omits ``disposal=`` — passing ``disposal=2`` on an APNG
+    save was observed (empirically, not from docs) to cause Pillow to
+    silently merge/drop frames with genuinely different content (a
+    61-frame alternating-width source came back as 41 frames), which
+    would silently defeat `test_over_cap_refused` below. Without it,
+    APNG shows the same "pixel-identical ADJACENT frames merge, durations
+    sum" behavior as GIF (verified empirically) — same posture as the
+    existing per-test comments about keeping adjacent frames distinct.
+    """
     from PIL import Image
 
     imgs = []
@@ -134,14 +156,14 @@ def _gif_frames(tmp_path, name, frames_spec):
         for x in range(w):
             for y in range(8):
                 im.putpixel((x, y), (255, 0, 0, 255))
-        imgs.append(im.convert("P"))
+        imgs.append(im)
     p = tmp_path / name
     imgs[0].save(
         p,
+        format="PNG",
         save_all=True,
         append_images=imgs[1:],
         duration=[d for _w, d in frames_spec],
-        disposal=2,
     )
     return p
 
@@ -150,7 +172,15 @@ class TestAnimatedDecode:
     def test_union_extent_applied_to_all_frames(self, tmp_path):
         from led_ticker.sources import load_image_sprites
 
-        p = _gif_frames(tmp_path, "a.gif", [(16, 100), (64, 100), (32, 100)])
+        # Lit widths 16/64/32 on a 64x64 canvas -> raw per-frame
+        # rightmost-lit-pixel (max_x, BEFORE the 32-tall bake downscale)
+        # is 15/63/31: genuinely different extents pre-normalization (see
+        # the non-vacuity proof script referenced in
+        # .superpowers/sdd/anim-task-2-report.md's correction note) —
+        # this is what an alpha-preserving fixture buys over the old
+        # palette-converted one, where every frame decoded as a fully-lit
+        # 32x32 square and these three assertions passed trivially.
+        p = _gif_frames(tmp_path, "a.png", [(16, 100), (64, 100), (32, 100)])
         _low, hires0, anim = load_image_sprites(p)
         assert anim is not None and len(anim.hires_frames) == 3
         widths = {f.physical_width for f in anim.hires_frames}
@@ -159,22 +189,31 @@ class TestAnimatedDecode:
         w = widths.pop()
         for f in anim.hires_frames:
             assert max((px[0] for px in f.pixels), default=0) < w
+        # ... and the union is exactly the WIDEST frame's own extent, not
+        # merely an upper bound: baking that frame ALONE (as a
+        # single-frame file, so load_image_sprites' union-of-1 is itself)
+        # must yield the identical physical_width.
+        solo = _gif_frames(tmp_path, "a-widest.png", [(64, 100)])
+        _low_solo, hires_solo, anim_solo = load_image_sprites(solo)
+        assert anim_solo is None  # single frame -> no animation record
+        assert w == hires_solo.physical_width
 
     def test_frame0_is_registry_sprite(self, tmp_path):
         from led_ticker.sources import load_image_sprites
 
-        p = _gif_frames(tmp_path, "b.gif", [(16, 100), (64, 100)])
+        p = _gif_frames(tmp_path, "b.png", [(16, 100), (64, 100)])
         _low, hires0, anim = load_image_sprites(p)
         assert hires0 is anim.hires_frames[0]
 
     def test_durations_cumulative_and_clamped(self, tmp_path):
         from led_ticker.sources import load_image_sprites
 
-        # Widths must differ between frames (8 vs 9) — Pillow's GIF encoder
-        # merges pixel-identical consecutive frames on save (summing their
-        # durations into one), which would silently collapse this to a
-        # single frame and defeat the test. 5ms clamps to 20.
-        p = _gif_frames(tmp_path, "c.gif", [(8, 5), (9, 250)])
+        # Widths must differ between frames (8 vs 9) — Pillow's PNG
+        # encoder merges pixel-identical ADJACENT frames on save (summing
+        # their durations into one, verified empirically for APNG same as
+        # GIF), which would silently collapse this to a single frame and
+        # defeat the test. 5ms clamps to 20.
+        p = _gif_frames(tmp_path, "c.png", [(8, 5), (9, 250)])
         _low, _h, anim = load_image_sprites(p)
         assert anim.cumulative_ms == (20, 270) and anim.total_ms == 270
 
@@ -187,7 +226,7 @@ class TestAnimatedDecode:
         # see the note in test_durations_cumulative_and_clamped above; an
         # all-identical run would collapse to 1 frame under Pillow's save
         # path and this test would never observe the 61-frame cap.
-        p = _gif_frames(tmp_path, "d.gif", [(4 + (i % 2), 30) for i in range(61)])
+        p = _gif_frames(tmp_path, "d.png", [(4 + (i % 2), 30) for i in range(61)])
         with pytest.raises(ValueError, match="60"):
             load_image_sprites(p)
 
@@ -201,6 +240,6 @@ class TestAnimatedDecode:
         from led_ticker import pixel_emoji
         from led_ticker.sources import ImageSource
 
-        p = _gif_frames(tmp_path, "e.gif", [(8, 100), (16, 100)])
+        p = _gif_frames(tmp_path, "e.png", [(8, 100), (16, 100)])
         ImageSource(id="me.anim", path=str(p)).prepare()
         assert "me.anim" in pixel_emoji._PENDING_IMAGE_ANIMATIONS

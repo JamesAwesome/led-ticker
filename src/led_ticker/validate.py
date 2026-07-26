@@ -557,7 +557,14 @@ def _check_image_sources(
             src_w, src_h = probe.size
 
         try:
-            lowres, hires = load_image_sprites(path)
+            # Phase 2 note: load_image_sprites now also returns a per-slug
+            # `_ImageAnimation` (3rd element) for a multi-frame file. Ignored
+            # here on purpose — the existing "renders as its first frame"
+            # warning below still describes validate's own staging (it
+            # stages the STATIC lowres/hires pair only, no animation=), and
+            # is intentionally NOT updated by this task; wiring validate's
+            # posture to match boot's animation staging is a follow-up.
+            lowres, hires, _anim = load_image_sprites(path)
         except Exception as exc:
             errors.append(
                 ValidationIssue(

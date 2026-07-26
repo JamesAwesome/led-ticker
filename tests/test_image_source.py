@@ -41,7 +41,8 @@ def _gif(tmp_path: Path, name="anim.gif") -> Path:
 
 class TestLoadImageSprites:
     def test_png_builds_both_forms(self, tmp_path):
-        lowres, hires = load_image_sprites(_png(tmp_path))
+        lowres, hires, anim = load_image_sprites(_png(tmp_path))
+        assert anim is None
         assert lowres and all(len(px) == 5 for px in lowres)
         assert max(p[0] for p in lowres) <= 7 and max(p[1] for p in lowres) <= 7
         assert hires.physical_size == 32
@@ -49,12 +50,12 @@ class TestLoadImageSprites:
         assert hires.physical_width and hires.physical_width <= 128
 
     def test_gif_uses_frame_zero(self, tmp_path):
-        lowres, hires = load_image_sprites(_gif(tmp_path))
+        lowres, hires, _anim = load_image_sprites(_gif(tmp_path))
         # frame 0 is red; every lit pixel red-dominant
         assert all(px[2] > px[3] for px in hires.pixels)  # r > g
 
     def test_wide_image_caps_at_128(self, tmp_path):
-        _, hires = load_image_sprites(_png(tmp_path, size=(1000, 40)))
+        _, hires, _anim = load_image_sprites(_png(tmp_path, size=(1000, 40)))
         assert max(p[0] for p in hires.pixels) <= 127
 
     def test_transparent_pixels_dropped(self, tmp_path):
@@ -62,7 +63,7 @@ class TestLoadImageSprites:
         img.putpixel((0, 0), (255, 255, 255, 255))
         p = tmp_path / "dot.png"
         img.save(p)
-        lowres, hires = load_image_sprites(p)
+        lowres, hires, _anim = load_image_sprites(p)
         assert len(hires.pixels) < 32 * 32  # alpha<110 dropped
 
     def test_missing_file_raises(self, tmp_path):
@@ -120,3 +121,86 @@ class TestBootWiring:
         source = build_source(cfg, session=None, config_dir=tmp_path)
         assert Path(source.path).is_absolute()
         assert Path(source.path) == (tmp_path / "rel.png").resolve()
+
+
+def _gif_frames(tmp_path, name, frames_spec):
+    """frames_spec: list of (lit_width, duration_ms). 64x64 canvas,
+    frame i lights columns [0, lit_width) rows [0, 8)."""
+    from PIL import Image
+
+    imgs = []
+    for w, _d in frames_spec:
+        im = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+        for x in range(w):
+            for y in range(8):
+                im.putpixel((x, y), (255, 0, 0, 255))
+        imgs.append(im.convert("P"))
+    p = tmp_path / name
+    imgs[0].save(
+        p,
+        save_all=True,
+        append_images=imgs[1:],
+        duration=[d for _w, d in frames_spec],
+        disposal=2,
+    )
+    return p
+
+
+class TestAnimatedDecode:
+    def test_union_extent_applied_to_all_frames(self, tmp_path):
+        from led_ticker.sources import load_image_sprites
+
+        p = _gif_frames(tmp_path, "a.gif", [(16, 100), (64, 100), (32, 100)])
+        _low, hires0, anim = load_image_sprites(p)
+        assert anim is not None and len(anim.hires_frames) == 3
+        widths = {f.physical_width for f in anim.hires_frames}
+        assert len(widths) == 1  # every frame identical layout width
+        # union EXTENT: no frame's rightmost lit pixel exceeds the width
+        w = widths.pop()
+        for f in anim.hires_frames:
+            assert max((px[0] for px in f.pixels), default=0) < w
+
+    def test_frame0_is_registry_sprite(self, tmp_path):
+        from led_ticker.sources import load_image_sprites
+
+        p = _gif_frames(tmp_path, "b.gif", [(16, 100), (64, 100)])
+        _low, hires0, anim = load_image_sprites(p)
+        assert hires0 is anim.hires_frames[0]
+
+    def test_durations_cumulative_and_clamped(self, tmp_path):
+        from led_ticker.sources import load_image_sprites
+
+        # Widths must differ between frames (8 vs 9) — Pillow's GIF encoder
+        # merges pixel-identical consecutive frames on save (summing their
+        # durations into one), which would silently collapse this to a
+        # single frame and defeat the test. 5ms clamps to 20.
+        p = _gif_frames(tmp_path, "c.gif", [(8, 5), (9, 250)])
+        _low, _h, anim = load_image_sprites(p)
+        assert anim.cumulative_ms == (20, 270) and anim.total_ms == 270
+
+    def test_over_cap_refused(self, tmp_path):
+        import pytest
+
+        from led_ticker.sources import load_image_sprites
+
+        # Alternate width so no two ADJACENT frames are pixel-identical —
+        # see the note in test_durations_cumulative_and_clamped above; an
+        # all-identical run would collapse to 1 frame under Pillow's save
+        # path and this test would never observe the 61-frame cap.
+        p = _gif_frames(tmp_path, "d.gif", [(4 + (i % 2), 30) for i in range(61)])
+        with pytest.raises(ValueError, match="60"):
+            load_image_sprites(p)
+
+    def test_static_png_returns_none_animation(self, tmp_path):
+        from led_ticker.sources import load_image_sprites
+
+        _low, _h, anim = load_image_sprites(_png(tmp_path))
+        assert anim is None
+
+    def test_prepare_stages_animation(self, tmp_path):
+        from led_ticker import pixel_emoji
+        from led_ticker.sources import ImageSource
+
+        p = _gif_frames(tmp_path, "e.gif", [(8, 100), (16, 100)])
+        ImageSource(id="me.anim", path=str(p)).prepare()
+        assert "me.anim" in pixel_emoji._PENDING_IMAGE_ANIMATIONS

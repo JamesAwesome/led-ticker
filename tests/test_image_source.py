@@ -217,6 +217,39 @@ class TestAnimatedDecode:
         _low, _h, anim = load_image_sprites(p)
         assert anim.cumulative_ms == (20, 270) and anim.total_ms == 270
 
+    def test_malformed_duration_metadata_clamps_not_drops(self, tmp_path, monkeypatch):
+        """Adversarial-review finding: duration=None or a non-numeric string
+        in a frame's info dict must clamp THAT frame to the default, not
+        raise and drop the whole source. Patch the info dict post-open via a
+        wrapped Image.open (a real file can carry these; simplest determinism
+        is injection)."""
+        from PIL import Image as PILImage
+
+        from led_ticker import sources as S
+
+        p = _gif_frames(tmp_path, "m.png", [(8, 100), (9, 100), (10, 100)])
+        real_open = PILImage.open
+        bad = {0: None, 1: "75.5"}  # frame 2 keeps its real duration
+
+        def wrapped_open(path, *a, **k):
+            img = real_open(path, *a, **k)
+            real_seek = img.seek
+
+            def seek(i):
+                real_seek(i)
+                if i in bad:
+                    img.info["duration"] = bad[i]
+
+            img.seek = seek
+            return img
+
+        monkeypatch.setattr(PILImage, "open", wrapped_open)
+        _low, _h, anim = S.load_image_sprites(p)
+        assert anim is not None
+        # None -> default 100; "75.5" -> 75 -> clamps to 75; real 100 stays
+        assert anim.cumulative_ms[0] == 100  # None coerced to default
+        assert anim.cumulative_ms[1] - anim.cumulative_ms[0] == 75  # "75.5" -> 75
+
     def test_over_cap_refused(self, tmp_path):
         import pytest
 

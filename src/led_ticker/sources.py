@@ -143,7 +143,15 @@ def load_image_sprites(path):
         img.seek(i)
         rgba = img.convert("RGBA")
         frames_px.append(_bake(rgba, 32, 128))
-        durations.append(max(int(img.info.get("duration", 100)), _MIN_FRAME_MS))
+        # Defensive coercion (adversarial-review finding): a decodable file
+        # can still carry duration=None or a non-numeric string in a frame's
+        # info dict — clamp the bad FRAME to the default rather than dropping
+        # the whole source on int()'s TypeError/ValueError.
+        try:
+            duration = int(float(img.info.get("duration") or 100))
+        except TypeError, ValueError:
+            duration = 100
+        durations.append(max(duration, _MIN_FRAME_MS))
     img.seek(0)
     lowres = _bake(img.convert("RGBA"), 8, 8)
 

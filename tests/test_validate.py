@@ -5144,6 +5144,88 @@ class TestImageSourceValidate:
         )
 
 
+class TestImageSpriteBandClip:
+    """Rule 70: a hi-res image sprite taller than its two_row band clips at
+    draw time (the per-row emoji cap floors at 8 logical rows for
+    back-compat, so a 32px sprite is ALLOWED into a shorter band) — warn at
+    validate like the text-height warnings do. Found live: a phoenix in a
+    bottom band of 6 logical rows (24 real px) cut off."""
+
+    def _tall_png(self, tmp_path):
+        """A full-height image: bakes to a 32px-tall lit sprite."""
+        from PIL import Image
+
+        p = tmp_path / "assets" / "tall.png"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGBA", (64, 64), (255, 0, 0, 255)).save(p)
+        return p
+
+    async def test_bottom_band_too_short_warns(self, conf, tmp_path):
+        self._tall_png(tmp_path)
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.tall"
+            path = "assets/tall.png"
+
+            [[playlist.section.widget]]
+            type = "two_row"
+            top_text = "PHOENIX"
+            bottom_text = "clipped :img.tall: here"
+            top_row_height = 10
+            """)
+        result = await validate_config(conf(cfg))
+        clip = [
+            w
+            for w in result.warnings
+            if w.rule == 70 and "clip" in w.message and "img.tall" in w.message
+        ]
+        assert clip, (
+            f"expected a band-clip warning; warnings="
+            f"{[(w.rule, w.message) for w in result.warnings]}"
+        )
+        # names the row and the real-px numbers (bottom band = 6 rows x 4 = 24)
+        assert "bottom" in clip[0].message and "24" in clip[0].message
+
+    async def test_top_band_fits_silent(self, conf, tmp_path):
+        self._tall_png(tmp_path)
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.tall"
+            path = "assets/tall.png"
+
+            [[playlist.section.widget]]
+            type = "two_row"
+            top_text = "fits :img.tall: fine"
+            bottom_text = "plain text"
+            top_row_height = 10
+            """)
+        result = await validate_config(conf(cfg))
+        # top band = 10 rows x 4 = 40px >= 32px sprite -> no clip warning
+        assert not [w for w in result.warnings if w.rule == 70 and "clip" in w.message]
+
+    async def test_even_split_fits_silent_both_rows(self, conf, tmp_path):
+        self._tall_png(tmp_path)
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.tall"
+            path = "assets/tall.png"
+
+            [[playlist.section.widget]]
+            type = "two_row"
+            top_text = ":img.tall: top"
+            bottom_text = "bottom :img.tall:"
+            """)
+        result = await validate_config(conf(cfg))
+        # default 50/50 split: 8 rows x 4 = 32px per band >= 32px sprite
+        assert not [w for w in result.warnings if w.rule == 70 and "clip" in w.message]
+
+
 # ---------------------------------------------------------------------------
 # Task-4 review Critical: validate_config's rule-70 stage/commit must not
 # leak into the live, process-global pixel_emoji registries. validate_config

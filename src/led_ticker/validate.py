@@ -532,6 +532,7 @@ def _check_image_sources(
         stage_image_emoji,
     )
     from led_ticker.sources import _MAX_ANIM_FRAMES, load_image_sprites  # noqa: PLC0415
+    from led_ticker.widgets._row_layout import resolve_band_heights  # noqa: PLC0415
 
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
@@ -550,6 +551,14 @@ def _check_image_sources(
     # (mirrors rule 67's per-section scale logic).
     referenced_ids: set[str] = set()
     referenced_scale1_ids: set[str] = set()
+    # Two-row band references on SCALED sections: slug -> set of
+    # (row_name, band_h_logical, band_real_px, scale). The per-row emoji
+    # cap floors at 8 logical rows for back-compat, so a 32px hires
+    # sprite is ALLOWED into a band shorter than it and clips at draw
+    # time. Collected here, compared against each decoded sprite's lit
+    # height in the per-source loop below (same posture as the
+    # text-height warnings).
+    band_refs: dict[str, set[tuple[str, int, int, int]]] = {}
     for section in config.sections:
         section_scale = getattr(section, "scale", 1)
         for widget_cfg in section.widgets:
@@ -562,6 +571,36 @@ def _check_image_sources(
                     referenced_ids.add(slug)
                     if section_scale == 1:
                         referenced_scale1_ids.add(slug)
+
+            if section_scale <= 1:
+                continue  # scale-1 renders the 8x8 lowres form; no hires clip
+            wtype = widget_cfg.get("type")
+            # field -> band-name map for the two-row layouts: the two_row
+            # widget, and gif/image widgets flipped into two-row overlay
+            # mode by a non-empty bottom_text (whose held top row is the
+            # `text` field, mirroring _play_with_two_row_text).
+            if wtype == "two_row":
+                row_fields = {"top_text": "top", "bottom_text": "bottom"}
+            elif wtype in ("gif", "image") and widget_cfg.get("bottom_text"):
+                row_fields = {"text": "top", "bottom_text": "bottom"}
+            else:
+                continue
+            try:
+                top_h, bottom_h = resolve_band_heights(
+                    getattr(section, "content_height", 16),
+                    widget_cfg.get("top_row_height"),
+                )
+            except TypeError, ValueError:
+                continue  # invalid split — owned by the two_row rules
+            for field_name, row_name in row_fields.items():
+                val = widget_cfg.get(field_name)
+                if not isinstance(val, str):
+                    continue
+                band_h = top_h if row_name == "top" else bottom_h
+                for m in EMOJI_PATTERN.finditer(val):
+                    band_refs.setdefault(m.group(0)[1:-1], set()).add(
+                        (row_name, band_h, band_h * section_scale, section_scale)
+                    )
 
     for src in image_sources:
         loc = f"source[{src.id!r}]"
@@ -740,6 +779,41 @@ def _check_image_sources(
                     fix=(
                         "Use a scaled section (default_scale > 1) for a "
                         "crisper render, or accept the 8x8 approximation."
+                    ),
+                )
+            )
+
+        # Band-clip check (two-row layouts, scaled sections): compare the
+        # sprite's LIT height in real pixels (tallest frame for an
+        # animation) against each referencing band's real-pixel height —
+        # the per-row emoji cap lets the sprite in, so a too-short band
+        # clips it at draw time.
+        frames = anim.hires_frames if anim is not None else [hires]
+        lit_h = max(
+            (max((px[1] for px in f.pixels), default=-1) + 1 for f in frames),
+            default=0,
+        )
+        for row_name, band_h, band_real, band_scale in sorted(
+            band_refs.get(src.id, ())
+        ):
+            if lit_h <= band_real:
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="warning",
+                    message=(
+                        f"[[source]] {src.id!r} renders {lit_h}px tall but "
+                        f"a two-row {row_name} row band is only {band_real}px "
+                        f"({band_h} rows x scale {band_scale}) — the sprite "
+                        f"will clip vertically."
+                    ),
+                    fix=(
+                        f"Adjust top_row_height / content_height so the "
+                        f"{row_name} band has at least "
+                        f"{math.ceil(lit_h / band_scale)} rows, or use a "
+                        f"shorter image."
                     ),
                 )
             )

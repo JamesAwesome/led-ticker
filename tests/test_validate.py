@@ -4633,11 +4633,52 @@ def _write_png(path: Path, size: tuple[int, int] = (4, 4)) -> None:
 
 
 def _write_gif(path: Path, n_frames: int = 3, size: tuple[int, int] = (4, 4)) -> None:
+    """Multi-frame GIF fixture. Alternates two solid colors (rather than a
+    per-frame-index shade) so no two ADJACENT frames are ever pixel-identical
+    regardless of `n_frames` — Pillow's GIF encoder merges adjacent-identical
+    frames on save (dropping them), which silently undercounts `n_frames` on
+    decode for any fixture whose colors repeat or clamp (see
+    docs/superpowers/sdd/anim-task-2-report.md's gotcha writeup). Verified
+    empirically to round-trip exactly at n_frames in {3, 25, 60, 61, 65}."""
     from PIL import Image
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    frames = [Image.new("RGB", size, (i * 60, 0, 0)) for i in range(n_frames)]
+    colors = [(255, 0, 0) if i % 2 == 0 else (0, 0, 255) for i in range(n_frames)]
+    frames = [Image.new("RGB", size, c) for c in colors]
     frames[0].save(path, save_all=True, append_images=frames[1:], duration=100, loop=0)
+
+
+class TestAnimatedMemoryEstimate:
+    """`validate._animated_memory_estimate` — pure, no decode/fixtures
+    needed: exercised directly with synthetic `n_frames` counts (a real
+    60+-frame GIF fixture, per Task-4's brief, is unnecessarily slow to
+    generate just to prove the arithmetic)."""
+
+    def test_sums_worst_case_bytes_per_frame_across_sources(self):
+        from led_ticker.validate import (
+            _ANIM_BYTES_PER_PIXEL_TUPLE,
+            _ANIM_FRAME_PIXELS_WORST_CASE,
+            _animated_memory_estimate,
+        )
+
+        total = _animated_memory_estimate([10, 20])
+        assert total == 30 * _ANIM_FRAME_PIXELS_WORST_CASE * _ANIM_BYTES_PER_PIXEL_TUPLE
+
+    def test_single_source(self):
+        from led_ticker.validate import (
+            _ANIM_BYTES_PER_PIXEL_TUPLE,
+            _ANIM_FRAME_PIXELS_WORST_CASE,
+            _animated_memory_estimate,
+        )
+
+        assert _animated_memory_estimate([60]) == (
+            60 * _ANIM_FRAME_PIXELS_WORST_CASE * _ANIM_BYTES_PER_PIXEL_TUPLE
+        )
+
+    def test_empty_is_zero(self):
+        from led_ticker.validate import _animated_memory_estimate
+
+        assert _animated_memory_estimate([]) == 0
 
 
 class TestImageSourceValidate:
@@ -4831,8 +4872,125 @@ class TestImageSourceValidate:
         assert "x" in rule_56[0].message
 
     async def test_animated_gif_warns_frame_zero(self, conf, tmp_path):
-        """An animated (multi-frame) GIF image source -> rule-70 WARNING
-        mentioning it renders as its first frame."""
+        """Phase 2 rescoping: an animated (multi-frame) GIF image source
+        referenced ONLY from a SCALED section (default_scale=4, `_IMAGE_BASE`)
+        -> 0 errors and NO "first frame" warning — the hires registry
+        animates for real on a scaled display, so the old unconditional
+        Phase-1 warning no longer applies here."""
+        _write_gif(tmp_path / "assets" / "anim.gif", n_frames=3)
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "anim_logo"
+            path = "assets/anim.gif"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :anim_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert result.errors == [], (
+            f"expected 0 errors for a valid animated config at scale 4; "
+            f"got errors={[(e.rule, e.message) for e in result.errors]}"
+        )
+        rule_70_warn = [w for w in result.warnings if w.rule == 70]
+        assert not any("first frame" in w.message for w in rule_70_warn), (
+            f"expected NO rule-70 first-frame warning for a scaled section; "
+            f"got warnings={[(w.rule, w.message) for w in result.warnings]}"
+        )
+
+    async def test_animated_gif_scale1_warns_first_frame(self, conf, tmp_path):
+        """The SAME animated GIF, referenced from a scale-1 section
+        (`_IMAGE_BASE_SCALE1`) -> rule-70 WARNING reworded for Phase 2: it
+        animates on scaled displays, but smallsign shows only the first
+        frame."""
+        _write_gif(tmp_path / "assets" / "anim.gif", n_frames=3)
+
+        cfg = _IMAGE_BASE_SCALE1 + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "anim_logo"
+            path = "assets/anim.gif"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :anim_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        rule_70_warn = [w for w in result.warnings if w.rule == 70]
+        assert any(
+            "first frame" in w.message and "animates" in w.message for w in rule_70_warn
+        ), (
+            f"expected rule-70 scale-1 first-frame warning; got warnings="
+            f"{[(w.rule, w.message) for w in result.warnings]}"
+        )
+
+    async def test_animated_over_24_frames_warns_memory_note(self, conf, tmp_path):
+        """A 25-frame animated source (under the 60-frame decode cap, over
+        the 24-frame memory-note threshold) -> rule-70 WARNING naming the
+        frame count and mentioning memory."""
+        _write_gif(tmp_path / "assets" / "anim.gif", n_frames=25)
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "anim_logo"
+            path = "assets/anim.gif"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :anim_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert result.errors == [], [(e.rule, e.message) for e in result.errors]
+        rule_70_warn = [w for w in result.warnings if w.rule == 70]
+        assert any("25" in w.message and "memory" in w.message for w in rule_70_warn), (
+            f"expected rule-70 memory-note warning for a 25-frame source; "
+            f"got warnings={[(w.rule, w.message) for w in result.warnings]}"
+        )
+
+    async def test_animated_over_60_frames_errors_naming_cap(self, conf, tmp_path):
+        """A 61-frame animated source — over `sources._MAX_ANIM_FRAMES` (60)
+        — -> rule-70 ERROR naming the cap, distinct from the generic
+        decode-failure message; the unusable slug is never staged."""
+        from led_ticker import pixel_emoji
+
+        _write_gif(tmp_path / "assets" / "anim.gif", n_frames=61)
+
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "anim_logo"
+            path = "assets/anim.gif"
+
+            [[playlist.section.widget]]
+            type = "message"
+            text = "hi :anim_logo:"
+            """)
+        result = await validate_config(conf(cfg))
+        assert not result.valid
+        rule_70 = [e for e in result.errors if e.rule == 70]
+        assert any("60" in e.message and "frame" in e.message for e in rule_70), (
+            f"expected rule-70 error naming the 60-frame cap; got errors="
+            f"{[(e.rule, e.message) for e in result.errors]}"
+        )
+        assert "anim_logo" not in pixel_emoji._CONFIG_IMAGE_SLUGS
+
+    async def test_aggregate_memory_warning_with_monkeypatched_threshold(
+        self, conf, tmp_path, monkeypatch
+    ):
+        """Aggregate memory warning (config-level, location="config"): with
+        `_ANIM_MEMORY_WARN_BYTES` monkeypatched down to a tiny value, even a
+        small 3-frame animated source trips it."""
+        import led_ticker.validate as validate_module
+
+        monkeypatch.setattr(validate_module, "_ANIM_MEMORY_WARN_BYTES", 10)
+
         _write_gif(tmp_path / "assets" / "anim.gif", n_frames=3)
 
         cfg = _IMAGE_BASE + textwrap.dedent("""\
@@ -4848,9 +5006,11 @@ class TestImageSourceValidate:
             """)
         result = await validate_config(conf(cfg))
         rule_70_warn = [w for w in result.warnings if w.rule == 70]
-        assert any("first frame" in w.message for w in rule_70_warn), (
-            f"expected rule-70 first-frame warning; got warnings="
-            f"{[(w.rule, w.message) for w in result.warnings]}"
+        assert any(
+            w.location == "config" and "MB" in w.message for w in rule_70_warn
+        ), (
+            f"expected rule-70 aggregate memory warning at location='config'; "
+            f"got warnings={[(w.rule, w.location, w.message) for w in result.warnings]}"
         )
 
     async def test_scale1_section_warns_approximate(self, conf, tmp_path):
@@ -4982,6 +5142,88 @@ class TestImageSourceValidate:
             "validate_config returns — its commit is diagnostic-only and "
             "must not outlive the call (Task-4 review Critical)"
         )
+
+
+class TestImageSpriteBandClip:
+    """Rule 70: a hi-res image sprite taller than its two_row band clips at
+    draw time (the per-row emoji cap floors at 8 logical rows for
+    back-compat, so a 32px sprite is ALLOWED into a shorter band) — warn at
+    validate like the text-height warnings do. Found live: a phoenix in a
+    bottom band of 6 logical rows (24 real px) cut off."""
+
+    def _tall_png(self, tmp_path):
+        """A full-height image: bakes to a 32px-tall lit sprite."""
+        from PIL import Image
+
+        p = tmp_path / "assets" / "tall.png"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGBA", (64, 64), (255, 0, 0, 255)).save(p)
+        return p
+
+    async def test_bottom_band_too_short_warns(self, conf, tmp_path):
+        self._tall_png(tmp_path)
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.tall"
+            path = "assets/tall.png"
+
+            [[playlist.section.widget]]
+            type = "two_row"
+            top_text = "PHOENIX"
+            bottom_text = "clipped :img.tall: here"
+            top_row_height = 10
+            """)
+        result = await validate_config(conf(cfg))
+        clip = [
+            w
+            for w in result.warnings
+            if w.rule == 70 and "clip" in w.message and "img.tall" in w.message
+        ]
+        assert clip, (
+            f"expected a band-clip warning; warnings="
+            f"{[(w.rule, w.message) for w in result.warnings]}"
+        )
+        # names the row and the real-px numbers (bottom band = 6 rows x 4 = 24)
+        assert "bottom" in clip[0].message and "24" in clip[0].message
+
+    async def test_top_band_fits_silent(self, conf, tmp_path):
+        self._tall_png(tmp_path)
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.tall"
+            path = "assets/tall.png"
+
+            [[playlist.section.widget]]
+            type = "two_row"
+            top_text = "fits :img.tall: fine"
+            bottom_text = "plain text"
+            top_row_height = 10
+            """)
+        result = await validate_config(conf(cfg))
+        # top band = 10 rows x 4 = 40px >= 32px sprite -> no clip warning
+        assert not [w for w in result.warnings if w.rule == 70 and "clip" in w.message]
+
+    async def test_even_split_fits_silent_both_rows(self, conf, tmp_path):
+        self._tall_png(tmp_path)
+        cfg = _IMAGE_BASE + textwrap.dedent("""\
+
+            [[source]]
+            type = "image"
+            id = "img.tall"
+            path = "assets/tall.png"
+
+            [[playlist.section.widget]]
+            type = "two_row"
+            top_text = ":img.tall: top"
+            bottom_text = "bottom :img.tall:"
+            """)
+        result = await validate_config(conf(cfg))
+        # default 50/50 split: 8 rows x 4 = 32px per band >= 32px sprite
+        assert not [w for w in result.warnings if w.rule == 70 and "clip" in w.message]
 
 
 # ---------------------------------------------------------------------------

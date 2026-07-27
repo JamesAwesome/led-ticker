@@ -9,7 +9,7 @@ import math
 import re
 import tempfile
 import tomllib
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -447,6 +447,35 @@ def _emoji_slug_origin(slug: str) -> str:
     return "a curated core emoji"
 
 
+# Phase 2: per-slug animated-image memory guard (rule 70). Frames are
+# Python pixel tuples (~88 B each — see sources.py's `load_image_sprites`
+# decode-cost note); the 32-tall/128-wide hires cap bounds a single frame
+# at 4096 pixels worst-case. Kept as module constants (not inlined) so
+# tests can monkeypatch `_ANIM_MEMORY_WARN_BYTES` to a small value without
+# needing a multi-megabyte fixture.
+_ANIM_FRAME_PIXELS_WORST_CASE = 4096  # 32 (tall) x 128 (cap_w)
+_ANIM_BYTES_PER_PIXEL_TUPLE = 88
+_ANIM_FRAME_COUNT_WARN = 24
+_ANIM_MEMORY_WARN_BYTES = 64 * 1024 * 1024
+
+
+def _animated_memory_estimate(frame_counts: Iterable[int]) -> int:
+    """Worst-case decoded-frame memory across animated `[[source]]` entries.
+
+    Pure function: `frame_counts` is one `n_frames` per successfully
+    decoded animated source. Per-frame worst case is
+    `_ANIM_FRAME_PIXELS_WORST_CASE` pixels (the 32x128 hires cap in
+    `sources.load_image_sprites`) times `_ANIM_BYTES_PER_PIXEL_TUPLE` (a
+    Python `(x, y, r, g, b)` tuple). Deliberately does not read the
+    threshold constant itself, so a test can pass synthetic counts without
+    needing real decoded frames.
+    """
+    return sum(
+        n * _ANIM_FRAME_PIXELS_WORST_CASE * _ANIM_BYTES_PER_PIXEL_TUPLE
+        for n in frame_counts
+    )
+
+
 def _check_image_sources(
     config: AppConfig, config_dir: Path
 ) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
@@ -455,8 +484,9 @@ def _check_image_sources(
     Decodes each image source via the SAME decode path
     `app/run.py:build_source_registry` uses at boot (`sources.
     load_image_sprites`) so what validate blesses is what boot renders.
-    On successful decode the slug is STAGED; once every image source has
-    been processed, the whole batch is COMMITTED in one call (mirroring
+    On successful decode the slug is STAGED (including its `_ImageAnimation`
+    record, when present — Phase 2); once every image source has been
+    processed, the whole batch is COMMITTED in one call (mirroring
     `build_source_registry`'s batch-then-commit shape) so the widget-build
     checks that run AFTER this function in the runner (Phase 1c,
     `_run_build_checks` — which constructs widgets, and therefore
@@ -472,11 +502,22 @@ def _check_image_sources(
 
     Errors:
     - missing/undecodable file (``load_image_sprites`` raises).
+    - a multi-frame source over the `_MAX_ANIM_FRAMES` (60) inline-animation
+      cap — `load_image_sprites` itself refuses to decode it; caught
+      distinctly (its `ValueError` message names "frame") from other decode
+      failures so this error can name the cap explicitly.
 
     Warnings:
-    - animated source (Pillow ``n_frames > 1``) — renders as first frame
-      only (Phase 1 is static-only; inline animation is a planned
-      follow-up).
+    - animated source (Pillow ``n_frames > 1``) referenced from a scale-1
+      section — the lowres registry is NOT animated (smallsign shows frame
+      0 only; see `pixel_emoji._ImageAnimation`), so the warning is scoped
+      to scale-1 references the same way the 8x8-approximation warning
+      below is. A scaled section sees the real animation, so no warning.
+    - animated source with more than `_ANIM_FRAME_COUNT_WARN` (24) frames —
+      standalone memory note (every frame is held decoded for the slug's
+      lifetime).
+    - aggregate: summed worst-case decoded-frame memory across every
+      animated source in the config over `_ANIM_MEMORY_WARN_BYTES`.
     - source (pre-downscale) frame area > 512×512 — decoded anyway.
     - dangling declaration — no widget `text`/`top_text`/`bottom_text`
       references `:id:` (same fields rule 68 walks).
@@ -490,7 +531,8 @@ def _check_image_sources(
         commit_image_emoji,
         stage_image_emoji,
     )
-    from led_ticker.sources import load_image_sprites  # noqa: PLC0415
+    from led_ticker.sources import _MAX_ANIM_FRAMES, load_image_sprites  # noqa: PLC0415
+    from led_ticker.widgets._row_layout import resolve_band_heights  # noqa: PLC0415
 
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
@@ -499,11 +541,24 @@ def _check_image_sources(
     if not image_sources:
         return errors, warnings
 
+    # Phase 2: n_frames of every successfully-decoded animated source, fed
+    # to `_animated_memory_estimate` after the loop for the aggregate
+    # memory warning below.
+    animated_frame_counts: list[int] = []
+
     # Scan the same text fields rule 68 walks for `:id:` references, and
     # separately track which ids are referenced from a scale-1 section
     # (mirrors rule 67's per-section scale logic).
     referenced_ids: set[str] = set()
     referenced_scale1_ids: set[str] = set()
+    # Two-row band references on SCALED sections: slug -> set of
+    # (row_name, band_h_logical, band_real_px, scale). The per-row emoji
+    # cap floors at 8 logical rows for back-compat, so a 32px hires
+    # sprite is ALLOWED into a band shorter than it and clips at draw
+    # time. Collected here, compared against each decoded sprite's lit
+    # height in the per-source loop below (same posture as the
+    # text-height warnings).
+    band_refs: dict[str, set[tuple[str, int, int, int]]] = {}
     for section in config.sections:
         section_scale = getattr(section, "scale", 1)
         for widget_cfg in section.widgets:
@@ -516,6 +571,36 @@ def _check_image_sources(
                     referenced_ids.add(slug)
                     if section_scale == 1:
                         referenced_scale1_ids.add(slug)
+
+            if section_scale <= 1:
+                continue  # scale-1 renders the 8x8 lowres form; no hires clip
+            wtype = widget_cfg.get("type")
+            # field -> band-name map for the two-row layouts: the two_row
+            # widget, and gif/image widgets flipped into two-row overlay
+            # mode by a non-empty bottom_text (whose held top row is the
+            # `text` field, mirroring _play_with_two_row_text).
+            if wtype == "two_row":
+                row_fields = {"top_text": "top", "bottom_text": "bottom"}
+            elif wtype in ("gif", "image") and widget_cfg.get("bottom_text"):
+                row_fields = {"text": "top", "bottom_text": "bottom"}
+            else:
+                continue
+            try:
+                top_h, bottom_h = resolve_band_heights(
+                    getattr(section, "content_height", 16),
+                    widget_cfg.get("top_row_height"),
+                )
+            except TypeError, ValueError:
+                continue  # invalid split — owned by the two_row rules
+            for field_name, row_name in row_fields.items():
+                val = widget_cfg.get(field_name)
+                if not isinstance(val, str):
+                    continue
+                band_h = top_h if row_name == "top" else bottom_h
+                for m in EMOJI_PATTERN.finditer(val):
+                    band_refs.setdefault(m.group(0)[1:-1], set()).add(
+                        (row_name, band_h, band_h * section_scale, section_scale)
+                    )
 
     for src in image_sources:
         loc = f"source[{src.id!r}]"
@@ -557,27 +642,58 @@ def _check_image_sources(
             src_w, src_h = probe.size
 
         try:
-            lowres, hires = load_image_sprites(path)
+            # Phase 2: load_image_sprites now also returns a per-slug
+            # `_ImageAnimation` (3rd element, `anim`) for a multi-frame
+            # file — staged below via `stage_image_emoji(..., animation=anim)`
+            # so validate's committed slug set matches boot's exactly. A
+            # file over the `_MAX_ANIM_FRAMES` cap raises `ValueError` here
+            # (its message names "frame"); caught distinctly below so the
+            # ERROR can name the cap explicitly instead of the generic
+            # decode-failure message.
+            lowres, hires, anim = load_image_sprites(path)
         except Exception as exc:
-            errors.append(
-                ValidationIssue(
-                    rule=70,
-                    location=loc,
-                    severity="error",
-                    message=(
-                        f'[[source]] {src.id!r} (type="image") could not '
-                        f"decode {str(path)!r}: {exc}"
-                    ),
-                    fix=(
-                        "Check the path is correct (relative paths resolve "
-                        "against the config file's directory) and that the "
-                        "file is a valid image (PNG, GIF, etc)."
-                    ),
+            if isinstance(exc, ValueError) and "frame" in str(exc):
+                errors.append(
+                    ValidationIssue(
+                        rule=70,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f'[[source]] {src.id!r} (type="image") has '
+                            f"{n_frames} frames — exceeds the "
+                            f"{_MAX_ANIM_FRAMES}-frame cap for inline "
+                            f"animation."
+                        ),
+                        fix=(
+                            f"Trim the source to {_MAX_ANIM_FRAMES} frames "
+                            f"or fewer, or use a static image."
+                        ),
+                    )
                 )
-            )
+            else:
+                errors.append(
+                    ValidationIssue(
+                        rule=70,
+                        location=loc,
+                        severity="error",
+                        message=(
+                            f'[[source]] {src.id!r} (type="image") could not '
+                            f"decode {str(path)!r}: {exc}"
+                        ),
+                        fix=(
+                            "Check the path is correct (relative paths "
+                            "resolve against the config file's directory) "
+                            "and that the file is a valid image (PNG, GIF, "
+                            "etc)."
+                        ),
+                    )
+                )
             continue  # No sprite to stage; downstream checks moot.
 
-        if n_frames > 1:
+        if anim is not None:
+            animated_frame_counts.append(len(anim.hires_frames))
+
+        if n_frames > 1 and src.id in referenced_scale1_ids:
             warnings.append(
                 ValidationIssue(
                     rule=70,
@@ -585,10 +701,34 @@ def _check_image_sources(
                     severity="warning",
                     message=(
                         f"[[source]] {src.id!r} is an animated image "
-                        f"({n_frames} frames) — it renders as its first "
-                        f"frame; inline animation is a planned follow-up."
+                        f"({n_frames} frames) — it animates on scaled "
+                        f"displays; smallsign shows the first frame only."
                     ),
-                    fix=("Use a static PNG, or accept the first-frame render for now."),
+                    fix=(
+                        "Use a scaled section (default_scale > 1) to see "
+                        "the animation, or accept the first-frame render "
+                        "on smallsign."
+                    ),
+                )
+            )
+
+        if n_frames > _ANIM_FRAME_COUNT_WARN:
+            warnings.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="warning",
+                    message=(
+                        f"[[source]] {src.id!r} is a {n_frames}-frame "
+                        f"animation — every frame is held decoded in memory "
+                        f"for the life of the slug (worst case "
+                        f"~{_animated_memory_estimate([n_frames]) // 1024} "
+                        f"KB for this source alone)."
+                    ),
+                    fix=(
+                        "Trim the number of frames if memory is tight, or "
+                        "accept the cost."
+                    ),
                 )
             )
 
@@ -643,7 +783,63 @@ def _check_image_sources(
                 )
             )
 
-        stage_image_emoji(src.id, lowres, hires)
+        # Band-clip check (two-row layouts, scaled sections): compare the
+        # sprite's LIT height in real pixels (tallest frame for an
+        # animation) against each referencing band's real-pixel height —
+        # the per-row emoji cap lets the sprite in, so a too-short band
+        # clips it at draw time.
+        frames = anim.hires_frames if anim is not None else [hires]
+        lit_h = max(
+            (max((px[1] for px in f.pixels), default=-1) + 1 for f in frames),
+            default=0,
+        )
+        for row_name, band_h, band_real, band_scale in sorted(
+            band_refs.get(src.id, ())
+        ):
+            if lit_h <= band_real:
+                continue
+            warnings.append(
+                ValidationIssue(
+                    rule=70,
+                    location=loc,
+                    severity="warning",
+                    message=(
+                        f"[[source]] {src.id!r} renders {lit_h}px tall but "
+                        f"a two-row {row_name} row band is only {band_real}px "
+                        f"({band_h} rows x scale {band_scale}) — the sprite "
+                        f"will clip vertically."
+                    ),
+                    fix=(
+                        f"Adjust top_row_height / content_height so the "
+                        f"{row_name} band has at least "
+                        f"{math.ceil(lit_h / band_scale)} rows, or use a "
+                        f"shorter image."
+                    ),
+                )
+            )
+
+        stage_image_emoji(src.id, lowres, hires, animation=anim)
+
+    total_anim_bytes = _animated_memory_estimate(animated_frame_counts)
+    if total_anim_bytes > _ANIM_MEMORY_WARN_BYTES:
+        warnings.append(
+            ValidationIssue(
+                rule=70,
+                location="config",
+                severity="warning",
+                message=(
+                    f"animated image sources across this config decode to "
+                    f"an estimated {total_anim_bytes // (1024 * 1024)} MB "
+                    f"worst-case, over the "
+                    f"{_ANIM_MEMORY_WARN_BYTES // (1024 * 1024)} MB guidance "
+                    f"threshold."
+                ),
+                fix=(
+                    "Trim frame counts on one or more animated [[source]] "
+                    "entries, or accept the memory cost."
+                ),
+            )
+        )
 
     commit_image_emoji()
     return errors, warnings
@@ -4019,8 +4215,8 @@ async def validate_config(
         # empty (correctly clearing this call's commits with nothing to
         # replace them).
         pixel_emoji.abort_image_emoji()
-        for slug, (lowres, hires) in snapshot.items():
-            pixel_emoji.stage_image_emoji(slug, lowres, hires)
+        for slug, (lowres, hires, animation) in snapshot.items():
+            pixel_emoji.stage_image_emoji(slug, lowres, hires, animation=animation)
         pixel_emoji.commit_image_emoji()
 
 

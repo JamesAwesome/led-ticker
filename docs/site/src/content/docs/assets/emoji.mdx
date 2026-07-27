@@ -123,8 +123,11 @@ the whole problem.
 (smallsign) it auto-downscales to 8×8 — recognizable for simple marks,
 approximate for detailed art; `led-ticker validate` reminds you.
 
-**Animated GIFs render as their first frame** for now — inline animation
-is a planned follow-up.
+**Animated GIFs animate** on scaled displays — frames advance at the
+GIF's own timing, in phase everywhere the slug appears, even mid-scroll
+or during a transition. Keep GIFs at 24 frames or fewer for comfort
+(`led-ticker validate` warns above that; more than 60 frames is refused).
+On a scale-1 sign the sprite shows its first frame, static.
 
 If something's wrong (missing file, name collision), the sign never goes
 dark: the bad source is skipped with a logged error and the token renders

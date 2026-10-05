@@ -325,6 +325,29 @@
       ]
     },
     {
+      "name": "tennis",
+      "namespace": "tennis",
+      "summary": "Live tennis scores (ATP, WTA, Challenger, ITF) — one story per match in play with per-set games, the current point, who is serving and break points, falling back to upcoming fixtures when nothing is on court. Maintained by the data source's vendor.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/tennis",
+      "provides": {
+        "widgets": [
+          "tennis.scores"
+        ]
+      },
+      "sources": [
+        {
+          "type": "pypi",
+          "package": "led-ticker-tennis"
+        },
+        {
+          "type": "git",
+          "url": "https://github.com/JamesAwesome/led-ticker-plugins",
+          "ref": "tennis-v0.1.0",
+          "subdirectory": "plugins/tennis"
+        }
+      ]
+    },
+    {
       "name": "telnet",
       "namespace": "telnet",
       "summary": "Telnet (ANSI terminal) rendering backend for led-ticker — watch your sign in a terminal.",

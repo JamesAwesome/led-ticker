@@ -57,16 +57,45 @@ def safe_scale(canvas: Any) -> int:
 
 
 # Module-level memoization for `get_text_width`. Keyed by
-# `(id(font), text, padding, scale)` — `id(font)` is stable for the
-# lifetime of the module-level BDF/HiresFont objects, `padding` is
+# `(_font_cache_key(font), text, padding, scale)` — see that helper for
+# why the font half can't be `id(font)`. `padding` is
 # usually 0/3/6, and `scale` reflects the canvas the width was measured
 # against (so a width measured on the bigsign at scale=4 doesn't
 # pollute a small-sign measurement at scale=1). Bounded to keep memory
 # predictable even if widget configs spawn many unique strings (e.g.
 # countdown messages). Unbounded `dict` would grow forever as new
 # strings appear.
-_TEXT_WIDTH_CACHE: dict[tuple[int, str, int, int], int] = {}
+_TEXT_WIDTH_CACHE: dict[tuple[Any, str, int, int], int] = {}
 _TEXT_WIDTH_CACHE_MAXSIZE: int = 256
+
+
+def _font_cache_key(font: Any) -> tuple[Any, ...]:
+    """Stable identity for a font, for use as part of a memo key.
+
+    NOT `id(font)`. The BDF fonts are module-level singletons
+    (`FONT_DEFAULT`, `FONT_SMALL`, loaded once at import), so their
+    addresses are stable for the process — but `HiresFont`s come from
+    `load_hires_font`, an `lru_cache(maxsize=16)`. Touch a 17th
+    (name, size, threshold) combination and an earlier font is evicted
+    and freed; CPython then recycles its address for the next
+    allocation. A memo keyed on the address would hand the new font the
+    DEAD font's width, because this cache only evicts on size and never
+    when a font dies.
+
+    That is not hypothetical: `flair.lottery`'s `auto_font_size` walks
+    Inter-Bold across 13 sizes in one loop, so it churns the 16-entry
+    LRU by itself. It measured size 19 as 42px (really 55px, a recycled
+    entry from size 15), chose a font two rungs too large, and painted
+    text past the ball it was supposed to sit inside.
+
+    A `HiresFont`'s width for a given string is a pure function of
+    `(name, size, threshold)`, so key on those. The object itself is
+    unusable as a key: it is a frozen dataclass whose `glyphs` dict is
+    mutable and grows lazily, so it is unhashable.
+    """
+    if isinstance(font, HiresFont):
+        return ("hires", font.name, font.size, font.threshold)
+    return ("bdf", id(font))
 
 
 def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -> int:
@@ -90,7 +119,7 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
         bigsign-only behavior in that lone case.
 
     **Caching**: results are memoized in a module-level dict keyed on
-    `(id(font), text, padding, scale)`. Per-frame callers (weather,
+    `(_font_cache_key(font), text, padding, scale)`. Per-frame callers (weather,
     two-row tickers) hit the cache instead of re-summing glyph
     advances every draw — saves O(len(text)) dict lookups per call.
     Cache evicts the oldest entry at ``_TEXT_WIDTH_CACHE_MAXSIZE = 256``
@@ -99,7 +128,7 @@ def get_text_width(font: Any, text: str, padding: int = 6, canvas: Any = None) -
     # Resolve effective scale once for both caching and computation.
     scale = SCALE_FALLBACK if canvas is None else safe_scale(canvas)
 
-    key = (id(font), text, padding, scale)
+    key = (_font_cache_key(font), text, padding, scale)
     cached = _TEXT_WIDTH_CACHE.get(key)
     if cached is not None:
         return cached

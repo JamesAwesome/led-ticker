@@ -383,7 +383,7 @@ class TestGetTextWidthMemoization:
     """`get_text_width` memoizes results in a module-level cache so
     per-frame callers (weather, two-row tickers) hit a dict get
     instead of re-summing glyph advances every draw. Cache key
-    includes `(id(font), text, padding, scale)` so different scales
+    includes the font's identity plus `(text, padding, scale)` so different scales
     produce distinct entries — a width measured at scale=1 doesn't
     pollute a scale=4 measurement.
     """
@@ -416,6 +416,67 @@ class TestGetTextWidthMemoization:
         w4 = get_text_width(font, "ABC", padding=0, canvas=c4)
         assert w1 != w4  # different scales → different widths
         assert len(_TEXT_WIDTH_CACHE) == 2  # two entries cached
+
+    def test_hires_entries_are_not_keyed_on_the_font_address(self):
+        """`HiresFont`s come from `load_hires_font`'s `lru_cache(maxsize=16)`,
+        so they get evicted and freed and CPython recycles their addresses.
+        A width cache keyed on `id(font)` therefore hands a brand-new font a
+        DEAD font's memoized width — wrong overflow, centering and fit
+        decisions anywhere more than 16 (font, size, threshold) combos are in
+        play. Key on the font's own identity instead.
+        """
+        from led_ticker.drawing import _TEXT_WIDTH_CACHE
+        from led_ticker.fonts import resolve_font
+
+        _TEXT_WIDTH_CACHE.clear()
+        font = resolve_font("Inter-Regular", 24)
+        get_text_width(font, "ABC", padding=0, canvas=SimpleNamespace(scale=1))
+        (key,) = _TEXT_WIDTH_CACHE
+        assert id(font) not in key, (
+            "hires width cached under id(font); the address is recycled after "
+            "LRU eviction and a different font inherits this width"
+        )
+
+    def test_reloaded_identical_hires_font_reuses_the_entry(self):
+        """A width is a pure function of `(name, size, threshold)` and the
+        text, so two separately-loaded instances of the same font must share
+        one entry and agree. Under address keying they produce two entries,
+        and after an eviction they could disagree.
+        """
+        from led_ticker.drawing import _TEXT_WIDTH_CACHE
+        from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        _TEXT_WIDTH_CACHE.clear()
+        load_hires_font.cache_clear()
+        first = resolve_font("Inter-Regular", 24)
+        load_hires_font.cache_clear()  # force a genuinely distinct object
+        second = resolve_font("Inter-Regular", 24)
+        assert first is not second
+
+        canvas = SimpleNamespace(scale=1)
+        w_first = get_text_width(first, "ABC", padding=0, canvas=canvas)
+        w_second = get_text_width(second, "ABC", padding=0, canvas=canvas)
+        assert w_first == w_second
+        assert len(_TEXT_WIDTH_CACHE) == 1
+
+    def test_different_hires_sizes_keep_separate_entries(self):
+        """Identity keying must still SEPARATE genuinely different fonts —
+        the fix must not collapse distinct sizes onto one entry.
+        """
+        from led_ticker.drawing import _TEXT_WIDTH_CACHE
+        from led_ticker.fonts import resolve_font
+
+        _TEXT_WIDTH_CACHE.clear()
+        canvas = SimpleNamespace(scale=1)
+        small = get_text_width(
+            resolve_font("Inter-Regular", 12), "ABC", padding=0, canvas=canvas
+        )
+        large = get_text_width(
+            resolve_font("Inter-Regular", 30), "ABC", padding=0, canvas=canvas
+        )
+        assert small < large
+        assert len(_TEXT_WIDTH_CACHE) == 2
 
     def test_cache_evicts_at_maxsize(self):
         """Cache evicts at maxsize so memory stays bounded even if a

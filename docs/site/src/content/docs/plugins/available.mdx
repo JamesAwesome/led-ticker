@@ -63,6 +63,12 @@ Live stock ticker (`type = "stocks.ticker"`) — symbol, price, change, and a ro
 
 <PluginCatalog name="stocks" />
 
+### [tennis](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/tennis)
+
+Live tennis scores (`type = "tennis.scores"`) across ATP, WTA, Challenger, ITF and juniors — one story per match in play, cycling the main tours first. Shows both players with per-set games, the point in progress (`15`/`30`/`40`/`AD`, or the tiebreak count), a serve marker and a break-point badge; it falls back to upcoming fixtures when nothing is on court. Layouts follow sign shape: a scrolling `ticker` at scale 1, a held `scoreboard` on the bigger panels. Data comes from the [Live Tennis API](https://livetennisapi.com) free tier (100 requests/day), and the plugin enforces a 15-minute poll floor to stay inside it. Set `demo = true` to preview with no API key. **Maintained by the data source's vendor** — see the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/tennis/README.md) for install steps and the full options reference.
+
+<PluginCatalog name="tennis" />
+
 ## Transitions
 
 ### [Homage sprite-trail transitions (flair pack)](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair)

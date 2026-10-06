@@ -43,6 +43,7 @@ def test_bundled_catalog_has_the_first_party_plugins():
         "storefront",
         "flight",
         "stocks",
+        "tennis",
     }
     # the split is done — no monolithic feeds/arcade entries remain
     assert "feeds" not in names and "arcade" not in names

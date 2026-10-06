@@ -1,0 +1,17 @@
+# render-duration: 8
+# DEMO-mode weather.forecast on a smallsign (160x16, scale 1). Hi-res layouts
+# are impossible at scale 1, so `auto` always resolves to "strip": today plus
+# the next two days, centered as a group with dotted separators between.
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "weather.forecast"
+demo = true

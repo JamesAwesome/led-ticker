@@ -1,0 +1,124 @@
+---
+title: Multi-day weather forecast
+description: A held multi-day weather forecast card for an LED sign — today's conditions as a hero, then a day-by-day strip of highs, lows and rain chance.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+A current temperature tells you how to dress right now. A forecast tells you whether to move the cookout. The **weather.forecast** widget, provided by the **[weather](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather)** package (`type = "weather.forecast"`), holds a card with today's conditions as a hero — the big temperature, the high/low, what it feels like — and then a strip of the days after it, each with a condition icon, its high and low, and the chance of rain.
+
+It is the companion to [`weather.current`](/widgets/weather/), which shows just this moment in a single scrolling line. Run both if you like; they share one API key.
+
+<DemoGif
+  src="/demos-pinned/weather-forecast-hero-longboi.gif"
+  caption="held forecast card on a long panel: BOSTON, 78 degrees with an 82/64 high-low and a feels-like, then six day columns from TUE to SUN, each with a condition icon, high over low, and rain chance underneath."
+/>
+
+**Requires led-ticker-core >= 4.27.**
+
+## What you'll need
+
+- A working [led-ticker](https://github.com/JamesAwesome/led-ticker) install, core **4.27 or newer**.
+- The plugin: add `led-ticker-weather` to your sign's `config/requirements-plugins.txt` and restart. See [using plugins](/plugins/) for the full install path. If you already run `weather.current`, you already have it.
+- A free API key from [weatherapi.com](https://www.weatherapi.com/), in the environment as `WEATHERAPI_KEY` — not in `config.toml`. The same key serves both weather widgets.
+- Internet access on the Pi.
+
+Run the config commands wherever your sign's `config/` directory lives — on the Pi itself for a deployed sign.
+
+## The smallest config that works
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "weather.forecast"
+demo = true
+```
+
+That is the whole widget block from `docs/site/demos-pinned/weather-forecast-hero-longboi.toml`, the file that rendered the GIF above. Swap `demo = true` for `location = "Boston"`, export `WEATHERAPI_KEY`, and the same block shows your real forecast.
+
+`location` takes a city name, a postal code, or a lat/lon table (`{ lat = 42.36, lon = -71.06 }`) — the same convention as `weather.current`. This is a held card, not a scroller, so give the section `mode = "slideshow"` and a `hold_time` long enough to read it.
+
+## Options
+
+<OptionsTable source="widgets/weather_forecast" />
+
+## Layouts, one per sign shape
+
+`layout = "auto"` is the default and resolves on every draw, so one config is correct on a 160×16 smallsign and a 512×64 panel alike. The three shapes are genuinely different layouts, not one design squeezed:
+
+### Long panels, 400 physical px and wider
+
+The hero gets room to breathe — location, a large temperature pushed right, high/low and feels-like stacked beneath — and every remaining forecast day gets its own column with the rain chance spelled out. That is the GIF at the top of this page.
+
+### Narrower hi-res panels, under 400 px
+
+The hero compacts and the day columns drop the rain-chance row, stacking high over low instead, so four days still fit beside it. A dotted divider separates hero from strip.
+
+<DemoGif
+  src="/demos-pinned/weather-forecast-hero-bigsign.gif"
+  caption="the same forecast on a 256x64 panel: a compact BOSTON hero with the 78 degree temperature, then four day columns from TUE to FRI showing high over low without the rain-chance row."
+/>
+
+### Scale-1 signs
+
+Hi-res layouts are impossible at scale 1, so `auto` always picks the strip: today (labelled `TDY`) plus the next two days, centered as a group with dotted separators, each cell an icon beside the day and its high/low.
+
+<DemoGif
+  src="/demos-pinned/weather-forecast-strip-smallsign.gif"
+  caption="smallsign: three cells reading TDY 82/64, TUE 86/66 and WED 79/68, each with a small condition icon, separated by dotted vertical lines."
+/>
+
+You can force any shape at any size with `layout = "strip"`, `"big"` or `"long"`.
+
+## How many days you actually get
+
+This is the one thing worth knowing before you mount it. The widget asks WeatherAPI for seven days, but **a free key returns three** — and today is drawn as the hero, so only two columns remain for the strip.
+
+Nothing breaks: the strip renders however many days the feed provides and spreads them to fill, capping the spacing rather than stretching two columns across a whole panel. But a free key on a long panel looks like this, not like the GIF at the top:
+
+<DemoGif
+  src="/demos-pinned/weather-forecast-short-feed-longboi.gif"
+  caption="the same long panel with only two forecast days: the BOSTON hero, the dotted divider, then TUE and WED grouped toward the right with empty space between them and the divider."
+/>
+
+<Aside type="tip" title="Getting the most out of a free key">
+  Two columns suit a narrower panel better than a wide one, so on a long sign consider `layout =
+  "big"` to keep the card dense, or pair the forecast with other widgets in the rotation so the
+  empty stretch is not the thing holding the screen. Preview either outcome without a key by setting
+  `demo_days = 2`.
+</Aside>
+
+## Try it in demo mode
+
+`demo = true` renders a fixed sample week — six days with a mix of sun, thunder, rain and cloud — with no API key and no network call. It is the fastest way to see whether the card suits your panel, and it is what every GIF on this page shows. `demo_days = N` truncates that week to `N` columns, which is how the short-feed GIF above was made.
+
+```toml
+[[playlist.section.widget]]
+type = "weather.forecast"
+demo = true
+demo_days = 2
+```
+
+## If it doesn't work
+
+**The panel says `WEATHERAPI_KEY not set`.** The plugin found no key. It reads `WEATHERAPI_KEY` from the environment — on a Docker deploy that means getting it into the container, not just exporting it in your shell. See the [plugin README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/weather/README.md#prerequisites) for the compose snippet.
+
+**Fewer day columns than you expected.** Almost always the free-tier window — see [how many days you actually get](#how-many-days-you-actually-get). A free key gives two strip columns, not six.
+
+**Config rejected at startup.** `layout` must be one of `auto`, `strip`, `big`, `long`; `units` must be `imperial` or `metric`; `update_interval` must be positive; and `location` is required unless `demo = true`. The validator names whichever one is wrong.
+
+**The forecast looks hours old.** It is, by design — the default `update_interval` is 10800 seconds, three hours. A forecast does not change minute to minute, and a slow poll keeps a free key well inside its monthly allowance. Lower it if you want, but there is little to gain.
+
+**A long city name is cut short.** Expected. The hero location is fitted to a fixed budget and shrinks, then ellipsizes, rather than bleeding into the day strip.
+
+## Next steps
+
+Pair it with [`weather.current`](/widgets/weather/) for the right-now reading on the same key, or see [sections and modes](/concepts/sections-and-modes/) for how long the card holds before the next widget.
+
+<RelatedPages slugs={["widgets/weather", "plugins/available", "concepts/sections-and-modes"]} />

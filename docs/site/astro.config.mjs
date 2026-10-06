@@ -278,6 +278,7 @@ export default defineConfig({
                 { label: "calendar.events", link: "/widgets/calendar/" },
                 { label: "rss.feed", link: "/widgets/rss_feed/" },
                 { label: "weather.current", link: "/widgets/weather/" },
+                { label: "weather.forecast", link: "/widgets/weather_forecast/" },
                 { label: "flair.lottery", link: "/widgets/lottery/" },
                 { label: "tennis.scores", link: "/widgets/tennis/" },
               ],

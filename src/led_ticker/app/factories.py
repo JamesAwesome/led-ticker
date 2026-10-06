@@ -46,6 +46,7 @@ from led_ticker.sources import (
     ClockSource,
     DataSource,
     DateSource,
+    ImageSource,
     PolledDataSource,
     StaticSource,
 )
@@ -222,18 +223,15 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "maximum stories to show per cycle",
         "5",
     ),
-    # --- Pool (shared layout knob) ---
-    "layout": FieldHint(
-        '"ticker" | "two_row" | "scoreboard"',
-        "widget render mode. pool: ticker (single-row segmented, with "
-        "trend arrow) or two_row (stacked label-on-top / big-value-on-"
-        "bottom, bigsign-recommended).",
-        '"ticker"',
-    ),
-    # --- label color (shared: pool.monitor) ---
-    "label_color": FieldHint(
-        "[r, g, b]", "color for the prefix labels and separators", "white"
-    ),
+    # NOTE: no hint for plugin-only field names (e.g. `layout`, `label_color`).
+    # FIELD_HINTS is keyed by bare field NAME, so an entry here is shown for
+    # EVERY widget declaring a field of that name. `layout`/`label_color` are
+    # not fields on any core widget — each layout-bearing plugin
+    # (pool.monitor, weather.forecast, baseball.*, flight.overhead, stocks)
+    # has its OWN enum, so a single name-keyed hint is guaranteed wrong for
+    # all but one of them (issue #438). Plugins supply accurate per-field
+    # hints via the widget-class `_LIST_FIELD_HINTS` attribute, resolved
+    # ahead of this table in `_resolve_hint` below.
 }
 
 # Attrs fields on gif/image widgets that only activate when bottom_text != "".
@@ -1336,6 +1334,15 @@ def _list_widget_fields(widget_type: str) -> str:
         raw = _per_widget_hints.get(name)
         if raw is not None:
             if isinstance(raw, tuple) and not isinstance(raw, FieldHint):
+                # A malformed override must fail loudly, naming the widget and
+                # field, rather than surfacing a bare TypeError from the splat
+                # or silently mis-rendering an introspection command.
+                if len(raw) != 3:
+                    raise ValueError(
+                        f"{widget_type!r} _LIST_FIELD_HINTS[{name!r}] must be a "
+                        f"3-tuple (display_type, description, default_display) "
+                        f"or a FieldHint; got {len(raw)} element(s)."
+                    )
                 return FieldHint(*raw)
             return raw
         return FIELD_HINTS.get(name)
@@ -1463,6 +1470,7 @@ _SOURCE_TYPES: dict[str, type[DataSource]] = {
     "clock": ClockSource,
     "date": DateSource,
     "static": StaticSource,
+    "image": ImageSource,
 }
 
 
@@ -1481,12 +1489,19 @@ def get_source_class(source_type: str) -> type[DataSource]:
     return cls
 
 
-def build_source(cfg: SourceConfig, session: Any = None) -> DataSource:
+def build_source(
+    cfg: SourceConfig, session: Any = None, config_dir: Path | None = None
+) -> DataSource:
     """Instantiate a DataSource from a parsed SourceConfig.
 
     Maps TOML config keys to constructor kwargs:
     - clock / date: format → fmt, timezone → tz
     - static: value → value
+    - image: path → path (resolved against config_dir, mirroring
+      `_resolve_asset_paths`), then decoded + STAGED via `prepare()` — a
+      raise here propagates; the caller's per-source try/except (boot:
+      `build_source_registry`; reload: its own guard) gives the skip
+      posture, never darkening the panel.
     - PolledDataSource subclasses (plugin sources): id + injected session/interval
       + remaining cfg.raw keys as generic kwargs (location, format, placeholder, …).
     """
@@ -1529,9 +1544,21 @@ def build_source(cfg: SourceConfig, session: Any = None) -> DataSource:
         )
     elif cls is StaticSource:
         source = cls(id=cfg.id, value=cfg.raw.get("value", ""))
+    elif cls is ImageSource:
+        source = cls(id=cfg.id, path=cfg.raw.get("path", ""))
     else:
         # Generic fallback for future core types that only need id= (rare).
         source = cls(id=cfg.id)
+
+    if isinstance(source, ImageSource):
+        # Same relative-path convention as widget assets (_resolve_asset_paths,
+        # ~line 593): a relative path anchors at the config file's directory.
+        candidate = Path(source.path)
+        if not candidate.is_absolute() and config_dir is not None:
+            source.path = str((config_dir / candidate).resolve())
+        # Decode + STAGE now; a raise propagates to the caller, which decides
+        # the skip-and-log posture (never darkens the panel).
+        source.prepare()
 
     raw_color = cfg.raw.get("color")
     if raw_color is not None:

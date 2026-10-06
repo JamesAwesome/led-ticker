@@ -110,7 +110,7 @@ Colored tokens work in every widget that reads inline tokens: `message`, `two_ro
 
 A `typewriter` reveal colors tokens correctly the whole time, including when the message mixes a colored token with inline `:slug:` emoji — each token character takes the source's color as soon as it appears on screen. A colored token also keeps its color under a [`flair.fisheye`](/concepts/animations/#flairfisheye-flair-pack) lens.
 
-## The three source types
+## The four source types
 
 ### `clock` — live wall-clock time
 
@@ -150,6 +150,23 @@ value = "Firebird Yoga"
 
 # then in any widget:
 # text = ":studio.name: · Breathe. Move. Rise."
+```
+
+### `image` — your own image as an inline emoji
+
+`path` points at a local PNG or GIF under `config/assets/`; the token then
+renders the image as an inline sprite wherever emoji do. It's a
+declaration, not a live value — the full walkthrough (file placement,
+naming, sizing) lives on the [emoji page](/assets/emoji/#your-own-images-as-emoji).
+
+```toml
+[[source]]
+type = "image"
+id = "cart.logo"
+path = "assets/cart-logo.png"
+
+# then in any widget:
+# text = "HALAL CART :cart.logo: OPEN LATE"
 ```
 
 ## How live updates work

@@ -5,7 +5,7 @@ from typing import Any
 
 import attrs
 
-from led_ticker import status_board
+from led_ticker import pixel_emoji, status_board
 from led_ticker._types import Canvas
 from led_ticker.backends import Backend, BackendNotReadyError
 
@@ -93,6 +93,9 @@ class LedFrame:
         canvas before the backend swap; status_board records liveness. Hooks
         must be paint-only and not raise (see CLAUDE.md overlay invariant)."""
         self._require_ready()
+        pixel_emoji.tick_image_animations()  # advance inline-image frames
+        # (guarded internally — never raises into the swap; see the
+        # CLAUDE.md swap-responsibilities invariant)
         for hook in self.overlay_hooks:
             hook(canvas)
         status_board.record_swap()

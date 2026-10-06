@@ -706,9 +706,9 @@ async def test_apply_reload_session_passed_to_build_source(tmp_path):
 
     original_build_source = _factories.build_source
 
-    def patched_build_source(cfg, session=None):
+    def patched_build_source(cfg, session=None, config_dir=None):
         captured_sessions.append(session)
-        return original_build_source(cfg, session=session)
+        return original_build_source(cfg, session=session, config_dir=config_dir)
 
     # Patch in the factories module so the local import inside _apply_reload picks
     # it up (the function does `from led_ticker.app.factories import build_source`

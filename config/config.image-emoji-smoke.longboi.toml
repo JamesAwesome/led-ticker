@@ -1,0 +1,84 @@
+# Inline image source + animation smoke test — LONGBOI (512x64, 4x horizontal chain).
+#
+# Back up config/config.toml, paste this over it, `make restart`, and watch.
+# Uses the repo's TRACKED example assets (config/assets/phoenix.*) so it is
+# fully self-contained — no files to supply.
+#
+# WHAT TO LOOK FOR:
+#   STATIC  :fb.logo:  (phoenix.png) renders as a 32px inline sprite in held
+#           and scrolling text — crisp, stable.
+#   ANIMATED :fb.flame: (phoenix.gif, 23 frames) CYCLES at its native timing
+#           — the phoenix visibly animates inline, in phase in both widgets,
+#           even while the text scrolls.
+#   The same slug in two widgets animates IN PHASE (shared wall-clock epoch).
+#   Nothing jitters horizontally around the sprites (layout-invariant frames).
+
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+brightness = 60
+default_scale = 4
+hardware_mapping = "adafruit-hat"
+panel_type = "FM6126A"
+led_rgb_sequence = "BRG"
+gpio_slowdown = 5
+pwm_bits = 7
+limit_refresh_rate_hz = 100
+
+[[source]]
+type = "image"
+id = "fb.logo"
+path = "assets/phoenix.png"
+
+[[source]]
+type = "image"
+id = "fb.flame"
+path = "assets/phoenix.gif"
+
+[title]
+delay = 3
+
+[transitions]
+default = "cut"
+between_sections = "dissolve"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = ":fb.logo: HELD :fb.flame:"
+center = true
+font = "Inter-Bold"
+font_size = 24
+font_threshold = 80
+font_color = [255, 220, 120]
+
+[[playlist.section.widget]]
+type = "message"
+text = "SCROLLING WITH :fb.flame: THE PHOENIX RIDING ALONG :fb.logo: AND THE STATIC LOGO TOO"
+font = "Inter-Bold"
+font_size = 24
+font_threshold = 80
+font_color = [120, 255, 160]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = ":fb.flame: PHOENIX :fb.flame:"
+bottom_text = "in-phase animation • native gif timing • :fb.logo: static beside it"
+top_align = "center"
+top_row_height = 10
+top_font = "Inter-Bold"
+top_font_size = 30
+bottom_font = "Inter-Regular"
+bottom_font_size = 18
+bottom_font_threshold = 80
+top_color = [255, 180, 60]
+bottom_color = [200, 200, 255]

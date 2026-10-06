@@ -290,6 +290,23 @@ A few behaviors are **conventions** the type carries, not `api.*` calls:
 - **`restart_on_visit`** — a color provider or border may set `restart_on_visit = False` to keep a continuous animation phase across a section's `loop_count`, instead of resetting on each visit.
 - **`should_display`** — a widget may define `def should_display(self) -> bool`. The engine calls it once per section pass; returning `False` removes the widget from that pass (it is re-evaluated on the next pass). Absent → always shown. A `should_display` that raises keeps the widget — a visibility check must never crash the render loop. Use it to gate a widget on a runtime condition: the built-in `countdown` / `countup` widgets hide while their day count is negative; a custom widget could show only during certain hours.
 - **`RESOLVES_OWN_FONT`** — a widget class may set `RESOLVES_OWN_FONT = True` to receive its configured `font` as the raw TOML name string instead of a resolved `Font`/`HiresFont` object. Normally the config loader eagerly resolves `font` (and raises if a hi-res name is given without `font_size`); with the marker set, that resolution and the `font_size` requirement are both skipped, so a widget that auto-sizes its own font per use (e.g. sizing pixel-art glyphs to fit a dynamic layout) can call `resolve_font` itself. Default `False` (unset behaves the same as `False`) — every other widget's font handling is unaffected.
+- **`_LIST_FIELD_HINTS`** — a widget class may set `_LIST_FIELD_HINTS: dict[str, tuple[str, str, str]]` to supply the human-readable `--list-fields` hint for its own fields. Each value is `(display_type, description, default_display)` — the enum/type string, the prose, and the shown default. These are resolved **ahead of** core's built-in hint table, so they're the correct home for a field whose meaning is plugin-specific. In particular a `layout` field: every layout-bearing plugin has its own enum, so core carries **no** name-keyed hint for it (a shared hint would be wrong for all plugins but one) — declare your own here. A field with no per-widget hint falls back to its plain annotation and default. Example:
+
+  ```python
+  @register("forecast")
+  @attrs.define
+  class Forecast:
+      layout: str = "auto"
+      _LIST_FIELD_HINTS = {
+          "layout": (
+              '"auto" | "strip" | "big" | "long"',
+              "forecast render mode",
+              '"auto"',
+          ),
+      }
+  ```
+
+  A malformed entry (not a 3-tuple or `FieldHint`) fails `--list-fields` loudly, naming the widget and field.
 
 ## Where to next
 

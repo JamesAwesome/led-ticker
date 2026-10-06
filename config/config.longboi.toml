@@ -122,7 +122,7 @@ font_color = "random"
 [[playlist.section.widget]]
 type = "stocks.ticker"
 symbols = ["DKS", "NKE", "AAPL", "NVDA", "SPY"]
-layout = "crawl"
+layout = "dashboard"  # hires held longboi layout (crawl uses the lores BDF font)
 update_interval = 60
 
 # --- Weather ---
@@ -419,6 +419,7 @@ font_color = "random"
 type = "baseball.promotions"
 team = "PHI"
 timezone = "America/New_York"
+layout = "card"  # hires held card; auto picks the lores BDF crawl on a wide sign
 
 # --- Pool Temps ---
 # Requires INFLUXDB_TOKEN (and URL/ORG/BUCKET) in .env.

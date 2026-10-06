@@ -43,7 +43,7 @@ from led_ticker.fonts import (
 )
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.lens_render import LensTextRenderer
-from led_ticker.pixel_emoji import has_renderable_emoji
+from led_ticker.pixel_emoji import has_animated_emoji, has_renderable_emoji
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled
 from led_ticker.sources import (
     TokenizedField,
@@ -1730,6 +1730,7 @@ class _BaseImageWidget(FrameAwareBase):
             and border_is_static
             and self.animation is None
             and not self._has_overlay_tokens()
+            and not has_animated_emoji(self._resolved_text_single)
         ):
             self._render_tick(
                 canvas,
@@ -2044,6 +2045,7 @@ class _BaseImageWidget(FrameAwareBase):
             and colors_are_static
             and border_is_static
             and not self._has_overlay_tokens()
+            and not (has_animated_emoji(top_text) or has_animated_emoji(bottom_text))
         ):
             bottom_tuple = (
                 bottom_font,

@@ -65,6 +65,153 @@ class StaticSource(DataSource):
         return self.value
 
 
+_MAX_ANIM_FRAMES = 60
+_MIN_FRAME_MS = 20
+
+
+def _bake(im, target_h, cap_w) -> list[tuple[int, int, int, int, int]]:
+    """Downscale an RGBA frame to `target_h` px tall (width proportional,
+    capped at `cap_w`) and return the lit (alpha >= 110) pixels as
+    `(x, y, r, g, b)` tuples — the Noto bake recipe, shared by the static
+    and animated decode paths so behavior stays byte-identical."""
+    from PIL import Image  # noqa: PLC0415
+
+    w = max(1, round(im.width * target_h / im.height))
+    if w > cap_w:
+        im2 = im.resize((cap_w, target_h), Image.Resampling.LANCZOS)
+    else:
+        im2 = im.resize((w, target_h), Image.Resampling.LANCZOS)
+    px = im2.load()
+    out: list[tuple[int, int, int, int, int]] = []
+    for y in range(im2.height):
+        for x in range(im2.width):
+            r, g, b, a = px[x, y]
+            if a >= 110:
+                out.append((x, y, r, g, b))
+    return out
+
+
+def load_image_sprites(path):
+    """Decode an image file into the inline-sprite forms.
+
+    Returns ``(lowres, hires_frame0, animation)``: an 8x8 ``PixelData``, a
+    32-px-tall ``HiResEmoji`` (width proportional, capped at 128 px; RGBA
+    alpha >= 110 keeps a pixel — the Noto bake recipe), and — for a
+    multi-frame file — a `pixel_emoji._ImageAnimation` record (`None` for a
+    single-frame file). `hires_frame0` IS `animation.hires_frames[0]`
+    (identity): the registry's committed static sprite is the same object
+    the frame-swap tick will overwrite on a later index change, so a
+    no-change tick is identity-stable.
+
+    For a multi-frame file, frames are decoded up to a hard cap of
+    `_MAX_ANIM_FRAMES` (raises `ValueError` above it — the caller decides
+    posture: build_source_registry skips + logs; validate errors loudly).
+    Every frame's `HiResEmoji` shares one `physical_width` = the union
+    EXTENT across frames (`max` over frames of `max_x + 1`; pixels are NOT
+    origin-shifted), so any frame measures identically regardless of which
+    one happens to be current when a widget lays out around it. Frame
+    durations come from Pillow's per-frame `duration` (default 100ms),
+    clamped to a `_MIN_FRAME_MS` floor so a malformed 0/near-0 duration
+    can't spin the tick.
+
+    Raises on a missing/undecodable file — the CALLER decides posture
+    (build_source_registry skips + logs; validate errors loudly).
+
+    Memory cost: the full source frame is decoded to RGBA BEFORE the
+    downscale, so peak memory scales with the ORIGINAL image dimensions
+    (1x-2x of Pillow's MAX_IMAGE_PIXELS band for a very large source), not the
+    tiny sprite it becomes. The >512x512 validate warning (rule 70) is the
+    guard against pathologically large sources. Frames are Python pixel
+    tuples (~88 B each); the 60-frame cap bounds one slug at roughly 23 MB
+    worst-case.  # Phase-2 candidate: bounded decode still on the table.
+    """
+    from PIL import Image  # noqa: PLC0415
+
+    from led_ticker.pixel_emoji import HiResEmoji, _ImageAnimation  # noqa: PLC0415
+
+    img = Image.open(path)  # frame 0 of a multi-frame file by default
+    n_frames = getattr(img, "n_frames", 1)
+    if n_frames > _MAX_ANIM_FRAMES:
+        raise ValueError(
+            f"{path}: {n_frames} frames exceeds the {_MAX_ANIM_FRAMES}-frame "
+            f"cap for inline animation"
+        )
+
+    frames_px: list[list[tuple[int, int, int, int, int]]] = []
+    durations: list[int] = []
+    for i in range(n_frames):
+        img.seek(i)
+        rgba = img.convert("RGBA")
+        frames_px.append(_bake(rgba, 32, 128))
+        # Defensive coercion (adversarial-review finding): a decodable file
+        # can still carry duration=None or a non-numeric string in a frame's
+        # info dict — clamp the bad FRAME to the default rather than dropping
+        # the whole source on int()'s TypeError/ValueError.
+        try:
+            duration = int(float(img.info.get("duration") or 100))
+        except TypeError, ValueError:
+            duration = 100
+        durations.append(max(duration, _MIN_FRAME_MS))
+    img.seek(0)
+    lowres = _bake(img.convert("RGBA"), 8, 8)
+
+    # Union EXTENT across frames (spec rev 2): max (max_x + 1); no shifting.
+    union_w = max(
+        (max((p[0] for p in fpx), default=0) + 1 for fpx in frames_px), default=1
+    )
+    hires_frames = tuple(
+        HiResEmoji(pixels=tuple(fpx), physical_size=32, physical_width=union_w)
+        for fpx in frames_px
+    )
+    if n_frames == 1:
+        return lowres, hires_frames[0], None
+
+    cum: list[int] = []
+    run = 0
+    for d in durations:
+        run += d
+        cum.append(run)
+    anim = _ImageAnimation(
+        hires_frames=hires_frames, cumulative_ms=tuple(cum), total_ms=run
+    )
+    return lowres, hires_frames[0], anim
+
+
+@attrs.define(eq=False)
+class ImageSource(DataSource):
+    """Declaration-only source: registers a config-declared image as an
+    inline emoji slug (`:id:`). No polling, no monitor entry. `prepare()`
+    decodes + STAGES (pixel_emoji.stage_image_emoji); the boot/reload path
+    commits atomically alongside set_data_registry. `compute()` returns the
+    literal token as a defensive value — once the slug is committed,
+    `is_emoji_slug` excludes it from TokenizedField._candidate_ids and the
+    emoji parser owns the token outright."""
+
+    path: str = ""
+
+    def prepare(self) -> None:
+        from led_ticker.pixel_emoji import stage_image_emoji  # noqa: PLC0415
+
+        # An id that can't form a `:token:` (EMOJI_PATTERN's
+        # `[a-z_][a-z0-9_.]*` body) would commit a slug the emoji parser can
+        # never match — the token renders as literal text. validate errors on
+        # this (rule 70); the runtime just skips staging so it never commits
+        # an unusable slug. One WARNING, no raise (a bad id must not go dark).
+        if not re.fullmatch(r"[a-z_][a-z0-9_.]*", self.id):
+            logging.getLogger(__name__).warning(
+                "image source id %r can't form a :token: (needs lowercase "
+                "letters, digits, underscore, or dot; must start with a "
+                "letter or underscore) — skipping; the token will not render",
+                self.id,
+            )
+            return
+        lowres, hires, anim = load_image_sprites(self.path)
+        stage_image_emoji(self.id, lowres, hires, animation=anim)
+
+    def compute(self) -> str:
+        return f":{self.id}:"
+
+
 @attrs.define(eq=False)
 class ClockSource(DataSource):
     fmt: str = "%H:%M"

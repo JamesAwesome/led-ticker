@@ -1,0 +1,159 @@
+---
+title: Live tennis scores
+description: Live ATP, WTA, Challenger and ITF tennis scores on an LED sign — per-set games, the point in progress, serve and break points, plus upcoming fixtures.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+Tennis is the sport that punishes you for looking away. A set turns on two points, and the scoreline that mattered an hour ago tells you nothing. The **tennis.scores** widget, provided by the **[tennis](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/tennis)** package (`type = "tennis.scores"`), keeps every match in play on your wall: both players, the games in each set, the point in progress, who is serving, and a break-point marker on the receiver. When nothing is on court it falls back to the upcoming order of play, so the sign stays useful between sessions rather than going blank.
+
+It covers ATP, WTA, Challenger, ITF and juniors, cycling one story per match with the main tours first — which in practice means that on a quiet Tuesday your sign is showing ITF matches from Monastir that no broadcaster carries.
+
+<DemoGif
+  src="/demos-pinned/tennis-scoreboard-longboi.gif"
+  caption="held scoreboard on a long panel: two player rows, one games column per set, the live point in cyan, a serve pip beside the server, and a right-aligned status column cycling through a break point, a tiebreak, a retirement and an upcoming fixture."
+/>
+
+**Requires led-ticker-core >= 4.16.**
+
+<Aside type="note" title="Contributed by the data source's vendor">
+  This plugin was written by [@bensynapse](https://github.com/bensynapse), who also maintains the
+  [Live Tennis API](https://livetennisapi.com) that feeds it. Worth knowing when you weigh the data
+  source: the plugin is built around that API's free tier and enforces its rate limit in code.
+</Aside>
+
+<Aside type="tip">
+  Want to see it before signing up for anything? Set `demo = true` and skip to [Try it in demo
+  mode](#try-it-in-demo-mode) — no API key, no network call. Every GIF on this page was rendered
+  that way; live mode looks identical, it just pulls real matches.
+</Aside>
+
+## What you'll need
+
+- A working [led-ticker](https://github.com/JamesAwesome/led-ticker) install, core **4.16 or newer**.
+- The plugin: add `led-ticker-tennis` to your sign's `config/requirements-plugins.txt` and restart. See [using plugins](/plugins/) for the full install path.
+- A free Live Tennis API key from [livetennisapi.com/subscribe/free](https://livetennisapi.com/subscribe/free) — no card, 100 requests/day. Put it in the environment as `LIVETENNIS_API_KEY`, not in `config.toml`.
+- Internet access on the Pi.
+
+Without a key nothing crashes: the panel shows `Tennis: set LIVETENNIS_API_KEY` until one is configured.
+
+Run the config commands wherever your sign's `config/` directory lives — on the Pi itself for a deployed sign.
+
+## The smallest config that works
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "tennis.scores"
+demo = true
+```
+
+That is the whole widget block from `docs/site/demos-pinned/tennis-scoreboard-longboi.toml`, the file that rendered the GIF above. Drop `demo = true`, export `LIVETENNIS_API_KEY`, and the same block shows real matches.
+
+`mode = "slideshow"` is the right section mode for the held scoreboard — one match per visit, then a transition to the next. Use `mode = "ticker"` if you set `layout = "ticker"`, since that layout scrolls rather than holds.
+
+## Options
+
+<OptionsTable source="widgets/tennis" />
+
+## Layouts, one per sign shape
+
+`layout = "auto"` is the default and resolves per sign on every draw, so the same config is correct on a 160×16 smallsign and a 512×64 panel.
+
+### Held scoreboard (scale > 1)
+
+Two rows, player over player: a serve pip, the name, then numeric columns laid out right-to-left from measured widths. The wide and narrow panels get different geometry rather than the same layout squeezed:
+
+- **Long panels (≥ 400 physical px)** — one games column per set, then the in-game points.
+- **Narrower panels (bigsign, 256 px)** — sets won, current-set games, then points. The compact tennis scoreboard.
+
+<DemoGif
+  src="/demos-pinned/tennis-scoreboard-bigsign.gif"
+  caption="the same four fixtures on a 256x64 panel: numbers compact to sets-won, current-set games and the point, because one column per set would not fit."
+/>
+
+Right of the numbers sits a red `BP` badge on the **receiver's** row when they hold a break point, then a right-aligned status column: the match state (`SET 3`, `SUSP`, `FINAL`, `RET`, `W/O`), the round code, and the tournament. Long tournament names shrink through a size ladder and ellipsize rather than colliding with the score.
+
+### Scrolling ticker (scale 1)
+
+At scale 1 the widget renders through the BDF text path — one scrolling line per match in tennis notation. The serve marker is an asterisk hugging the server's name rather than a pip, because the bundled BDF fonts have no disc glyph.
+
+<DemoGif
+  src="/demos-pinned/tennis-ticker-smallsign.gif"
+  caption="smallsign: LEHECKA* v FILS 4-6 3-4 (15-40) BP, scrolling — names white, games amber, the live point cyan in parentheses, break point in red."
+/>
+
+You can force either shape at any size with `layout = "ticker"` or `layout = "scoreboard"`.
+
+## Reading the colors
+
+One hue per kind of fact, so the same glance works on every layout:
+
+| Color       | Means                                                                 |
+| ----------- | --------------------------------------------------------------------- |
+| White       | Player names                                                          |
+| Amber       | Games per set, and fixture start times                                |
+| Cyan        | The point in progress (`15`, `30`, `40`, `AD`, or the tiebreak count) |
+| Ball yellow | The serve marker — pip at scale > 1, `*` at scale 1                   |
+| Red         | `BP`, a break point, on the receiver's row                            |
+| Orange      | `TB`, a tiebreak in progress                                          |
+| Green       | The winner of a finished match, and the live `SET n` label            |
+| Dim blue    | The loser of a finished match, round codes, tournament names          |
+
+## Staying inside the free tier
+
+The free tier allows **100 requests per day**, and the plugin enforces that rather than trusting you to:
+
+- `update_interval` is **floored at 900 seconds** (15 minutes). A lower value is clamped and logged. 900s is 96 polls a day, which fits under 100 with room for restarts.
+- One request per tick. When nothing is live, live and upcoming listings alternate so a quiet sign still notices play starting.
+- Widgets sharing an API key in one process **share one poller**, so a second `tennis.scores` widget does not double your spend.
+- A failed fetch keeps the last good scores and backs off, and the panel labels them `STALE` so you can tell a frozen scoreboard from a current one.
+- A rejected key parks for an hour and says `Tennis: API key rejected` on the panel instead of hammering the API.
+
+<Aside type="caution" title="The budget is per key, per day — across all your signs">
+  The cadence is enforced per process, so two signs polling with the same key draw twice the
+  requests, and each restart spends one or two more. Three signs at the 900s floor is roughly 288
+  requests a day against a 100/day allowance. Raise `update_interval` when you run more than one
+  sign on one key — `3600` gives 24 polls a day per sign.
+</Aside>
+
+## Try it in demo mode
+
+`demo = true` renders four curated fixtures with no key and no network, chosen to exercise every branch of the renderer: a live match at break point, a live tiebreak, a retirement, and tomorrow's fixture. It is the fastest way to see whether the layout suits your panel, and it is what the GIFs on this page show.
+
+```toml
+[[playlist.section.widget]]
+type = "tennis.scores"
+demo = true
+```
+
+## If it doesn't work
+
+**The panel says `set LIVETENNIS_API_KEY`.** The plugin found no key. It reads `LIVETENNIS_API_KEY` from the environment — for a Docker deploy that means passing it into the container, not just exporting it in your shell. See the [plugin README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/tennis/README.md#install) for the compose snippet.
+
+**The panel says `API key rejected`.** The key was refused (HTTP 401/403). Check it at [livetennisapi.com](https://livetennisapi.com). The plugin waits before retrying rather than burning the quota, so fix the key and restart instead of waiting.
+
+**Scores look stale, or say `STALE`.** A fetch failed and the last good payload is still showing. The logs carry the reason. Remember the floor: scores refresh every 15 minutes at best, so a point you just watched on TV will not be on the sign yet.
+
+**Nothing shows at all.** Either no matches are live and no fixtures are scheduled, or your `tours`/`draw` filters excluded everything. Try removing the filters, or `demo = true` to confirm the widget renders.
+
+**Tournament names are cut short.** Expected. The status column has a fixed budget and shrinks then ellipsizes rather than overlapping the score. Narrower panels cut more.
+
+## Next steps
+
+Add a second data widget to the same rotation — [weather](/widgets/weather/) and [rss.feed](/widgets/rss_feed/) pair well with sport — or see [sections and modes](/concepts/sections-and-modes/) for controlling how long each match holds.
+
+<RelatedPages
+  slugs={[
+    "plugins/available",
+    "concepts/sections-and-modes",
+    "widgets/weather",
+    "widgets/rss_feed",
+  ]}
+/>

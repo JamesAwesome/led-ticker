@@ -1,0 +1,19 @@
+# render-duration: 26
+# DEMO-mode tennis.scores held scoreboard on a long (512x64) panel. No network,
+# no API key — demo = true renders four fixture matches: a live break point, a
+# live tiebreak, a retirement, and an upcoming fixture. The wide geometry gives
+# every set its own games column.
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "tennis.scores"
+demo = true

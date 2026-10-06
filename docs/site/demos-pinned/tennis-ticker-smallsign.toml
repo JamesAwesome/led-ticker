@@ -1,0 +1,16 @@
+# render-duration: 12
+# DEMO-mode tennis.scores on a smallsign (160x16, scale 1). At scale 1 `auto`
+# resolves to the scrolling ticker and renders through the BDF text classes —
+# the serve marker is an asterisk rather than a pip.
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 60
+
+[[playlist.section]]
+mode = "ticker"
+
+[[playlist.section.widget]]
+type = "tennis.scores"
+demo = true

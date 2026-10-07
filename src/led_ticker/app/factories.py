@@ -73,7 +73,9 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "int (pixels)", "text height in real pixels; required for hi-res fonts", "none"
     ),
     "font_threshold": FieldHint(
-        "int 0–255", "bitmask threshold for hi-res font rendering", "128"
+        "int 0–255",
+        "bitmask threshold for hi-res font rendering",
+        "128 (80 for Inter-Regular)",
     ),
     "font_color": FieldHint(
         'color | "rainbow" | "color_cycle" | "shimmer" | {style=...}',

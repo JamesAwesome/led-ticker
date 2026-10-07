@@ -82,9 +82,10 @@ def resolve_font(
     For HiresFont, `size` is required — the rasterizer needs a real-px
     target and there is no sensible default.
     `threshold` (0-255) is the rasterization cutoff for hi-res fonts;
-    `None` uses the loader default (128 = 50%). Lower it (~80) for
-    thin-stroked fonts whose antialiased edges otherwise get clipped.
-    Ignored for BDF.
+    `None` uses the font's own default (`hires_loader.default_threshold`:
+    80 for the bundled Inter-Regular, otherwise 128 = 50%). Lower it
+    (~80) for thin-stroked fonts whose antialiased edges otherwise get
+    clipped. Ignored for BDF.
 
     Raises `ValueError` if `size < 8` (glyphs unreadable below that),
     if `size` is None for a HiresFont name, if `threshold` isn't an
@@ -115,9 +116,9 @@ def resolve_font(
             )
         if not (0 <= threshold <= 255):
             raise ValueError(f"font_threshold must be 0-255; got {threshold}")
-    from led_ticker.fonts.hires_loader import THRESHOLD
+    from led_ticker.fonts.hires_loader import default_threshold
 
-    effective = THRESHOLD if threshold is None else threshold
+    effective = default_threshold(name) if threshold is None else threshold
     hires = load_hires_font(name, size, effective)
     if hires is not None:
         return hires

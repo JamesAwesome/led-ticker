@@ -61,7 +61,11 @@ from led_ticker.fonts import (
     font_line_height_logical,
     resolve_font,
 )
-from led_ticker.fonts.hires_loader import HiresFont, pixel_native_size
+from led_ticker.fonts.hires_loader import (
+    HiresFont,
+    default_threshold,
+    pixel_native_size,
+)
 from led_ticker.pixel_emoji import (
     HiResEmoji,
     count_text_chars,
@@ -155,6 +159,7 @@ __all__ = [
     "draw_text_per_char",
     "draw_with_emoji",
     "emoji_slugs",
+    "default_threshold",
     "fit_text_size",
     "font_line_height_logical",
     "format_clock",

@@ -2273,19 +2273,27 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
 
-        # Rule 2: font_threshold mismatch within font family
-        family_thresholds: dict[str, list[int]] = {}
+        # Rule 2: font_threshold mismatch within font family. Compares the
+        # EFFECTIVE threshold (explicit, else the font's own default) and
+        # stays quiet when every widget sits on its default: the bundled
+        # pairing (Inter-Bold 128 / Inter-Regular 80) is measured not to
+        # invert weight, so it is not a mismatch whether the user spells
+        # it out or leaves both unset.
+        from led_ticker.fonts.hires_loader import default_threshold  # noqa: PLC0415
+
+        family_thresholds: dict[str, list[tuple[int, bool]]] = {}
         for widget_cfg in section.widgets:
             fname = widget_cfg.get("font")
             if fname is None:
                 continue
-            thr = int(widget_cfg.get("font_threshold", 128))
+            default = default_threshold(str(fname))
+            thr = int(widget_cfg.get("font_threshold", default))
             family = _font_family(str(fname))
-            family_thresholds.setdefault(family, []).append(thr)
+            family_thresholds.setdefault(family, []).append((thr, thr == default))
 
-        for family, thresholds in family_thresholds.items():
-            unique = set(thresholds)
-            if len(unique) > 1:
+        for family, entries in family_thresholds.items():
+            unique = {thr for thr, _ in entries}
+            if len(unique) > 1 and not all(on_default for _, on_default in entries):
                 warnings.append(
                     ValidationIssue(
                         rule=2,
@@ -2298,7 +2306,8 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
                         ),
                         fix=(
                             "Set the same font_threshold on all widgets in the same"
-                            " font family (e.g. both at 80)"
+                            " font family (e.g. both at 80), or drop the overrides"
+                            " to use each font's default"
                         ),
                     )
                 )

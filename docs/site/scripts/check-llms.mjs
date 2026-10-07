@@ -82,8 +82,13 @@ for (const [slug, marker] of Object.entries(SET_MARKERS)) {
 }
 
 // --- llms-small.txt is the config-author quick reference ---
-// measured 427392 bytes on 2026-07-14; budget = measured + ~25%
-const SMALL_BUDGET_BYTES = 550_000;
+// Headroom for legitimate growth, not a cap on the docs: this set keeps every
+// widget page, so each new widget adds ~12KB. 2026-07-14: 427392 bytes.
+// 2026-10-06: 559349 after the tennis.scores page (546881 before it) — the old
+// 550000 budget had 3KB left, so the next page to land was always going to trip
+// it. Re-measured + ~7%. The real exclude-list regression is caught by the
+// "Bigsign reference build" sentinel above; this is the secondary smell test.
+const SMALL_BUDGET_BYTES = 600_000;
 const smallPath = new URL("llms-small.txt", dist);
 if (!existsSync(smallPath)) {
   errors.push("missing dist/llms-small.txt");
@@ -95,7 +100,7 @@ if (!existsSync(smallPath)) {
     errors.push("llms-small.txt still contains hardware content — the exclude list regressed");
   if (Buffer.byteLength(small) > SMALL_BUDGET_BYTES)
     errors.push(
-      `llms-small.txt is ${Buffer.byteLength(small)} bytes (budget ${SMALL_BUDGET_BYTES}) — pruning regressed`,
+      `llms-small.txt is ${Buffer.byteLength(small)} bytes (budget ${SMALL_BUDGET_BYTES}) — either pruning regressed or the docs grew; check the exclude list, then re-measure the budget`,
     );
 }
 

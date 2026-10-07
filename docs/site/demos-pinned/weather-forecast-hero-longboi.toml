@@ -1,0 +1,19 @@
+# render-duration: 8
+# DEMO-mode weather.forecast on a longboi-shaped (512x64) panel. `auto`
+# resolves to the "long" layout above the 400px width threshold: an expanded
+# hero for today on the left, then a four-day strip. No network, no API key —
+# demo = true renders a fixed Boston week.
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "weather.forecast"
+demo = true

@@ -26,6 +26,26 @@ from PIL import Image, ImageDraw, ImageFont
 # midpoint and produces clean glyphs at 24-32px on a 64-row LED panel.
 THRESHOLD: int = 128
 
+# Per-font default used when a caller passes no threshold. One value cannot
+# serve both bundled Inter weights at small sizes: at 80, Bold ink grows
+# wider than the glyph's own advance and adjacent letters fuse into blobs
+# ("BOSTON" at 11px renders as 4 connected shapes, not 6); at 128,
+# Regular's thin antialiased strokes drop out and glyphs shatter ("L10" at
+# 11px loses 37% of its lit pixels). Measured in
+# tests/test_font_default_threshold.py, which also pins that this pairing
+# keeps Regular lighter than Bold at every size — the inversion the
+# `font_threshold` docs warn about does not occur for Inter. Fonts not
+# listed (user, plugin, third-party) are unmeasured and keep THRESHOLD.
+DEFAULT_THRESHOLDS: dict[str, int] = {"Inter-Regular": 80}
+
+
+def default_threshold(name: str) -> int:
+    """Rasterization threshold `resolve_font` uses for `name` when the
+    caller passes none: the per-font value in `DEFAULT_THRESHOLDS`, else
+    `THRESHOLD`."""
+    return DEFAULT_THRESHOLDS.get(name, THRESHOLD)
+
+
 BUNDLED_HIRES_DIR: Path = Path(__file__).parent / "hires"
 USER_FONT_DIR: Path = Path(__file__).parent.parent.parent.parent / "config" / "fonts"
 # USER_FONT_DIR resolves to <repo_root>/config/fonts in dev. In a wheel

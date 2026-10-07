@@ -392,7 +392,34 @@ async def test_rule1_does_not_fire_at_exact_boundary(conf):
 
 
 async def test_rule2_font_threshold_mismatch(conf):
+    """Bold fattened to 80 beside Regular thinned to 128 is the pairing
+    that genuinely inverts weight contrast on a panel."""
     cfg = GOOD_CONFIG + textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "bold"
+        font = "Inter-Bold"
+        font_size = 24
+        font_threshold = 80
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "regular"
+        font = "Inter-Regular"
+        font_size = 24
+        font_threshold = 128
+        """)
+    result = await validate_config(conf(cfg))
+    assert any(w.rule == 2 for w in result.warnings)
+
+
+async def test_rule2_no_warning_for_the_per_font_defaults(conf):
+    """Inter-Bold at 128 beside Inter-Regular at 80 IS the bundled
+    defaults (`default_threshold`), measured not to invert weight — the
+    rule must not flag the pairing core itself produces, whether the
+    user spells it out or leaves both thresholds unset."""
+    explicit = GOOD_CONFIG + textwrap.dedent("""\
 
         [[playlist.section.widget]]
         type = "message"
@@ -407,6 +434,49 @@ async def test_rule2_font_threshold_mismatch(conf):
         font = "Inter-Regular"
         font_size = 24
         font_threshold = 80
+        """)
+    result = await validate_config(conf(explicit))
+    assert all(w.rule != 2 for w in result.warnings), [
+        w.message for w in result.warnings if w.rule == 2
+    ]
+
+    implicit = GOOD_CONFIG + textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "bold"
+        font = "Inter-Bold"
+        font_size = 24
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "regular"
+        font = "Inter-Regular"
+        font_size = 24
+        """)
+    result = await validate_config(conf(implicit))
+    assert all(w.rule != 2 for w in result.warnings), [
+        w.message for w in result.warnings if w.rule == 2
+    ]
+
+
+async def test_rule2_warns_when_only_one_side_is_overridden(conf):
+    """Bold left at its default (128) with Regular pushed to 128 too is a
+    match; Bold left at default with Regular pushed to 160 is not."""
+    cfg = GOOD_CONFIG + textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "bold"
+        font = "Inter-Bold"
+        font_size = 24
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "regular"
+        font = "Inter-Regular"
+        font_size = 24
+        font_threshold = 160
         """)
     result = await validate_config(conf(cfg))
     assert any(w.rule == 2 for w in result.warnings)

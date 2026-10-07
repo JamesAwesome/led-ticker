@@ -370,13 +370,17 @@ class TestResolveFont:
             f"default={default_lit} thr=64={low_thr_lit}"
         )
 
-    def test_threshold_omitted_uses_default(self):
-        """Default behaviour preserved: no threshold = identical to threshold=128."""
+    def test_threshold_omitted_uses_per_font_default(self):
+        """No threshold = the font's own default (`default_threshold`), not a
+        flat 128: Inter-Regular resolves at 80, Inter-Bold at 128. Same
+        cache entry as the explicit call either way."""
         from led_ticker.fonts import resolve_font
+        from led_ticker.fonts.hires_loader import default_threshold
 
-        no_thr = resolve_font("Inter-Regular", 24)
-        explicit = resolve_font("Inter-Regular", 24, threshold=128)
-        assert no_thr is explicit  # same cache entry
+        for name in ("Inter-Regular", "Inter-Bold"):
+            no_thr = resolve_font(name, 24)
+            explicit = resolve_font(name, 24, threshold=default_threshold(name))
+            assert no_thr is explicit, name
 
     def test_threshold_out_of_range_raises(self):
         from led_ticker.fonts import resolve_font

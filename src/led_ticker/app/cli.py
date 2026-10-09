@@ -6,18 +6,26 @@ Parses argv, dispatches to `validate` subcommand or the main run loop.
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
 from led_ticker.app.factories import _list_widget_fields
 from led_ticker.app.run import run
 
+_LOG_LEVELS = ("debug", "info", "warning", "error")
+_LOG_LEVEL_ENV = "LED_TICKER_LOG_LEVEL"
 
-def _setup_logging() -> None:
+
+def _setup_logging(level: str = "info") -> None:
+    """Configure the root logger at `level` (a name from `_LOG_LEVELS`,
+    any case). The handler follows the same level, so DEBUG actually
+    reaches stdout rather than being filtered at the handler."""
+    numeric = logging.getLevelNamesMapping()[level.upper()]
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(numeric)
     handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.INFO)
+    handler.setLevel(numeric)
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
@@ -65,8 +73,6 @@ def _run_plugin_status(config: Path) -> None:
 
 def main() -> None:
     """CLI entry point."""
-    _setup_logging()
-
     parser = argparse.ArgumentParser(description="LED Ticker Display")
     # Top-level --config kept for back-compat: `led-ticker --config foo.toml`
     parser.add_argument(
@@ -85,6 +91,18 @@ def main() -> None:
             "Overrides [display] backend in the config; resolved through "
             "the backend registry so an unknown name fails with a clear error. "
             "Primarily used by the try-preview Docker flow."
+        ),
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str.lower,
+        choices=_LOG_LEVELS,
+        default=os.environ.get(_LOG_LEVEL_ENV, "info").lower(),
+        metavar="LEVEL",
+        help=(
+            "Logging verbosity: debug, info, warning or error (default: info). "
+            f"Falls back to ${_LOG_LEVEL_ENV} when the flag is absent — the knob "
+            "for a Docker deploy, where .env is easier to edit than the command."
         ),
     )
 
@@ -308,6 +326,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+    _setup_logging(args.log_level)
 
     if args.command == "plugins":
         # Deprecated alias of `plugin status`.

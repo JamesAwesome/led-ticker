@@ -212,7 +212,7 @@ class Ticker:
 
     async def run_slideshow(self, loop_count: int = 0) -> None:
         """Swap between all running monitors."""
-        logging.info("Running Slideshow with loop count %s...", loop_count)
+        logger.debug("Running Slideshow with loop count %s...", loop_count)
         canvas = _maybe_wrap(
             self.frame.get_clean_canvas(), self.scale, self.content_height
         )
@@ -230,7 +230,7 @@ class Ticker:
         )
         self._enqueue_task.add_done_callback(
             lambda t: (
-                logging.error("enqueue task failed: %s", t.exception())
+                logger.error("enqueue task failed: %s", t.exception())
                 if not t.cancelled() and t.exception() is not None
                 else None
             )
@@ -247,7 +247,7 @@ class Ticker:
         self, loop_count: int = 0, start_pos: int | None = None
     ) -> None:
         """Scroll all monitors side-by-side in a continuous stream."""
-        logging.info("Running Ticker with loop count %s...", loop_count)
+        logger.debug("Running Ticker with loop count %s...", loop_count)
         canvas = _maybe_wrap(
             self.frame.get_clean_canvas(), self.scale, self.content_height
         )
@@ -266,7 +266,7 @@ class Ticker:
         )
         self._enqueue_task.add_done_callback(
             lambda t: (
-                logging.error("enqueue task failed: %s", t.exception())
+                logger.error("enqueue task failed: %s", t.exception())
                 if not t.cancelled() and t.exception() is not None
                 else None
             )
@@ -283,7 +283,7 @@ class Ticker:
         self, loop_count: int = 0, start_pos: int | None = None
     ) -> None:
         """Scroll monitors one-by-one, each fully scrolling off before the next."""
-        logging.info("Running One-at-a-time with loop count %s...", loop_count)
+        logger.debug("Running One-at-a-time with loop count %s...", loop_count)
         canvas = _maybe_wrap(
             self.frame.get_clean_canvas(), self.scale, self.content_height
         )
@@ -301,7 +301,7 @@ class Ticker:
         )
         self._enqueue_task.add_done_callback(
             lambda t: (
-                logging.error("enqueue task failed: %s", t.exception())
+                logger.error("enqueue task failed: %s", t.exception())
                 if not t.cancelled() and t.exception() is not None
                 else None
             )
@@ -886,7 +886,7 @@ class Ticker:
         delay: float,
         cursor_pos: int = 0,
     ) -> tuple[Canvas, int]:
-        logging.info("Running _scroll_and_delay ...")
+        logger.debug("Running _scroll_and_delay ...")
         bg_color = getattr(ticker_obj, "bg_color", None)
         reset_canvas(canvas, bg_color)
         pos = cursor_pos
@@ -959,7 +959,7 @@ class Ticker:
                 delay,
                 cursor_pos=pos,
             )
-            logging.info("Returned to _scroll_one_by_one ...")
+            logger.debug("Returned to _scroll_one_by_one ...")
             pos = 0
             last_drawn_pos = pos
 
@@ -1017,7 +1017,7 @@ class Ticker:
         inter-section dissolve can fade out from.
         """
         assert self.notif_queue is not None
-        logging.info("Running _scroll_side_by_side ...")
+        logger.debug("Running _scroll_side_by_side ...")
         buffered_objects: list[Any] = []
         next_monitor = await self.notif_queue.get()
         # Iterator-exhausted sentinel on the first pull means there's
@@ -1036,7 +1036,7 @@ class Ticker:
                 delay,
                 cursor_pos=pos,
             )
-            logging.info("Returned to _scroll_side_by_side ...")
+            logger.debug("Returned to _scroll_side_by_side ...")
             pos = 0
 
         loop = asyncio.get_running_loop()

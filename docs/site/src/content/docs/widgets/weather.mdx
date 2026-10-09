@@ -1,40 +1,108 @@
 ---
-title: weather.current widget
-description: The weather.current current-conditions widget is provided by the weather package in led-ticker-plugins (type = "weather.current").
+title: Current weather conditions
+description: Show the current temperature and a condition icon for any location on an LED sign with the weather.current widget — one line, one free WeatherAPI key.
 ---
 
+import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
 
-The **weather.current** widget is provided by the **[weather](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather)** package in the led-ticker-plugins monorepo, referenced in config as `type = "weather.current"`. It shows current conditions and temperature from [WeatherAPI.com](https://www.weatherapi.com/) with a pixel-art condition icon. On hires (scaled) displays the condition icons render richer Noto-derived sprites since core 4.22.0; small (scale-1) signs keep the original hand-drawn 8×8 icons.
+The glance out of the window, without the window. The **weather.current** widget, provided by the **[weather](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/weather)** package (`type = "weather.current"`), paints one line: a label you choose, a condition icon, and the temperature right now for any place [WeatherAPI.com](https://www.weatherapi.com/) knows — a city, a postal code, or a lat/lon. It fetches in the background on a slow poll, so a free key covers it with room to spare.
+
+Want tomorrow too? Its companion [`weather.forecast`](/widgets/weather_forecast/) holds a multi-day card on the same key.
 
 <DemoGif
-  src="/demos-long/widget-weather.gif"
-  caption="Weather showing condition icon, label, and temperature in their real deployed colors."
+  src="/demos-pinned/weather-current-bigsign.gif"
+  caption="BOSTON: a hi-res sun sprite and 64F, Inter-Bold at 28 px on a 256x64 panel — the label in the default yellow, the temperature in white."
 />
 
-Install the plugin and set your API key, then add a widget block to your config:
+**Requires led-ticker-core >= 4.27.**
+
+## What you'll need
+
+- A working [led-ticker](https://github.com/JamesAwesome/led-ticker) install, core **4.27 or newer**.
+- The plugin: add `led-ticker-weather` to your sign's `config/requirements-plugins.txt` and restart. See [using plugins](/plugins/) for the full install path. If you already run `weather.forecast`, you already have it.
+- A free API key from [weatherapi.com](https://www.weatherapi.com/), in the environment as `WEATHERAPI_KEY` — not in `config.toml`. On a Docker deploy that means your `.env`. The same key serves both weather widgets.
+- Internet access on the Pi.
+
+Run the config commands wherever your sign's `config/` directory lives — on the Pi itself for a deployed sign.
+
+## The smallest config that works
 
 ```toml
 [[playlist.section]]
 mode = "slideshow"
+loop_count = 1
+hold_time = 4.0
 
 [[playlist.section.widget]]
 type = "weather.current"
-text = "NYC"
-location = "New York"
-units = "imperial"
+text = "BOSTON"
+location = "Boston, MA"
+font = "Inter-Bold"
+font_size = 28
 ```
 
-To install the plugin on a Docker deploy, add its line to the plugin manifest and restart:
+That is the whole widget block from `docs/site/demos-pinned/weather-current-bigsign.toml`, the file that rendered the GIF above — on a bigsign-shaped canvas. On a scale-1 sign drop the two `font` lines and the bundled 6×12 BDF font takes over.
 
-```bash
-# First plugin? Create your manifest from the example:
-cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
-# Add the package (one name per line), then restart:
-echo "led-ticker-weather" >> config/requirements-plugins.txt
-docker compose restart
+Two options do the work. `location` is the WeatherAPI query — `"Boston, MA"`, a postal code like `"02108"`, or a table `{ lat = 42.36, lon = -71.06 }`. `text` is only the label painted in front of the reading; it does not have to match. `BOSTON` is a choice, not a lookup.
+
+## Options
+
+<OptionsTable source="widgets/weather" />
+
+## How it looks on each sign
+
+The widget is one line of text with an icon in it, so unlike the forecast card it does not switch layouts — it scales.
+
+- **Scaled signs** (bigsign, longboi) paint the condition as a hi-res sprite — the sun above, cloud, rain, snow, thunder and fog variants — beside whatever hi-res font you give it.
+- **Scale-1 signs** (smallsign) paint the bundled 6×12 BDF font and the original hand-drawn 8×8 icon.
+
+<DemoGif
+  src="/demos-pinned/weather-current-smallsign.gif"
+  caption="BROOKLYN: an 8x8 pixel sun and 71F in the 6x12 BDF font, held and centered on a 160x16 smallsign."
+/>
+
+When the line fits the panel it is held and centered (`center = true`); when it is wider than the panel — a long label on a small sign — it scrolls with `padding` after it. In a `slideshow` section it holds for `hold_time`; in a `ticker` section it scrolls past like any other text. See [sections and modes](/concepts/sections-and-modes/).
+
+## Two colors, on purpose
+
+The label and the temperature are colored separately: `font_color` for the label (default yellow), `font_color_temp` for the number (default white). The split is deliberate — on a wall of yellow text the one white number is the thing your eye finds. Set both to the same value, or to the same `"rainbow"` / gradient provider, if you want a single-color line. See [color providers](/concepts/color-providers/) for the forms both accept.
+
+## Embed the reading in another widget
+
+The package also registers `weather.current` as a **source**, so a live reading can sit inside any other widget's text as a `:id:` token:
+
+```toml
+[[source]]
+id = "weather.nyc"
+type = "weather.current"
+location = "New York, US"
+format = "{temp_f}°F {condition}"
+
+[[playlist.section]]
+mode = "slideshow"
+
+[[playlist.section.widget]]
+type = "message"
+text = "NYC :weather.nyc:"
 ```
 
-You also need `WEATHERAPI_KEY` in your `.env` — free key at [weatherapi.com](https://www.weatherapi.com/). Other install paths (web UI Store tab, dev checkout) are on the [Plugins page](/plugins/).
+`format` fields are `temp_f`, `temp_c`, `condition`, `feelslike_f`, `feelslike_c`, `humidity`, `wind_mph` and `emoji` (the condition icon). The source polls on its own `interval`, independent of any `weather.current` widget. See [value tokens](/concepts/value-tokens/) for the mechanism and the [plugin README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/weather/README.md#weather-value-token-id-in-any-widgets-text) for a full example.
 
-**Full documentation** — all options, config examples, and a demo gif — lives in the [weather package README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/weather/README.md).
+## If it doesn't work
+
+**The sign logs `WEATHERAPI_KEY not set` and the widget never appears.** The plugin found no key. It reads `WEATHERAPI_KEY` from the environment — on a Docker deploy that means getting it into the container through `.env`, not just exporting it in your shell. After adding it, `docker compose up -d --force-recreate`; a plain restart does not re-read `.env`.
+
+**The sign logs `WeatherAPI error 1006: No matching location found`.** WeatherAPI could not resolve your `location`. Make it less ambiguous — add the state or country (`"Portland, OR"`), or use a postal code or a lat/lon table.
+
+**The temperature looks hours old.** It is, by design — the default `update_interval` is 10800 seconds, three hours. Conditions do not change minute to minute. Lower it if you like; stay above 60.
+
+**The icon is a plain 8×8 pixel drawing on my big sign.** The hi-res sprites need a scaled canvas. Check the section has `scale` greater than 1 (or `[display] default_scale` does) — at scale 1 the widget correctly falls back to the bitmap icon.
+
+## Next steps
+
+Add [`weather.forecast`](/widgets/weather_forecast/) beside it for the days ahead on the same key, or see [sections and modes](/concepts/sections-and-modes/) for how the line shares a rotation with your other widgets.
+
+<RelatedPages slugs={["widgets/weather_forecast", "plugins/available", "concepts/value-tokens"]} />

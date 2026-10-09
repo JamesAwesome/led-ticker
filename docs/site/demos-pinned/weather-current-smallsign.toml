@@ -1,0 +1,19 @@
+# Pinned demo: weather.current on a smallsign (160x16, scale 1) — the
+# bundled 6x12 BDF font and the hand-drawn 8x8 condition icon. Live data;
+# needs WEATHERAPI_KEY in the environment to re-render.
+# render-duration: 5
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "weather.current"
+text = "BROOKLYN"
+location = "Brooklyn, NY"

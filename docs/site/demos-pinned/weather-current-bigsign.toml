@@ -1,0 +1,27 @@
+# Pinned demo: weather.current on the bigsign canvas (256x64, scale 4) —
+# Inter-Bold at 28 px with the hi-res condition sprite. Live data: the GIF
+# shows whatever Boston's weather was the day it was rendered, which is the
+# point — this is what a real reading looks like, not a fixture.
+# Needs WEATHERAPI_KEY in the environment to re-render.
+# render-duration: 5
+[display]
+rows = 64
+cols = 256
+chain_length = 1
+default_scale = 4
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 4.0
+
+[[playlist.section.widget]]
+type = "weather.current"
+text = "BOSTON"
+location = "Boston, MA"
+font = "Inter-Bold"
+font_size = 28

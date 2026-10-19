@@ -103,7 +103,9 @@ class Animation(Protocol):
     Animations MAY also define ``frames_to_rest(frame, total_chars) -> int``
     (0 = at rest / no rest concept): the engine consults it at the
     hold→transition handoff and can extend the hold up to ~1 s so a
-    transition doesn't chop the animation mid-flight.
+    transition doesn't chop the animation mid-flight. ``total_chars`` is
+    whatever :func:`animation_total_chars` reports for the text — raw
+    ``len`` unless the animation defines ``count_units(text)``.
 
     See ``Typewriter`` for the canonical implementation.
 
@@ -131,8 +133,51 @@ class Animation(Protocol):
     ) -> AnimationFrame: ...
 
 
+def _reveal_unit_ends(text: str) -> list[int]:
+    """Raw end offset of each typewriter reveal unit in ``text``.
+
+    A unit is one plain character, one renderable ``:slug:`` token, or
+    one Unicode-emoji run — so ``text[:ends[k]]`` never splits a token
+    the renderer would draw as a sprite (a half-typed ``:jack_o_lan``
+    renders as literal text, then snaps to the sprite on the closing
+    colon). Segmentation is ``_parse_segments`` — the renderer's own
+    gate — so an UNrenderable ``:nope:`` stays per-char, typing the
+    same literal text it draws. Falls back to per-char if the segments
+    ever stop reassembling to ``text`` (never a mis-slice)."""
+    from led_ticker.pixel_emoji import _parse_segments  # noqa: PLC0415
+
+    ends: list[int] = []
+    pos = 0
+    for seg_type, value in _parse_segments(text):
+        if seg_type == "text":
+            ends.extend(range(pos + 1, pos + len(value) + 1))
+            pos += len(value)
+        else:
+            raw_len = len(value) + 2 if seg_type == "emoji" else len(value)
+            pos += raw_len
+            ends.append(pos)
+    if pos != len(text):
+        return list(range(1, len(text) + 1))
+    return ends
+
+
+def animation_total_chars(animation: object, text: str) -> int:
+    """The ``total_chars`` to feed ``animation.frames_to_rest`` for
+    ``text``: the animation's own ``count_units(text)`` when it defines
+    one (Typewriter: emoji count as ONE), else raw ``len(text)``. The
+    ONE home of this choice — the widget settle counts and validate
+    rule 61 all route through it so they can't drift from the reveal."""
+    count = getattr(animation, "count_units", None)
+    if count is None:
+        return len(text)
+    return int(count(text))
+
+
 class Typewriter:
-    """Slice grows one character per `frames_per_char` frames.
+    """Slice grows one reveal unit per `frames_per_char` frames.
+
+    A unit is a character, or a whole renderable emoji (``:slug:`` or a
+    Unicode-emoji run) — an emoji types in as a single keystroke.
 
     At the default ENGINE_TICK_MS=50ms, frames_per_char=3 means each
     char is on screen for ~150ms (~7 chars/sec) — fast enough to feel
@@ -149,19 +194,30 @@ class Typewriter:
         # Effective progress: each frames_per_char ticks advances by
         # chars_per_frame characters. With defaults (1, 3): advance 1
         # char every 3 frames.
+        ends = _reveal_unit_ends(full_text)
+        if not ends:
+            return AnimationFrame(visible_text=full_text)
         progress = (frame // self.frames_per_char) + 1
-        chars_visible = min(len(full_text), progress * self.chars_per_frame)
-        return AnimationFrame(visible_text=full_text[:chars_visible])
+        units_visible = min(len(ends), progress * self.chars_per_frame)
+        return AnimationFrame(visible_text=full_text[: ends[units_visible - 1]])
+
+    def count_units(self, text: str) -> int:
+        """Reveal units in ``text`` — the count ``frames_to_rest`` /
+        ``typing_duration_seconds`` take (call via
+        :func:`animation_total_chars`)."""
+        return len(_reveal_unit_ends(text))
 
     def frames_to_rest(self, frame: int, total_chars: int) -> int:
         """Frames until the reveal completes (one-shot rest: 0 forever
         once fully typed).
 
-        total_chars MUST be the raw ``len(full_text)`` — the same length
-        ``frame_for`` slices against — INCLUDING any ``:slug:`` emoji
-        characters. The emoji-excluded ``count_text_chars`` is a color-
-        provider quantity; feeding it here under-counts and reports done
-        mid-type.
+        total_chars MUST be ``count_units(full_text)`` (via
+        :func:`animation_total_chars`) — the unit count ``frame_for``
+        steps through, where each renderable emoji is ONE unit. Neither
+        raw ``len`` (over-counts slug characters → reports mid-type long
+        after the reveal finished) nor the emoji-EXCLUDED
+        ``count_text_chars`` (a color-provider quantity; under-counts →
+        reports done mid-type) is right.
         """
         if total_chars <= 0:
             return 0
@@ -171,8 +227,8 @@ class Typewriter:
         return max(0, done_frame - frame)
 
     def typing_duration_seconds(self, total_chars: int) -> float:
-        """Wall-clock seconds to fully reveal ``total_chars`` raw
-        characters at engine cadence. The ONLY home of the typing-
+        """Wall-clock seconds to fully reveal ``total_chars`` units
+        (``count_units``) at engine cadence. The ONLY home of the typing-
         duration formula — validate rule 61 imports and calls this;
         it must never re-implement the math."""
         return self.frames_to_rest(0, total_chars) * ENGINE_TICK_MS / 1000.0

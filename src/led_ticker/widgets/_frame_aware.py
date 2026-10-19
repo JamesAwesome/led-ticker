@@ -214,13 +214,17 @@ class FrameAwareBase:
           same anchor the draw path passes to ``color_for`` —
           ``count_text_chars(full_text)`` when the text contains emoji,
           else ``len(full_text)``.
-        - ``"animation"``: RAW ``len(full_text)`` (emoji ``:slug:``
-          characters INCLUDED) — Typewriter slices against the raw
-          string.
+        - ``"animation"``: ``animation_total_chars(animation, full_text)``
+          — Typewriter's reveal units (each renderable emoji is ONE).
 
-        Default: length of a ``text`` attribute if present (floor 1) —
-        safe for simple single-text widgets; wrong counts only make the
-        settle window slightly off, never unsafe.
+        Default: that count (``"animation"``) or the length of a ``text``
+        attribute if present (floor 1) — safe for simple single-text
+        widgets; wrong counts only make the settle window slightly off,
+        never unsafe.
         """
-        text = getattr(self, "text", "") or ""
-        return max(1, len(str(text)))
+        text = str(getattr(self, "text", "") or "")
+        if attr_name == "animation":
+            from led_ticker.animations import animation_total_chars  # noqa: PLC0415
+
+            return max(1, animation_total_chars(getattr(self, "animation", None), text))
+        return max(1, len(text))

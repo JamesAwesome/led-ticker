@@ -921,18 +921,15 @@ class TestColoredTokens:
         for xy in sprite:
             assert pc.get(xy) == pw.get(xy)
 
-    def test_typewriter_cut_emoji_slug_no_token_color_leak(self):
-        """DRIFT-GUARD TEETH (the fix). Typewriter + emoji-before-token:
-        ':sun: :x:' with host green + source-red '99'. A mid-reveal frame
-        slices `visible_text` to ':su' — a CUT emoji slug. `draw_with_emoji`
-        reparses ':su' as 3 literal chars, so its char_index runs 0,1,2 over
-        chars the emoji-skipping override never accounted for. WITHOUT the
-        gate, override[1]/override[2] (the red '99' entries) would leak onto
-        's'/'u'. WITH the gate the override is dropped for this partial
-        emoji-present frame, so every visible char is host-green — no red.
+    def test_typewriter_pre_token_frame_no_token_color_leak(self):
+        """DRIFT-GUARD TEETH. Typewriter + emoji-before-token: ':sun: :x:'
+        with host green + source-red '99'. The typewriter reveals ':sun:' as
+        ONE unit (it can no longer cut the slug to ':su'), so the pre-token
+        frame is ':sun: ' — the sprite plus a space. The override must stay
+        aligned with draw_with_emoji's char_index across the emoji: no
+        token-red may appear before the token's first char is revealed.
 
-        The token DOES colorize once the message is fully revealed
-        (visible_text == full_text): the gate only suppresses partial frames."""
+        The token DOES colorize once the message is fully revealed."""
         from led_ticker.animations import Typewriter
         from led_ticker.widgets.message import TickerMessage
 
@@ -940,9 +937,9 @@ class TestColoredTokens:
         tok = (200, 0, 0)
         self._registry(self._colored_source("99", tok))
 
-        # frames_per_char=1, chars_per_frame=1 -> chars_visible == frame+1.
-        # full_text is ":sun: 99" (8 chars): frame=2 reveals 3 -> ":su"
-        # (the cut-slug frame); frame=7 reveals all 8 -> full ":sun: 99".
+        # frames_per_char=1, chars_per_frame=1 -> units_visible == frame+1.
+        # full_text is ":sun: 99" = 4 units (":sun:", " ", "9", "9"):
+        # frame=1 reveals ":sun: " (pre-token); frame=7 clamps to the full text.
         w = TickerMessage(
             text=":sun: :x:",
             font_color=host,
@@ -951,18 +948,15 @@ class TestColoredTokens:
         )
         assert w._has_emoji is True
 
-        # Partial cut-slug frame: no token-red may appear.
-        w._frame_count = 2
+        # Pre-token frame: no token-red may appear.
+        w._frame_count = 1
         c = self._stub()
         w.draw(c)
         lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
-        assert lit, "the ':su' reveal frame must render some pixels"
+        assert lit, "the ':sun: ' reveal frame must render the sprite"
         assert tok not in set(lit.values()), (
-            "token color leaked onto a typewriter-cut emoji slug — the "
+            "token color leaked before the token was revealed — the "
             "override drifted off draw_with_emoji's char_index"
-        )
-        assert set(lit.values()) <= {host}, (
-            f"partial reveal must be host-green only; got {set(lit.values())!r}"
         )
 
         # Full reveal: the gate no longer applies, so the token IS red again.
@@ -1118,8 +1112,8 @@ class TestColoredTokens:
         ':sun: 99' (8 chars). A frame revealing ':sun: 9' (past the emoji,
         into the token) colorizes the visible '9' RED — the override is scoped
         to the actual `visible_text` and emoji-aware, so it no longer defers
-        token color for partial emoji-present frames. The earlier cut-slug
-        frame (':su') still shows NO leak."""
+        token color for partial emoji-present frames. The earlier pre-token
+        frame (':sun: ') shows NO leak."""
         from led_ticker.animations import Typewriter
         from led_ticker.widgets.message import TickerMessage
 
@@ -1128,7 +1122,8 @@ class TestColoredTokens:
         self._registry(self._colored_source("99", tok))
 
         def render_at(frame):
-            # frames_per_char=1, chars_per_frame=1 -> chars_visible == frame+1.
+            # frames_per_char=1, chars_per_frame=1 -> units_visible == frame+1;
+            # ":sun:" is one unit, so ":sun: 99" is 4 units.
             w = TickerMessage(
                 text=":sun: :x:",
                 font_color=host,
@@ -1141,15 +1136,16 @@ class TestColoredTokens:
             w.draw(c)
             return {v for v in c._pixels.values() if v != (0, 0, 0)}
 
-        # frame=6 reveals 7 chars ':sun: 9' — the token's first digit is on
-        # screen and MUST be token-red (colorizes mid-reveal).
-        assert tok in render_at(6), (
+        # frame=2 reveals 3 units ':sun: 9' — the token's first digit is on
+        # screen and MUST be token-red (colorizes mid-reveal, not full reveal).
+        assert tok in render_at(2), (
             "a token char revealed past its leading emoji must colorize during "
             "the reveal (no longer deferred until fully revealed)"
         )
-        # frame=2 reveals 3 chars ':su' — a cut slug, no token color may leak.
-        assert render_at(2) <= {host}, (
-            f"the cut-slug reveal frame must be host-green only; got {render_at(2)!r}"
+        # frame=1 reveals ':sun: ' — pre-token, no token color may leak.
+        pre_token = render_at(1)
+        assert tok not in pre_token, (
+            f"the pre-token reveal frame must not show token color; got {pre_token!r}"
         )
 
 

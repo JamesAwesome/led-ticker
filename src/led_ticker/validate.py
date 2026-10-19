@@ -2419,7 +2419,10 @@ def _check_typewriter_hold(config: AppConfig) -> list[ValidationIssue]:
     Duration comes from Typewriter.typing_duration_seconds — the single
     home of the formula (never re-implement it here).
     """
-    from led_ticker.animations import Typewriter  # noqa: PLC0415
+    from led_ticker.animations import (  # noqa: PLC0415
+        Typewriter,
+        animation_total_chars,
+    )
     from led_ticker.app.coercion import _coerce_animation  # noqa: PLC0415
 
     warnings: list[ValidationIssue] = []
@@ -2437,7 +2440,7 @@ def _check_typewriter_hold(config: AppConfig) -> list[ValidationIssue]:
             text = str(widget_cfg.get("text", "") or "")
             if not text:
                 continue
-            duration = anim.typing_duration_seconds(len(text))
+            duration = anim.typing_duration_seconds(animation_total_chars(anim, text))
             widget_hold = widget_cfg.get("hold_time")
             if not isinstance(widget_hold, (int, float)) or isinstance(
                 widget_hold, bool

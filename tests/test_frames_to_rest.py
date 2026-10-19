@@ -159,18 +159,20 @@ class TestTypewriterFramesToRest:
         assert tw.frames_to_rest(0, total) == 12
         assert tw.frames_to_rest(12, total) == 0
 
-    def test_emoji_text_uses_raw_length(self) -> None:
-        """Guard for Critical finding 1: rest math must consume raw
-        len(full_text) INCLUDING :slug: characters. With the raw length
-        the reveal is still in progress at the frame where the
-        emoji-excluded count would claim done."""
+    def test_emoji_text_uses_reveal_units(self) -> None:
+        """Rest math consumes count_units — each renderable emoji is ONE
+        unit. "GO :sun: GO" is 11 raw chars, 6 emoji-excluded text chars,
+        7 reveal units; only 7 lands 'done' on the frame frame_for first
+        shows the full text."""
         tw = Typewriter()
-        text = "GO :sun: GO"  # len = 11 raw; emoji-excluded count = 6
-        raw = len(text)
-        wrong_done = 3 * (math.ceil(6 / 1) - 1)  # 15 — the WRONG answer
-        assert tw.frames_to_rest(wrong_done, raw) > 0
-        right_done = 3 * (math.ceil(raw / 1) - 1)  # 30
-        assert tw.frames_to_rest(right_done, raw) == 0
+        text = "GO :sun: GO"
+        units = tw.count_units(text)
+        assert units == 7
+        right_done = 3 * (math.ceil(units / 1) - 1)  # 18
+        assert tw.frame_for(right_done, text, 160, 80).visible_text == text
+        assert tw.frame_for(right_done - 1, text, 160, 80).visible_text != text
+        assert tw.frames_to_rest(right_done, units) == 0
+        assert tw.frames_to_rest(right_done - 1, units) == 1
 
     def test_zero_or_negative_chars(self) -> None:
         tw = Typewriter()

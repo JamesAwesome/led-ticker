@@ -133,7 +133,7 @@ class Animation(Protocol):
     ) -> AnimationFrame: ...
 
 
-def _reveal_unit_ends(text: str) -> list[int]:
+def _reveal_unit_ends(text: str, inline_emoji: bool = True) -> list[int]:
     """Raw end offset of each typewriter reveal unit in ``text``.
 
     A unit is one plain character, one renderable ``:slug:`` token, or
@@ -143,7 +143,14 @@ def _reveal_unit_ends(text: str) -> list[int]:
     colon). Segmentation is ``_parse_segments`` — the renderer's own
     gate — so an UNrenderable ``:nope:`` stays per-char, typing the
     same literal text it draws. Falls back to per-char if the segments
-    ever stop reassembling to ``text`` (never a mis-slice)."""
+    ever stop reassembling to ``text`` (never a mis-slice).
+
+    ``inline_emoji=False`` is the widget saying its draw path renders this
+    text as LITERAL characters (message / image single-row gate on the raw
+    template, so a token value that looks like a slug draws literally) —
+    then every character is its own unit."""
+    if not inline_emoji:
+        return list(range(1, len(text) + 1))
     from led_ticker.pixel_emoji import _parse_segments  # noqa: PLC0415
 
     ends: list[int] = []
@@ -161,16 +168,42 @@ def _reveal_unit_ends(text: str) -> list[int]:
     return ends
 
 
-def animation_total_chars(animation: object, text: str) -> int:
+def animation_total_chars(
+    animation: object, text: str, *, inline_emoji: bool = True
+) -> int:
     """The ``total_chars`` to feed ``animation.frames_to_rest`` for
     ``text``: the animation's own ``count_units(text)`` when it defines
     one (Typewriter: emoji count as ONE), else raw ``len(text)``. The
     ONE home of this choice — the widget settle counts and validate
-    rule 61 all route through it so they can't drift from the reveal."""
+    rules 61/62 all route through it so they can't drift from the reveal.
+    ``inline_emoji`` is the widget's draw-path emoji gate (see
+    :func:`animation_frame`); only Typewriter consumes it."""
+    if isinstance(animation, Typewriter):
+        return animation.count_units(text, inline_emoji=inline_emoji)
     count = getattr(animation, "count_units", None)
     if count is None:
         return len(text)
     return int(count(text))
+
+
+def animation_frame(
+    animation: Animation,
+    frame: int,
+    full_text: str,
+    canvas_width: int,
+    text_width: int,
+    *,
+    inline_emoji: bool,
+) -> AnimationFrame:
+    """Call ``animation.frame_for`` from a widget, forwarding the widget's
+    draw-path emoji gate to Typewriter (whose reveal units must match
+    what the widget actually draws). Other animations get the plain
+    protocol call — ``inline_emoji`` is not part of the protocol."""
+    if isinstance(animation, Typewriter):
+        return animation.frame_for(
+            frame, full_text, canvas_width, text_width, inline_emoji=inline_emoji
+        )
+    return animation.frame_for(frame, full_text, canvas_width, text_width)
 
 
 class Typewriter:
@@ -185,27 +218,44 @@ class Typewriter:
     """
 
     def __init__(self, chars_per_frame: int = 1, frames_per_char: int = 3) -> None:
+        # A non-positive step mis-slices (IndexError in draw) or divides
+        # by zero in frames_to_rest — reject at construction, which is
+        # config-load for TOML.
+        for name, value in (
+            ("chars_per_frame", chars_per_frame),
+            ("frames_per_char", frames_per_char),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(
+                    f"typewriter {name} must be a positive integer; got {value!r}"
+                )
         self.chars_per_frame = chars_per_frame
         self.frames_per_char = frames_per_char
 
     def frame_for(
-        self, frame: int, full_text: str, canvas_width: int, text_width: int
+        self,
+        frame: int,
+        full_text: str,
+        canvas_width: int,
+        text_width: int,
+        *,
+        inline_emoji: bool = True,
     ) -> AnimationFrame:
         # Effective progress: each frames_per_char ticks advances by
         # chars_per_frame characters. With defaults (1, 3): advance 1
         # char every 3 frames.
-        ends = _reveal_unit_ends(full_text)
+        ends = _reveal_unit_ends(full_text, inline_emoji)
         if not ends:
             return AnimationFrame(visible_text=full_text)
         progress = (frame // self.frames_per_char) + 1
         units_visible = min(len(ends), progress * self.chars_per_frame)
         return AnimationFrame(visible_text=full_text[: ends[units_visible - 1]])
 
-    def count_units(self, text: str) -> int:
+    def count_units(self, text: str, *, inline_emoji: bool = True) -> int:
         """Reveal units in ``text`` — the count ``frames_to_rest`` /
         ``typing_duration_seconds`` take (call via
         :func:`animation_total_chars`)."""
-        return len(_reveal_unit_ends(text))
+        return len(_reveal_unit_ends(text, inline_emoji))
 
     def frames_to_rest(self, frame: int, total_chars: int) -> int:
         """Frames until the reveal completes (one-shot rest: 0 forever

@@ -887,9 +887,36 @@ class _BaseImageWidget(FrameAwareBase):
         implementations aren't double-advanced)."""
         if self.animation is None:
             return None
+        from led_ticker.animations import animation_frame  # noqa: PLC0415
+
         display = self._resolved_text_single
         text_width = self._measure_text(canvas)
-        return self.animation.frame_for(frame_count, display, canvas.width, text_width)
+        return animation_frame(
+            self.animation,
+            frame_count,
+            display,
+            canvas.width,
+            text_width,
+            inline_emoji=self._has_emoji(),
+        )
+
+    def _effect_total_chars(self, attr_name: str) -> int:
+        """``"animation"`` counts the text `_anim_frame` actually reveals —
+        the token-resolved single-row string under the widget's own emoji
+        gate — so the settle window matches the reveal. Other effects keep
+        the FrameAwareBase default."""
+        if attr_name == "animation":
+            from led_ticker.animations import animation_total_chars  # noqa: PLC0415
+
+            return max(
+                1,
+                animation_total_chars(
+                    self.animation,
+                    self._resolved_text_single,
+                    inline_emoji=self._has_emoji(),
+                ),
+            )
+        return super()._effect_total_chars(attr_name)
 
     def _measure_text(self, canvas: Canvas) -> int:
         # Use the resolved display string (token-substituted). For non-token

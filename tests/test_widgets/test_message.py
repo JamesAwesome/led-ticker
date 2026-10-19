@@ -1106,6 +1106,39 @@ class TestColoredTokens:
             "value-embedded slug on the non-emoji path"
         )
 
+    def test_raw_slicing_animation_cut_slug_no_token_color_leak(self):
+        """DRIFT-GUARD TEETH for animations that slice RAW chars. Typewriter
+        reveals ':sun:' whole, but a third-party animation may still hand
+        draw() a CUT slug (':su'). `draw_with_emoji` reparses ':su' as 3
+        literal chars, so its char_index runs 0,1,2 over chars the
+        emoji-skipping override never accounted for — without the gate in
+        build_token_color_override the red '99' entries would leak onto
+        's'/'u'. Every visible char must be host-green."""
+        from led_ticker.animations import AnimationFrame
+        from led_ticker.widgets.message import TickerMessage
+
+        class _RawSlice:
+            restart_on_visit = True
+
+            def frame_for(self, frame, full_text, canvas_width, text_width):
+                return AnimationFrame(visible_text=full_text[: frame + 1])
+
+        host = (0, 200, 0)
+        tok = (200, 0, 0)
+        self._registry(self._colored_source("99", tok))
+        w = TickerMessage(
+            text=":sun: :x:", font_color=host, center=False, animation=_RawSlice()
+        )
+        assert w._has_emoji is True
+        w._frame_count = 2  # ':su'
+        c = self._stub()
+        w.draw(c)
+        lit = {xy: v for xy, v in c._pixels.items() if v != (0, 0, 0)}
+        assert lit, "the ':su' reveal frame must render some pixels"
+        assert set(lit.values()) <= {host}, (
+            f"cut-slug frame must be host-green only; got {set(lit.values())!r}"
+        )
+
     def test_typewriter_colorizes_token_during_reveal_past_emoji(self):
         """TYPEWRITER NOW COLORIZES DURING REVEAL (the fix replaces the old
         drift guard). ':sun: :x:' with host green + red '99'. full_text is

@@ -83,11 +83,12 @@ class TestFramesToTransitionReady:
 
 
 class TestEffectTotalChars:
-    def test_ticker_message_animation_gets_raw_len(self) -> None:
-        """Critical finding 1: the animation attr must see the RAW string
-        length including :slug: chars."""
+    def test_ticker_message_animation_gets_reveal_units(self) -> None:
+        """The animation attr sees Typewriter's reveal units — the count
+        frame_for steps through, with ':sun:' as ONE unit. Not raw len
+        (11; over-counts slug chars) nor the emoji-excluded count (6)."""
         w = TickerMessage(text="GO :sun: GO", animation=Typewriter())
-        assert w._effect_total_chars("animation") == len("GO :sun: GO")  # 11
+        assert w._effect_total_chars("animation") == 7
 
     def test_ticker_message_color_gets_emoji_excluded_count(self) -> None:
         """Color providers see the draw-path anchor: count_text_chars on

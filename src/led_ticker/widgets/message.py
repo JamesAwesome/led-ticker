@@ -162,12 +162,19 @@ class TickerMessage(FrameAwareBase):
 
     def _effect_total_chars(self, attr_name: str) -> int:
         """Per-effect-kind counts mirroring TickerMessage.draw's anchors:
-        animation → raw len (frame_for slices the raw string); color
-        providers → count_text_chars on the emoji path (matching the
-        draw_with_emoji total_chars anchor), else len."""
+        animation → animation_total_chars (Typewriter: reveal units, each
+        emoji ONE); color providers → count_text_chars on the emoji path
+        (matching the draw_with_emoji total_chars anchor), else len."""
         full_text = self._resolve_into_full_text()
         if attr_name == "animation":
-            return max(1, len(full_text))
+            from led_ticker.animations import animation_total_chars  # noqa: PLC0415
+
+            return max(
+                1,
+                animation_total_chars(
+                    self.animation, full_text, inline_emoji=self._has_emoji
+                ),
+            )
         if self._has_emoji:
             from led_ticker.pixel_emoji import count_text_chars  # noqa: PLC0415
 
@@ -232,11 +239,15 @@ class TickerMessage(FrameAwareBase):
                     self._content_width = get_text_width(
                         self.font, full_text, padding=0, canvas=canvas
                     )
-            anim_frame = self.animation.frame_for(
+            from led_ticker.animations import animation_frame  # noqa: PLC0415
+
+            anim_frame = animation_frame(
+                self.animation,
                 self.frame_for("animation"),
                 full_text,
                 canvas.width,
                 self._content_width,
+                inline_emoji=self._has_emoji,
             )
             visible_text = anim_frame.visible_text
             rotation = getattr(anim_frame, "rotation", 0.0)

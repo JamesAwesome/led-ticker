@@ -7,7 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-led-ticker has one animation right now: **typewriter** — a character-by-character reveal. Set `animation = "typewriter"` on a supported widget and the text types out one character at a time the moment the widget appears. The characters land in their final positions (no shifting), so the message assembles itself in place rather than scrolling in.
+led-ticker has one animation right now: **typewriter** — a character-by-character reveal. Set `animation = "typewriter"` on a supported widget and the text types out one character at a time the moment the widget appears. The characters land in their final positions (no shifting), so the message assembles itself in place rather than scrolling in. An inline emoji — a `:slug:` like `:jack_o_lantern:` or a Unicode emoji — types in as a single character: the sprite drops in whole, in one step.
 
 Animations are a separate axis from color providers. A widget can carry both simultaneously — for example `animation = "typewriter"` and `font_color = "rainbow"` — and each effect tracks its own frame counter. The characters type out in rainbow with no interference between the two systems.
 

@@ -2419,7 +2419,10 @@ def _check_typewriter_hold(config: AppConfig) -> list[ValidationIssue]:
     Duration comes from Typewriter.typing_duration_seconds — the single
     home of the formula (never re-implement it here).
     """
-    from led_ticker.animations import Typewriter  # noqa: PLC0415
+    from led_ticker.animations import (  # noqa: PLC0415
+        Typewriter,
+        animation_total_chars,
+    )
     from led_ticker.app.coercion import _coerce_animation  # noqa: PLC0415
 
     warnings: list[ValidationIssue] = []
@@ -2437,7 +2440,7 @@ def _check_typewriter_hold(config: AppConfig) -> list[ValidationIssue]:
             text = str(widget_cfg.get("text", "") or "")
             if not text:
                 continue
-            duration = anim.typing_duration_seconds(len(text))
+            duration = anim.typing_duration_seconds(animation_total_chars(anim, text))
             widget_hold = widget_cfg.get("hold_time")
             if not isinstance(widget_hold, (int, float)) or isinstance(
                 widget_hold, bool
@@ -2472,13 +2475,17 @@ def _check_animation_duration_hold(config: AppConfig) -> list[ValidationIssue]:
     effective hold — it will be cut mid-animation.
 
     Generalizes rule 61's mechanism via duck-typed frames_to_rest
-    (duration = frames_to_rest(0, len(text)) x ENGINE_TICK_MS). Rule 61
+    (duration = frames_to_rest(0, animation_total_chars(anim, text)) x
+    ENGINE_TICK_MS — raw len unless the animation defines count_units). Rule 61
     keeps Typewriter (its wording is typing-specific). Best-effort: the
     animation must coerce, so this fires only when the providing plugin
     is installed — a failed coercion is skipped (the unknown-style error
     owns that messaging), mirroring the plugin-transition rules.
     """
-    from led_ticker.animations import Typewriter  # noqa: PLC0415
+    from led_ticker.animations import (  # noqa: PLC0415
+        Typewriter,
+        animation_total_chars,
+    )
     from led_ticker.app.coercion import _coerce_animation  # noqa: PLC0415
     from led_ticker.constants import ENGINE_TICK_MS  # noqa: PLC0415
 
@@ -2501,7 +2508,8 @@ def _check_animation_duration_hold(config: AppConfig) -> list[ValidationIssue]:
             if not text:
                 continue
             try:
-                duration = rest_fn(0, len(text)) * ENGINE_TICK_MS / 1000.0
+                total = animation_total_chars(anim, text)
+                duration = rest_fn(0, total) * ENGINE_TICK_MS / 1000.0
             except Exception:
                 continue  # a readiness probe must never break validate
             widget_hold = widget_cfg.get("hold_time")

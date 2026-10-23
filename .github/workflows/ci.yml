@@ -77,6 +77,7 @@ jobs:
             docker:
               - 'Dockerfile'
               - 'pyproject.toml'
+              - 'uv.lock'
               - 'src/**'
               - '.github/workflows/ci.yml'
 
@@ -124,6 +125,30 @@ jobs:
       # rather than `--ignore=tools/gif_plan`, which `testpaths` defeats.
       # `make test` locally still runs it via testpaths.
       - run: uv run --extra dev pytest --cov=src/led_ticker --cov-report=term-missing "--ignore-glob=*/gif_plan/*"
+
+  # Same suite against the NEWEST Pillow, not the locked one. The image ships
+  # the lock (Dockerfile installs the uv.lock export), so a new Pillow can't
+  # reach a sign by surprise — but Dependabot WILL eventually propose it, and
+  # Pillow 13 + raqm broke every hi-res font (2026-10-22). This leg turns the
+  # next breaking release into a red CI check on the day it lands, before
+  # anyone bumps the lock. Blocking on purpose: a red here means "core is not
+  # compatible with current Pillow" — fix forward (or pin an upper bound in
+  # pyproject) rather than ignore it. No coverage gate (the `test` job owns it).
+  test-latest-pillow:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev
+      - run: uv pip install -U Pillow
+      - run: uv run --no-sync python -c "import PIL; print('Pillow', PIL.__version__)"
+      - run: uv run --no-sync pytest -q "--ignore-glob=*/gif_plan/*"
 
   gif-plan-test:
     needs: changes
@@ -187,7 +212,7 @@ jobs:
   # upstream job is success or skipped; fails if any upstream failed
   # or was cancelled.
   ci-passed:
-    needs: [changes, lint, typecheck, test, gif-plan-test, docs-lint, docker-build]
+    needs: [changes, lint, typecheck, test, test-latest-pillow, gif-plan-test, docs-lint, docker-build]
     if: always()
     runs-on: self-hosted
     steps:
@@ -200,6 +225,7 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           TYPECHECK_RESULT: ${{ needs.typecheck.result }}
           TEST_RESULT: ${{ needs.test.result }}
+          TEST_LATEST_PILLOW_RESULT: ${{ needs.test-latest-pillow.result }}
           GIF_PLAN_TEST_RESULT: ${{ needs.gif-plan-test.result }}
           DOCS_LINT_RESULT: ${{ needs.docs-lint.result }}
           DOCKER_BUILD_RESULT: ${{ needs.docker-build.result }}
@@ -208,7 +234,7 @@ jobs:
             echo "Job 'changes' result: $CHANGES_RESULT — refusing to declare CI green."
             exit 1
           fi
-          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT" gif-plan-test:"$GIF_PLAN_TEST_RESULT" docs-lint:"$DOCS_LINT_RESULT" docker-build:"$DOCKER_BUILD_RESULT"; do
+          for job in lint:"$LINT_RESULT" typecheck:"$TYPECHECK_RESULT" test:"$TEST_RESULT" test-latest-pillow:"$TEST_LATEST_PILLOW_RESULT" gif-plan-test:"$GIF_PLAN_TEST_RESULT" docs-lint:"$DOCS_LINT_RESULT" docker-build:"$DOCKER_BUILD_RESULT"; do
             name="${job%%:*}"
             result="${job#*:}"
             case "$result" in

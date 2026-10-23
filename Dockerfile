@@ -5,6 +5,27 @@
 # The GCC10 anonymous-param patch in pio_rp1.c compiles under GCC 12.
 # Future optimization (deferred): multi-stage build copying only the compiled
 # rgbmatrix .so into python:3.14-slim-bookworm (~200MB smaller).
+# Lock export stage: renders uv.lock into a pip requirements file of EXACT pins
+# so the deps layer below installs what the lock says, not whatever loose
+# pyproject ranges resolve to on build day (2026-10-22: a `make update` pulled
+# Pillow 13.0.0 over the locked 12.1.1 and broke every hi-res font). uv is
+# pip-installed at a pinned version rather than COPY'd from the
+# ghcr.io/astral-sh/uv image, because that image ships amd64/arm64 only and a
+# native build on a 32-bit Pi OS (linux/arm/v7) would fail; PyPI ships uv
+# wheels for armv7 too. This stage is discarded — uv never reaches the final
+# image. --frozen = use uv.lock as-is, never re-resolve (a stale lock fails the
+# build instead of silently drifting). Tripwire: tests/test_dockerfile_lock_install.py.
+FROM python:3.14-bookworm AS lock-export
+ARG UV_VERSION=0.9.16
+RUN pip install --no-cache-dir "uv==${UV_VERSION}"
+WORKDIR /lock
+COPY pyproject.toml uv.lock /lock/
+# --extra dev keeps the image's historical [dev] extras (pytest/ruff/pyright
+# were always installed via `pip install -e ".[dev]"`); --no-emit-project
+# leaves core itself out — it installs with --no-deps in the source layer.
+RUN uv export --frozen --no-hashes --no-emit-project --extra dev \
+        -o /lock/requirements.lock.txt
+
 FROM python:3.14-bookworm AS rgbmatrix
 
 # rpi-rgb-led-matrix: jamesawesome/main — Pi5 RP1 support (hzeller#1886, now
@@ -40,24 +61,25 @@ RUN cd /opt && \
     printf 'Cython>=3.2.5\n' > /tmp/build-constraints.txt && \
     PIP_CONSTRAINT=/tmp/build-constraints.txt pip install .
 
-# Layer 2: app dependencies (only rebuilds if pyproject.toml changes). The
+# Layer 2: app dependencies, installed from the uv.lock export (only rebuilds
+# if pyproject.toml or uv.lock changes). --no-deps: install EXACTLY the locked
+# set — pip may not add or move anything the lock didn't name; `pip check`
+# then fails the build if the locked set is somehow incomplete. The
 # constraints-core.txt snapshot (so runtime plugin installs can pull their own
 # new deps but cannot move core's stack) is generated AFTER the source install
-# below — at this layer led-ticker-core has only the 0.0.0 scm fallback (no .git
-# yet), which must not leak into the constraints. `pip list --format=freeze`
+# below, so it records exactly this locked set plus led-ticker-core at its real
+# version (core itself is not installed in this layer). `pip list --format=freeze`
 # renders core as `led-ticker-core==<v>` (a valid constraint), unlike `pip
 # freeze` which emits an unusable `-e ...` line.
 FROM rgbmatrix
 WORKDIR /code
-# pyproject now declares readme + license-files (PEP 639), which hatchling reads
-# at install/metadata time — copy README.md + LICENSE alongside pyproject so the
-# editable install in this deps-only layer doesn't fail on the missing files.
-COPY pyproject.toml README.md LICENSE /code/
-RUN pip install --no-cache-dir -e ".[dev]"
+COPY --from=lock-export /lock/requirements.lock.txt /tmp/requirements.lock.txt
+RUN pip install --no-cache-dir --no-deps -r /tmp/requirements.lock.txt \
+ && pip check
 
 # Plugins are NOT baked — they install at runtime onto the ticker-plugins volume (see plugin_reconcile.py).
 
-# Layer 3: app source (rebuilds on any code change — but fast, no pip)
+# Layer 3: app source (rebuilds on any code change — but fast: core only, --no-deps)
 COPY . /code/
 # Version for the in-image build: the container has no .git, so the host
 # computes the hatch-vcs version and passes it (setuptools-scm reads this env

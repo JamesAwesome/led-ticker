@@ -679,3 +679,40 @@ class TestControlCharacters:
         assert z is not None
         assert z.lit == ()
         assert z.advance == font.glyphs[" "].advance
+
+
+class TestResolveGlyphNonSingleChar:
+    """`_is_blank_separator` calls `unicodedata.bidirectional`, which raises
+    TypeError unless given exactly one character. `resolve_glyph` is reachable
+    by plugins, so "" / "ab" / decomposed input must degrade exactly as it did
+    before #478 (rasterize + notdef test), never raise."""
+
+    def test_is_blank_separator_false_for_non_single_char(self):
+        from led_ticker.fonts.hires_loader import _is_blank_separator
+
+        for ch in ("", "ab", "é"):
+            assert _is_blank_separator(ch) is False
+
+    def test_empty_string_does_not_raise(self):
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        font = load_hires_font("Inter-Bold", 20)
+        font.resolve_glyph("")  # pre-#478: skipped rasterize, fell to rungs 2+
+
+    @pytest.mark.parametrize("s", ["ab", "é"])
+    def test_multi_char_matches_pre_478_behaviour(self, s):
+        from led_ticker.fonts.hires_loader import (
+            _is_notdef,
+            _rasterize_glyph,
+            load_hires_font,
+        )
+
+        font = load_hires_font("Inter-Bold", 20)
+        expected = _rasterize_glyph(
+            font.pil_font, s, font.ascent, font.descent, font.threshold
+        )
+        got = font.resolve_glyph(s)
+        if _is_notdef(expected, font.notdef_lit):
+            assert got is None or got is not expected
+        else:
+            assert got == expected

@@ -211,23 +211,17 @@ class HiresFont:
         Draw and measure both call this, so whatever `ch` resolves to, the
         two stay in parity (the #393 lesson: a resolution the measure path
         doesn't share skews right-aligned / scrolling text)."""
-        if ch and _is_blank_separator(ch) and self.pil_font is not None:
-            # Checked BEFORE the notdef test: a notdef-less font (empty
-            # .notdef) would otherwise classify the blank as missing and
-            # fall through to DejaVu / '?'.
-            g = self.glyphs.get(ch)
-            if g is None or g is _MISSING:
-                g = _rasterize_glyph(
-                    self.pil_font, ch, self.ascent, self.descent, self.threshold
-                )
-                self.glyphs[ch] = g
-            return g
         g = self.glyphs.get(ch)
         if g is None and self.pil_font is not None and ch:
             g = _rasterize_glyph(
                 self.pil_font, ch, self.ascent, self.descent, self.threshold
             )
-            g = None if _is_notdef(g, self.notdef_lit) else g
+            # A blank separator skips the notdef test: a notdef-less font
+            # (empty .notdef) would otherwise classify it as missing and fall
+            # through to DejaVu / '?'. It is cached as the real glyph (never
+            # `_MISSING`), so cached hits above skip the separator check.
+            if not _is_blank_separator(ch) and _is_notdef(g, self.notdef_lit):
+                g = None
             self.glyphs[ch] = g if g is not None else _MISSING
         elif g is _MISSING:
             g = None
@@ -302,7 +296,11 @@ def list_available_hires_fonts() -> list[str]:
 def _is_blank_separator(ch: str) -> bool:
     """Control whitespace + every bidi-class-B char: never handed to Pillow,
     always the font's own blank space-width glyph (never notdef/fallback)."""
-    return ch in _CONTROL_WHITESPACE or unicodedata.bidirectional(ch) == "B"
+    if ch in _CONTROL_WHITESPACE:
+        return True
+    # bidirectional() raises TypeError unless given exactly one character;
+    # a render helper must degrade on "" / "ab" / decomposed input, not crash.
+    return len(ch) == 1 and unicodedata.bidirectional(ch) == "B"
 
 
 def _blank_glyph(advance: int) -> HiresGlyph:

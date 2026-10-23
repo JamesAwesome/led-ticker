@@ -533,3 +533,55 @@ class TestFontLineHeight:
             height: int = 7
 
         assert font_line_height(_AttrShapedFont()) == 7
+
+
+class TestControlCharacters:
+    """Pillow 13 + raqm raises ``RuntimeError: raqm_layout() failed.`` from
+    ``getlength``/``getbbox`` on ``"\\n"`` and ``"\\r"``. The loader walks
+    ``string.printable``, so one bad control char used to take down every
+    hi-res font (longboi, 2026-10-22). Control whitespace must never reach
+    Pillow."""
+
+    _CONTROL = "\t\n\r\x0b\x0c"
+
+    def test_rasterize_glyph_never_asks_pillow_about_control_chars(self):
+        from led_ticker.fonts.hires_loader import _rasterize_glyph
+
+        class _Exploding:
+            def getlength(self, ch):
+                raise RuntimeError("raqm_layout() failed.")
+
+            getbbox = getlength
+
+        for ch in self._CONTROL:
+            g = _rasterize_glyph(_Exploding(), ch, ascent=20, descent=5)
+            assert g.lit == ()
+            assert g.advance == 0
+
+    def test_load_survives_raqm_rejecting_newlines(self, monkeypatch):
+        from PIL import ImageFont
+
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        real_len = ImageFont.FreeTypeFont.getlength
+        real_bbox = ImageFont.FreeTypeFont.getbbox
+
+        def _len(self, text, *a, **k):
+            if text in ("\n", "\r"):
+                raise RuntimeError("raqm_layout() failed.")
+            return real_len(self, text, *a, **k)
+
+        def _bbox(self, text, *a, **k):
+            if text in ("\n", "\r"):
+                raise RuntimeError("raqm_layout() failed.")
+            return real_bbox(self, text, *a, **k)
+
+        monkeypatch.setattr(ImageFont.FreeTypeFont, "getlength", _len)
+        monkeypatch.setattr(ImageFont.FreeTypeFont, "getbbox", _bbox)
+
+        font = load_hires_font("Inter-Bold", 20)
+        assert font is not None
+        assert font.glyphs["A"].lit
+        for ch in self._CONTROL:
+            assert font.glyphs[ch].lit == ()
+            assert font.glyphs[ch].advance == 0

@@ -26,6 +26,10 @@ from PIL import Image, ImageDraw, ImageFont
 # midpoint and produces clean glyphs at 24-32px on a 64-row LED panel.
 THRESHOLD: int = 128
 
+# string.printable's non-space whitespace. Never handed to Pillow — see
+# `_rasterize_glyph`.
+_CONTROL_WHITESPACE: frozenset[str] = frozenset("\t\n\r\x0b\x0c")
+
 # Per-font default used when a caller passes no threshold. One value cannot
 # serve both bundled Inter weights at small sizes: at 80, Bold ink grows
 # wider than the glyph's own advance and adjacent letters fuse into blobs
@@ -301,7 +305,16 @@ def _rasterize_glyph(
     distance above baseline) so `_draw_hires_text` can position
     glyphs against a baseline_y. Lit pixel coords are bbox-relative
     (0, 0 = glyph top-left within its own bbox).
+
+    ASCII control whitespace short-circuits to an empty zero-advance glyph
+    WITHOUT asking Pillow: Pillow 13 + raqm raises ``raqm_layout() failed.``
+    on ``\\n``/``\\r``, and one bad char would otherwise fail the whole font.
+    (Earlier Pillow drew them as notdef tofu, which nothing wanted either.)
     """
+    if ch in _CONTROL_WHITESPACE:
+        return HiresGlyph(
+            width=0, height=0, advance=0, bearing_x=0, bearing_y=0, lit=()
+        )
     advance = int(pil_font.getlength(ch))
     bbox = pil_font.getbbox(ch)
     if bbox is None or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:

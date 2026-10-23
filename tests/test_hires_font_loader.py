@@ -553,18 +553,64 @@ class TestControlCharacters:
     def test_rasterize_glyph_never_asks_pillow_about_control_chars(self):
         from led_ticker.fonts.hires_loader import _rasterize_glyph
 
-        class _Exploding:
+        asked: list[str] = []
+
+        class _Recording:
             def getlength(self, ch):
+                asked.append(ch)
                 if ch == " ":
                     return 7.0
                 raise RuntimeError("raqm_layout() failed.")
 
-            getbbox = getlength
+            def getbbox(self, ch):
+                asked.append(ch)
+                raise RuntimeError("raqm_layout() failed.")
 
         for ch in self._CONTROL:
-            g = _rasterize_glyph(_Exploding(), ch, ascent=20, descent=5)
+            g = _rasterize_glyph(_Recording(), ch, ascent=20, descent=5)
             assert g.lit == ()
             assert g.advance == 7
+        assert set(asked) <= {" "}, f"Pillow was asked about {set(asked)!r}"
+
+    def test_draw_text_runtime_error_degrades_to_blank_glyph(self):
+        from led_ticker.fonts.hires_loader import _rasterize_glyph
+
+        class _DrawBoom:
+            def getlength(self, ch):
+                return 6.0
+
+            def getbbox(self, ch):
+                return (0, 2, 5, 12)
+
+            def getmask2(self, *a, **k):
+                raise RuntimeError("raqm_layout() failed.")
+
+            def getmask(self, *a, **k):
+                raise RuntimeError("raqm_layout() failed.")
+
+        g = _rasterize_glyph(_DrawBoom(), "Q", ascent=20, descent=5)
+        assert g.lit == () and g.advance == 6
+
+    def test_notdefless_font_resolves_blank_separators_to_own_space(self, monkeypatch):
+        from led_ticker.fonts import hires_loader
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        monkeypatch.setattr(
+            hires_loader, "_DEJAVU_PATH", hires_loader.Path("/nonexistent.ttf")
+        )
+        hires_loader._dejavu_pil.cache_clear()
+        hires_loader._dejavu_glyph.cache_clear()
+        self._patch_raqm(monkeypatch, ())
+        font = load_hires_font("Inter-Bold", 21)
+        import dataclasses
+
+        font = dataclasses.replace(font, notdef_lit=(), glyphs=dict(font.glyphs))
+        space = font.glyphs[" "].advance
+        for ch in "\x85\u2029\x1c\x1d\x1e\n":
+            font.glyphs.pop(ch, None)
+            g = font.resolve_glyph(ch)
+            assert g is not None
+            assert g.lit == () and g.advance == space
 
     def test_space_advance_failure_falls_back_to_zero(self):
         from led_ticker.fonts.hires_loader import _rasterize_glyph
@@ -629,5 +675,7 @@ class TestControlCharacters:
         font = load_hires_font("Inter-Bold", 20)
         assert font is not None
         assert font.glyphs["A"].lit
-        z = font.glyphs.get("Z")
-        assert z is None or z.lit == ()
+        z = font.resolve_glyph("Z")
+        assert z is not None
+        assert z.lit == ()
+        assert z.advance == font.glyphs[" "].advance

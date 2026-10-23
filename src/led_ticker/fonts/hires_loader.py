@@ -211,6 +211,17 @@ class HiresFont:
         Draw and measure both call this, so whatever `ch` resolves to, the
         two stay in parity (the #393 lesson: a resolution the measure path
         doesn't share skews right-aligned / scrolling text)."""
+        if ch and _is_blank_separator(ch) and self.pil_font is not None:
+            # Checked BEFORE the notdef test: a notdef-less font (empty
+            # .notdef) would otherwise classify the blank as missing and
+            # fall through to DejaVu / '?'.
+            g = self.glyphs.get(ch)
+            if g is None or g is _MISSING:
+                g = _rasterize_glyph(
+                    self.pil_font, ch, self.ascent, self.descent, self.threshold
+                )
+                self.glyphs[ch] = g
+            return g
         g = self.glyphs.get(ch)
         if g is None and self.pil_font is not None and ch:
             g = _rasterize_glyph(
@@ -288,6 +299,12 @@ def list_available_hires_fonts() -> list[str]:
     return sorted(names)
 
 
+def _is_blank_separator(ch: str) -> bool:
+    """Control whitespace + every bidi-class-B char: never handed to Pillow,
+    always the font's own blank space-width glyph (never notdef/fallback)."""
+    return ch in _CONTROL_WHITESPACE or unicodedata.bidirectional(ch) == "B"
+
+
 def _blank_glyph(advance: int) -> HiresGlyph:
     return HiresGlyph(
         width=0, height=0, advance=advance, bearing_x=0, bearing_y=0, lit=()
@@ -330,7 +347,7 @@ def _rasterize_glyph(
     blank space, so a newline keeps its word break. Any other
     ``RuntimeError`` from Pillow degrades to the same blank glyph.
     """
-    if ch in _CONTROL_WHITESPACE or unicodedata.bidirectional(ch) == "B":
+    if _is_blank_separator(ch):
         return _blank_glyph(_space_advance(pil_font))
     try:
         advance = int(pil_font.getlength(ch))

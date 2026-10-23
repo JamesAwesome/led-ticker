@@ -533,3 +533,149 @@ class TestFontLineHeight:
             height: int = 7
 
         assert font_line_height(_AttrShapedFont()) == 7
+
+
+class TestControlCharacters:
+    """Pillow 13 + raqm raises ``RuntimeError: raqm_layout() failed.`` from
+    ``getlength``/``getbbox`` on ``"\\n"`` and ``"\\r"``. The loader walks
+    ``string.printable``, so one bad control char used to take down every
+    hi-res font (longboi, 2026-10-22). Control whitespace must never reach
+    Pillow."""
+
+    _CONTROL = "\t\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2029"
+
+    @staticmethod
+    def _is_b(ch):
+        import unicodedata
+
+        return unicodedata.bidirectional(ch) == "B"
+
+    def test_rasterize_glyph_never_asks_pillow_about_control_chars(self):
+        from led_ticker.fonts.hires_loader import _rasterize_glyph
+
+        asked: list[str] = []
+
+        class _Recording:
+            def getlength(self, ch):
+                asked.append(ch)
+                if ch == " ":
+                    return 7.0
+                raise RuntimeError("raqm_layout() failed.")
+
+            def getbbox(self, ch):
+                asked.append(ch)
+                raise RuntimeError("raqm_layout() failed.")
+
+        for ch in self._CONTROL:
+            g = _rasterize_glyph(_Recording(), ch, ascent=20, descent=5)
+            assert g.lit == ()
+            assert g.advance == 7
+        assert set(asked) <= {" "}, f"Pillow was asked about {set(asked)!r}"
+
+    def test_draw_text_runtime_error_degrades_to_blank_glyph(self):
+        from led_ticker.fonts.hires_loader import _rasterize_glyph
+
+        class _DrawBoom:
+            def getlength(self, ch):
+                return 6.0
+
+            def getbbox(self, ch):
+                return (0, 2, 5, 12)
+
+            def getmask2(self, *a, **k):
+                raise RuntimeError("raqm_layout() failed.")
+
+            def getmask(self, *a, **k):
+                raise RuntimeError("raqm_layout() failed.")
+
+        g = _rasterize_glyph(_DrawBoom(), "Q", ascent=20, descent=5)
+        assert g.lit == () and g.advance == 6
+
+    def test_notdefless_font_resolves_blank_separators_to_own_space(self, monkeypatch):
+        from led_ticker.fonts import hires_loader
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        monkeypatch.setattr(
+            hires_loader, "_DEJAVU_PATH", hires_loader.Path("/nonexistent.ttf")
+        )
+        hires_loader._dejavu_pil.cache_clear()
+        hires_loader._dejavu_glyph.cache_clear()
+        self._patch_raqm(monkeypatch, ())
+        font = load_hires_font("Inter-Bold", 21)
+        import dataclasses
+
+        font = dataclasses.replace(font, notdef_lit=(), glyphs=dict(font.glyphs))
+        space = font.glyphs[" "].advance
+        for ch in "\x85\u2029\x1c\x1d\x1e\n":
+            font.glyphs.pop(ch, None)
+            g = font.resolve_glyph(ch)
+            assert g is not None
+            assert g.lit == () and g.advance == space
+
+    def test_space_advance_failure_falls_back_to_zero(self):
+        from led_ticker.fonts.hires_loader import _rasterize_glyph
+
+        class _AllExploding:
+            def getlength(self, ch):
+                raise RuntimeError("raqm_layout() failed.")
+
+            getbbox = getlength
+
+        g = _rasterize_glyph(_AllExploding(), "\n", ascent=20, descent=5)
+        assert g.lit == () and g.advance == 0
+
+    def _patch_raqm(self, monkeypatch, bad):
+        from PIL import ImageFont
+
+        real_len = ImageFont.FreeTypeFont.getlength
+        real_bbox = ImageFont.FreeTypeFont.getbbox
+        is_b = self._is_b
+
+        def _len(self_, text, *a, **k):
+            if text in bad or (len(text) == 1 and is_b(text)):
+                raise RuntimeError("raqm_layout() failed.")
+            return real_len(self_, text, *a, **k)
+
+        def _bbox(self_, text, *a, **k):
+            if text in bad or (len(text) == 1 and is_b(text)):
+                raise RuntimeError("raqm_layout() failed.")
+            return real_bbox(self_, text, *a, **k)
+
+        monkeypatch.setattr(ImageFont.FreeTypeFont, "getlength", _len)
+        monkeypatch.setattr(ImageFont.FreeTypeFont, "getbbox", _bbox)
+
+    def test_load_survives_raqm_rejecting_bidi_b(self, monkeypatch):
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_raqm(monkeypatch, ())
+        font = load_hires_font("Inter-Bold", 20)
+        assert font is not None
+        assert font.glyphs["A"].lit
+        space = font.glyphs[" "].advance
+        assert space > 0
+        for ch in "\t\n\r\x0b\x0c":
+            assert font.glyphs[ch].lit == ()
+            assert font.glyphs[ch].advance == space
+
+    def test_lazy_path_bidi_b_does_not_raise(self, monkeypatch):
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_raqm(monkeypatch, ())
+        font = load_hires_font("Inter-Bold", 20)
+        for ch in "\x85\x1c\x1d\x1e\u2029":
+            font.resolve_glyph(ch)  # lazy rasterize; must not raise
+            assert get_text_width(font, f"a{ch}b", padding=0) > 0
+        assert get_text_width(font, "Markets rally\x85", padding=0) > 0
+
+    def test_arbitrary_runtime_error_degrades_to_blank_glyph(self, monkeypatch):
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_raqm(monkeypatch, ("Z",))
+        font = load_hires_font("Inter-Bold", 20)
+        assert font is not None
+        assert font.glyphs["A"].lit
+        z = font.resolve_glyph("Z")
+        assert z is not None
+        assert z.lit == ()
+        assert z.advance == font.glyphs[" "].advance

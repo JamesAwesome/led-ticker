@@ -15,6 +15,7 @@ directly to the unwrapped real canvas at native physical resolution.
 import functools
 import logging
 import string
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -27,7 +28,7 @@ from PIL import Image, ImageDraw, ImageFont
 THRESHOLD: int = 128
 
 # string.printable's non-space whitespace. Never handed to Pillow — see
-# `_rasterize_glyph`.
+# `_rasterize_glyph` (which also short-circuits every bidi-class-B char).
 _CONTROL_WHITESPACE: frozenset[str] = frozenset("\t\n\r\x0b\x0c")
 
 # Per-font default used when a caller passes no threshold. One value cannot
@@ -287,6 +288,20 @@ def list_available_hires_fonts() -> list[str]:
     return sorted(names)
 
 
+def _blank_glyph(advance: int) -> HiresGlyph:
+    return HiresGlyph(
+        width=0, height=0, advance=advance, bearing_x=0, bearing_y=0, lit=()
+    )
+
+
+def _space_advance(pil_font: Any) -> int:
+    """Advance of U+0020, or 0 if Pillow can't measure even that."""
+    try:
+        return int(pil_font.getlength(" "))
+    except RuntimeError:
+        return 0
+
+
 def _rasterize_glyph(
     pil_font: Any, ch: str, ascent: int, descent: int, threshold: int = THRESHOLD
 ) -> HiresGlyph:
@@ -306,27 +321,26 @@ def _rasterize_glyph(
     glyphs against a baseline_y. Lit pixel coords are bbox-relative
     (0, 0 = glyph top-left within its own bbox).
 
-    ASCII control whitespace short-circuits to an empty zero-advance glyph
-    WITHOUT asking Pillow: Pillow 13 + raqm raises ``raqm_layout() failed.``
-    on ``\\n``/``\\r``, and one bad char would otherwise fail the whole font.
-    (Earlier Pillow drew them as notdef tofu, which nothing wanted either.)
+    ASCII control whitespace AND every bidi-class-B char (U+000A/000D/
+    001C-001E/0085/2029) short-circuit to a blank glyph — no lit pixels, the
+    SPACE glyph's advance — WITHOUT asking Pillow: Pillow 13 + raqm raises
+    ``raqm_layout() failed.`` on all of them, and one bad char would
+    otherwise fail the whole font (eager charset) or the render (lazy
+    path, e.g. a cp1252-mojibake U+0085 in RSS text). They render as a
+    blank space, so a newline keeps its word break. Any other
+    ``RuntimeError`` from Pillow degrades to the same blank glyph.
     """
-    if ch in _CONTROL_WHITESPACE:
-        return HiresGlyph(
-            width=0, height=0, advance=0, bearing_x=0, bearing_y=0, lit=()
-        )
-    advance = int(pil_font.getlength(ch))
-    bbox = pil_font.getbbox(ch)
+    if ch in _CONTROL_WHITESPACE or unicodedata.bidirectional(ch) == "B":
+        return _blank_glyph(_space_advance(pil_font))
+    try:
+        advance = int(pil_font.getlength(ch))
+        bbox = pil_font.getbbox(ch)
+    except RuntimeError:
+        logging.getLogger(__name__).debug("pillow rejected %r; blank glyph", ch)
+        return _blank_glyph(_space_advance(pil_font))
     if bbox is None or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
         # Whitespace or zero-width char — emit empty glyph with advance.
-        return HiresGlyph(
-            width=0,
-            height=0,
-            advance=advance,
-            bearing_x=0,
-            bearing_y=0,
-            lit=(),
-        )
+        return _blank_glyph(advance)
 
     width = bbox[2] - bbox[0]
     height = bbox[3] - bbox[1]
@@ -339,7 +353,11 @@ def _rasterize_glyph(
     canvas_h = ascent + descent
     img = Image.new("L", (canvas_w, canvas_h), 0)
     draw = ImageDraw.Draw(img)
-    draw.text((0, 0), ch, font=pil_font, fill=255)
+    try:
+        draw.text((0, 0), ch, font=pil_font, fill=255)
+    except RuntimeError:
+        logging.getLogger(__name__).debug("pillow rejected %r; blank glyph", ch)
+        return _blank_glyph(advance)
 
     pixels = img.tobytes()
     lit: list[tuple[int, int]] = []

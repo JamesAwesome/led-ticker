@@ -542,13 +542,21 @@ class TestControlCharacters:
     hi-res font (longboi, 2026-10-22). Control whitespace must never reach
     Pillow."""
 
-    _CONTROL = "\t\n\r\x0b\x0c"
+    _CONTROL = "\t\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2029"
+
+    @staticmethod
+    def _is_b(ch):
+        import unicodedata
+
+        return unicodedata.bidirectional(ch) == "B"
 
     def test_rasterize_glyph_never_asks_pillow_about_control_chars(self):
         from led_ticker.fonts.hires_loader import _rasterize_glyph
 
         class _Exploding:
             def getlength(self, ch):
+                if ch == " ":
+                    return 7.0
                 raise RuntimeError("raqm_layout() failed.")
 
             getbbox = getlength
@@ -556,32 +564,70 @@ class TestControlCharacters:
         for ch in self._CONTROL:
             g = _rasterize_glyph(_Exploding(), ch, ascent=20, descent=5)
             assert g.lit == ()
-            assert g.advance == 0
+            assert g.advance == 7
 
-    def test_load_survives_raqm_rejecting_newlines(self, monkeypatch):
+    def test_space_advance_failure_falls_back_to_zero(self):
+        from led_ticker.fonts.hires_loader import _rasterize_glyph
+
+        class _AllExploding:
+            def getlength(self, ch):
+                raise RuntimeError("raqm_layout() failed.")
+
+            getbbox = getlength
+
+        g = _rasterize_glyph(_AllExploding(), "\n", ascent=20, descent=5)
+        assert g.lit == () and g.advance == 0
+
+    def _patch_raqm(self, monkeypatch, bad):
         from PIL import ImageFont
-
-        from led_ticker.fonts.hires_loader import load_hires_font
 
         real_len = ImageFont.FreeTypeFont.getlength
         real_bbox = ImageFont.FreeTypeFont.getbbox
+        is_b = self._is_b
 
-        def _len(self, text, *a, **k):
-            if text in ("\n", "\r"):
+        def _len(self_, text, *a, **k):
+            if text in bad or (len(text) == 1 and is_b(text)):
                 raise RuntimeError("raqm_layout() failed.")
-            return real_len(self, text, *a, **k)
+            return real_len(self_, text, *a, **k)
 
-        def _bbox(self, text, *a, **k):
-            if text in ("\n", "\r"):
+        def _bbox(self_, text, *a, **k):
+            if text in bad or (len(text) == 1 and is_b(text)):
                 raise RuntimeError("raqm_layout() failed.")
-            return real_bbox(self, text, *a, **k)
+            return real_bbox(self_, text, *a, **k)
 
         monkeypatch.setattr(ImageFont.FreeTypeFont, "getlength", _len)
         monkeypatch.setattr(ImageFont.FreeTypeFont, "getbbox", _bbox)
 
+    def test_load_survives_raqm_rejecting_bidi_b(self, monkeypatch):
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_raqm(monkeypatch, ())
         font = load_hires_font("Inter-Bold", 20)
         assert font is not None
         assert font.glyphs["A"].lit
-        for ch in self._CONTROL:
+        space = font.glyphs[" "].advance
+        assert space > 0
+        for ch in "\t\n\r\x0b\x0c":
             assert font.glyphs[ch].lit == ()
-            assert font.glyphs[ch].advance == 0
+            assert font.glyphs[ch].advance == space
+
+    def test_lazy_path_bidi_b_does_not_raise(self, monkeypatch):
+        from led_ticker.drawing import get_text_width
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_raqm(monkeypatch, ())
+        font = load_hires_font("Inter-Bold", 20)
+        for ch in "\x85\x1c\x1d\x1e\u2029":
+            font.resolve_glyph(ch)  # lazy rasterize; must not raise
+            assert get_text_width(font, f"a{ch}b", padding=0) > 0
+        assert get_text_width(font, "Markets rally\x85", padding=0) > 0
+
+    def test_arbitrary_runtime_error_degrades_to_blank_glyph(self, monkeypatch):
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_raqm(monkeypatch, ("Z",))
+        font = load_hires_font("Inter-Bold", 20)
+        assert font is not None
+        assert font.glyphs["A"].lit
+        z = font.glyphs.get("Z")
+        assert z is None or z.lit == ()

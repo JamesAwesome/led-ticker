@@ -1872,3 +1872,133 @@ def test_reconcile_upgrade_excludes_plugin_from_constraints(tmp_path, monkeypatc
         "the upgrading plugin's dist must be excluded from the freeze constraints"
     )
     assert any(a.namespace == "nyancat" and a.action == "installed" for a in actions)
+
+
+# ── pip failure surfacing + verbatim labels ────────────────────────────────────
+
+_CONFLICT_STDERR = """\
+Processing /code/config/led_ticker_hockey-0.0.1.dev221+gb99fbff76-py3-none-any.whl
+INFO: pip is looking at multiple versions of led-ticker-hockey
+ERROR: Cannot install led-ticker-hockey: conflicting dependencies
+
+The conflict is caused by:
+    led-ticker-hockey 0.0.1.dev221 depends on led-ticker-core>=4.30
+    The user requested (constraint) led-ticker-core==4.29.1.dev5
+
+To fix this you could try to:
+1. loosen the range of package versions you've specified
+"""
+
+
+def _reconcile_with_real_pip_path(tmp_path, monkeypatch, line, fake_run):
+    import led_ticker.app.plugin_cmd as pc
+    import led_ticker.plugin_reconcile as r
+
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    (tmp_path / "requirements-plugins.txt").write_text(line + "\n")
+    monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
+    monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
+    monkeypatch.setattr(
+        pc, "_freeze_to_constraints", lambda py=sys.executable, **_kw: (None, 0)
+    )
+    # _pip_install owns constraints when None; pass a real file so no freeze.
+    cfile = tmp_path / "c.txt"
+    cfile.write_text("")
+    monkeypatch.setattr(
+        pc, "_freeze_to_constraints", lambda py=sys.executable, **_kw: (str(cfile), 0)
+    )
+    monkeypatch.setattr(pc.subprocess, "run", fake_run)
+    return r.reconcile(cfg)
+
+
+def test_reconcile_failure_detail_has_pip_error_and_verbatim_line(
+    tmp_path, monkeypatch
+):
+    line = "/code/config/led_ticker_hockey-0.0.1.dev221+gb99fbff76-py3-none-any.whl"
+
+    def fake_run(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 1, stdout=_CONFLICT_STDERR, stderr=None)
+
+    actions = _reconcile_with_real_pip_path(tmp_path, monkeypatch, line, fake_run)
+    failed = [a for a in actions if a.action == "failed"]
+    assert len(failed) == 1
+    d = failed[0].detail
+    assert "pip exited 1" in d
+    # verbatim line, underscores intact (NOT the mangled dedup key)
+    assert "led_ticker_hockey-0.0.1.dev221" in d
+    assert "ERROR: Cannot install led-ticker-hockey" in d
+    assert "led-ticker-core==4.29.1.dev5" in d
+    assert len(d) < 900
+
+
+def test_reconcile_failure_ignores_non_text_output(tmp_path, monkeypatch):
+    def fake_run(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 1, stdout=b"\xff\xfe", stderr=object())
+
+    actions = _reconcile_with_real_pip_path(
+        tmp_path, monkeypatch, "led-ticker-pool==0.1.0", fake_run
+    )
+    failed = [a for a in actions if a.action == "failed"]
+    assert failed and "pip exited 1" in failed[0].detail
+
+
+def test_reconcile_subprocess_raising_does_not_escape(tmp_path, monkeypatch):
+    def fake_run(cmd, **kw):
+        raise OSError("exec format error")
+
+    actions = _reconcile_with_real_pip_path(
+        tmp_path, monkeypatch, "led-ticker-pool==0.1.0", fake_run
+    )
+    failed = [a for a in actions if a.action == "failed"]
+    assert failed and "exec format error" in failed[0].detail
+
+
+def test_reconcile_success_does_not_capture_or_log_pip_output(
+    tmp_path, monkeypatch, caplog
+):
+    def fake_run(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 0, stdout="lots of output", stderr=None)
+
+    with caplog.at_level("INFO"):
+        actions = _reconcile_with_real_pip_path(
+            tmp_path, monkeypatch, "led-ticker-pool==0.1.0", fake_run
+        )
+    assert any(a.action == "installed" for a in actions)
+    assert "lots of output" not in caplog.text
+    assert all(a.detail in (None, "") for a in actions if a.action == "installed")
+
+
+def test_install_label_uses_verbatim_line_and_namespace():
+    import led_ticker.plugin_reconcile as r
+
+    assert (
+        r._install_label(["hockey"], "led-ticker-hockey @ git+https://x/y.git  # c")
+        == "hockey (led-ticker-hockey @ git+https://x/y.git)"
+    )
+    wheel = "/code/config/led_ticker_hockey-0.0.1-py3-none-any.whl"
+    assert r._install_label([wheel], wheel) == wheel
+    assert r._install_label(["pool"], None) == "pool"
+
+
+def test_summarize_pip_failure_fallbacks():
+    from led_ticker.app.plugin_cmd import _summarize_pip_failure
+
+    assert _summarize_pip_failure("") == ""
+    tail = _summarize_pip_failure("\n".join(f"line {i}" for i in range(20)))
+    assert "line 19" in tail and "line 10" not in tail
+    assert len(_summarize_pip_failure("ERROR: " + "x" * 2000)) <= 400
+
+
+def test_pip_install_without_sink_does_not_capture(monkeypatch):
+    import led_ticker.app.plugin_cmd as pc
+
+    seen: dict = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw)
+        return subprocess.CompletedProcess(cmd, 1)
+
+    monkeypatch.setattr(pc.subprocess, "run", fake_run)
+    assert pc._pip_install("led-ticker-pool", constraints="/dev/null") == 1
+    assert "stdout" not in seen and "stderr" not in seen

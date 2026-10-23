@@ -1,0 +1,19 @@
+# render-duration: 27
+# DEMO-mode hockey.scores held scoreboard on a bigsign-shaped (256x64) panel:
+# two team rows with a dotted divider, the period / clock / power play in a
+# right-hand column. Same four fixture games as the longboi demo.
+[display]
+rows = 64
+cols = 64
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "hockey.scores"
+teams = ["PHI", "NYI"]
+demo = true

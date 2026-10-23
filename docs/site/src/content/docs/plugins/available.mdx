@@ -63,6 +63,12 @@ Live stock ticker (`type = "stocks.ticker"`) — symbol, price, change, and a ro
 
 <PluginCatalog name="stocks" />
 
+### [hockey](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/hockey)
+
+Live NHL scores (`type = "hockey.scores"`) — one held scoreboard card per game with the score, period and clock, shots on goal, power play (team and time left) and empty net, plus final and next-game cards. Three modes: `teams` follows the clubs you name, `league` rotates the whole slate, and `live` shows only games in progress. Cards are held scoreboards on all three sign shapes, with an optional scrolling `ticker` layout; when a team you follow scores, the card plays a goal celebration on the widget's next turn in the rotation. No API key needed — the data comes from the NHL's public web API, an **unofficial and undocumented feed** that the NHL can change at any time, so the plugin parses defensively and keeps the last good scores on the panel with a `STALE` label if it breaks. Set `demo = true` to preview with no network. See the [hockey.scores widget page](/widgets/hockey/) for the full options reference and demo GIFs, or the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/hockey/README.md) for install steps.
+
+<PluginCatalog name="hockey" />
+
 ### [tennis](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/tennis)
 
 Live tennis scores (`type = "tennis.scores"`) across ATP, WTA, Challenger, ITF and juniors — one story per match in play, cycling the main tours first. Shows both players with per-set games, the point in progress (`15`/`30`/`40`/`AD`, or the tiebreak count), a serve marker and a break-point badge; it falls back to upcoming fixtures when nothing is on court. Layouts follow sign shape: a scrolling `ticker` at scale 1, a held `scoreboard` on the bigger panels. Data comes from the [Live Tennis API](https://livetennisapi.com) free tier (100 requests/day), and the plugin enforces a 15-minute poll floor to stay inside it. Set `demo = true` to preview with no API key. **Contributed and maintained by the data source's vendor.** See the [tennis.scores widget page](/widgets/tennis/) for the full options reference and demo GIFs, or the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/tennis/README.md) for install steps.

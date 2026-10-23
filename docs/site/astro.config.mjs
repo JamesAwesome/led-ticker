@@ -281,6 +281,7 @@ export default defineConfig({
                 { label: "weather.forecast", link: "/widgets/weather_forecast/" },
                 { label: "flair.lottery", link: "/widgets/lottery/" },
                 { label: "tennis.scores", link: "/widgets/tennis/" },
+                { label: "hockey.scores", link: "/widgets/hockey/" },
               ],
             },
           ],

@@ -1,0 +1,170 @@
+---
+title: Live NHL hockey scores
+description: Live NHL scores on an LED sign — score, period, clock, shots, power play, finals and the next game, with a goal celebration when your team scores. No API key.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+Hockey moves too fast for a score that only updates when you remember to check. The **hockey.scores** widget, provided by the **[hockey](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/hockey)** package (`type = "hockey.scores"`), holds a scoreboard per game on your wall: the score, the period and a running clock, shots on goal, the power play and its time left, an empty net, finals, and the next scheduled game. When a team you follow scores, its card plays a goal celebration the next time it comes up in the rotation.
+
+This page is for sign owners configuring the widget in TOML. No API key and no account are needed.
+
+<DemoGif
+  src="/demos-pinned/hockey-scoreboard-longboi.gif"
+  caption="full scoreboard on a long panel: three orange GOAL flashes and the KONECNY (5) goal detail, then PHI 2 – NYI 1 in the 2nd with a running clock and an NYI power play, a 1st intermission, an OT final with the winner's score in green, and Friday's next game at UBS Arena."
+/>
+
+**Requires led-ticker-core >= 4.30.**
+
+<Aside type="caution" title="An unofficial data feed">
+  Scores come from the NHL's public web API (`api-web.nhle.com`). It is free and needs no key, but
+  it is **unofficial and undocumented** — the NHL can change its shape at any time. The plugin
+  parses it defensively: a bad or missing payload keeps the last good scores on the panel with a
+  `STALE` label rather than crashing the sign. The plugin is not affiliated with or endorsed by the
+  NHL.
+</Aside>
+
+## What you'll need
+
+- A working [led-ticker](https://github.com/JamesAwesome/led-ticker) install, core **4.30 or newer**.
+- The plugin: add `led-ticker-hockey` to your sign's `config/requirements-plugins.txt` and restart. See [using plugins](/plugins/) for the full install path.
+- Internet access on the Pi. Nothing else — no key, no sign-up.
+
+Run the config commands wherever your sign's `config/` directory lives — on the Pi itself for a deployed sign.
+
+## The smallest config that works
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "hockey.scores"
+teams = ["PHI", "NYI"]
+demo = true
+```
+
+That is the whole widget block from `docs/site/demos-pinned/hockey-scoreboard-longboi.toml`, the file that rendered the GIF above. Delete `demo = true` and the same block follows the Flyers and the Islanders live.
+
+`teams` takes NHL three-letter codes, case-insensitive, and is required in the default mode. `mode = "slideshow"` is the right section mode: one game per visit, held, then a transition to the next. If you want start times in your own timezone, add `timezone = "America/Chicago"` (any IANA name; the default is `America/New_York`).
+
+## Options
+
+<OptionsTable source="widgets/hockey" />
+
+## Three ways to pick games
+
+`mode` decides which games get a card. Each game is one card in the rotation, and two tracked teams playing each other share one card.
+
+- **`teams` (default)** — only games involving your `teams`, in config order. For each team: its live game; else a final still inside `final_hold_hours`; else a game later today; else its next scheduled game, such as Friday's game or the season opener.
+- **`league`** — every NHL game today: your teams first, then other live games, then finals inside the hold, then games later today by start time. Capped at `max_games`.
+- **`live`** — only games in progress, your teams first, capped at `max_games`. With nothing on, the widget has no cards and drops out of the rotation until a game starts.
+
+In `league` and `live` modes, `teams` is optional: it sets who comes first and which goals celebrate.
+
+## Layouts, one held board per sign shape
+
+`layout = "auto"` (the default) picks a held scoreboard on all three sign shapes. A held board reads better than a crawl, even on a 16-row strip.
+
+### Longboi (512×64)
+
+A full scoreboard, shown at the top of this page. The away team fills the left third (chip, large abbreviation, `SOG`, huge score), the home team mirrors it on the right, and the centre holds the period, a large clock, and the **PP** badge with `TEAM m:ss` beneath it. Next-game cards add the team nicknames.
+
+### Bigsign (256×64)
+
+Two team rows with a dotted divider — chip, abbreviation, large score, `SOG nn` — with an amber **PP** badge on the power-play team's row. The right column shows the period, the clock and `PP m:ss`.
+
+<DemoGif
+  src="/demos-pinned/hockey-scoreboard-bigsign.gif"
+  caption="the same four games on a 256x64 panel: GOAL with PHI 2 NYI 1 and KONECNY (5) assisted by MICHKOV and SANHEIM, then two team rows with SOG in cyan, the period in amber, the clock in white, and a PP badge on the NYI row."
+/>
+
+### Smallsign (160×16)
+
+Two 8-row bands in the 5×8 bitmap font, away on top. Each band has a team chip, the abbreviation, the score and `SOG nn`. `PP m:ss` or `EN` sits on that team's band during play; the period is right-aligned in the top band and the clock in the bottom band. Columns move right as needed, so two-digit scores and shot counts never touch.
+
+<DemoGif
+  src="/demos-pinned/hockey-scoreboard-smallsign.gif"
+  caption="smallsign: GOAL PHI 2 NYI 1 over KONECNY (5), then two bands per game — PHI 2 SOG 18 over NYI 1 SOG 22 with PP 1:36 and 12:28 — followed by 1ST INT, FINAL OT, and PHI @ NYI on FRI at 7:00 PM."
+/>
+
+### On every board
+
+- **Intermission:** the clock reads `1ST INT` / `2ND INT` with the countdown.
+- **Empty net:** `EN` marks the team that pulled its goalie.
+- **Final:** `FINAL`, marked `OT` or `SO` when it went past regulation, the winner's score green and the loser's dimmed.
+- **Next game:** both chips, `@`, the day and date, the time and the arena.
+
+Game clocks, power-play time and intermission countdowns tick every second between polls; the board counts down from the last poll and stops at `0:00`. Team abbreviations shrink to fit (both rows always share one size). Nothing on the boards is user-tunable — the palette is fixed.
+
+### The scrolling ticker
+
+Set `layout = "ticker"` for one scrolling line per game, in the same wording as the boards. Use `mode = "ticker"` on the section, since this layout scrolls rather than holds. At scale 1 the clock text refreshes with each poll rather than every second; the boards and the scale > 1 crawl tick every second.
+
+## Reading the colors
+
+| Color       | Means                                                             |
+| ----------- | ----------------------------------------------------------------- |
+| Team colors | The chip beside each abbreviation, and the abbreviation itself    |
+| White       | Scores and the game clock                                         |
+| Amber       | The period, the power play (`PP` badge and time), next-game dates |
+| Cyan        | Shots on goal                                                     |
+| Green       | The winner's score on a final                                     |
+| Dim gray    | The loser's score on a final                                      |
+| Dark gray   | `STALE`, the arena, and labels such as the smallsign's `SOG`      |
+
+## Goal celebration
+
+When a team in your `teams` list scores, that game's card plays a 4-second celebration **the next time its turn comes around**. It never interrupts whatever else is on the panel. You get three quick flashes in the scoring team's color with `GOAL` knocked out, then the new score, the scorer with their season goal count (`KONECNY (5)`), the assists, and the period and time of the goal. Then the normal board for the rest of the hold.
+
+- **The hold stretches to fit.** While a celebration is pending the card asks for 4 seconds per queued goal plus the larger of the widget's `hold_time` and 4 seconds for the board afterwards; the engine still uses the section's `hold_time` if that is longer. With `hold_time = 6` on the section, a card with one goal to celebrate holds for 8 seconds. You don't need to raise `hold_time` for it.
+- **Several goals queue.** Goals scored between turns celebrate in order, up to 3 per turn; older ones are dropped.
+- **Only your teams flash.** In `league` and `live` modes a goal by a team you don't track highlights the score briefly and fades back to white. With an empty `teams` list nothing celebrates.
+- **Each goal celebrates once.** A celebration counts as done only once it actually reached the panel, and later rotations don't replay it.
+- **Corrections don't re-celebrate.** When the NHL changes a goal's scorer or assists, the queued celebration shows the corrected name; it never plays twice. An overturned goal quietly corrects the score and drops any queued celebration for it.
+- **Boot is silent.** Goals already in the feed when the widget first sees a game — after a boot, restart or [hot reload](/concepts/hot-reload/), or a game found mid-period — don't celebrate.
+
+During a transition into or out of the card, the board is shown; the celebration plays once the card is on screen.
+
+## How often does it poll the NHL?
+
+Every `hockey.scores` widget in one process shares a single fetcher, so several widgets don't multiply requests.
+
+- **Every 15 seconds** while any game you're showing is live — faster if a widget sets a lower `update_interval` (floored at 10).
+- **Every 5 minutes** when games are scheduled today but haven't started.
+- **About hourly** otherwise.
+- **At most every 6 hours** for the season schedule, used to find a team's next game in the offseason.
+
+The power-play and empty-net lookup is only made for live games that are on screen. A failed request keeps the last good games, marks every card `STALE`, and backs off — starting at twice the interval, doubling, capped at four hours.
+
+## Try it in demo mode
+
+`demo = true` renders four fixture games between PHI and NYI with no network: a live game on an NYI power play with a PHI goal, a first intermission, an OT final, and next Friday's game. The live game's goal celebrates on its first turn and again every third turn after, so a looping demo keeps showing it. Keep `teams` set — `demo = true` works without it, but with no tracked team the goal only highlights the score instead of celebrating.
+
+It is the quickest way to check the layout on your panel, and it is what every GIF on this page shows.
+
+## If it doesn't work
+
+**`led-ticker validate` says `unknown code`.** A team code isn't one of the 32 NHL abbreviations. The message suggests the closest match — `PHL` gets `Did you mean 'PHI'?` — so swap in the suggested code.
+
+**The board says `STALE`.** A fetch failed or the feed returned something the plugin couldn't parse, so it's showing the last good scores. The logs carry the reason; the label clears on the next good poll. If it never clears, the NHL may have changed the feed.
+
+**The section went dark.** Nothing qualified for a card: `live` mode with no game on, or a `teams` team with nothing scheduled — the offseason. A section holding only this widget has nothing to show then, and the sign idles blank (see [scheduling](/concepts/scheduling/) for how core handles an empty section). Put the widget in a section with other content to keep the panel lit.
+
+**The sign showed a goal before my TV did.** Expected. The feed is near real-time and broadcasts run on a delay, so the panel can be ahead of the screen. There is no spoiler delay.
+
+**There's no `PP` or `EN` on a live game.** The power-play and empty-net fields come from a part of the feed that has not yet been checked against a live game. If the NHL shapes them differently, the board leaves them off and everything else keeps working.
+
+**My team scored but nothing celebrated.** Check that the team is in `teams`, and remember the first sight of a game after a boot or reload is silent by design.
+
+## Next steps
+
+Pair it with other sports in the same rotation — [tennis.scores](/widgets/tennis/) and [baseball.scores](/widgets/mlb/) follow the same held-board pattern — or see [sections and modes](/concepts/sections-and-modes/) for controlling how long each game holds.
+
+<RelatedPages
+  slugs={["plugins/available", "concepts/sections-and-modes", "widgets/tennis", "widgets/mlb"]}
+/>

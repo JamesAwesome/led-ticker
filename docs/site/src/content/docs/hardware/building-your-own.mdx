@@ -202,6 +202,14 @@ the first build (via `make setup`) is typically faster than a bare
 `pip install` on the Pi.
 :::
 
+:::note[Docker installs the locked versions]
+The Docker image installs exactly the dependency versions pinned in `uv.lock`,
+so `make update` rebuilds the same stack every time — a new upstream release
+(say, a Pillow major) can't slip onto the sign just because you rebuilt. A
+source checkout via `make dev` (`uv sync`) uses the same lock. Dependencies
+change only when `uv.lock` does.
+:::
+
 ## Inspecting the running async loop (Python 3.14+)
 
 led-ticker is one long-lived asyncio loop plus a background task per data

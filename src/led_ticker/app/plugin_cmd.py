@@ -7,6 +7,7 @@ install target; the module never imports pip.
 """
 
 import contextlib
+import contextvars
 import difflib
 import importlib.metadata
 import re
@@ -491,6 +492,48 @@ def _freeze_to_constraints(
         return (fh.name, 0)
 
 
+# Reconcile opts into failure capture by setting this to a list: `_pip_install`
+# then runs pip with output captured (merged stdout+stderr) and, on a non-zero
+# exit, appends ONE short failure summary to it. A ContextVar (not a kwarg or
+# return-shape change) keeps `_pip_install`'s `-> int` contract and every caller
+# / test double untouched; the CLI (`plugin add/upgrade`) and webui leave it
+# unset and keep pip streaming straight to the terminal.
+_PIP_FAILURE_SINK: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
+    "_PIP_FAILURE_SINK", default=None
+)
+
+_PIP_SUMMARY_MAX = 400
+
+
+def _summarize_pip_failure(output: str, limit: int = _PIP_SUMMARY_MAX) -> str:
+    """Boil pip's captured output down to a short, useful failure summary.
+
+    Prefers the first ``ERROR:`` line plus the "The conflict is caused by:"
+    block (the resolver's explanation); falls back to the last few non-empty
+    lines. Truncated to ``limit`` chars, whitespace-collapsed onto one line so
+    it stays small in the status board JSON. Never raises."""
+    try:
+        lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+        if not lines:
+            return ""
+        picked: list[str] = []
+        err = next((ln for ln in lines if ln.startswith("ERROR:")), None)
+        if err is not None:
+            picked.append(err)
+        for i, ln in enumerate(lines):
+            if ln.startswith("The conflict is caused by"):
+                picked.extend(lines[i : i + 6])
+                break
+        if not picked:
+            picked = lines[-5:]
+        text = " | ".join(dict.fromkeys(picked))
+        if len(text) > limit:
+            text = text[: limit - 1].rstrip() + "…"
+        return text
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _pip_install(
     requirement: str,
     *,
@@ -523,6 +566,7 @@ def _pip_install(
         constraints, freeze_rc = _freeze_to_constraints(python_exe)
         if constraints is None:
             return freeze_rc
+    sink = _PIP_FAILURE_SINK.get()
     try:
         proc = subprocess.run(
             [
@@ -545,10 +589,25 @@ def _pip_install(
                 requirement,
             ],
             timeout=_PIP_INSTALL_TIMEOUT_S,
+            **(
+                {
+                    "stdout": subprocess.PIPE,
+                    "stderr": subprocess.STDOUT,
+                    "text": True,
+                    "errors": "replace",
+                }
+                if sink is not None
+                else {}
+            ),
         )
     finally:
         if owns_constraints:
             Path(constraints).unlink(missing_ok=True)
+    if sink is not None and proc.returncode != 0:
+        out = proc.stdout if isinstance(proc.stdout, str) else ""
+        summary = _summarize_pip_failure(out)
+        if summary:
+            sink.append(summary)
     return proc.returncode
 
 

@@ -2047,6 +2047,14 @@ def test_install_label_uses_verbatim_line_and_namespace():
     import led_ticker.plugin_reconcile as r
 
     assert "SECRET" not in r._install_label(["x"], "git+https://u:SECRET@h/x.git")
+    # raw `@` in the password: pip splits userinfo at the LAST `@`
+    lbl = r._install_label(["x"], "git+https://user:p@ss@github.com/o/x.git")
+    assert "p@ss" not in lbl and "user" not in lbl and "****@github.com" in lbl
+    # a `@ref` after the path is NOT userinfo
+    assert (
+        r._install_label(["x"], "git+https://h/x.git@v1")
+        == "x (git+https://h/x.git@v1)"
+    )
 
     assert (
         r._install_label(["hockey"], "led-ticker-hockey @ git+https://x/y.git  # c")
@@ -2078,3 +2086,26 @@ def test_pip_install_without_sink_does_not_capture(monkeypatch):
     monkeypatch.setattr(pc.subprocess, "run", fake_run)
     assert pc._pip_install("led-ticker-pool", constraints="/dev/null") == 1
     assert "stdout" not in seen and "stderr" not in seen
+
+
+def test_real_subprocess_reader_captures_final_error_line(tmp_path):
+    """Real Popen path: thousands of lines then exit 1; the join must not lose
+    the final ERROR line."""
+    import os
+
+    import led_ticker.app.plugin_cmd as pc
+
+    fake_py = tmp_path / "fakepy"
+    fake_py.write_text(
+        '#!/bin/sh\ni=0\nwhile [ $i -lt 3000 ]; do echo "line $i"; i=$((i+1)); done\n'
+        "echo 'ERROR: final cause'\nexit 1\n"
+    )
+    os.chmod(fake_py, 0o755)
+    sink: list[str] = []
+    tok = pc._PIP_FAILURE_SINK.set(sink)
+    try:
+        rc = pc._pip_install("foo", python_exe=str(fake_py), constraints="/dev/null")
+    finally:
+        pc._PIP_FAILURE_SINK.reset(tok)
+    assert rc == 1
+    assert sink and "ERROR: final cause" in sink[-1]

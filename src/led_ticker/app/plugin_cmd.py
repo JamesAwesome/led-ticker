@@ -24,7 +24,7 @@ _log = logging.getLogger(__name__)
 
 _PLUGINS_ENTRY_GROUP = "led_ticker.plugins"
 
-_USERINFO_RE = re.compile(r"://[^/@\s]+@")
+_USERINFO_RE = re.compile(r"://[^/?#\s]+@")
 
 
 def _redact_userinfo(text: str) -> str:

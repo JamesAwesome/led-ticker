@@ -1,6 +1,6 @@
-Use `:slug:` inside any text-bearing widget to render a pixel-art icon inline. Each is an 8×8 sprite in its native colors; the surrounding text uses your `font_color`. On a `default_scale > 1` panel (bigsign), every slug auto-upgrades to a 32×32 hires sprite — same horizontal footprint, 16× more detail.
+Use `:slug:` inside any text-bearing widget to render a pixel-art icon inline. Each is an 8×8 sprite in its native colors; the surrounding text uses your `font_color`. On a `default_scale > 1` panel (bigsign), every slug with a Hires column below auto-upgrades to a 32×32 hires sprite — same horizontal footprint, 16× more detail. The fall & Halloween slugs further down upgrade to the standard-emoji pack's Noto glyph instead, except the three curated-only ones, which block-expand from 8×8.
 
-The slug list rots fast as new icons are added. The source of truth is `src/led_ticker/pixel_emoji.py` — `grep -E '^\s+"[a-z_]+":' src/led_ticker/pixel_emoji.py` lists every slug. Re-run `uv run python tools/render_emoji_previews.py` after adding a sprite to refresh the previews on this page.
+The slug list rots fast as new icons are added. The source of truth is the registry itself — `uv run python -c 'from led_ticker.pixel_emoji import emoji_slugs; print(sorted(emoji_slugs()))'` lists every built-in slug (sprites live in `src/led_ticker/pixel_emoji.py` and `src/led_ticker/fall_emoji.py`). Re-run `uv run python tools/render_emoji_previews.py` after adding a sprite to refresh the previews on this page.
 
 > **Plugin emoji.** Some icons ship with external plugins (install the plugin to use them; the slugs in the table below are all built in):
 >
@@ -28,6 +28,32 @@ The slug list rots fast as new icons are added. The source of truth is `src/led_
 | `:sun:` | <img src="/emoji/sun-low.png" width="64" alt="sun lowres"> | <img src="/emoji/sun-hi.png" width="64" alt="sun hires"> | Sun icon |
 | `:taco:` | <img src="/emoji/taco-low.png" width="64" alt="taco lowres"> | <img src="/emoji/taco-hi.png" width="64" alt="taco hires"> | Taco |
 | `:thunder:` | <img src="/emoji/thunder-low.png" width="64" alt="thunder lowres"> | <img src="/emoji/thunder-hi.png" width="64" alt="thunder hires"> | Thunder icon |
+
+## Fall & Halloween (smallsign 8×8)
+
+The standard-emoji pack below already covers the season at hires, but pack sprites strip on a scale-1 sign. These slugs carry a hand-drawn **8×8 lowres**, so they render on the smallsign too — same slug (or the unicode emoji) on both signs. On a scaled sign the hires is still the pack's Noto glyph; the three curated-only slugs (`:pumpkin:`, `:acorn:`, `:candy_corn:`) have no standard emoji and block-expand from 8×8 there.
+
+| Slug | Unicode | Lowres (8×8) | Description |
+|------|---------|--------------|-------------|
+| `:maple_leaf:` | 🍁 | <img src="/emoji/maple_leaf-low.png" width="64" alt="maple_leaf lowres"> | Maple leaf (red-orange, lighter vein) |
+| `:fallen_leaf:` | 🍂 | <img src="/emoji/fallen_leaf-low.png" width="64" alt="fallen_leaf lowres"> | Fallen leaf (tan, on the diagonal) |
+| `:jack_o_lantern:` | 🎃 | <img src="/emoji/jack_o_lantern-low.png" width="64" alt="jack_o_lantern lowres"> | Jack-o'-lantern (yellow eyes, jagged grin) |
+| `:pumpkin:` | — | <img src="/emoji/pumpkin-low.png" width="64" alt="pumpkin lowres"> | Plain ribbed pumpkin (no standard emoji; curated-only) |
+| `:acorn:` | — | <img src="/emoji/acorn-low.png" width="64" alt="acorn lowres"> | Acorn (no standard emoji; curated-only) |
+| `:red_apple:` | 🍎 | <img src="/emoji/red_apple-low.png" width="64" alt="red_apple lowres"> | Red apple with stem and leaf |
+| `:mushroom:` | 🍄 | <img src="/emoji/mushroom-low.png" width="64" alt="mushroom lowres"> | Red cap, white spots |
+| `:ear_of_corn:` | 🌽 | <img src="/emoji/ear_of_corn-low.png" width="64" alt="ear_of_corn lowres"> | Yellow cob, green husk |
+| `:turkey:` | 🦃 | <img src="/emoji/turkey-low.png" width="64" alt="turkey lowres"> | Fan tail, brown body, red wattle |
+| `:ghost:` | 👻 | <img src="/emoji/ghost-low.png" width="64" alt="ghost lowres"> | White sheet, wavy hem |
+| `:bat:` | 🦇 | <img src="/emoji/bat-low.png" width="64" alt="bat lowres"> | Purple — a black bat would vanish on the panel |
+| `:hot_beverage:` | ☕ | <img src="/emoji/hot_beverage-low.png" width="64" alt="hot_beverage lowres"> | Steaming white mug |
+| `:candle:` | 🕯️ | <img src="/emoji/candle-low.png" width="64" alt="candle lowres"> | Lit pillar candle |
+| `:candy:` | 🍬 | <img src="/emoji/candy-low.png" width="64" alt="candy lowres"> | Red wrapped sweet |
+| `:candy_corn:` | — | <img src="/emoji/candy_corn-low.png" width="64" alt="candy_corn lowres"> | White / orange / yellow (no standard emoji; curated-only) |
+| `:skull:` | 💀 | <img src="/emoji/skull-low.png" width="64" alt="skull lowres"> | Sockets, nose, toothy jaw |
+| `:owl:` | 🦉 | <img src="/emoji/owl-low.png" width="64" alt="owl lowres"> | Tufted brown owl, tan belly |
+| `:spider_web:` | 🕸️ | <img src="/emoji/spider_web-low.png" width="64" alt="spider_web lowres"> | Corner web |
+| `:leafless_tree:` | 🪾 | <img src="/emoji/leafless_tree-low.png" width="64" alt="leafless_tree lowres"> | Bare branches |
 
 ## Color variants
 

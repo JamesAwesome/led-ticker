@@ -4493,6 +4493,28 @@ async def test_rule67_curated_lowres_slug_scale1_no_warning(conf):
     assert not any(w.rule == 67 for w in result.warnings)
 
 
+async def test_rule67_pack_slug_with_curated_lowres_fallback_no_warning(conf):
+    """A pack slug that carries a curated 8x8 fallback (the fall set —
+    `fall_emoji.FALL_PACK_FALLBACK_SLUGS`) renders at scale 1, so rule 67
+    stays silent for it even though the slug is in the pack."""
+    cfg = """\
+        [display]
+        rows = 16
+        cols = 32
+        chain_length = 5
+        default_scale = 1
+
+        [[playlist.section]]
+        mode = "slideshow"
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = ":jack_o_lantern: boo :ghost:"
+        """
+    result = await validate_config(conf(cfg))
+    assert not any(w.rule == 67 for w in result.warnings)
+
+
 async def test_rule67_unknown_slug_scale1_no_warning(conf):
     """An unrecognized slug isn't an emoji at all — this rule stays silent
     (other rules, or none, may comment on the raw text)."""

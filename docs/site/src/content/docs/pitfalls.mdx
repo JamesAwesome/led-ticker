@@ -39,6 +39,10 @@ Other widget types have their own draw paths and ignore `animation` silently —
 
 Typewriter draws fixed-position glyphs and rejects three combinations: `bottom_text` set (two-row mode), `text_align = "scroll"` / `"scroll_over"` (cursor moves each tick), or empty `text`. Drop the conflicting setting. Typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
+### Rule 71 — `font_size` or a hi-res `font` on a two-row `gif` / `image`
+
+Setting `bottom_text` on a `gif` / `image` switches it to two-row mode, where each row has its own font knobs. The single-row `font_size` no longer applies, and a hi-res `font` (such as `Inter-Bold`) has no way to take a size there — so both are refused. A common mix-up, since the single-row `font` does fall back to both rows for BDF aliases. Move the font onto `top_font` / `bottom_font` and size it with `top_font_size` / `bottom_font_size`. Before this rule, the first case passed `validate` and the widget silently dropped out of the rotation at runtime.
+
 ### Rule 22 — Font line-height exceeds the per-row band
 
 On `two_row`, or on `gif` / `image` with `bottom_text` set, each row gets a slice of `content_height`. A font taller than its band would clip into the other row. Pick a smaller `font_size`, raise `content_height`, set `top_row_height` to give the offending row more space, or use a BDF alias (`5x8`, `6x12`).

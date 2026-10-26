@@ -426,6 +426,54 @@ def _install_namespace(
     return _pip_install(requirement, python_exe=python_exe, constraints=constraints)
 
 
+def _install_label(covered: list[str], requirement_line: str | None) -> str:
+    """Human label for an install: the namespace(s) PLUS the verbatim
+    (comment-stripped) requirement line pip is actually given. Never the
+    ``_requirement_key`` dedup key — that lower-cases and rewrites ``_`` to ``-``
+    so a wheel path reads as a mangled filename and misleads the operator. For a
+    line-less / catalog-unknown namespace the namespace IS the line, so show it
+    once. Never raises."""
+    names = ", ".join(covered)
+    try:
+        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+            _redact_userinfo,
+            _strip_comment,
+        )
+
+        line = _strip_comment(requirement_line) if requirement_line else ""
+        # Display only: mask `user:TOKEN@` in a manifest URL; pip gets the
+        # untouched line.
+        line = _redact_userinfo(line)
+        names = _redact_userinfo(names)
+    except Exception:  # noqa: BLE001
+        line = ""
+    if not line or line == names:
+        return names
+    return f"{names} ({line})"
+
+
+def _set_failure_sink(sink: list[str]):  # noqa: ANN202
+    """Opt this install into pip-output capture (see plugin_cmd._PIP_FAILURE_SINK).
+    Returns a reset token, or None if the hook is unavailable. Never raises."""
+    try:
+        from led_ticker.app.plugin_cmd import _PIP_FAILURE_SINK  # noqa: PLC0415
+
+        return _PIP_FAILURE_SINK.set(sink)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _reset_failure_sink(token) -> None:  # noqa: ANN001
+    if token is None:
+        return
+    try:
+        from led_ticker.app.plugin_cmd import _PIP_FAILURE_SINK  # noqa: PLC0415
+
+        _PIP_FAILURE_SINK.reset(token)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _uninstall_dist(dist: str, python_exe: str) -> int:
     """Pip-uninstall distribution ``dist``. Returns the pip exit code."""
     from led_ticker.app.plugin_cmd import _pip_uninstall  # noqa: PLC0415
@@ -655,7 +703,9 @@ def reconcile(
                 # (or, for line-less namespaces, the group is a single namespace
                 # == key), so any member's requirement_line drives the install.
                 requirement_line = declared_reqs.get(covered[0])
-                label = ", ".join(covered)
+                label = _install_label(covered, requirement_line)
+                failure_sink: list[str] = []
+                sink_token = _set_failure_sink(failure_sink)
                 try:
                     _log.info("plugin reconcile: installing %s", label)
                     code = _install_namespace(
@@ -666,6 +716,8 @@ def reconcile(
                     )
                     if code != 0:
                         detail = f"pip exited {code} installing {label}"
+                        if failure_sink:
+                            detail = f"{detail}: {failure_sink[-1]}"
                         _log.warning(
                             "plugin reconcile: failed to install %s: %s", label, detail
                         )
@@ -685,11 +737,24 @@ def reconcile(
                                 stamp_dirty = True
                         _log.info("plugin reconcile: installed %s", label)
                 except Exception as e:  # noqa: BLE001
-                    _log.warning("plugin reconcile: failed to install %s: %s", label, e)
+                    err = f"{e}: {failure_sink[-1]}" if failure_sink else str(e)
+                    try:
+                        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+                            _redact_userinfo,
+                        )
+
+                        err = _redact_userinfo(err)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    _log.warning(
+                        "plugin reconcile: failed to install %s: %s", label, err
+                    )
                     for ns in covered:
                         actions.append(
-                            PluginAction(namespace=ns, action="failed", detail=str(e))
+                            PluginAction(namespace=ns, action="failed", detail=err)
                         )
+                finally:
+                    _reset_failure_sink(sink_token)
         finally:
             # The pass-level constraints file is ours to clean up (passing it into
             # _pip_install with constraints!=None means that fn does NOT delete it).

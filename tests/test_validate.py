@@ -5419,3 +5419,127 @@ class TestValidateDoesNotLeakImageSlugs:
         assert not is_emoji_slug("img.a2"), (
             "the rejected candidate's slug must not persist in the live registry"
         )
+
+
+# ===========================================================================
+# Rule 71: single-row font knobs on a two-row gif/image overlay
+# ===========================================================================
+#
+# `_BaseImageWidget.__attrs_post_init__` refuses `font_size` once
+# `bottom_text` switches the widget into two-row mode, and `_resolve_fonts`
+# refuses a hi-res `font` without `font_size` — so a hi-res `font` is
+# unusable in two-row mode either way (only `top_font` / `bottom_font` can
+# carry a size there). `validate_widget_cfg` never constructs the widget, so
+# without a mirror in the shared validation path the first case passed
+# `led-ticker validate` clean and only dropped the widget at runtime, and
+# the second surfaced as rule 5 with a fix hint ("add font_size") that
+# walks the user straight into the first case. (GitHub issue #479.)
+
+_TWO_ROW_IMAGE_BASE = """\
+    [display]
+    rows = 32
+    cols = 64
+    chain_length = 8
+    default_scale = 1
+
+    [[playlist.section]]
+    mode = "slideshow"
+    hold_time = 3
+    """
+
+
+def _two_row_image(widget_type: str, extra: str) -> str:
+    path = "x.gif" if widget_type == "gif" else "x.png"
+    return _TWO_ROW_IMAGE_BASE + textwrap.dedent(f"""\
+
+        [[playlist.section.widget]]
+        type = "{widget_type}"
+        path = "{path}"
+        top_text = "hi"
+        bottom_text = "there"
+        {extra}
+        """)
+
+
+@pytest.mark.parametrize("widget_type", ["gif", "image"])
+async def test_rule71_font_size_in_two_row_mode_is_an_error(conf, widget_type):
+    result = await validate_config(conf(_two_row_image(widget_type, "font_size = 14")))
+    issues = [e for e in result.errors if e.rule == 71]
+    assert len(issues) == 1, f"expected one rule-71 error, got {result.errors}"
+    assert issues[0].location == "section[0].widget[0]"
+    # Same hint the runtime gives.
+    assert "font_size=14 is the single-row knob" in issues[0].message
+    assert "top_font_size" in issues[0].message
+    assert "top_font_size" in issues[0].fix
+
+
+@pytest.mark.parametrize("widget_type", ["gif", "image"])
+async def test_rule71_hires_font_in_two_row_mode_points_at_row_fonts(conf, widget_type):
+    toml = _two_row_image(
+        widget_type,
+        'font = "Inter-Bold"\n    top_font_size = 22\n    bottom_font_size = 22',
+    )
+    result = await validate_config(conf(toml))
+    issues = [e for e in result.errors if e.rule == 71]
+    assert len(issues) == 1, f"expected one rule-71 error, got {result.errors}"
+    assert "Inter-Bold" in issues[0].message
+    assert "top_font" in issues[0].message and "bottom_font" in issues[0].message
+    # The fix must point at the row-font knobs, not at removing font_size
+    # (the hi-res message shares a rule number with the font_size refusal
+    # but needs its own hint).
+    assert "top_font / bottom_font" in issues[0].fix
+    assert not issues[0].fix.startswith("Remove font_size")
+    # Must NOT also fire rule 5 — its "add font_size" hint is exactly the
+    # trap rule 71 exists to prevent.
+    assert all(e.rule != 5 for e in result.errors), result.errors
+    assert "requires font_size" not in issues[0].message
+
+
+async def test_rule71_hires_font_in_two_row_mode_fires_even_without_row_sizes(conf):
+    result = await validate_config(conf(_two_row_image("image", 'font = "Inter-Bold"')))
+    assert any(e.rule == 71 for e in result.errors), result.errors
+    assert all(e.rule != 5 for e in result.errors), result.errors
+
+
+async def test_rule71_no_fire_for_bdf_font_in_two_row_mode(conf):
+    """`font` → top-font fallback is legitimate for a BDF alias (no size needed)."""
+    result = await validate_config(conf(_two_row_image("image", 'font = "5x8"')))
+    assert result.valid, result.errors
+
+
+async def test_rule71_no_fire_for_single_row_font_size(conf):
+    toml = _TWO_ROW_IMAGE_BASE + textwrap.dedent("""\
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        text = "hi"
+        font = "Inter-Bold"
+        font_size = 14
+        """)
+    result = await validate_config(conf(toml))
+    assert all(e.rule != 71 for e in result.errors), result.errors
+
+
+async def test_rule71_no_fire_for_row_fonts_in_two_row_mode(conf):
+    toml = _two_row_image(
+        "image",
+        'top_font = "Inter-Bold"\n    top_font_size = 14\n'
+        '    bottom_font = "Inter-Bold"\n    bottom_font_size = 14',
+    )
+    result = await validate_config(conf(toml))
+    assert all(e.rule != 71 for e in result.errors), result.errors
+
+
+async def test_rule71_runtime_build_path_raises_same_message():
+    """`_build_widget` shares `validate_widget_cfg`, so the runtime refusal
+    now fires before construction with the same text the widget itself uses."""
+    cfg = {
+        "type": "image",
+        "path": "/nonexistent/x.png",
+        "top_text": "hi",
+        "bottom_text": "there",
+        "font_size": 14,
+    }
+    with pytest.raises(ValueError, match="font_size=14 is the single-row knob"):
+        await validate_widget_cfg(cfg, session=None)

@@ -876,6 +876,31 @@ async def validate_widget_cfg(
     if default_bg_color is not None and "bg_color" not in widget_cfg:
         widget_cfg["bg_color"] = list(default_bg_color)
 
+    # Two-row gif/image overlay (bottom_text set): the single-row font
+    # knobs don't apply. `_BaseImageWidget.__attrs_post_init__` refuses
+    # `font_size` there, but `led-ticker validate` never constructs the
+    # widget, so mirror the refusal here (same text) or the config passes
+    # validate clean and the widget silently drops out of the rotation at
+    # runtime. A hi-res `font` is unusable in two-row mode either way —
+    # `_resolve_fonts` demands `font_size`, which the widget then refuses —
+    # so catch it BEFORE `_resolve_fonts` with a hint that points at the
+    # per-row knobs instead of rule 5's "add font_size" (GitHub #479).
+    if widget_type in ("gif", "image") and widget_cfg.get("bottom_text", ""):
+        if widget_cfg.get("font_size") is not None:
+            raise ValueError(
+                f"font_size={widget_cfg['font_size']!r} is the single-row knob; "
+                f"in two-row mode use top_font_size and bottom_font_size."
+            )
+        font_name = widget_cfg.get("font")
+        if font_name is not None and _is_hires_font_name(font_name):
+            raise ValueError(
+                f"font={font_name!r} is a hi-res font on a two-row "
+                f"{widget_type} (bottom_text is set). The single-row `font` "
+                f"knob can't be sized in two-row mode (font_size only applies "
+                f"to single-row text), so hi-res fonts go on top_font / "
+                f"bottom_font with top_font_size / bottom_font_size instead."
+            )
+
     _resolve_fonts(widget_cfg, cls, panel_h_for_warning)
 
     _resolve_asset_paths(widget_cfg, widget_type, config_dir)

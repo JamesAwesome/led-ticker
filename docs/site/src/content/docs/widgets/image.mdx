@@ -203,6 +203,8 @@ bottom_color = [255, 240, 200]
 hold_time = 7.0`}
 />
 
+Fonts in two-row mode go on `top_font` / `bottom_font`, sized with `top_font_size` / `bottom_font_size` when the font is hi-res. The single-row `font_size` is refused once `bottom_text` is set, and a hi-res `font` can't be sized there — `led-ticker validate` flags both (rule 71) so the widget never silently drops out of the rotation.
+
 ### Typewriter overlay (single-row only — letters type in next to the image)
 
 <DemoGif

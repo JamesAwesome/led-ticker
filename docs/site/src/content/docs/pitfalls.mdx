@@ -41,7 +41,7 @@ Typewriter draws fixed-position glyphs and rejects three combinations: `bottom_t
 
 ### Rule 71 — `font_size` or a hi-res `font` on a two-row `gif` / `image`
 
-Setting `bottom_text` on a `gif` / `image` switches it to two-row mode, where each row has its own font knobs. The single-row `font_size` no longer applies, and a hi-res `font` (such as `Inter-Bold`) has no way to take a size there — so both are refused. A common mix-up, since the single-row `font` does fall back to the top row for BDF aliases. Move the font onto `top_font` / `bottom_font` and size it with `top_font_size` / `bottom_font_size`. Before this rule, the first case passed `validate` and the widget silently dropped out of the rotation at runtime.
+Setting `bottom_text` on a `gif` / `image` switches it to two-row mode, where each row has its own font knobs. The single-row `font_size` no longer applies, and a hi-res `font` (such as `Inter-Bold`) has no way to take a size there — so both are refused. A common mix-up, since the single-row `font` does fall back to both rows for BDF aliases. Move the font onto `top_font` / `bottom_font` and size it with `top_font_size` / `bottom_font_size`. Before this rule, the first case passed `validate` and the widget silently dropped out of the rotation at runtime.
 
 ### Rule 22 — Font line-height exceeds the per-row band
 

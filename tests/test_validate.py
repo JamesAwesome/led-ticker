@@ -5502,7 +5502,7 @@ async def test_rule71_hires_font_in_two_row_mode_fires_even_without_row_sizes(co
 
 
 async def test_rule71_no_fire_for_bdf_font_in_two_row_mode(conf):
-    """`font` → top-font fallback is legitimate for a BDF alias (no size needed)."""
+    """`font` → both-rows fallback is legitimate for a BDF alias (no size needed)."""
     result = await validate_config(conf(_two_row_image("image", 'font = "5x8"')))
     assert result.valid, result.errors
 
@@ -5531,9 +5531,9 @@ async def test_rule71_no_fire_for_row_fonts_in_two_row_mode(conf):
     assert all(e.rule != 71 for e in result.errors), result.errors
 
 
-async def test_rule71_runtime_build_path_raises_same_message():
-    """`_build_widget` shares `validate_widget_cfg`, so the runtime refusal
-    now fires before construction with the same text the widget itself uses."""
+async def test_rule71_validate_widget_cfg_raises_widget_text():
+    """Direct `validate_widget_cfg` call raises with the same text the widget's
+    own `__attrs_post_init__` uses (`_build_widget` routes through this)."""
     cfg = {
         "type": "image",
         "path": "/nonexistent/x.png",

@@ -892,7 +892,7 @@ async def validate_widget_cfg(
                 f"in two-row mode use top_font_size and bottom_font_size."
             )
         font_name = widget_cfg.get("font")
-        if font_name is not None and _is_hires_font_name(font_name):
+        if isinstance(font_name, str) and _is_hires_font_name(font_name):
             raise ValueError(
                 f"font={font_name!r} is a hi-res font on a two-row "
                 f"{widget_type} (bottom_text is set). The single-row `font` "

@@ -325,6 +325,29 @@
       ]
     },
     {
+      "name": "hockey",
+      "namespace": "hockey",
+      "summary": "Live NHL scores from the NHL's public web API (no key) — score, period and clock, shots, power play and empty net, goal celebrations, final and next-game cards; modes teams, league and live.",
+      "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/hockey",
+      "provides": {
+        "widgets": [
+          "hockey.scores"
+        ]
+      },
+      "sources": [
+        {
+          "type": "pypi",
+          "package": "led-ticker-hockey"
+        },
+        {
+          "type": "git",
+          "url": "https://github.com/JamesAwesome/led-ticker-plugins",
+          "ref": "hockey-v0.1.0",
+          "subdirectory": "plugins/hockey"
+        }
+      ]
+    },
+    {
       "name": "tennis",
       "namespace": "tennis",
       "summary": "Live tennis scores (ATP, WTA, Challenger, ITF) — one story per match in play with per-set games, the current point, who is serving and break points, falling back to upcoming fixtures when nothing is on court. Maintained by the data source's vendor.",

@@ -146,6 +146,14 @@ seeds `config/config.toml` and `.env` if they don't exist yet, and runs
 real version baked in) and recreates the running services for every subsequent
 deploy.
 
+:::note[Python dependencies come from the lock]
+The image installs exactly the Python dependency versions pinned in `uv.lock`,
+so rebuilding with `make update` doesn't pick up a newer release of a Python
+package (say, a Pillow major) unless `uv.lock` changed in the commit you pulled.
+The `python:3.14-bookworm` base image and the rgbmatrix fork aren't pinned
+by the lock.
+:::
+
 Key behaviors built into `compose.yaml`:
 
 - `restart: unless-stopped` — the ticker comes back up on power loss or crash.

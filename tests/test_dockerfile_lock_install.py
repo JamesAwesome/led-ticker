@@ -5,11 +5,15 @@ which re-resolved pyproject's loose ranges on every build — a `make update`
 pulled Pillow 13.0.0 (pyproject: ``Pillow>=10.0``; uv.lock: 12.1.1) and crashed
 every hi-res font on the sign. The lock must govern what ships:
 
-* a stage renders uv.lock with ``uv export --frozen`` (never re-resolves),
+* a stage renders uv.lock with ``uv export --locked`` — exports the lock as-is
+  and FAILS the build if it no longer matches pyproject (``--frozen`` would
+  silently export a stale lock and the new dep would ship missing),
 * the deps layer ``pip install --no-deps -r``'s that export (exact pins, nothing
-  added), and
-* NO ``pip install`` of the project itself may resolve dependencies — core goes
-  in with ``--no-deps`` so it can't drag unlocked versions back in.
+  added) and runs ``pip check``,
+* core goes in with ``pip install --no-deps .`` followed by a second
+  ``pip check`` — the net that catches a dep core needs but the lock lacks, and
+* deny-by-default: NO other ``pip install`` may resolve dependencies, except
+  two exact allow-listed commands (pinned uv, the rgbmatrix fork build).
 
 Cheap text checks, no Docker. Dockerfile.try is out of scope (it intentionally
 installs the latest released core from PyPI; see that file's header).
@@ -17,6 +21,8 @@ installs the latest released core from PyPI; see that file's header).
 
 import re
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCKERFILE = REPO_ROOT / "Dockerfile"
@@ -44,7 +50,7 @@ def _run_cmds(text: str) -> list[str]:
 
 def _pip_install_cmds(text: str) -> list[str]:
     """Every individual `pip install ...` command inside RUN instructions."""
-    return [c for c in _run_cmds(text) if re.search(r"\bpip install\b", c)]
+    return [c for c in _run_cmds(text) if re.search(r"\bpip3? install\b", c)]
 
 
 def test_lock_is_exported_locked_without_the_project():
@@ -92,15 +98,53 @@ ALLOWED_RESOLVING_INSTALLS = {
 }
 
 
+def _resolving_installs(text: str) -> list[str]:
+    return [
+        c
+        for c in _pip_install_cmds(text)
+        if "--no-deps" not in c.split() and c not in ALLOWED_RESOLVING_INSTALLS
+    ]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "RUN pip install .",
+        "RUN pip3 install .",
+        "RUN pip install ./",
+        "RUN pip install /code",
+        'RUN pip install -e ".[dev]"',
+        "RUN pip install -U Pillow",
+        "RUN python3 -m pip install .",
+        "RUN uv pip install --system .",
+        "RUN --mount=type=cache,target=/root/.cache pip install .",
+        "RUN pip install --no-deps . && pip3 install Pillow",
+    ],
+)
+def test_resolving_install_spellings_are_caught(line):
+    """Bypass spellings the deny-by-default check must flag. (Heredoc and
+    exec-form RUN spellings are out of scope.)"""
+    assert _resolving_installs(line), line
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "RUN pip install --no-deps .",
+        "RUN pip3 install --no-cache-dir --no-deps -r /tmp/requirements.lock.txt",
+        'RUN pip install --no-cache-dir "uv==${UV_VERSION}"',
+        "RUN pip check",
+    ],
+)
+def test_no_deps_and_allow_listed_installs_pass(line):
+    assert not _resolving_installs(line), line
+
+
 def test_every_other_pip_install_is_no_deps():
     """Deny by default: any `pip install` without --no-deps re-resolves loose
     ranges (`pip install ./`, `pip install /code`, `pip install -U Pillow`, ...)
     and lets an unlocked version onto the sign — unless explicitly allowed."""
-    offenders = [
-        c
-        for c in _pip_install_cmds(DOCKERFILE.read_text())
-        if "--no-deps" not in c.split() and c not in ALLOWED_RESOLVING_INSTALLS
-    ]
+    offenders = _resolving_installs(DOCKERFILE.read_text())
     assert not offenders, (
         "every pip install outside the allow-list must pass --no-deps (deps "
         f"come from the uv.lock export, not a fresh resolve): {offenders}"

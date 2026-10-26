@@ -7,19 +7,8 @@ Allow: /
 #   /llms-full.txt             the entire docs as one Markdown document
 #   /_llms-txt/<set>.txt       topic sets: widgets, transitions, configuration,
 #                              plugin-development, hardware-setup
-
-# Web search crawlers skip the Markdown CONTENT exports: llms-full.txt is a
-# plaintext copy of every page, and if a search engine indexed it the HTML
-# pages would compete with it as the canonical copy of their own text.
-# Scoped per-crawler on purpose — a named group REPLACES the `*` group for
-# that crawler (hence the restated Allow), and a blanket Disallow would also
-# lock out the robots.txt-honoring LLM agents these files exist for.
-# /llms.txt (the index) stays crawlable: it's tiny and carries no page content.
-User-agent: Googlebot
-User-agent: Bingbot
-Allow: /
-Disallow: /llms-full.txt
-Disallow: /llms-small.txt
-Disallow: /_llms-txt/
+# Search-engine noindex for the CONTENT exports (llms-full / llms-small /
+# _llms-txt) lives in _headers as X-Robots-Tag. Do NOT Disallow them here:
+# a crawler can only see noindex on a URL it is allowed to fetch.
 
 Sitemap: https://docs.ledticker.dev/sitemap-index.xml

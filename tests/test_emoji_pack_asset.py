@@ -18,10 +18,22 @@ class TestManifest:
             assert _SLUG_RE.match(s), s
 
     def test_no_curated_collisions(self):
+        """Curated and pack slugs never overlap — with ONE sanctioned carve-out:
+        `fall_emoji.FALL_PACK_FALLBACK_SLUGS` are pack slugs that carry a curated
+        LOWRES sprite (the scale-1 fallback) and NO curated hires, so the pack's
+        Noto glyph still renders on scaled signs. Anything else overlapping is a
+        collision."""
+        from led_ticker.fall_emoji import FALL_PACK_FALLBACK_SLUGS
         from led_ticker.pixel_emoji import HIRES_REGISTRY, _get_registry
 
-        curated = set(_get_registry()) | set(HIRES_REGISTRY)
         packed = {ln.split("\t")[1] for ln in _MANIFEST.read_text().splitlines()}
+        # The carve-out must be real pack slugs (typo tripwire) ...
+        assert packed >= FALL_PACK_FALLBACK_SLUGS, FALL_PACK_FALLBACK_SLUGS - packed
+        # ... and lowres-only: a curated hires here would shadow the Noto glyph.
+        assert not (FALL_PACK_FALLBACK_SLUGS & set(HIRES_REGISTRY))
+        curated = (
+            set(_get_registry()) | set(HIRES_REGISTRY)
+        ) - FALL_PACK_FALLBACK_SLUGS
         assert not (curated & packed), curated & packed
 
 

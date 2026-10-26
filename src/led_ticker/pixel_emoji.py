@@ -2932,6 +2932,13 @@ def _build_emoji_registry() -> dict[str, PixelData]:
     registry.update(PRIDE_LOWRES_VARIANTS)
     # Cat color variants
     registry.update(CAT_LOWRES_VARIANTS)
+    # Autumn / Halloween 8×8 set. Most of these slugs ALSO exist in the
+    # standard-emoji pack: the lowres here is the scale-1 fallback, the
+    # pack's Noto glyph stays the hires (no curated hires registered, so
+    # `_hires_for` falls through to the pack). See fall_emoji.py.
+    from led_ticker.fall_emoji import FALL_LOWRES
+
+    registry.update(FALL_LOWRES)
     return registry
 
 

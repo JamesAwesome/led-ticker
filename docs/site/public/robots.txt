@@ -7,4 +7,8 @@ Allow: /
 #   /llms-full.txt             the entire docs as one Markdown document
 #   /_llms-txt/<set>.txt       topic sets: widgets, transitions, configuration,
 #                              plugin-development, hardware-setup
+# Search-engine noindex for the CONTENT exports (llms-full / llms-small /
+# _llms-txt) lives in _headers as X-Robots-Tag. Do NOT Disallow them here:
+# a crawler can only see noindex on a URL it is allowed to fetch.
+
 Sitemap: https://docs.ledticker.dev/sitemap-index.xml

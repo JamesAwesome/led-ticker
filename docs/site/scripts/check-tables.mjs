@@ -4,9 +4,9 @@
 // the default pipeline's GFM support — a future Astro/Starlight/MDX bump that
 // drops it would pass every other check. Fails if any built page shows a raw
 // table delimiter row outside code, or the config-options page has no tables.
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, realpathSync } from "node:fs";
 import { join, relative } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 // A GFM delimiter row (`|---|:--:|`) that survived as text means the table
 // was never parsed. Smart punctuation rewrites the hyphens of an unparsed
@@ -54,4 +54,7 @@ function main() {
   console.log("check-tables OK: no unrendered pipe-tables; config-options renders its tables");
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main();
+// Run only as the CLI, not when the test imports `hasUnrenderedTable`. Compare
+// real paths: Node resolves symlinks for import.meta.url but not argv[1], so a
+// symlinked invocation (e.g. macOS /tmp) would otherwise skip main() and exit 0.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main();

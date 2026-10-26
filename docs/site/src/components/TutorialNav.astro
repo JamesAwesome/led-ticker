@@ -7,12 +7,8 @@ const { prev, next } = Astro.props;
 ---
 
 <nav class="tutorial-nav" aria-label="Tutorial chapter navigation">
-  <div class="prev">
-    {prev && <a href={prev.href}>← Back to {prev.title}</a>}
-  </div>
-  <div class="next">
-    {next && <a href={next.href}>Continue the tutorial: {next.title} →</a>}
-  </div>
+  <div class="prev">{prev && <a href={prev.href}>← Back to {prev.title}</a>}</div>
+  <div class="next">{next && <a href={next.href}>Continue the tutorial: {next.title} →</a>}</div>
 </nav>
 
 <style>

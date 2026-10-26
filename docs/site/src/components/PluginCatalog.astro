@@ -98,17 +98,15 @@ const requirement = requirementLine(entry);
 ---
 
 <div class="plugin-catalog">
-  {
-    groups.length > 0 && (
-      <ul class="provides">
-        {groups.map((g) => (
-          <li>
-            <strong>{g.label}:</strong> {g.names.join(", ")}
-          </li>
-        ))}
-      </ul>
-    )
-  }
+  {groups.length > 0 && (
+    <ul class="provides">
+      {groups.map((g) => (
+        <li>
+          <strong>{g.label}:</strong> {g.names.join(", ")}
+        </li>
+      ))}
+    </ul>
+  )}
   <p class="install-caption">
     Add to your <code>config/requirements-plugins.txt</code>:
   </p>

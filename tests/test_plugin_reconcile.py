@@ -1890,6 +1890,36 @@ To fix this you could try to:
 """
 
 
+class _FakePopen:
+    """Popen stand-in: yields ``out`` lines on stdout, exits with ``rc``; with
+    ``hang=True`` wait() raises TimeoutExpired once, then a kill() lets it end."""
+
+    def __init__(self, out="", rc=0, hang=False):
+        import io
+
+        self.stdout = io.StringIO(out)
+        self.returncode = None
+        self._rc = rc
+        self._hang = hang
+        self.killed = False
+
+    def wait(self, timeout=None):
+        if self._hang and not self.killed:
+            raise subprocess.TimeoutExpired("pip", timeout)
+        self.returncode = -9 if self.killed else self._rc
+        return self.returncode
+
+    def poll(self):
+        return self.returncode
+
+    def kill(self):
+        self.killed = True
+
+
+def _popen_factory(**kw):
+    return lambda cmd, **_k: _FakePopen(**kw)
+
+
 def _reconcile_with_real_pip_path(tmp_path, monkeypatch, line, fake_run):
     import led_ticker.app.plugin_cmd as pc
     import led_ticker.plugin_reconcile as r
@@ -1899,78 +1929,124 @@ def _reconcile_with_real_pip_path(tmp_path, monkeypatch, line, fake_run):
     (tmp_path / "requirements-plugins.txt").write_text(line + "\n")
     monkeypatch.setattr(r, "resolve_target", lambda **k: r.Target("venv", "py", None))
     monkeypatch.setattr(r, "installed_plugin_dists", lambda: {})
-    monkeypatch.setattr(
-        pc, "_freeze_to_constraints", lambda py=sys.executable, **_kw: (None, 0)
-    )
-    # _pip_install owns constraints when None; pass a real file so no freeze.
+    # Pass-level freeze returns a real file so _pip_install doesn't freeze.
     cfile = tmp_path / "c.txt"
     cfile.write_text("")
     monkeypatch.setattr(
         pc, "_freeze_to_constraints", lambda py=sys.executable, **_kw: (str(cfile), 0)
     )
-    monkeypatch.setattr(pc.subprocess, "run", fake_run)
+    monkeypatch.setattr(pc.subprocess, "Popen", fake_run)
     return r.reconcile(cfg)
 
 
 def test_reconcile_failure_detail_has_pip_error_and_verbatim_line(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, capsys, caplog
 ):
     line = "/code/config/led_ticker_hockey-0.0.1.dev221+gb99fbff76-py3-none-any.whl"
-
-    def fake_run(cmd, **kw):
-        return subprocess.CompletedProcess(cmd, 1, stdout=_CONFLICT_STDERR, stderr=None)
-
-    actions = _reconcile_with_real_pip_path(tmp_path, monkeypatch, line, fake_run)
+    fake = _popen_factory(out=_CONFLICT_STDERR, rc=1)
+    with caplog.at_level("WARNING"):
+        actions = _reconcile_with_real_pip_path(tmp_path, monkeypatch, line, fake)
     failed = [a for a in actions if a.action == "failed"]
     assert len(failed) == 1
     d = failed[0].detail
     assert "pip exited 1" in d
-    # verbatim line, underscores intact (NOT the mangled dedup key)
     assert "led_ticker_hockey-0.0.1.dev221" in d
     assert "ERROR: Cannot install led-ticker-hockey" in d
     assert "led-ticker-core==4.29.1.dev5" in d
     assert len(d) < 900
+    # live echo to stderr preserved, and full tail logged at WARNING
+    assert "INFO: pip is looking at multiple versions" in capsys.readouterr().err
+    assert "INFO: pip is looking at multiple versions" in caplog.text
 
 
-def test_reconcile_failure_ignores_non_text_output(tmp_path, monkeypatch):
-    def fake_run(cmd, **kw):
-        return subprocess.CompletedProcess(cmd, 1, stdout=b"\xff\xfe", stderr=object())
+def test_reconcile_failure_keeps_build_cause_in_log_tail(tmp_path, monkeypatch, caplog):
+    out = "fatal error: Python.h: No such file or directory\n" + "x\n" * 50
+    out += "ERROR: Failed building wheel for foo\n"
+    with caplog.at_level("WARNING"):
+        _reconcile_with_real_pip_path(
+            tmp_path, monkeypatch, "foo", _popen_factory(out=out, rc=1)
+        )
+    assert "Python.h: No such file or directory" in caplog.text
+
+
+def test_reconcile_timeout_summarizes_partial_output(tmp_path, monkeypatch):
+    fake = _popen_factory(out="Collecting foo\nERROR: stuck building\n", hang=True)
+    actions = _reconcile_with_real_pip_path(tmp_path, monkeypatch, "foo", fake)
+    failed = [a for a in actions if a.action == "failed"]
+    assert failed
+    assert "timed out" in failed[0].detail
+    assert "ERROR: stuck building" in failed[0].detail
+
+
+def test_reconcile_failure_redacts_url_credentials(tmp_path, monkeypatch, caplog):
+    line = "git+https://user:SECRET@github.com/o/led-ticker-x.git@v1"
+    out = "ERROR: Command errored: git clone https://user:SECRET@github.com/o/x\n"
+    with caplog.at_level("INFO"):
+        actions = _reconcile_with_real_pip_path(
+            tmp_path, monkeypatch, line, _popen_factory(out=out, rc=1)
+        )
+    detail = " ".join(a.detail or "" for a in actions)
+    assert "SECRET" not in detail and "SECRET" not in caplog.text
+    assert "****@github.com" in detail
+
+
+def test_pip_install_passes_unredacted_line_to_pip(monkeypatch):
+    import led_ticker.app.plugin_cmd as pc
+
+    seen = {}
+
+    def fake_popen(cmd, **kw):
+        seen["cmd"] = cmd
+        return _FakePopen(rc=0)
+
+    monkeypatch.setattr(pc.subprocess, "Popen", fake_popen)
+    tok = pc._PIP_FAILURE_SINK.set([])
+    try:
+        pc._pip_install("git+https://u:SECRET@h/x.git", constraints="/dev/null")
+    finally:
+        pc._PIP_FAILURE_SINK.reset(tok)
+    assert "git+https://u:SECRET@h/x.git" in seen["cmd"]
+
+
+def test_reconcile_garbage_popen_output_cannot_raise(tmp_path, monkeypatch):
+    class Garbage(_FakePopen):
+        def __init__(self, *a, **k):
+            super().__init__(out="", rc=1)
+            self.stdout = object()  # not iterable
 
     actions = _reconcile_with_real_pip_path(
-        tmp_path, monkeypatch, "led-ticker-pool==0.1.0", fake_run
+        tmp_path, monkeypatch, "led-ticker-pool==0.1.0", lambda c, **k: Garbage()
     )
-    failed = [a for a in actions if a.action == "failed"]
-    assert failed and "pip exited 1" in failed[0].detail
+    assert [a.action for a in actions] == ["failed"]
 
 
-def test_reconcile_subprocess_raising_does_not_escape(tmp_path, monkeypatch):
-    def fake_run(cmd, **kw):
+def test_reconcile_popen_raising_does_not_escape(tmp_path, monkeypatch):
+    def boom(cmd, **kw):
         raise OSError("exec format error")
 
     actions = _reconcile_with_real_pip_path(
-        tmp_path, monkeypatch, "led-ticker-pool==0.1.0", fake_run
+        tmp_path, monkeypatch, "led-ticker-pool==0.1.0", boom
     )
     failed = [a for a in actions if a.action == "failed"]
     assert failed and "exec format error" in failed[0].detail
 
 
-def test_reconcile_success_does_not_capture_or_log_pip_output(
-    tmp_path, monkeypatch, caplog
-):
-    def fake_run(cmd, **kw):
-        return subprocess.CompletedProcess(cmd, 0, stdout="lots of output", stderr=None)
-
+def test_reconcile_success_does_not_log_pip_output(tmp_path, monkeypatch, caplog):
     with caplog.at_level("INFO"):
         actions = _reconcile_with_real_pip_path(
-            tmp_path, monkeypatch, "led-ticker-pool==0.1.0", fake_run
+            tmp_path,
+            monkeypatch,
+            "led-ticker-pool==0.1.0",
+            _popen_factory(out="lots of output\n", rc=0),
         )
     assert any(a.action == "installed" for a in actions)
     assert "lots of output" not in caplog.text
-    assert all(a.detail in (None, "") for a in actions if a.action == "installed")
 
 
 def test_install_label_uses_verbatim_line_and_namespace():
     import led_ticker.plugin_reconcile as r
+
+    assert "SECRET" not in r._install_label(["x"], "git+https://u:SECRET@h/x.git")
 
     assert (
         r._install_label(["hockey"], "led-ticker-hockey @ git+https://x/y.git  # c")

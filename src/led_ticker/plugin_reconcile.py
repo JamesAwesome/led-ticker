@@ -435,11 +435,18 @@ def _install_label(covered: list[str], requirement_line: str | None) -> str:
     once. Never raises."""
     names = ", ".join(covered)
     try:
-        from led_ticker.app.plugin_cmd import _strip_comment  # noqa: PLC0415
+        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+            _redact_userinfo,
+            _strip_comment,
+        )
 
         line = _strip_comment(requirement_line) if requirement_line else ""
+        # Display only: mask `user:TOKEN@` in a manifest URL; pip gets the
+        # untouched line.
+        line = _redact_userinfo(line)
+        names = _redact_userinfo(names)
     except Exception:  # noqa: BLE001
-        line = requirement_line or ""
+        line = ""
     if not line or line == names:
         return names
     return f"{names} ({line})"
@@ -730,10 +737,21 @@ def reconcile(
                                 stamp_dirty = True
                         _log.info("plugin reconcile: installed %s", label)
                 except Exception as e:  # noqa: BLE001
-                    _log.warning("plugin reconcile: failed to install %s: %s", label, e)
+                    err = f"{e}: {failure_sink[-1]}" if failure_sink else str(e)
+                    try:
+                        from led_ticker.app.plugin_cmd import (  # noqa: PLC0415
+                            _redact_userinfo,
+                        )
+
+                        err = _redact_userinfo(err)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    _log.warning(
+                        "plugin reconcile: failed to install %s: %s", label, err
+                    )
                     for ns in covered:
                         actions.append(
-                            PluginAction(namespace=ns, action="failed", detail=str(e))
+                            PluginAction(namespace=ns, action="failed", detail=err)
                         )
                 finally:
                     _reset_failure_sink(sink_token)

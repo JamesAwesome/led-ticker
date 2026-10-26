@@ -7,17 +7,31 @@ install target; the module never imports pip.
 """
 
 import contextlib
+import contextvars
 import difflib
 import importlib.metadata
+import logging
 import re
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 from led_ticker.plugins_catalog import Catalog, CatalogEntry, load_catalog
 
+_log = logging.getLogger(__name__)
+
 _PLUGINS_ENTRY_GROUP = "led_ticker.plugins"
+
+_USERINFO_RE = re.compile(r"://[^/?#\s]+@")
+
+
+def _redact_userinfo(text: str) -> str:
+    """Mask URL userinfo (``https://user:TOKEN@host``) for logs/status. Display
+    only — the line handed to pip is never redacted."""
+    return _USERINFO_RE.sub("://****@", text)
+
 
 # pip-semantics trailing comment: `#` at line-start or preceded by whitespace —
 # NOT a `#egg=`/`#subdirectory=` fragment inside a git URL. Shared by
@@ -491,6 +505,48 @@ def _freeze_to_constraints(
         return (fh.name, 0)
 
 
+# Reconcile opts into failure capture by setting this to a list: `_pip_install`
+# then runs pip with output captured (merged stdout+stderr) and, on a non-zero
+# exit, appends ONE short failure summary to it. A ContextVar (not a kwarg or
+# return-shape change) keeps `_pip_install`'s `-> int` contract and every caller
+# / test double untouched; the CLI (`plugin add/upgrade`) and webui leave it
+# unset and keep pip streaming straight to the terminal.
+_PIP_FAILURE_SINK: contextvars.ContextVar[list[str] | None] = contextvars.ContextVar(
+    "_PIP_FAILURE_SINK", default=None
+)
+
+_PIP_SUMMARY_MAX = 400
+
+
+def _summarize_pip_failure(output: str, limit: int = _PIP_SUMMARY_MAX) -> str:
+    """Boil pip's captured output down to a short, useful failure summary.
+
+    Prefers the first ``ERROR:`` line plus the "The conflict is caused by:"
+    block (the resolver's explanation); falls back to the last few non-empty
+    lines. Truncated to ``limit`` chars, whitespace-collapsed onto one line so
+    it stays small in the status board JSON. Never raises."""
+    try:
+        lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+        if not lines:
+            return ""
+        picked: list[str] = []
+        err = next((ln for ln in lines if ln.startswith("ERROR:")), None)
+        if err is not None:
+            picked.append(err)
+        for i, ln in enumerate(lines):
+            if ln.startswith("The conflict is caused by"):
+                picked.extend(lines[i : i + 6])
+                break
+        if not picked:
+            picked = lines[-5:]
+        text = _redact_userinfo(" | ".join(dict.fromkeys(picked)))
+        if len(text) > limit:
+            text = text[: limit - 1].rstrip() + "…"
+        return text
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _pip_install(
     requirement: str,
     *,
@@ -523,33 +579,94 @@ def _pip_install(
         constraints, freeze_rc = _freeze_to_constraints(python_exe)
         if constraints is None:
             return freeze_rc
+    sink = _PIP_FAILURE_SINK.get()
+    cmd = [
+        python_exe,
+        "-m",
+        "pip",
+        "install",
+        *_PIP_NET_ARGS,
+        # NOTE: `-c` only constrains the RUNTIME wheel dependencies pip
+        # resolves — it does NOT reach inside a PEP 517 isolated build
+        # environment. When a plugin (or a transitive dep) is an sdist,
+        # pip spins up a fresh, isolated build env that does NOT inherit
+        # these constraints, and the build-backend code (hatchling,
+        # setuptools, etc.) runs as ROOT here because reconcile installs
+        # before the matrix library drops privileges (constraint #13). So
+        # adding a package effectively runs its build scripts as root on
+        # first install. Prefer wheels / vetted, pinned sources.
+        "-c",
+        constraints,
+        requirement,
+    ]
     try:
-        proc = subprocess.run(
-            [
-                python_exe,
-                "-m",
-                "pip",
-                "install",
-                *_PIP_NET_ARGS,
-                # NOTE: `-c` only constrains the RUNTIME wheel dependencies pip
-                # resolves — it does NOT reach inside a PEP 517 isolated build
-                # environment. When a plugin (or a transitive dep) is an sdist,
-                # pip spins up a fresh, isolated build env that does NOT inherit
-                # these constraints, and the build-backend code (hatchling,
-                # setuptools, etc.) runs as ROOT here because reconcile installs
-                # before the matrix library drops privileges (constraint #13). So
-                # adding a package effectively runs its build scripts as root on
-                # first install. Prefer wheels / vetted, pinned sources.
-                "-c",
-                constraints,
-                requirement,
-            ],
-            timeout=_PIP_INSTALL_TIMEOUT_S,
-        )
+        if sink is None:
+            return subprocess.run(cmd, timeout=_PIP_INSTALL_TIMEOUT_S).returncode
+        return _run_pip_streaming(cmd, sink)
     finally:
         if owns_constraints:
             Path(constraints).unlink(missing_ok=True)
-    return proc.returncode
+
+
+_PIP_LOG_TAIL_BYTES = 8192
+
+
+def _run_pip_streaming(cmd: list[str], sink: list[str]) -> int:
+    """Run pip echoing each output line to stderr LIVE (as before capture was
+    introduced, so `docker compose logs` still shows progress) while buffering
+    it. On non-zero exit the ~8 KB tail is logged at WARNING and a short summary
+    is appended to ``sink``. On timeout the child is killed, the partial output
+    is summarized into ``sink`` and ``TimeoutExpired`` is re-raised."""
+    buf: list[str] = []
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="replace",
+    )
+
+    def _pump() -> None:
+        try:
+            for line in proc.stdout or ():
+                buf.append(line)
+                with contextlib.suppress(Exception):
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
+        except Exception:  # noqa: BLE001
+            pass
+
+    reader = threading.Thread(target=_pump, daemon=True)
+    reader.start()
+    try:
+        try:
+            rc = proc.wait(timeout=_PIP_INSTALL_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            with contextlib.suppress(Exception):
+                proc.wait(timeout=10)
+            reader.join(timeout=5)
+            summary = _summarize_pip_failure("".join(buf))
+            if summary:
+                sink.append(f"timed out after {_PIP_INSTALL_TIMEOUT_S}s: {summary}")
+            raise
+        reader.join(timeout=10)
+    finally:
+        if proc.poll() is None:
+            with contextlib.suppress(Exception):
+                proc.kill()
+    if rc != 0:
+        text = "".join(buf)
+        _log.warning(
+            "pip install failed (exit %s); output tail:\n%s",
+            rc,
+            _redact_userinfo(text[-_PIP_LOG_TAIL_BYTES:]),
+        )
+        summary = _summarize_pip_failure(text)
+        if summary:
+            sink.append(summary)
+    return rc
 
 
 def _pip_uninstall(dist: str, *, python_exe: str = sys.executable) -> int:

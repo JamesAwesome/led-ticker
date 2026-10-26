@@ -103,7 +103,7 @@ Between polls the game clock and power-play time tick every second while the NHL
 
 ### The scrolling ticker
 
-Set `layout = "ticker"` for one scrolling line per game, in the same wording as the boards. Use `mode = "ticker"` on the section, since this layout scrolls rather than holds. At scale 1 the clock text refreshes with each poll rather than every second; the boards and the scale > 1 crawl tick every second.
+Set `layout = "ticker"` for one scrolling line per game, in the same wording as the boards. Use `mode = "ticker"` on the section, since this layout scrolls rather than holds. Goals don't celebrate in a `mode = "ticker"` section — the score still updates; see [Goal celebration](#goal-celebration). At scale 1 the clock text refreshes with each poll rather than every second; the boards and the scale > 1 crawl tick every second.
 
 ## Reading the colors
 
@@ -112,7 +112,7 @@ Set `layout = "ticker"` for one scrolling line per game, in the same wording as 
 | Team colors | The chip beside each abbreviation, and the abbreviation itself    |
 | White       | Scores and the game clock                                         |
 | Amber       | The period, the power play (`PP` badge and time), next-game dates |
-| Cyan        | Shots on goal                                                     |
+| Cyan        | Shots on goal, and the assists on the bigsign/longboi goal card   |
 | Green       | The winner's score on a final                                     |
 | Dim gray    | The loser's score on a final                                      |
 | Dark gray   | `STALE`, the arena, and labels such as the smallsign's `SOG`      |
@@ -120,6 +120,8 @@ Set `layout = "ticker"` for one scrolling line per game, in the same wording as 
 ## Goal celebration
 
 When a team in your `teams` list scores, that game's card plays a 4-second celebration **the next time its turn comes around**. It never interrupts whatever else is on the panel. You get three quick flashes in the scoring team's color with `GOAL` knocked out, then the new score, the scorer with their season goal count (`KONECNY (5)`), and the period and time of the goal — plus the assists on bigsign and longboi (the smallsign has no room for them). Then the normal board for the rest of the hold.
+
+Celebrations, and the hold stretch below, need a `mode = "slideshow"` section. In a `mode = "ticker"` or `one_at_a_time` section goals don't celebrate; the score still updates.
 
 - **The hold stretches to fit.** While a celebration is pending the card asks for 4 seconds per queued goal plus the larger of the widget's `hold_time` and 4 seconds for the board afterwards; the engine still uses the section's `hold_time` if that is longer. With `hold_time = 6` on the section, a card with one goal to celebrate holds for 8 seconds. You don't need to raise `hold_time` for it.
 - **Several goals queue.** Goals scored between turns celebrate in order, up to 3 per turn; older ones are dropped.

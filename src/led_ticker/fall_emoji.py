@@ -21,11 +21,20 @@ apart:
 * **Curated-only** — ``pumpkin``, ``acorn``, ``candy_corn``: no CLDR
   emoji, so no pack glyph. Lowres-only; a scaled sign block-expands them.
 
-Sprite rules (pinned by ``tests/test_fall_emoji.py``): fits 8×8, no
-duplicate cells, no pixel darker than ``max(r, g, b) < 30`` (an unlit LED IS
-black, so eyes / mouths / pupils use a visible dark gray), and the lowest lit
-row is 6 or 7 — inline lowres emoji anchor at ``baseline - 8``, so a shorter
-sprite floats above the text.
+Sprite rules (pinned by ``tests/test_fall_emoji.py``): every art row is 8
+cells and there are 8 rows, no duplicate cells, every lit pixel has
+``max(r, g, b) >= 30`` (an unlit LED IS black, so eyes / mouths / pupils use
+a visible dark gray rather than pure black), and the lowest lit row is 6 or 7
+— inline lowres emoji anchor at ``baseline - 8``, so a shorter sprite floats
+above the text.
+
+Unicode routing caveat: 🎃 reaches ``jack_o_lantern`` only through the
+pack's codepoint map (``emoji_pack.slug_for_codepoint``), so with a missing
+or corrupt pack the unicode form strips at scale 1 while ``:jack_o_lantern:``
+still renders. Do NOT "fix" that by adding these codepoints to
+``pixel_emoji._UNICODE_EMOJI_MAP``: ``tools/gen_emoji_manifest.py`` treats
+that map as curated-wins-at-source and would drop the slugs from the pack on
+the next regen, silently losing the Noto hires.
 """
 
 from led_ticker._types import PixelData
@@ -45,7 +54,7 @@ _PALETTE: dict[str, tuple[int, int, int]] = {
     "T": (210, 160, 90),  # tan
     "W": (240, 240, 240),  # white
     "w": (150, 150, 160),  # gray (web)
-    "K": (30, 30, 30),  # visible-black (eyes, mouths)
+    "K": (40, 40, 45),  # visible-black (eyes, mouths) — above the 30 floor
     "P": (140, 90, 190),  # purple (bat — a black bat would vanish)
     "S": (110, 110, 120),  # steam gray
     "C": (255, 240, 200),  # cream (mushroom stem)

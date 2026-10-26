@@ -10,7 +10,7 @@ import pytest
 from rgbmatrix import _StubCanvas
 
 from led_ticker import emoji_pack, pixel_emoji
-from led_ticker.fall_emoji import FALL_LOWRES, FALL_PACK_FALLBACK_SLUGS
+from led_ticker.fall_emoji import _ART, FALL_LOWRES, FALL_PACK_FALLBACK_SLUGS
 from led_ticker.pixel_emoji import _get_registry, _hires_for, _map_uemoji_to_slug
 
 CURATED_ONLY = {"pumpkin", "acorn", "candy_corn"}
@@ -48,6 +48,16 @@ def test_sprite_is_bottom_anchored(slug):
     # Inline lowres emoji bottom-anchor at `baseline - 8`; a sprite whose
     # lowest lit row is above row 6 floats visibly above the text.
     assert max(y for _, y, *_ in FALL_LOWRES[slug]) >= 6, f"{slug} floats"
+
+
+@pytest.mark.parametrize("slug", sorted(_ART))
+def test_art_grid_is_exactly_8x8(slug):
+    # `0 <= x < 8` catches a 9-char row but not a 7-char one (the sprite just
+    # silently loses a column) — pin the hand-edited art's shape directly.
+    art = _ART[slug]
+    assert len(art) == 8, f"{slug}: {len(art)} rows"
+    widths = [len(row) for row in art]
+    assert widths == [8] * 8, f"{slug}: ragged rows {widths}"
 
 
 def test_every_slug_is_in_the_registry():

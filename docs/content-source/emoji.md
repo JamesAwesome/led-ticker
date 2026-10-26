@@ -1,6 +1,6 @@
-Use `:slug:` inside any text-bearing widget to render a pixel-art icon inline. Each is an 8×8 sprite in its native colors; the surrounding text uses your `font_color`. On a `default_scale > 1` panel (bigsign), every slug auto-upgrades to a 32×32 hires sprite — same horizontal footprint, 16× more detail.
+Use `:slug:` inside any text-bearing widget to render a pixel-art icon inline. Each is an 8×8 sprite in its native colors; the surrounding text uses your `font_color`. On a `default_scale > 1` panel (bigsign), every slug with a Hires column below auto-upgrades to a 32×32 hires sprite — same horizontal footprint, 16× more detail. The fall & Halloween slugs further down upgrade to the standard-emoji pack's Noto glyph instead, except the three curated-only ones, which block-expand from 8×8.
 
-The slug list rots fast as new icons are added. The source of truth is `src/led_ticker/pixel_emoji.py` — `grep -E '^\s+"[a-z_]+":' src/led_ticker/pixel_emoji.py` lists every slug. Re-run `uv run python tools/render_emoji_previews.py` after adding a sprite to refresh the previews on this page.
+The slug list rots fast as new icons are added. The source of truth is the registry itself — `uv run python -c 'from led_ticker.pixel_emoji import emoji_slugs; print(sorted(emoji_slugs()))'` lists every built-in slug (sprites live in `src/led_ticker/pixel_emoji.py` and `src/led_ticker/fall_emoji.py`). Re-run `uv run python tools/render_emoji_previews.py` after adding a sprite to refresh the previews on this page.
 
 > **Plugin emoji.** Some icons ship with external plugins (install the plugin to use them; the slugs in the table below are all built in):
 >

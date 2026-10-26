@@ -16,14 +16,14 @@
     "lint": "prettier --check . && astro check",
     "test": "node --test tests/*.test.mjs",
     "format": "prettier --write .",
-    "check:llms": "node scripts/check-llms.mjs"
+    "check:llms": "node scripts/check-llms.mjs",
+    "check:tables": "node scripts/check-tables.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",
-    "@astrojs/starlight": "^0.41.4",
+    "@astrojs/starlight": "^0.42.6",
     "astro": "^7.4.2",
     "marked": "^18.1.1",
-    "remark-gfm": "^4.0.1",
     "sharp": "^0.35.5",
     "starlight-llms-txt": "^0.12.0"
   },

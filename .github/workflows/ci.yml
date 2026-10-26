@@ -203,7 +203,7 @@ jobs:
         run: pnpm run test
       - name: Build + verify llms.txt export
         working-directory: docs/site
-        run: pnpm run build && pnpm run check:llms
+        run: pnpm run build && pnpm run check:llms && pnpm run check:tables
 
   docker-build:
     needs: changes

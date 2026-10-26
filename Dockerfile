@@ -5,6 +5,7 @@
 # The GCC10 anonymous-param patch in pio_rp1.c compiles under GCC 12.
 # Future optimization (deferred): multi-stage build copying only the compiled
 # rgbmatrix .so into python:3.14-slim-bookworm (~200MB smaller).
+
 # Lock export stage: renders uv.lock into a pip requirements file of EXACT pins
 # so the deps layer below installs what the lock says, not whatever loose
 # pyproject ranges resolve to on build day (2026-10-22: a `make update` pulled
@@ -13,17 +14,24 @@
 # ghcr.io/astral-sh/uv image, because that image ships amd64/arm64 only and a
 # native build on a 32-bit Pi OS (linux/arm/v7) would fail; PyPI ships uv
 # wheels for armv7 too. This stage is discarded — uv never reaches the final
-# image. --frozen = use uv.lock as-is, never re-resolve (a stale lock fails the
-# build instead of silently drifting). Tripwire: tests/test_dockerfile_lock_install.py.
+# image. --locked = export uv.lock as-is, but FAIL if it no longer matches
+# pyproject.toml ("lockfile needs to be updated") — --frozen would silently
+# export the stale lock, and a dep added to pyproject without `uv lock` would
+# ship missing (core installs --no-deps). CI's `uv lock --check` catches the
+# same thing on the PR. Tripwire: tests/test_dockerfile_lock_install.py.
 FROM python:3.14-bookworm AS lock-export
 ARG UV_VERSION=0.9.16
 RUN pip install --no-cache-dir "uv==${UV_VERSION}"
 WORKDIR /lock
-COPY pyproject.toml uv.lock /lock/
+# README.md + LICENSE: --locked builds core's metadata to compare against the
+# lock, and hatchling reads both (readme + PEP 639 license-files). A README edit
+# re-runs this cheap stage, but the export is byte-identical so the deps layer
+# below stays cached.
+COPY pyproject.toml uv.lock README.md LICENSE /lock/
 # --extra dev keeps the image's historical [dev] extras (pytest/ruff/pyright
 # were always installed via `pip install -e ".[dev]"`); --no-emit-project
 # leaves core itself out — it installs with --no-deps in the source layer.
-RUN uv export --frozen --no-hashes --no-emit-project --extra dev \
+RUN uv export --locked --no-hashes --no-emit-project --extra dev \
         -o /lock/requirements.lock.txt
 
 FROM python:3.14-bookworm AS rgbmatrix
@@ -95,6 +103,7 @@ ARG SETUPTOOLS_SCM_PRETEND_VERSION=
 # constraints — so constraints-core.txt records led-ticker-core at the real
 # version, not the 0.0.0 fallback the deps layer would have (it had no version).
 RUN SETUPTOOLS_SCM_PRETEND_VERSION="$SETUPTOOLS_SCM_PRETEND_VERSION" pip install --no-deps . \
+ && pip check \
  && CORE_VER="$(pip show led-ticker-core | awk '/^Version:/{print $2}')" \
  && if [ "$CORE_VER" = "0.0.0" ]; then \
         echo "ERROR: led-ticker-core built as 0.0.0 — no version was passed to the build." >&2; \

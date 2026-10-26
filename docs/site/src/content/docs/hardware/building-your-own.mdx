@@ -146,6 +146,14 @@ seeds `config/config.toml` and `.env` if they don't exist yet, and runs
 real version baked in) and recreates the running services for every subsequent
 deploy.
 
+:::note[Python dependencies come from the lock]
+The image installs exactly the Python dependency versions pinned in `uv.lock`,
+so rebuilding with `make update` doesn't pick up a newer release of a Python
+package (say, a Pillow major) unless `uv.lock` changed in the commit you pulled.
+The `python:3.14-bookworm` base image and the rgbmatrix fork aren't pinned
+by the lock.
+:::
+
 Key behaviors built into `compose.yaml`:
 
 - `restart: unless-stopped` — the ticker comes back up on power loss or crash.
@@ -200,14 +208,6 @@ A source-checkout install on the Pi may compile some dependencies from source
 incomplete as of mid-2026. The Docker image ships every wheel pre-built, so
 the first build (via `make setup`) is typically faster than a bare
 `pip install` on the Pi.
-:::
-
-:::note[Docker installs the locked versions]
-The Docker image installs exactly the dependency versions pinned in `uv.lock`,
-so `make update` rebuilds the same stack every time — a new upstream release
-(say, a Pillow major) can't slip onto the sign just because you rebuilt. A
-source checkout via `make dev` (`uv sync`) uses the same lock. Dependencies
-change only when `uv.lock` does.
 :::
 
 ## Inspecting the running async loop (Python 3.14+)

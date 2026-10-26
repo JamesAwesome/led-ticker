@@ -11,6 +11,11 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Daily: re-run test-latest-pillow so a breaking Pillow release surfaces even
+  # with no PR open. On schedule `changes` skips its path filter (all outputs
+  # empty), so every other job skips and only test-latest-pillow runs.
+  schedule:
+    - cron: "17 9 * * *"
 
 # SECURITY NOTE — self-hosted runner on a (soon) public repo
 #
@@ -41,7 +46,9 @@ permissions:
   pull-requests: read   # dorny/paths-filter calls the Files API to detect changed paths
 
 concurrency:
-  group: ci-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  # event_name in the non-PR key so the daily scheduled run and a push to main
+  # don't cancel each other.
+  group: ci-${{ github.event_name == 'pull_request' && github.head_ref || format('{0}-{1}', github.event_name, github.ref) }}
   cancel-in-progress: true
 
 jobs:
@@ -55,6 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: f
+        if: github.event_name != 'schedule'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         with:
           filters: |
@@ -92,6 +100,10 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
+      # Stale lock = pyproject changed without `uv lock`. The image exports the
+      # lock with `uv export --locked` and would fail at build time; catch it
+      # here on the PR instead.
+      - run: uv lock --check
       - run: uv run --extra dev ruff check src/ tests/
       - run: uv run --extra dev ruff format --check src/ tests/
 
@@ -131,13 +143,14 @@ jobs:
   # reach a sign by surprise — but Dependabot WILL eventually propose it, and
   # Pillow 13 + raqm broke every hi-res font (2026-10-22). This leg turns the
   # next breaking release into a red CI check on the day it lands, before
-  # anyone bumps the lock. Blocking on purpose: a red here means "core is not
+  # anyone bumps the lock. Also runs daily on `schedule`. Blocking on purpose: a red here means "core is not
   # compatible with current Pillow" — fix forward (or pin an upper bound in
   # pyproject) rather than ignore it. No coverage gate (the `test` job owns it).
   test-latest-pillow:
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: github.event_name == 'schedule' || needs.changes.outputs.python == 'true'
     runs-on: self-hosted
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

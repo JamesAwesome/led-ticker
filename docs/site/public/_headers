@@ -30,6 +30,9 @@
 # crawlable page still gets indexed URL-only). noindex is engine-agnostic, and
 # LLM agents ignore it, so agent access is untouched. /llms.txt (the index)
 # carries no page content and stays indexable.
+# NOTE: `_headers` rules reach these responses only because
+# functions/_middleware.js returns `context.next()` untouched — Cloudflare
+# does not apply `_headers` to responses a Pages Function constructs itself.
 
 /llms-full.txt
   X-Robots-Tag: noindex

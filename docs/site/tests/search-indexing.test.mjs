@@ -7,8 +7,8 @@
 // Mechanism: `X-Robots-Tag: noindex` in public/_headers (Cloudflare Pages).
 // NOT a robots.txt Disallow — the two are mutually exclusive: a crawler can
 // only see a noindex header on a URL it is allowed to fetch, and a
-// robots-blocked URL that is linked from a crawlable page (the homepage and
-// /llms.txt both link every export) still gets indexed URL-only. noindex is
+// robots-blocked URL that is linked from a crawlable page (the homepage links
+// /llms-full.txt; /llms.txt links every export) still gets indexed URL-only. noindex is
 // also engine-agnostic, and LLM agents ignore it, so agent access is untouched.
 
 import { test } from "node:test";

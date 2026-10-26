@@ -94,12 +94,12 @@ Two 8-row bands in the 5×8 bitmap font, away on top. Each band has a team chip,
 
 ### On every board
 
-- **Intermission:** the clock reads `1ST INT` / `2ND INT` with the countdown.
+- **Intermission:** the period label reads `1ST INT` / `2ND INT`, with the intermission countdown in the clock slot.
 - **Empty net:** `EN` marks the team that pulled its goalie.
 - **Final:** `FINAL`, marked `OT` or `SO` when it went past regulation, the winner's score green and the loser's dimmed.
-- **Next game:** both chips, `@`, the day and date, the time and the arena.
+- **Next game:** the matchup, the day and date, the time and the arena. On longboi both chips flank the board with the team nicknames beneath; on bigsign the away chip leads `PHI @ NYI`; on smallsign `PHI @ NYI` is in team colors (no chips) over the arena, with the date and time on the right.
 
-Game clocks, power-play time and intermission countdowns tick every second between polls; the board counts down from the last poll and stops at `0:00`. Team abbreviations shrink to fit (both rows always share one size). Nothing on the boards is user-tunable — the palette is fixed.
+Between polls the game clock and power-play time tick every second while the NHL feed reports the clock running; the board counts down from the last poll and stops at `0:00`. Team abbreviations shrink to fit (both rows always share one size). Nothing on the boards is user-tunable — the palette is fixed.
 
 ### The scrolling ticker
 
@@ -119,11 +119,11 @@ Set `layout = "ticker"` for one scrolling line per game, in the same wording as 
 
 ## Goal celebration
 
-When a team in your `teams` list scores, that game's card plays a 4-second celebration **the next time its turn comes around**. It never interrupts whatever else is on the panel. You get three quick flashes in the scoring team's color with `GOAL` knocked out, then the new score, the scorer with their season goal count (`KONECNY (5)`), the assists, and the period and time of the goal. Then the normal board for the rest of the hold.
+When a team in your `teams` list scores, that game's card plays a 4-second celebration **the next time its turn comes around**. It never interrupts whatever else is on the panel. You get three quick flashes in the scoring team's color with `GOAL` knocked out, then the new score, the scorer with their season goal count (`KONECNY (5)`), and the period and time of the goal — plus the assists on bigsign and longboi (the smallsign has no room for them). Then the normal board for the rest of the hold.
 
 - **The hold stretches to fit.** While a celebration is pending the card asks for 4 seconds per queued goal plus the larger of the widget's `hold_time` and 4 seconds for the board afterwards; the engine still uses the section's `hold_time` if that is longer. With `hold_time = 6` on the section, a card with one goal to celebrate holds for 8 seconds. You don't need to raise `hold_time` for it.
 - **Several goals queue.** Goals scored between turns celebrate in order, up to 3 per turn; older ones are dropped.
-- **Only your teams flash.** In `league` and `live` modes a goal by a team you don't track highlights the score briefly and fades back to white. With an empty `teams` list nothing celebrates.
+- **Only your teams flash.** In every mode, a goal by a team you don't track highlights the score briefly and fades back to white — following only `PHI`, an NYI goal gets the highlight, not the celebration. With an empty `teams` list nothing celebrates.
 - **Each goal celebrates once.** A celebration counts as done only once it actually reached the panel, and later rotations don't replay it.
 - **Corrections don't re-celebrate.** When the NHL changes a goal's scorer or assists, the queued celebration shows the corrected name; it never plays twice. An overturned goal quietly corrects the score and drops any queued celebration for it.
 - **Boot is silent.** Goals already in the feed when the widget first sees a game — after a boot, restart or [hot reload](/concepts/hot-reload/), or a game found mid-period — don't celebrate.
@@ -134,7 +134,7 @@ During a transition into or out of the card, the board is shown; the celebration
 
 Every `hockey.scores` widget in one process shares a single fetcher, so several widgets don't multiply requests.
 
-- **Every 15 seconds** while any game you're showing is live — faster if a widget sets a lower `update_interval` (floored at 10).
+- **Every 15 seconds** while any game you're showing is live. Lower `update_interval` to poll faster (floored at 10); a higher value makes that widget refresh less often.
 - **Every 5 minutes** when games are scheduled today but haven't started.
 - **About hourly** otherwise.
 - **At most every 6 hours** for the season schedule, used to find a team's next game in the offseason.

@@ -5,6 +5,9 @@
 `markdown.processor` API proved unviable with current Starlight; see
 "Outcome" and "Deferred work" below).
 **Author:** James + Claude (debugging session)
+**Superseded:** 2026-10-26 — Starlight 0.42 (`@astrojs/mdx` 8) moved to Astro's
+Sätteri Markdown pipeline, which renders GFM natively; the `remark-gfm`
+workaround was removed in #494.
 
 ## Summary
 

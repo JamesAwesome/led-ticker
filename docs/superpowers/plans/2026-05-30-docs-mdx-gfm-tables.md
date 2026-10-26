@@ -1,5 +1,8 @@
 # Docs: restore GFM tables under Astro 6.4 — Implementation Plan
 
+> **Superseded (2026-10-26):** the `remark-gfm` workaround this plan adds was
+> removed in #494 — Starlight 0.42 / `@astrojs/mdx` 8 renders GFM natively.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to
 > implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax.
 >

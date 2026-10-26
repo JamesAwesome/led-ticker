@@ -13,8 +13,8 @@
 | `update_interval` | int seconds | `15` | Live poll cadence. Lower than 15 speeds live polling up (**floored at 10**); a higher value makes that widget refresh less often. See [How often it polls](#how-often-does-it-poll-the-nhl). |
 | `hold_time` | float seconds | `0.0` | Minimum per-card hold. The engine uses the larger of this and the section's `hold_time`. A pending goal celebration extends it automatically. |
 | `demo` | bool | `false` | Render four fixture games — a live power play with a goal, an intermission, an OT final and the next game — with no network. Every GIF on this page was rendered this way. |
-| `padding` | int | `6` | Horizontal padding (logical pixels) after each story when the layout scrolls. A number >= 0. |
-| `bg_color` | RGB list | none | Background fill. Scale 1 only — the hi-res boards and crawl at scale > 1 paint their own palette and ignore it. |
-| `font_color` | RGB list / string / table | unset | Override all text color. Scale 1 only, for the same reason. |
+| `padding` | int | `6` | Horizontal padding (logical pixels) after each story on the scale > 1 ticker crawl only (`layout = "ticker"`). A number >= 0. |
+| `bg_color` | RGB list | none | Background fill behind every board, the ticker crawl and the celebration card, at any scale. |
+| `font_color` | RGB list / string / table | unset | Override all text color on the scale-1 `layout = "ticker"` line only. The smallsign band board and the scale > 1 boards and crawl keep their fixed palette. |
 | `font` | string | core default | BDF font for the scale-1 ticker line. |
 | `small_font` | string | `"5x8"` | BDF font for the scale-1 two-band scoreboard. |

@@ -99,7 +99,7 @@ Two 8-row bands in the 5×8 bitmap font, away on top. Each band has a team chip,
 - **Final:** `FINAL`, marked `OT` or `SO` when it went past regulation, the winner's score green and the loser's dimmed.
 - **Next game:** the matchup, the day and date, the time and the arena. On longboi both chips flank the board with the team nicknames beneath; on bigsign the away chip leads `PHI @ NYI`; on smallsign `PHI @ NYI` is in team colors (no chips) over the arena, with the date and time on the right.
 
-Between polls the game clock and power-play time tick every second while the NHL feed reports the clock running; the board counts down from the last poll and stops at `0:00`. Team abbreviations shrink to fit (both rows always share one size). Nothing on the boards is user-tunable — the palette is fixed.
+Between polls the game clock and power-play time tick every second while the NHL feed reports the clock running; the board counts down from the last poll and stops at `0:00`. Team abbreviations shrink to fit (both rows always share one size). The text palette is fixed; `bg_color` is the one color you can set on the boards.
 
 ### The scrolling ticker
 
@@ -123,7 +123,7 @@ When a team in your `teams` list scores, that game's card plays a 4-second celeb
 
 - **The hold stretches to fit.** While a celebration is pending the card asks for 4 seconds per queued goal plus the larger of the widget's `hold_time` and 4 seconds for the board afterwards; the engine still uses the section's `hold_time` if that is longer. With `hold_time = 6` on the section, a card with one goal to celebrate holds for 8 seconds. You don't need to raise `hold_time` for it.
 - **Several goals queue.** Goals scored between turns celebrate in order, up to 3 per turn; older ones are dropped.
-- **Only your teams flash.** In every mode, a goal by a team you don't track highlights the score briefly and fades back to white — following only `PHI`, an NYI goal gets the highlight, not the celebration. With an empty `teams` list nothing celebrates.
+- **Only your teams flash.** In every mode, a goal by a team you don't track highlights the score briefly and fades back to white — following only `PHI`, an NYI goal gets the highlight, not the celebration. The highlight shows on the boards, not on `layout = "ticker"`. With an empty `teams` list nothing celebrates.
 - **Each goal celebrates once.** A celebration counts as done only once it actually reached the panel, and later rotations don't replay it.
 - **Corrections don't re-celebrate.** When the NHL changes a goal's scorer or assists, the queued celebration shows the corrected name; it never plays twice. An overturned goal quietly corrects the score and drops any queued celebration for it.
 - **Boot is silent.** Goals already in the feed when the widget first sees a game — after a boot, restart or [hot reload](/concepts/hot-reload/), or a game found mid-period — don't celebrate.
@@ -139,7 +139,7 @@ Every `hockey.scores` widget in one process shares a single fetcher, so several 
 - **About hourly** otherwise.
 - **At most every 6 hours** for the season schedule, used to find a team's next game in the offseason.
 
-The power-play and empty-net lookup is only made for live games that are on screen. A failed request keeps the last good games, marks every card `STALE`, and backs off — starting at twice the interval, doubling, capped at four hours.
+The power-play and empty-net lookup is only made for live games that are in some widget's rotation. A failed request keeps the last good games, marks every card `STALE`, and backs off — starting at twice the interval, doubling, capped at four hours.
 
 ## Try it in demo mode
 
@@ -153,7 +153,7 @@ It is the quickest way to check the layout on your panel, and it is what every G
 
 **The board says `STALE`.** A fetch failed or the feed returned something the plugin couldn't parse, so it's showing the last good scores. The logs carry the reason; the label clears on the next good poll. If it never clears, the NHL may have changed the feed.
 
-**The section went dark.** Nothing qualified for a card: `live` mode with no game on, or a `teams` team with nothing scheduled — the offseason. A section holding only this widget has nothing to show then, and the sign idles blank (see [scheduling](/concepts/scheduling/) for how core handles an empty section). Put the widget in a section with other content to keep the panel lit.
+**The scores disappeared, or the sign went dark.** Nothing qualified for a card: `live` mode with no game on, or a `teams` team with nothing scheduled — the offseason. A section holding only this widget has nothing to show then, so that section is skipped; if it's the only section with content, the sign goes blank (see [scheduling](/concepts/scheduling/) for how core handles an empty section). Put the widget in a section with other content to keep it in the rotation.
 
 **The sign showed a goal before my TV did.** Expected. The feed is near real-time and broadcasts run on a delay, so the panel can be ahead of the screen. There is no spoiler delay.
 
@@ -163,7 +163,7 @@ It is the quickest way to check the layout on your panel, and it is what every G
 
 ## Next steps
 
-Pair it with other sports in the same rotation — [tennis.scores](/widgets/tennis/) and [baseball.scores](/widgets/mlb/) follow the same held-board pattern — or see [sections and modes](/concepts/sections-and-modes/) for controlling how long each game holds.
+Pair it with other sports in the same rotation — [tennis.scores](/widgets/tennis/) and [baseball.scores](/widgets/mlb/) are the other live-sports widgets — or see [sections and modes](/concepts/sections-and-modes/) for controlling how long each game holds.
 
 <RelatedPages
   slugs={["plugins/available", "concepts/sections-and-modes", "widgets/tennis", "widgets/mlb"]}

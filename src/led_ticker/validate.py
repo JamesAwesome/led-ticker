@@ -94,6 +94,25 @@ _ERROR_PATTERNS: list[tuple[str, int | None, str]] = [
             " valid on message, countdown, countup, two_row, gif, image"
         ),
     ),
+    # Rule 71 patterns sit ABOVE rule 5: both messages mention font_size,
+    # and rule 5's "add font_size" fix is exactly the trap rule 71 closes.
+    (
+        "is the single-row knob",
+        71,
+        (
+            "Remove font_size; in two-row mode (bottom_text set) size each row "
+            "with top_font_size / bottom_font_size"
+        ),
+    ),
+    (
+        "is a hi-res font on a two-row",
+        71,
+        (
+            "Replace font with top_font / bottom_font (plus top_font_size / "
+            "bottom_font_size); the single-row font knob can't be sized in "
+            "two-row mode"
+        ),
+    ),
     (
         "requires font_size",
         5,

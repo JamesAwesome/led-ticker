@@ -22,6 +22,8 @@
 #
 # Or via compose: make try   (see compose.try.yaml)
 FROM python:3.14-bookworm
+# Pull Debian security fixes for the base image's packages (see Dockerfile).
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /code
 COPY pyproject.toml README.md ./
 COPY src ./src

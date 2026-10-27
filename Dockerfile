@@ -48,7 +48,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /code
 
+# `apt-get upgrade` pulls Debian's security fixes for the base image's packages
+# (libbrotli1, ca-certificates, libssl3, ...) even when the cached
+# python:3.14-bookworm tag predates them — 2026-10: brotli CVE-2026-111497
+# (1.0.9-2+deb12u1) and the eMudhra/emSign root removal (ca-certificates
+# 20250419~deb12u2). `make build`/`make update` also pass --pull so the base
+# tag itself is refreshed.
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y build-essential git cmake && \
     rm -rf /var/lib/apt/lists/*
 

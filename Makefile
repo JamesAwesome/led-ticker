@@ -141,7 +141,7 @@ BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git re
 
 build:  ## Build the production image only (no start; prerequisite for the *-docker diagnostics)
 	@VER="$$(sh scripts/compute-version.sh)" || exit 1; \
-	docker build -t led-ticker \
+	docker build --pull -t led-ticker \
 	  --build-arg BUILD_REF="$(BUILD_REF)" \
 	  --build-arg SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" .
 
@@ -151,7 +151,8 @@ up:  ## Start the sign without rebuilding (set COMPOSE_PROFILES=webui in .env to
 update:  ## Update a running deploy after 'git pull': rebuild the image (real version) + recreate services
 	@git fetch --tags --quiet 2>/dev/null || true; \
 	VER="$$(sh scripts/compute-version.sh)" || exit 1; \
-	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" docker compose up -d --build --force-recreate
+	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" docker compose build --pull && \
+	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" docker compose up -d --force-recreate
 
 restart:  ## Restart the sign without rebuilding
 	docker compose restart

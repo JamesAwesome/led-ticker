@@ -132,6 +132,12 @@ panel-map-derive-docker:  ## Derive a Remap string inside Docker. Usage: make pa
 # Validated to run on both the Pi 4 sign and the Pi 5 bigsign.
 
 # branch@shortsha(+dirty) — baked into the image as LED_TICKER_BUILD_REF.
+# Base image refresh: `make build` / `make update` `docker pull` the Dockerfile's
+# base tag first so Debian security fixes (the apt layer) ride the next rebuild.
+# A plain pull (not `--pull`) so an unreachable Docker Hub degrades to the cached
+# base instead of aborting the build. Note a refreshed base invalidates every
+# downstream layer, including the rgbmatrix clone of the fork's `main`.
+BASE_IMAGE := $(shell awk '/^FROM/{print $$2; exit}' Dockerfile)
 BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git rev-parse --short HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo +dirty)
 # Package version (PEP 440) is computed per-recipe from git by
 # scripts/compute-version.sh — no uv required. It's passed to the build as
@@ -141,6 +147,7 @@ BUILD_REF ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)@$(shell git re
 
 build:  ## Build the production image only (no start; prerequisite for the *-docker diagnostics)
 	@VER="$$(sh scripts/compute-version.sh)" || exit 1; \
+	docker pull $(BASE_IMAGE) || true; \
 	docker build -t led-ticker \
 	  --build-arg BUILD_REF="$(BUILD_REF)" \
 	  --build-arg SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" .
@@ -151,7 +158,9 @@ up:  ## Start the sign without rebuilding (set COMPOSE_PROFILES=webui in .env to
 update:  ## Update a running deploy after 'git pull': rebuild the image (real version) + recreate services
 	@git fetch --tags --quiet 2>/dev/null || true; \
 	VER="$$(sh scripts/compute-version.sh)" || exit 1; \
-	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" docker compose up -d --build --force-recreate
+	docker pull $(BASE_IMAGE) || true; \
+	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" docker compose build && \
+	BUILD_REF="$(BUILD_REF)" SETUPTOOLS_SCM_PRETEND_VERSION="$$VER" docker compose up -d --force-recreate
 
 restart:  ## Restart the sign without rebuilding
 	docker compose restart

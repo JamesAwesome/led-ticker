@@ -5,7 +5,8 @@
 // text, so no set:html is involved.
 
 // [{ text, code }] segments. Unbalanced backticks fall back to one plain
-// segment rather than guessing which span was meant.
+// segment rather than guessing which span was meant. Single backticks only:
+// a code span can't itself contain a backtick (no ``a`b`` form).
 /** @param {string} text @returns {{ text: string, code: boolean }[]} */
 export function inlineCodeSegments(text) {
   const parts = text.split("`");

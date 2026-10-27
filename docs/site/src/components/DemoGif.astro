@@ -1,16 +1,21 @@
 ---
+import { inlineCodeSegments, stripInlineCode } from "../utils/inline-code.mjs";
+
 interface Props {
   src: string;
   caption?: string;
   alt?: string;
 }
 const { src, caption, alt } = Astro.props;
-const altText = alt ?? caption ?? "led-ticker demo";
+const altText = alt ?? (caption ? stripInlineCode(caption) : "led-ticker demo");
+const segments = caption ? inlineCodeSegments(caption) : [];
 ---
 
 <figure class="demo-gif">
   <img src={src} alt={altText} loading="lazy" />
-  {caption && <figcaption>{caption}</figcaption>}
+  {caption && (
+    <figcaption>{segments.map((s) => (s.code ? <code>{s.text}</code> : s.text))}</figcaption>
+  )}
 </figure>
 
 <style>
@@ -30,5 +35,8 @@ const altText = alt ?? caption ?? "led-ticker demo";
     margin-top: 0.5rem;
     font-size: 0.875rem;
     color: var(--sl-color-gray-3);
+  }
+  .demo-gif figcaption code {
+    font-size: inherit;
   }
 </style>

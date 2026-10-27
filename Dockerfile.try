@@ -22,7 +22,12 @@
 #
 # Or via compose: make try   (see compose.try.yaml)
 FROM python:3.14-bookworm
-# Pull Debian security fixes for the base image's packages (see Dockerfile).
+ENV DEBIAN_FRONTEND=noninteractive
+# Debian security fixes for the base image's packages. This layer is cached by
+# instruction hash, so it runs on the first build and whenever the base layer
+# changes; `make try` does not refresh the base tag the way `make build` /
+# `make update` do (see Dockerfile), so re-pull python:3.14-bookworm by hand
+# when you want newer fixes in the try image.
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /code
 COPY pyproject.toml README.md ./

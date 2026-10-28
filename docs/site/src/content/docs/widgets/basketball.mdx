@@ -1,0 +1,178 @@
+---
+title: Live NBA basketball scores
+description: Live NBA scores on an LED sign — team logos, score, quarter, clock, points leaders, finals and the next game, with a win celebration. No API key.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+A basketball game swings in minutes, and the lead you glanced at during dinner is gone by dessert. The **basketball.scores** widget, provided by the **[basketball](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/basketball)** package (`type = "basketball.scores"`), holds a scoreboard per game on your wall: both teams' logos at the edges, big scores, the quarter and clock in the middle (red in a close finish), each side's points leader, finals, and the next scheduled game. When a team you follow wins, its card plays a win celebration at the final buzzer the next time it comes up in the rotation.
+
+This page is for sign owners configuring the widget in TOML. No API key and no account are needed. If you don't follow basketball, [reading the board](#reading-the-board-if-you-dont-follow-basketball) explains what every label means.
+
+<DemoGif
+  src="/demos-pinned/basketball-scoreboard-longboi.gif"
+  caption="full arena board on a long panel: a blue 76ERS WIN flash and the FINAL detail with PHI 112 – NY 108, then PHI 98 – NY 101 in Q4 with a red 1:48 clock, a 54 – 52 HALF, an OT final with the winner's 118 in green, and Thursday's next game under NEXT GAME, with the team logos at both edges."
+/>
+
+**Requires led-ticker-core >= 4.31.**
+
+<Aside type="caution" title="An unofficial data feed">
+  Scores come from ESPN's public site API (`site.api.espn.com`, with `site.web.api.espn.com` as a
+  fallback host). It is free and needs no key, but it is **unofficial and undocumented** — ESPN can
+  change its shape or block clients at any time. The plugin parses it defensively: a bad or missing
+  payload keeps the last good scores on the panel with a `STALE` label rather than crashing the
+  sign. The plugin is not affiliated with or endorsed by ESPN or the NBA. The team logos are the
+  teams' marks, bundled with the plugin for display on your own sign.
+</Aside>
+
+## What you'll need
+
+- A working [led-ticker](https://github.com/JamesAwesome/led-ticker) install, core **4.31 or newer**.
+- The plugin: add `led-ticker-basketball` to your sign's `config/requirements-plugins.txt` and restart. See [using plugins](/plugins/) for the full install path.
+- Internet access on the Pi, for the scores. The logos ship inside the package, so the sign never fetches an image. No key, no sign-up.
+
+Run the config commands wherever your sign's `config/` directory lives — on the Pi itself for a deployed sign.
+
+## The smallest config that works
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "basketball.scores"
+teams = ["PHI", "NY"]
+demo = true
+```
+
+That is the whole widget block from `docs/site/demos-pinned/basketball-scoreboard-longboi.toml`, the file that rendered the GIF above. Delete `demo = true` and the same block follows the 76ers and the Knicks live.
+
+`teams` takes ESPN team codes, case-insensitive, and is required in the default mode. Most are the obvious three letters; the ones that trip people up are `NY` (the Knicks — `NYK` is rejected), `GS`, `SA`, `NO`, `UTAH`, `WSH`, `BKN` and `PHX`. `mode = "slideshow"` is the right section mode: one game per visit, held, then a transition to the next. If you want tip-off times in your own timezone, add `timezone = "America/Chicago"` (any IANA name; the default is `America/New_York`).
+
+## Reading the board (if you don't follow basketball)
+
+- **Quarters and overtime** — four 12-minute quarters (`Q1`–`Q4`), `HALF` at halftime, `END Q3` between quarters. A tie after Q4 goes to 5-minute overtime periods (`OT`, `2OT`, …) until someone leads.
+- **The clock** — runs during play and stops on every whistle. Under a minute it shows tenths (`45.3`).
+- **Clutch time** — the 4th quarter or overtime, two minutes or less left, and the score within 5 points. The clock turns **red**, the only red on the board.
+- **Scores** — a basket is 2 points, 3 from behind the arc, 1 for a free throw. Three-digit scores (`112`) are normal.
+- **Points leader** — the player with the most points so far in that game for each team (`J. EMBIID 31 PTS`). Before tip-off nobody has any, so the leader lines are blank.
+- **Linescore** — points per quarter, `24-28 · 26-24 · …`, one number per period played. Longboi only, in orange.
+- **Records** — a team's season record, wins-losses (`5-2`).
+
+## Options
+
+<OptionsTable source="widgets/basketball" />
+
+## Three ways to pick games
+
+Basketball's unit is the **day**: the feed returns today's games (the day rolls over on the Eastern clock), and a team plays three or four times a week. `mode` decides which of those get a card. Two tracked teams playing each other share one card.
+
+- **`teams` (default)** — only games involving your `teams`, in config order. For each team: its live game; else a final still inside `final_hold_hours`; else its game later today; else its next scheduled game from the team's schedule.
+- **`league`** — every game today: your teams first, then other live games, then finals inside the hold, then upcoming games by tip-off (games with a `TBD` time sort last). Capped at `max_games`.
+- **`live`** — only games in progress, your teams first, capped at `max_games`. With nothing on, the widget has no cards and drops out of the rotation until a game starts.
+
+In `league` and `live` modes, `teams` is optional: it sets who comes first and which wins celebrate.
+
+Because teams play most nights, `final_hold_hours` defaults to 6, counted from tip-off plus 2 h 30 min: a result clears soon enough for the next game to show. Raise it to keep last night's result up through the morning.
+
+## Layouts, one held board per sign shape
+
+`layout = "auto"` (the default) picks a held scoreboard on all three sign shapes.
+
+### Longboi (512×64)
+
+The shape at the top of this page: a 48 px logo at each edge, a large score beside each, and under each score a side line with the abbreviation, record and full leader (`PHI 5-2 · J. EMBIID 31 PTS`). The centre holds the period and a large clock, and below the scores runs the orange per-quarter linescore, with an `OT` column added as played.
+
+### Bigsign (256×64)
+
+A 36 px logo at each edge and a large white score beside each, with the period over the clock in the centre. Each side's points leader (`J. EMBIID 31 PTS`, cyan) runs along the bottom; where a name cannot fit at a readable size the line is dropped instead of shrunk.
+
+<DemoGif
+  src="/demos-pinned/basketball-scoreboard-bigsign.gif"
+  caption="the same games on a 256x64 panel: a blue 76ERS WIN flash, then the 76ers logo, FINAL, PHI 112 NY 108 and J. EMBIID 31 PTS, followed by the live board with a logo at each edge, PHI 98 and NY 101 around Q4 and a red 1:48, a HALF card, an OT final and the next game."
+/>
+
+### Smallsign (160×16)
+
+One 16-row band in the 6×12 font: `PHI 98  Q4 1:48  101 NY`. A thin team-colour chip sits at each end, the abbreviation is in team colour, the score is white, and the period (amber) and clock (white, red in clutch time) are centred between them. There are no logos and no leader line at this size; the `ticker` layout carries the leader. When two three-digit scores and long abbreviations crowd the centre, it shrinks rather than collides: the period drops first, then `FINAL/OT` becomes `F/OT`, then it ellipsizes.
+
+<DemoGif
+  src="/demos-pinned/basketball-scoreboard-smallsign.gif"
+  caption="smallsign: a blue 76ERS WIN flash over PHI 112 NY 108 FINAL, then one band per game with team chips at the ends — PHI 98 Q4 1:48 101 NY with the clock in red, PHI 54 HALF 52 NY, PHI 115 FINAL/OT 118 NY with the winner in green, and NY @ PHI OCT 29 7:30 PM."
+/>
+
+### On every board
+
+- **Halftime and quarter breaks:** `HALF`, `END Q3` or `DELAY` in place of the clock.
+- **Final:** `FINAL` (plus `OT` beneath on the big panels), the winner's score green and the loser's gray.
+- **Next game:** the day (`TONIGHT`, `THU OCT 29`, amber), the tip-off time (`TBD` until the league sets it), both records and the venue, under a small `NEXT GAME` (or `PPD` when postponed).
+- **Without logos:** with `logos = false`, or for a team with no bundled logo, the bigsign and longboi paint a two-tone team chip and the abbreviation in the logo's place. The smallsign always uses chips.
+- **Score changes** never interrupt anything: the changed team's score pulses in its team colour for about 1.5 seconds and fades back to white.
+
+The clock shows exactly what the last poll reported — it does not tick between polls, because a basketball clock stops on every whistle and the feed carries no "running" flag. The palette is fixed; `bg_color` is the one color you can set on the boards.
+
+### The scrolling ticker
+
+Set `layout = "ticker"` for one scrolling line per game, in the same wording as the boards: `PHI 98 · NY 101 · Q4 1:48 · J. EMBIID 31 · J. BRUNSON 28`. A final reads `PHI 115 · NY 118 · FINAL/OT`. Use `mode = "ticker"` on the section, since this layout scrolls rather than holds. Win celebrations are built for `mode = "slideshow"` sections — see [Win celebration](#win-celebration) for what happens in a scrolling one.
+
+## Win celebration
+
+When a team in your `teams` list **wins** at the final buzzer, that game's card plays a roughly 4-second celebration **the next time its turn comes around**. In a slideshow it never interrupts whatever else is on the panel. You get a few quick flashes of the panel in the winner's colour with `76ERS WIN` knocked out (`PHI WIN` when the nickname will not fit), then the final score with the winner's number pulsing, `FINAL` (or `FINAL/OT`), the winner's points leader and the winner's logo. Then the normal board for the rest of the hold.
+
+- **Only wins celebrate.** A tracked team's loss settles onto the final board with no flash, and nothing fires per basket.
+- **The hold stretches to fit.** While a celebration is pending the card asks for 4 seconds plus the larger of the widget's `hold_time` and 4 seconds for the board afterwards; you don't need to raise `hold_time` for it.
+- **Once per game.** A celebration counts as done only once it actually reached the panel, and later rotations don't replay it.
+- **Boot is silent.** A game that is already final when the widget first sees it — after a boot, restart or [hot reload](/concepts/hot-reload/) — does not celebrate; only a game the widget watched go from live to final does.
+- **Only your teams.** In `league` and `live` modes a win by a team you don't track just shows the final. With an empty `teams` list nothing celebrates.
+
+In a `mode = "ticker"` or `one_at_a_time` section the celebration takes over the whole panel for its 4 seconds on the next frame the card is drawn, and the card resumes where its takeover began. Anything to its left keeps scrolling underneath, so up to about 80 px of a neighbour can pass unseen behind it. A win that lands while the last card of a ticker section sits in its end-of-scroll hold is cut to the remainder of that hold and resumes on the next pass.
+
+## How often does it poll ESPN?
+
+Every `basketball.scores` widget in one process shares a single source, so several widgets don't multiply requests.
+
+- **Every 15 seconds** while any game you're showing is live. Lower `update_interval` to poll faster (floored at 10, since ESPN caches for 10 seconds); a higher value makes that widget refresh less often.
+- **Every minute** in the half hour around a tip-off you're showing.
+- **Every 5 minutes** when a game you're showing is scheduled later today.
+- **About hourly** otherwise.
+- **At most every 6 hours** for a tracked team's schedule, used for the next game, and only when the team has no game left in today's payload.
+
+A West-coast game that runs past midnight Eastern drops out of today's feed; the source then fetches yesterday's slate too so the game keeps its real state. A failed request tries the fallback host, then keeps the last good games, marks every card `STALE`, and backs off — starting at twice the interval, doubling, capped at four hours. A game that disappears from the feed keeps its last state; a final is never inferred from a game vanishing.
+
+## Try it in demo mode
+
+`demo = true` renders four fixture games between PHI and NY with no network: a live clutch-time 4th quarter, halftime, an OT final and the next game. The live game's 76ers win celebrates on its first turn and again every third turn after, so a looping demo keeps showing it. Keep `teams` set — with no tracked team the win just shows the final. It is the quickest way to check the layout on your panel, and it is what every GIF on this page shows.
+
+## If it doesn't work
+
+**`led-ticker validate` says `unknown code`.** A team code isn't one of the 30 ESPN abbreviations. The message suggests the closest match — `NYK` gets `Did you mean 'NY'?` — so swap in the suggested code.
+
+**`led-ticker validate` rejects `small_font`.** This is a common mix-up from the football and hockey widgets. The basketball smallsign board is a single 16-row band, so it uses `font` (6×12 by default); change `font` instead.
+
+**The board says `STALE`.** A fetch failed on both hosts, or the feed returned something the plugin couldn't parse, so it's showing the last good scores. The logs carry the reason; the label clears on the next good poll. If it never clears, ESPN may have changed the feed or started blocking the sign.
+
+**The scores disappeared, or the sign went dark.** Nothing qualified for a card: `live` mode with no game on, or a `teams` team with nothing scheduled at all — the offseason. A section holding only this widget has nothing to show then, so that section is skipped; if it's the only section with content, the sign goes blank (see [scheduling](/concepts/scheduling/)). Put the widget in a section with other content to keep it in the rotation.
+
+**My team won but nothing celebrated.** Check that the team is in `teams` and that the section is `mode = "slideshow"`, and remember a game already final at boot or reload is silent by design.
+
+**The sign showed a basket before my TV did.** Expected. The feed is near real-time and broadcasts run on a delay, so the panel can be ahead of the screen. There is no spoiler delay.
+
+## Known limits
+
+- **The feed is unofficial** and ESPN has intermittently returned 403s to non-browser clients; the fallback host is tried automatically.
+- **Live in-game fields were built from documented shapes.** No NBA game was captured live while the plugin was written, so the points leaders, linescore and in-game clock follow the community-documented feed shape. If a field is absent or shaped differently, the board omits it and everything else keeps working.
+- **Logos at 36 px lose fine detail.** Thin lettering (the Knicks' wordmark especially) reads as a blob on the bigsign; the longboi's 48 px logos hold up better.
+- **Very dark team colours read dim** on the smallsign's 3 px chips (`UTAH` purple, for one).
+- **NBA only.**
+
+## Next steps
+
+Pair it with other sports in the same rotation — [football.scores](/widgets/football/), [hockey.scores](/widgets/hockey/) and [tennis.scores](/widgets/tennis/) are the other live-sports widgets — or see [sections and modes](/concepts/sections-and-modes/) for controlling how long each game holds.
+
+<RelatedPages
+  slugs={["plugins/available", "concepts/sections-and-modes", "widgets/football", "widgets/hockey"]}
+/>

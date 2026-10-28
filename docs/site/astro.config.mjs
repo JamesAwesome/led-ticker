@@ -262,6 +262,7 @@ export default defineConfig({
                 { label: "tennis.scores", link: "/widgets/tennis/" },
                 { label: "hockey.scores", link: "/widgets/hockey/" },
                 { label: "football.scores", link: "/widgets/football/" },
+                { label: "basketball.scores", link: "/widgets/basketball/" },
               ],
             },
           ],

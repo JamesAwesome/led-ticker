@@ -1,6 +1,6 @@
 ---
 title: Borders
-description: Rainbow chase, color_cycle, constant-color, color bands, or lightbulb marquee border around the panel perimeter.
+description: Rainbow chase, color_cycle, constant-color, color bands, or lightbulb marquee border around the panel perimeter — plus plugin borders like flair.fireworks.
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -403,5 +403,27 @@ border = { style = "lightbulbs", lit_color = "rainbow", hue_wraps = 2 }`}
   code={`border = { style = "lightbulbs", mode = "alternate", lit_color = [200, 30, 30], unlit_color = [20, 120, 40] }
 # Red / green holiday twinkle`}
 />
+
+## Plugin borders
+
+Plugins can register their own border styles; reference them by their namespaced name, exactly like plugin widgets and transitions. A plugin border is not required to draw a perimeter ring at all — the field is really a "paint this behind the widget's content, every tick" hook, and plugins use it for full-panel background effects.
+
+**`flair.fireworks`** (from the [flair pack](/plugins/available/#flair-text-effects-flair-pack), flair >= 0.15.0) plays continuous fireworks behind the text: rockets rise from the bottom edge, pop into radial bursts, coast and fade, with a new launch every few seconds. It is the same effect as the `flair.fireworks` _transition_, looped instead of fired once, and it never paints black, so a `bg_color` or image underneath survives.
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "HAPPY NEW YEAR"
+font_color = [255, 255, 255]
+border = "flair.fireworks"`}
+/>
+
+Knobs (inline-table form): `bursts` (2-8; size-adaptive default), `speed` (playback multiplier, default `1.0`), `colors` (list of `[r, g, b]`), `seed`.
+
+<TomlExample
+  code={`border = { style = "flair.fireworks", bursts = 3, speed = 1.5, colors = [[255, 60, 60], [255, 180, 0]] }`}
+/>
+
+Like the built-in animated styles it is continuous-phase (`restart_on_visit = false`) and `frame_invariant = false`, so it keeps animating on `gif` / `image` widgets. Full knob reference and design notes: the [flair README](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair#fireworks-border).
 
 <RelatedPages slugs={["concepts/color-providers", "reference/frame-counters", "widgets/message"]} />

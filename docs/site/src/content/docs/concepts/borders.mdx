@@ -408,7 +408,7 @@ border = { style = "lightbulbs", lit_color = "rainbow", hue_wraps = 2 }`}
 
 Plugins can register their own border styles; reference them by their namespaced name, exactly like plugin widgets and transitions. A plugin border is not required to draw a perimeter ring at all — the field is really a "paint this behind the widget's content, every tick" hook, and plugins use it for full-panel background effects.
 
-**`flair.fireworks`** (from the [flair pack](/plugins/available/#flair-text-effects-flair-pack), flair >= 0.15.0) plays continuous fireworks behind the text: rockets rise from the bottom edge, pop into radial bursts, coast and fade, with a new launch every few seconds. It is the same effect as the `flair.fireworks` _transition_, looped instead of fired once, and it never paints black, so a `bg_color` or image underneath survives.
+**`flair.fireworks`** (from the [flair pack](/plugins/available/#flair-text-effects-flair-pack), flair >= 0.16.0) plays continuous fireworks behind the text: rockets rise from the bottom edge, pop into radial bursts, coast and fade, with a new launch every few seconds. It is the same effect as the `flair.fireworks` _transition_, looped instead of fired once, and it never paints black, so a `bg_color` or image underneath survives.
 
 <TomlExample
   code={`[[playlist.section.widget]]

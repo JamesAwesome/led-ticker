@@ -24,6 +24,7 @@ Optional:
   top_emoji_y_offset            int                                           default: 0
   bottom_emoji_y_offset         int                                           default: 0
   border                        "rainbow" | "color_cycle" | "lightbulbs" | [r,g,b] | {style="rainbow"|"color_cycle"|"constant"|"lightbulbs"|"bands", ...}  default: none  — animated border painted at panel edges — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see /concepts/borders/
+  background                    "<plugin.style>" | {style="<plugin.style>", ...}  default: none  — full-panel effect painted BEHIND the content (under the image, before the border) — plugin-provided styles only, e.g. flair.fireworks; see /concepts/backgrounds/
   bottom_text_wrap              bool                                          default: False
   bottom_text_separator         str | None                                    default: None
   bottom_text_separator_color   Any | None                                    default: None

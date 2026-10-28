@@ -51,6 +51,7 @@ from led_ticker.sources import (
     get_data_registry,
 )
 from led_ticker.text_render import draw_text
+from led_ticker.widgets._effects import background_is_static, paint_background
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._image_fit import (
     VALID_IMAGE_ALIGNS,
@@ -241,6 +242,9 @@ class _BaseImageWidget(FrameAwareBase):
     # collision. None = no border (no perf cost). Coerced from
     # TOML at config-load via `_coerce_border` in app.py.
     border: Any | None = attrs.field(default=None, kw_only=True)
+    # Optional full-panel background effect — painted BEFORE the border
+    # (and under any image); see backgrounds.py. Same counter contract.
+    background: Any | None = attrs.field(default=None, kw_only=True)
 
     # Framework-internal — not user-facing TOML.
     padding: int = attrs.field(init=False, default=0)
@@ -1342,6 +1346,7 @@ class _BaseImageWidget(FrameAwareBase):
         callers / tests), the static branch falls back to fetching the
         frame itself — same behavior as the loop, just self-contained."""
         reset_canvas(canvas, self.bg_color)
+        paint_background(self, canvas)
 
         # Hires-at-scale-1 fallback (validate rule 64, message parity):
         # a bare (unscaled) canvas can't warp real-pixel hires glyphs, so
@@ -1455,6 +1460,7 @@ class _BaseImageWidget(FrameAwareBase):
         `scroll_pos - cycle_width + i * cycle_width` for
         i in [0, n_copies)."""
         reset_canvas(canvas, self.bg_color)
+        paint_background(self, canvas)
         provider = self.font_color
         canvas_w = text_canvas.width
 
@@ -1510,6 +1516,7 @@ class _BaseImageWidget(FrameAwareBase):
         widgets exist as a separate path.
         """
         reset_canvas(real_canvas, self.bg_color)
+        paint_background(self, real_canvas)
         self._paint_image(real_canvas)
         if self.border is not None:
             self.border.paint(real_canvas, self.frame_for("border"))
@@ -1556,6 +1563,7 @@ class _BaseImageWidget(FrameAwareBase):
             (font, text, color, x, baseline_y, emoji_y)
         """
         reset_canvas(real_canvas, self.bg_color)
+        paint_background(self, real_canvas)
         self._paint_image(real_canvas)
         if self.border is not None:
             self.border.paint(real_canvas, self.frame_for("border"))
@@ -1747,7 +1755,7 @@ class _BaseImageWidget(FrameAwareBase):
         color_is_static = getattr(self.font_color, "frame_invariant", False)
         border_is_static = (
             getattr(self.border, "frame_invariant", True) if self.border else True
-        )
+        ) and background_is_static(self)
 
         if (
             not scrolling
@@ -2063,7 +2071,7 @@ class _BaseImageWidget(FrameAwareBase):
         )
         border_is_static = (
             getattr(self.border, "frame_invariant", True) if self.border else True
-        )
+        ) and background_is_static(self)
 
         if (
             not bottom_scrolls

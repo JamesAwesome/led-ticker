@@ -25,6 +25,7 @@ from led_ticker.sources import (
     get_data_registry,
 )
 from led_ticker.widgets import register
+from led_ticker.widgets._effects import paint_background
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._text_run import draw_text_run
 
@@ -67,6 +68,9 @@ class TickerMessage(FrameAwareBase):
     # the chase and visit-resets honor `restart_on_visit`. See
     # `borders.py` for available effects.
     border: Any | None = attrs.field(default=None, kw_only=True)
+    # Optional full-panel background effect — painted BEFORE the border
+    # (and under any image); see backgrounds.py. Same counter contract.
+    background: Any | None = attrs.field(default=None, kw_only=True)
     _content_width: int = attrs.field(init=False, default=-1)
     _has_emoji: bool = attrs.field(init=False, default=False)
     _baseline_y: int = attrs.field(init=False, default=-1)
@@ -327,6 +331,7 @@ class TickerMessage(FrameAwareBase):
         # and visit resets honor `restart_on_visit`. Painted at
         # physical resolution so a 1-px border on bigsign is 1 LED,
         # not a 4×4 block.
+        paint_background(self, canvas)
         if self.border is not None:
             self.border.paint(canvas, self.frame_for("border"))
 
@@ -503,6 +508,7 @@ class TickerMessage(FrameAwareBase):
         # canvas-equivalent, since the strip renders to an offscreen buffer
         # and only touches the canvas at blit time, which still happens
         # after this paint either way.
+        paint_background(self, canvas)
         if self.border is not None:
             self.border.paint(canvas, self.frame_for("border"))
 

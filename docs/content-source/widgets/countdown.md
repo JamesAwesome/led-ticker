@@ -10,5 +10,6 @@
 | `font_color` | RGB list / string / table | `[255, 255, 0]` | Constant `[r,g,b]`, `"rainbow"`, `"color_cycle"`, `"random"`, or `{style="gradient", from=[...], to=[...]}`. |
 | `bg_color` | RGB list | none | Background fill color. Painted across the full panel before text. |
 | `border` | `"rainbow"` \| `"color_cycle"` \| `"lightbulbs"` \| `[r,g,b]` \| `{style="...", ...}` | none | Perimeter border ring — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see [/concepts/borders/](/concepts/borders/). |
+| `background` | `"<plugin.style>"` \| `{style="<plugin.style>", ...}` | none | Full-panel effect painted behind the content (under the image, before the border) — plugin-provided styles such as `flair.fireworks`; see [/concepts/backgrounds/](/concepts/backgrounds/). |
 | `padding` | int | `6` | Horizontal padding (logical pixels) added when text scrolls. |
 | `timezone` | IANA name \| none | system local | Timezone for computing the day count and the show/hide boundary, e.g. `"America/New_York"`. Uses stdlib `zoneinfo` — no extra dependencies. Defaults to the sign's local date. |

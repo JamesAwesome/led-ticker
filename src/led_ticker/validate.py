@@ -94,6 +94,14 @@ _ERROR_PATTERNS: list[tuple[str, int | None, str]] = [
             " valid on message, countdown, countup, two_row, gif, image"
         ),
     ),
+    (
+        "background is only valid on",
+        72,
+        (
+            "Remove background from this widget type;"
+            " valid on message, countdown, countup, two_row, gif, image, clock"
+        ),
+    ),
     # Rule 71 patterns sit ABOVE rule 5: both messages mention font_size,
     # and rule 5's "add font_size" fix is exactly the trap rule 71 closes.
     (

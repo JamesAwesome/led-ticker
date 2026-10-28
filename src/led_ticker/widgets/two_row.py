@@ -57,6 +57,7 @@ from led_ticker.sources import (
 )
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
+from led_ticker.widgets._effects import paint_background
 from led_ticker.widgets._frame_aware import FrameAwareBase
 from led_ticker.widgets._image_fit import fill_band
 from led_ticker.widgets._row_layout import (
@@ -134,6 +135,9 @@ class TwoRowMessage(FrameAwareBase):
     # `frame_for("border")` for animation; transitions freeze the
     # chase via `pause_frame`.
     border: Any | None = attrs.field(default=None, kw_only=True)
+    # Optional full-panel background effect — painted BEFORE the border
+    # (and under any image); see backgrounds.py. Same counter contract.
+    background: Any | None = attrs.field(default=None, kw_only=True)
 
     # Two-row wrap (v2). Applies to the bottom row only — top stays
     # held. When True, the bottom row chases itself continuously with
@@ -662,6 +666,7 @@ class TwoRowMessage(FrameAwareBase):
         # so at scale=2 (logical canvas 128x32) the border traces
         # the real 256x64 panel edge — frames the SIGN, not the
         # logical canvas.
+        paint_background(self, canvas)
         if self.border is not None:
             self.border.paint(canvas, self.frame_for("border"))
 

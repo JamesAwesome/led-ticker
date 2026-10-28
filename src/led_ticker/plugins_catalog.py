@@ -26,6 +26,7 @@ _SURFACE_KINDS = (
     "emoji",
     "fonts",
     "borders",
+    "backgrounds",
     "color_providers",
     "animations",
     "easing",
@@ -39,6 +40,7 @@ _PRIMARY_ORDER = (
     "color_providers",
     "animations",
     "borders",
+    "backgrounds",
     "emoji",
     "fonts",
     "easing",
@@ -59,6 +61,7 @@ class PluginProvides:
     emoji: tuple[str, ...] = ()
     fonts: tuple[str, ...] = ()
     borders: tuple[str, ...] = ()
+    backgrounds: tuple[str, ...] = ()
     color_providers: tuple[str, ...] = ()
     animations: tuple[str, ...] = ()
     easing: tuple[str, ...] = ()

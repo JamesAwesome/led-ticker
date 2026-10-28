@@ -39,6 +39,7 @@ from led_ticker.animations import Animation, AnimationFrame, LensSpec
 from led_ticker.backends import Backend, BackendNotReadyError, register_backend
 from led_ticker.backends.conformance import run_backend_conformance
 from led_ticker.backends.headless import HeadlessBackend, HeadlessCanvas
+from led_ticker.backgrounds import BackgroundEffect, BackgroundEffectBase
 from led_ticker.borders import BorderEffect, BorderEffectBase
 from led_ticker.color_providers import (
     ColorProvider,
@@ -111,6 +112,8 @@ __all__ = [
     "AnimationFrame",
     "Backend",
     "BackendNotReadyError",
+    "BackgroundEffect",
+    "BackgroundEffectBase",
     "BorderEffect",
     "BorderEffectBase",
     "Canvas",
@@ -264,6 +267,7 @@ class PluginAPI:
             "color_providers": {},
             "animations": {},
             "borders": {},
+            "backgrounds": {},
             "easing": {},
             "emojis": {},
             "hires_emojis": {},
@@ -369,6 +373,17 @@ class PluginAPI:
 
         def deco(cls: _T) -> _T:
             self._buffers["borders"][self._qualify(name)] = cls
+            return cls
+
+        return deco
+
+    def background(self, name: str) -> Callable[[_T], _T]:
+        """Register a BackgroundEffect class under ``namespace.name``
+        (config: ``background = "namespace.name"``). Painted behind the
+        host widget's content, before its ``border``."""
+
+        def deco(cls: _T) -> _T:
+            self._buffers["backgrounds"][self._qualify(name)] = cls
             return cls
 
         return deco

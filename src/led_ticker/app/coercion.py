@@ -10,6 +10,7 @@ from typing import Any
 
 from led_ticker._plugin_hint import plugin_hint
 from led_ticker.animations import Animation
+from led_ticker.backgrounds import BackgroundEffect
 from led_ticker.borders import BorderEffect
 from led_ticker.color_providers import ColorProvider
 from led_ticker.widgets._image_base import (
@@ -349,6 +350,65 @@ def _coerce_color(value: Any) -> ColorProvider | None:
     new uses. Kept so any out-of-tree caller doesn't immediately break.
     """
     return _coerce_color_provider(value)
+
+
+def _coerce_background(value: Any) -> BackgroundEffect | None:
+    """Convert a TOML ``background`` spec to a `BackgroundEffect` instance.
+
+    Core ships no built-in styles, so every name resolves through the
+    plugin-populated `_BACKGROUND_REGISTRY` (``"namespace.name"``):
+
+    - ``"flair.fireworks"`` (string) → that class with defaults
+    - ``{style = "flair.fireworks", bursts = 3}`` → that class with kwargs
+      (validated against the constructor; unknown / missing keys raise)
+    - already a BackgroundEffect (has ``paint`` + ``frame_invariant``) →
+      passes through
+    - None → None
+
+    Raises ValueError (a clean config error) otherwise, with the
+    install-the-plugin hint when the name looks namespaced.
+    """
+    from led_ticker.backgrounds import _BACKGROUND_REGISTRY
+
+    if value is None:
+        return None
+    if hasattr(value, "paint") and hasattr(value, "frame_invariant"):
+        return value
+    if isinstance(value, str):
+        cls = _BACKGROUND_REGISTRY.get(value)
+        if cls is None:
+            raise ValueError(
+                _with_plugin_hint(
+                    f"unknown background style {value!r}; core has no built-in "
+                    f"backgrounds — available (from plugins): "
+                    f"{sorted(_BACKGROUND_REGISTRY)}",
+                    value,
+                    "background",
+                )
+            )
+        return _build_plugin_style(cls, {}, f"background style {value!r}")
+    if isinstance(value, dict):
+        if "style" not in value:
+            raise ValueError(
+                f"background table requires 'style' key; got {list(value.keys())!r}"
+            )
+        style = value["style"]
+        kwargs = {k: v for k, v in value.items() if k != "style"}
+        cls = _BACKGROUND_REGISTRY.get(style)
+        if cls is None:
+            raise ValueError(
+                _with_plugin_hint(
+                    f"unknown background style {style!r}; "
+                    f"available (from plugins): {sorted(_BACKGROUND_REGISTRY)}",
+                    style,
+                    "background",
+                )
+            )
+        return _build_plugin_style(cls, kwargs, f"background style {style!r}")
+    raise ValueError(
+        f"background must be a style name string or an inline table "
+        f"{{style = ..., ...}}; got {value!r}"
+    )
 
 
 def _coerce_border(value: Any) -> BorderEffect | None:

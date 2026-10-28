@@ -214,13 +214,19 @@ class HiresFont:
         g = self.glyphs.get(ch)
         if g is None and self.pil_font is not None and ch:
             g = _rasterize_glyph(
-                self.pil_font, ch, self.ascent, self.descent, self.threshold
+                self.pil_font,
+                ch,
+                self.ascent,
+                self.descent,
+                self.threshold,
             )
             # A blank separator skips the notdef test: a notdef-less font
             # (empty .notdef) would otherwise classify it as missing and fall
             # through to DejaVu / '?'. It is cached as the real glyph (never
             # `_MISSING`), so cached hits above skip the separator check.
-            if not _is_blank_separator(ch) and _is_notdef(g, self.notdef_lit):
+            if g is _MISSING or (
+                not _is_blank_separator(ch) and _is_notdef(g, self.notdef_lit)
+            ):
                 g = None
             self.glyphs[ch] = g if g is not None else _MISSING
         elif g is _MISSING:
@@ -313,12 +319,16 @@ def _space_advance(pil_font: Any) -> int:
     """Advance of U+0020, or 0 if Pillow can't measure even that."""
     try:
         return int(pil_font.getlength(" "))
-    except RuntimeError:
+    except RuntimeError, OSError:
         return 0
 
 
 def _rasterize_glyph(
-    pil_font: Any, ch: str, ascent: int, descent: int, threshold: int = THRESHOLD
+    pil_font: Any,
+    ch: str,
+    ascent: int,
+    descent: int,
+    threshold: int = THRESHOLD,
 ) -> HiresGlyph:
     """Render a single character to a binarized HiresGlyph.
 
@@ -344,6 +354,14 @@ def _rasterize_glyph(
     path, e.g. a cp1252-mojibake U+0085 in RSS text). They render as a
     blank space, so a newline keeps its word break. Any other
     ``RuntimeError`` from Pillow degrades to the same blank glyph.
+
+    An ``OSError`` (``Bitmap missing for glyph``) means the font has no
+    raster for ``ch`` at all, unlike the raqm ``RuntimeError`` which is a
+    layout refusal of a renderable char. Raised while measuring or drawing,
+    it returns the ``_MISSING`` sentinel. Callers test it by IDENTITY (``is``,
+    never ``==``: a blank glyph equals it by value): the eager prune drops it,
+    ``resolve_glyph`` caches it as a miss, and the ladder falls through to
+    DejaVu, even for a notdef-less font where no fingerprint could match.
     """
     if _is_blank_separator(ch):
         return _blank_glyph(_space_advance(pil_font))
@@ -353,6 +371,9 @@ def _rasterize_glyph(
     except RuntimeError:
         logging.getLogger(__name__).debug("pillow rejected %r; blank glyph", ch)
         return _blank_glyph(_space_advance(pil_font))
+    except OSError:
+        logging.getLogger(__name__).debug("pillow has no raster for %r", ch)
+        return _MISSING
     if bbox is None or bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
         # Whitespace or zero-width char — emit empty glyph with advance.
         return _blank_glyph(advance)
@@ -373,6 +394,9 @@ def _rasterize_glyph(
     except RuntimeError:
         logging.getLogger(__name__).debug("pillow rejected %r; blank glyph", ch)
         return _blank_glyph(advance)
+    except OSError:
+        logging.getLogger(__name__).debug("pillow has no raster for %r", ch)
+        return _MISSING
 
     pixels = img.tobytes()
     lit: list[tuple[int, int]] = []
@@ -433,8 +457,12 @@ def _rasterize(
         # Prune eager notdef glyphs: GEOMETRIC_SHAPES (▲▼●○◆◇) rasterize to
         # a box in fonts that lack them — pre-ladder this WAS the tofu. Skip
         # ASCII space/control chars (string.printable) — their empty raster
-        # is a legitimate glyph, not a miss.
-        if _is_notdef(g, notdef_lit) and ch not in string.printable:
+        # is a legitimate glyph, not a miss. A printable char whose raster is
+        # the non-empty notdef box (e.g. an OSError "no raster" glyph) IS a
+        # miss: it is dropped so the ladder falls through to DejaVu.
+        if g is _MISSING or (
+            _is_notdef(g, notdef_lit) and (ch not in string.printable or g.lit)
+        ):
             continue
         glyphs[ch] = g
     return HiresFont(
@@ -504,7 +532,7 @@ def _dejavu_glyph(
     d_ascent, d_descent = pil.getmetrics()
     notdef = _rasterize_glyph(pil, _NOTDEF_PROBE, d_ascent, d_descent, threshold)
     g = _rasterize_glyph(pil, ch, d_ascent, d_descent, threshold)
-    if _is_notdef(g, notdef.lit):
+    if g is _MISSING or _is_notdef(g, notdef.lit):
         return None
     return g
 

@@ -680,6 +680,109 @@ class TestControlCharacters:
         assert z.lit == ()
         assert z.advance == font.glyphs[" "].advance
 
+    @staticmethod
+    def _patch_draw_oserror(monkeypatch, bad):
+        """`draw.text` raises Pillow's per-glyph OSError for chars in `bad`
+        (None = every char), for the Inter test font only: DejaVu, the
+        ladder's fallback rung, keeps rendering normally."""
+        from PIL import ImageDraw
+
+        real_text = ImageDraw.ImageDraw.text
+
+        def _text(self_, xy, text, *a, **k):
+            is_inter = "Inter" in str(getattr(k.get("font"), "path", ""))
+            if is_inter and (bad is None or text in bad):
+                raise OSError("Bitmap missing for glyph")
+            return real_text(self_, xy, text, *a, **k)
+
+        monkeypatch.setattr(ImageDraw.ImageDraw, "text", _text)
+
+    def test_draw_text_oserror_resolves_as_missing_glyph(self, monkeypatch):
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_draw_oserror(monkeypatch, ("Z",))
+        font = load_hires_font("Inter-Bold", 22)
+        assert font is not None
+        assert "Z" not in font.glyphs  # pruned as notdef
+        assert font.glyphs["A"].lit
+        assert font.resolve_glyph("Z").lit  # DejaVu's Z, not a blank
+
+    def test_oserror_glyph_is_the_missing_sentinel(self):
+        from led_ticker.fonts.hires_loader import _MISSING, _rasterize_glyph
+
+        class _NoRaster:
+            def getlength(self, ch):
+                return 6.0
+
+            def getbbox(self, ch):
+                return (0, 2, 5, 12)
+
+            def getmask2(self, *a, **k):
+                raise OSError("Bitmap missing for glyph")
+
+            getmask = getmask2
+
+        assert _rasterize_glyph(_NoRaster(), "Q", 20, 5) is _MISSING
+
+    def test_oserror_while_measuring_is_the_missing_sentinel(self):
+        from led_ticker.fonts.hires_loader import _MISSING, _rasterize_glyph
+
+        class _MeasureBoom:
+            def getlength(self, ch):
+                raise OSError("Bitmap missing for glyph")
+
+            getbbox = getlength
+
+        assert _rasterize_glyph(_MeasureBoom(), "Q", 20, 5) is _MISSING
+
+    def test_oserror_probe_and_glyph_still_reach_dejavu(self, monkeypatch):
+        """Notdef-less case: the probe AND "Z" raise, so notdef_lit is empty.
+        "Z" must still fall through to DejaVu, not stay a blank."""
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_draw_oserror(monkeypatch, ("Z", "\ue000"))
+        font = load_hires_font("Inter-Bold", 25)
+        assert font.notdef_lit == ()
+        assert font.glyphs["A"].lit
+        z = font.resolve_glyph("Z")
+        assert z is not None and z.lit
+
+    def test_space_advance_oserror_falls_back_to_zero(self):
+        from led_ticker.fonts.hires_loader import _space_advance
+
+        class _Boom:
+            def getlength(self, ch):
+                raise OSError("Bitmap missing for glyph")
+
+        assert _space_advance(_Boom()) == 0
+
+    def test_font_loads_when_every_glyph_raises_oserror(self, monkeypatch):
+        """Every draw fails (#482's reproducer), including the notdef probe.
+        The font loads with an empty fingerprint, drawn chars all resolve
+        through DejaVu, and only never-drawn blanks remain in `glyphs`."""
+        import string
+
+        from led_ticker.fonts.hires_loader import load_hires_font
+
+        self._patch_draw_oserror(monkeypatch, None)
+        font = load_hires_font("Inter-Bold", 23)
+        assert font is not None
+        assert font.notdef_lit == ()
+        assert all(g.lit == () for g in font.glyphs.values())
+        assert set(font.glyphs) <= set(string.whitespace)
+        assert font.resolve_glyph("A").lit
+        assert font.resolve_glyph("\u00e9") is not None
+
+    def test_oserror_glyph_falls_through_ladder_to_dejavu(self, monkeypatch):
+        from led_ticker.fonts.hires_loader import _dejavu_glyph, load_hires_font
+
+        self._patch_draw_oserror(monkeypatch, ("Z",))
+        font = load_hires_font("Inter-Bold", 24)
+        z = font.resolve_glyph("Z")
+        assert z is not None and z.lit
+        expected = _dejavu_glyph("Z", 24, font.ascent, font.descent, font.threshold)
+        assert z == expected
+
 
 class TestResolveGlyphNonSingleChar:
     """`_is_blank_separator` calls `unicodedata.bidirectional`, which raises

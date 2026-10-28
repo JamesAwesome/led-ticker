@@ -57,6 +57,7 @@ Two rules govern every registration:
 | `api.color_provider(style)` | decorator | A [color provider](/concepts/color-providers/) class                                                   |
 | `api.animation(style)`      | decorator | An [animation](/concepts/animations/) class                                                            |
 | `api.border(name)`          | decorator | A [border effect](/concepts/borders/) class                                                            |
+| `api.background(name)`      | decorator | A [background effect](/concepts/backgrounds/) class — painted behind the host widget's content         |
 | `api.source(name)`          | decorator | A `DataSource` subclass under `namespace.name` — powers inline `:namespace.name:` value tokens         |
 | `api.easing(name, fn)`      | call      | An easing function `(float) -> float`                                                                  |
 
@@ -133,23 +134,25 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 ### Base classes & protocols
 
-| Name                | What it is                                                                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Widget`            | The widget protocol (a `draw()` or play-style widget)                                                                                             |
-| `Container`         | Monitor/container widget base (cycles a live `feed_stories` list)                                                                                 |
-| `Updatable`         | Protocol for widgets with `async def update(self)`                                                                                                |
-| `Transition`        | The [transition](/transitions/) protocol (`frame_at`)                                                                                             |
-| `ColorProvider`     | The [color-provider](/concepts/color-providers/) protocol (`color_for`)                                                                           |
-| `ColorProviderBase` | Base that enforces the `frame_invariant` class attr                                                                                               |
-| `Animation`         | The [animation](/concepts/animations/) protocol (`frame_for`)                                                                                     |
-| `BorderEffect`      | The [border](/concepts/borders/) protocol (`paint`)                                                                                               |
-| `BorderEffectBase`  | Base that enforces the `frame_invariant` class attr                                                                                               |
-| `DataSource`        | Base class for an inline value source — subclass, implement `compute() -> str`, register with `api.source(name)`                                  |
-| `PolledDataSource`  | Base class for async (network-backed) sources — subclass, implement `async def update()`, call `self._set_value(...)` inside it                   |
-| `SegmentMessage`    | Re-exported single-line message widget (compose stories from it)                                                                                  |
-| `TwoRowMessage`     | Re-exported two-row widget                                                                                                                        |
-| `TickerMessage`     | Re-exported single-region scrolling message widget (compose/subclass for rich stories)                                                            |
-| `FrameAwareBase`    | Base for an animated widget — inherit (with `@attrs.define`) and read effect counters via `self.frame_for(name)`; the engine drives the counters. |
+| Name                   | What it is                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Widget`               | The widget protocol (a `draw()` or play-style widget)                                                                                             |
+| `Container`            | Monitor/container widget base (cycles a live `feed_stories` list)                                                                                 |
+| `Updatable`            | Protocol for widgets with `async def update(self)`                                                                                                |
+| `Transition`           | The [transition](/transitions/) protocol (`frame_at`)                                                                                             |
+| `ColorProvider`        | The [color-provider](/concepts/color-providers/) protocol (`color_for`)                                                                           |
+| `ColorProviderBase`    | Base that enforces the `frame_invariant` class attr                                                                                               |
+| `Animation`            | The [animation](/concepts/animations/) protocol (`frame_for`)                                                                                     |
+| `BorderEffect`         | The [border](/concepts/borders/) protocol (`paint`)                                                                                               |
+| `BorderEffectBase`     | Base that enforces the `frame_invariant` class attr                                                                                               |
+| `BackgroundEffect`     | The [background](/concepts/backgrounds/) protocol (`paint`) — same shape as `BorderEffect`, painted behind the content                            |
+| `BackgroundEffectBase` | Base that enforces the `frame_invariant` class attr                                                                                               |
+| `DataSource`           | Base class for an inline value source — subclass, implement `compute() -> str`, register with `api.source(name)`                                  |
+| `PolledDataSource`     | Base class for async (network-backed) sources — subclass, implement `async def update()`, call `self._set_value(...)` inside it                   |
+| `SegmentMessage`       | Re-exported single-line message widget (compose stories from it)                                                                                  |
+| `TwoRowMessage`        | Re-exported two-row widget                                                                                                                        |
+| `TickerMessage`        | Re-exported single-region scrolling message widget (compose/subclass for rich stories)                                                            |
+| `FrameAwareBase`       | Base for an animated widget — inherit (with `@attrs.define`) and read effect counters via `self.frame_for(name)`; the engine drives the counters. |
 
 ### Data & types
 
@@ -288,7 +291,7 @@ A few behaviors are **conventions** the type carries, not `api.*` calls:
 - **`validate_config_warnings`** — a widget may define `@classmethod validate_config_warnings(cls, cfg: dict[str, Any], ctx: ValidationContext) -> list[str]`. Like `validate_config`, it runs at config-validation time with raw pre-coercion config; but the returned strings surface as **warnings** via `led-ticker validate` — they are never errors and never block the display from loading. The hook receives display geometry via `ValidationContext` (`scale`, `content_height`, `panel_width`, `panel_height`, `config_dir`), making it suitable for checks like "this font size may clip on a 16-tall canvas at scale=4". A hook that raises is isolated (logged at WARNING level, then ignored). Available from core API `(1, 1)`. If your plugin must also run on older cores, guard registration with `if API_VERSION >= (1, 1):`.
 - **`font_color` injection** — to accept the standard `font_color` color-provider knob, declare a `font_color: object = None` field on the widget; the loader coerces the TOML value to a `ColorProvider` and injects it. Without the field, `font_color` is rejected as unknown.
 - **`frame_invariant`** — `ColorProviderBase` / `BorderEffectBase` require subclasses to set a `frame_invariant: bool` class attr. `True` means output never varies by frame (enables a static fast path); `False` forces a per-tick redraw.
-- **`restart_on_visit`** — a color provider or border may set `restart_on_visit = False` to keep a continuous animation phase across a section's `loop_count`, instead of resetting on each visit.
+- **`restart_on_visit`** — a color provider, border, or background may set `restart_on_visit = False` to keep a continuous animation phase across a section's `loop_count`, instead of resetting on each visit.
 - **`should_display`** — a widget may define `def should_display(self) -> bool`. The engine calls it once per section pass; returning `False` removes the widget from that pass (it is re-evaluated on the next pass). Absent → always shown. A `should_display` that raises keeps the widget — a visibility check must never crash the render loop. Use it to gate a widget on a runtime condition: the built-in `countdown` / `countup` widgets hide while their day count is negative; a custom widget could show only during certain hours.
 - **`RESOLVES_OWN_FONT`** — a widget class may set `RESOLVES_OWN_FONT = True` to receive its configured `font` as the raw TOML name string instead of a resolved `Font`/`HiresFont` object. Normally the config loader eagerly resolves `font` (and raises if a hi-res name is given without `font_size`); with the marker set, that resolution and the `font_size` requirement are both skipped, so a widget that auto-sizes its own font per use (e.g. sizing pixel-art glyphs to fit a dynamic layout) can call `resolve_font` itself. Default `False` (unset behaves the same as `False`) — every other widget's font handling is unaffected.
 - **`_LIST_FIELD_HINTS`** — a widget class may set `_LIST_FIELD_HINTS: dict[str, tuple[str, str, str]]` to supply the human-readable `--list-fields` hint for its own fields. Each value is `(display_type, description, default_display)` — the enum/type string, the prose, and the shown default. These are resolved **ahead of** core's built-in hint table, so they're the correct home for a field whose meaning is plugin-specific. In particular a `layout` field: every layout-bearing plugin has its own enum, so core carries **no** name-keyed hint for it (a shared hint would be wrong for all plugins but one) — declare your own here. A field with no per-widget hint falls back to its plain annotation and default. Example:
@@ -313,6 +316,6 @@ A few behaviors are **conventions** the type carries, not `api.*` calls:
 
 - **Build one step by step:** the [plugin authoring guide](/plugins/authoring/01-scaffold/) walks from scaffold to a packaged widget.
 - **Loader internals & edge cases:** [`docs/plugin-system.md`](https://github.com/JamesAwesome/led-ticker/blob/main/docs/plugin-system.md) covers discovery, the `[plugins]` config block, deployment, and known surface gaps.
-- **The surfaces you'll extend:** [widgets](/widgets/), [transitions](/transitions/), [color providers](/concepts/color-providers/), [animations](/concepts/animations/), [borders](/concepts/borders/).
+- **The surfaces you'll extend:** [widgets](/widgets/), [transitions](/transitions/), [color providers](/concepts/color-providers/), [animations](/concepts/animations/), [borders](/concepts/borders/), [backgrounds](/concepts/backgrounds/).
 
 <RelatedPages slugs={["plugins/authoring/01-scaffold", "plugins", "concepts/color-providers"]} />

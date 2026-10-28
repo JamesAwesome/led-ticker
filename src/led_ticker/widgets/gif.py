@@ -98,6 +98,7 @@ import attrs
 from led_ticker._types import Canvas, DrawResult
 from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.widgets import register
+from led_ticker.widgets._effects import paint_background
 from led_ticker.widgets._gif_decode import decode_gif
 from led_ticker.widgets._image_base import MIN_SCROLL_SPEED_MS, _BaseImageWidget
 from led_ticker.widgets._image_fit import reset_canvas
@@ -332,6 +333,7 @@ class GifPlayer(_BaseImageWidget):
             self._pick_frame_for_elapsed(tick * ENGINE_TICK_MS)
             self.advance_frame()
             reset_canvas(canvas, self.bg_color)
+            paint_background(self, canvas)
             self._paint_image(canvas)
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))

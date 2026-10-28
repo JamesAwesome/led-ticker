@@ -85,6 +85,7 @@ from PIL import Image
 from led_ticker._types import Canvas, DrawResult
 from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.widgets import register
+from led_ticker.widgets._effects import background_is_static, paint_background
 from led_ticker.widgets._image_base import HOLD_TIME_FLOOR, _BaseImageWidget
 from led_ticker.widgets._image_fit import (
     VALID_FITS,
@@ -285,11 +286,12 @@ class StillImage(_BaseImageWidget):
         canvas = real_canvas
         border_is_static = (
             getattr(self.border, "frame_invariant", True) if self.border else True
-        )
+        ) and background_is_static(self)
 
         if border_is_static:
             # Fast path: paint once, sleep, return.
             reset_canvas(canvas, self.bg_color)
+            paint_background(self, canvas)
             self._paint_image(canvas)
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
@@ -297,17 +299,18 @@ class StillImage(_BaseImageWidget):
             await asyncio.sleep(self.hold_time)
             return canvas
 
-        # Slow path: per-tick loop for animated border. `border_is_static`
-        # being False guarantees `self.border` is non-None (per the
-        # predicate above) — assert to narrow the type for pyright.
-        assert self.border is not None
+        # Slow path: per-tick loop for an animated border and/or background
+        # (`border_is_static` folds in `background_is_static`, so either one
+        # animating lands here).
         n_ticks = max(1, int(self.hold_time * 1000) // ENGINE_TICK_MS)
         tick_seconds = ENGINE_TICK_MS / 1000
         for _ in range(n_ticks):
             self.advance_frame()
             reset_canvas(canvas, self.bg_color)
+            paint_background(self, canvas)
             self._paint_image(canvas)
-            self.border.paint(canvas, self.frame_for("border"))
+            if self.border is not None:
+                self.border.paint(canvas, self.frame_for("border"))
             canvas = frame.swap(canvas)
             await asyncio.sleep(tick_seconds)
         return canvas

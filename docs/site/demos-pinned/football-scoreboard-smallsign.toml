@@ -1,0 +1,19 @@
+# render-duration: 40
+# DEMO-mode football.scores on a smallsign (160x16, scale 1). `auto` resolves to
+# the held two-band board here too (away on top, home below), rendered in the
+# 5x8 bitmap font: chip, abbreviation, score, possession dot, timeout pips and
+# the down & distance on the band of the team with the ball.
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "football.scores"
+teams = ["PHI", "NYG"]
+demo = true

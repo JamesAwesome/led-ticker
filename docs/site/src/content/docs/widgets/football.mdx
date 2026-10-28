@@ -1,0 +1,189 @@
+---
+title: Live NFL football scores
+description: Live NFL scores on an LED sign — score, quarter, clock, possession, down and distance, timeouts, finals, the next game and bye weeks, with a touchdown celebration. No API key.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import DemoGif from "../../../components/DemoGif.astro";
+import OptionsTable from "../../../components/OptionsTable.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+A football game is three hours of stop-and-start, and the one minute you look away is when the score changes. The **football.scores** widget, provided by the **[football](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/football)** package (`type = "football.scores"`), holds a scoreboard per game on your wall: the score, the quarter and clock, who has the ball, the down and distance with the ball spot, timeouts remaining, the red zone lit in red, finals, and the next scheduled game — labelled `BYE WEEK` when your team is off. When a team you follow scores, its card plays a touchdown, field-goal or safety celebration the next time it comes up in the rotation.
+
+This page is for sign owners configuring the widget in TOML. No API key and no account are needed. If you don't follow football, [reading the board](#reading-the-board-if-you-dont-follow-football) explains what every label means.
+
+<DemoGif
+  src="/demos-pinned/football-scoreboard-longboi.gif"
+  caption="full scoreboard on a long panel: three green TOUCHDOWN flashes and the JALEN HURTS 12 YD RUSH detail with +PAT, then PHI 20 – NYG 17 in Q4 with 2:13 left, the possession arrow on NYG and 2ND & 7 · PHI 24, a 10 – 10 HALF, an OT final with the winner's 27 in green, Sunday's next game at Lincoln Financial Field, and the BYE WEEK card pointing at the game after."
+/>
+
+**Requires led-ticker-core >= 4.30.**
+
+<Aside type="caution" title="An unofficial data feed">
+  Scores come from ESPN's public site API (`site.api.espn.com`, with `site.web.api.espn.com` as a
+  fallback host). It is free and needs no key, but it is **unofficial and undocumented** — ESPN can
+  change its shape or block clients at any time. The plugin parses it defensively: a bad or missing
+  payload keeps the last good scores on the panel with a `STALE` label rather than crashing the
+  sign. The plugin is not affiliated with or endorsed by ESPN or the NFL.
+</Aside>
+
+## What you'll need
+
+- A working [led-ticker](https://github.com/JamesAwesome/led-ticker) install, core **4.30 or newer**.
+- The plugin: add `led-ticker-football` to your sign's `config/requirements-plugins.txt` and restart. See [using plugins](/plugins/) for the full install path.
+- Internet access on the Pi. Nothing else — no key, no sign-up.
+
+Run the config commands wherever your sign's `config/` directory lives — on the Pi itself for a deployed sign.
+
+## The smallest config that works
+
+```toml
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "football.scores"
+teams = ["PHI", "NYG"]
+demo = true
+```
+
+That is the whole widget block from `docs/site/demos-pinned/football-scoreboard-longboi.toml`, the file that rendered the GIF above. Delete `demo = true` and the same block follows the Eagles and the Giants live.
+
+`teams` takes ESPN team codes, case-insensitive, and is required in the default mode. Most are the obvious three letters; the ones that trip people up are `WSH` (Washington), `LAR` and `LAC` (the two Los Angeles teams), `JAX` and `LV`. `mode = "slideshow"` is the right section mode: one game per visit, held, then a transition to the next. If you want kickoff times in your own timezone, add `timezone = "America/Chicago"` (any IANA name; the default is `America/New_York`).
+
+## Reading the board (if you don't follow football)
+
+- **Quarter and clock** — four 15-minute quarters (`Q1`–`Q4`), `HALF` at halftime, `END Q3` between quarters, `OT` for overtime. The clock stops after most plays, so it moves in fits and starts.
+- **Possession** — the team with the ball has a marker beside its score: a small triangle on the big panels, a dot on the smallsign.
+- **Down and distance** — `3RD & 4` means the offense is on its third of four tries and still needs 4 yards. `1ST & GOAL` means it is within 10 yards of scoring. The **spot** (`PHI 38`) is where the ball is: on PHI's half of the field, 38 yards from PHI's goal line.
+- **Red zone** — inside the opponent's 20-yard line, where a score is likely. The down-and-distance line and the possession marker turn red.
+- **Timeouts** — three pips per team: lit while a timeout is left, dim once used.
+- **Scores** — a touchdown is 6 points, then `+PAT` for the kick (1) or `+2PT` for a two-point conversion. A field goal is 3, a safety 2.
+
+## Options
+
+<OptionsTable source="widgets/football" />
+
+## Three ways to pick games
+
+Football's unit is the **week**: every team plays once between Thursday and Monday, and the feed returns the whole week at once. `mode` decides which of those games get a card. Each game is one card in the rotation, and two tracked teams playing each other share one card.
+
+- **`teams` (default)** — only games involving your `teams`, in config order. For each team: its live game; else a final still inside `final_hold_hours`; else its game later this week; else its next scheduled game from the team's schedule — which is also how a bye week shows: the next game, labelled `BYE WEEK`.
+- **`league`** — every NFL game this week: your teams first, then other live games, then finals inside the hold, then upcoming games by kickoff (games with a `TBD` kickoff sort last). Capped at `max_games`.
+- **`live`** — only games in progress, your teams first, capped at `max_games`. With nothing on, the widget has no cards and drops out of the rotation until a game starts.
+
+In `league` and `live` modes, `teams` is optional: it sets who comes first and which scores celebrate.
+
+Because a team plays once a week, `final_hold_hours` defaults to 24: Sunday's result stays on the board through Monday, then the next game takes over. Lower it to move on sooner.
+
+## Layouts, one held board per sign shape
+
+`layout = "auto"` (the default) picks a held scoreboard on all three sign shapes. A held board reads better than a crawl, even on a 16-row strip.
+
+### Longboi (512×64)
+
+A full scoreboard, shown at the top of this page. The away team fills the left third (chip, large abbreviation, timeout pips beneath, huge score), the home team mirrors it on the right, and the centre holds the quarter, a large clock and the down-and-distance line with the ball spot. The possession triangle sits between the possessing team's score and the centre. Next-game cards add the records and the team nicknames.
+
+### Bigsign (256×64)
+
+Two team rows with a dotted divider — chip, abbreviation, large score, the possession triangle and the timeout pips. The right column shows the quarter in amber, the clock in white and `2ND & 7 · PHI 24` in cyan (the spot is dropped first when the column is narrow).
+
+<DemoGif
+  src="/demos-pinned/football-scoreboard-bigsign.gif"
+  caption="the same five games on a 256x64 panel: TOUCHDOWN with PHI 20 NYG 17, JALEN HURTS 12 YD RUSH and +PAT, then two team rows with the possession triangle and timeout pips, Q4 and 2:13 in the right column over 2ND & 7 · PHI 24, a HALF card, FINAL OT, NYG 4-3 @ PHI 5-2 under NEXT GAME, and PHI @ NYG under BYE WEEK."
+/>
+
+### Smallsign (160×16)
+
+Two 8-row bands in the 5×8 bitmap font, away on top. Each band has a team chip, the abbreviation, the score, a possession dot and three timeout pips; the down and distance (`2ND & 7`) sits on the band of the team with the ball. The quarter is right-aligned in the top band and the clock in the bottom band. The ball spot is left off at this size.
+
+<DemoGif
+  src="/demos-pinned/football-scoreboard-smallsign.gif"
+  caption="smallsign: a green TOUCHDOWN flash, then TD +PAT and JALEN HURTS 12 YD RUSH beside PHI 20 NYG 17, followed by two bands per game — PHI 20 over NYG 17 with the possession dot, timeout pips, 2ND & 7, Q4 and 2:13 — then HALF, FINAL OT, NYG @ PHI on SUN NOV 1 at 1:00 PM, and PHI @ NYG BYE."
+/>
+
+### On every board
+
+- **Halftime and quarter breaks:** `HALF`, `END Q3` or `DELAY` in the quarter slot, with no clock and no down and distance.
+- **Red zone:** the down-and-distance line and the possession marker turn red.
+- **Final:** `FINAL`, marked `OT` when it went to overtime, the winner's score green and the loser's dimmed.
+- **Next game:** the day (`TONIGHT`, `SUN NOV 1`), the kickoff time (`TBD` until the league sets it) and the venue. On longboi both chips flank the board with the records and nicknames beneath; on bigsign the away chip leads `NYG 4-3 @ PHI 5-2` (the records drop first when the line is too wide) under a small `NEXT GAME`; on smallsign `NYG @ PHI` is in team colors, no chips, over the venue, with the date and time on the right. A neutral-site game reads `VS` instead of `@`.
+- **Bye week:** the next-game card for the game after the bye, labelled `BYE WEEK` on bigsign and longboi, with `BYE` after the matchup on the smallsign.
+
+The clock shows exactly what the last poll reported — it does not tick between polls, because a football clock stops after most plays and the feed carries no "running" flag. Team abbreviations shrink to fit (both rows always share one size). The text palette is fixed; `bg_color` is the one color you can set on the boards.
+
+### The scrolling ticker
+
+Set `layout = "ticker"` for one scrolling line per game, in the same wording as the boards: `PHI 20 · NYG 17 · Q4 2:13 · NYG BALL 2ND & 7 · PHI 24 · TOL 1-2`. Use `mode = "ticker"` on the section, since this layout scrolls rather than holds. Scoring celebrations are built for `mode = "slideshow"` sections — see [Scoring celebration](#scoring-celebration) for what happens in a scrolling one.
+
+## Reading the colors
+
+| Color       | Means                                                                         |
+| ----------- | ----------------------------------------------------------------------------- |
+| Team colors | The chip beside each abbreviation, and the abbreviation itself                |
+| White       | Scores, the game clock and kickoff times                                      |
+| Amber       | The quarter, `HALF` / `OT`, next-game dates, and `+PAT` / `+2PT`              |
+| Cyan        | The down and distance, the ball spot, and the possession marker               |
+| Red         | The down and distance and the possession marker inside the red zone           |
+| Green       | The winner's score on a final                                                 |
+| Dim gray    | The loser's score on a final, and unused timeout pips                         |
+| Dark gray   | `STALE`, the venue, team records, and labels such as `NEXT GAME` / `BYE WEEK` |
+
+## Scoring celebration
+
+When a team in your `teams` list scores, that game's card plays a 4-second celebration **the next time its turn comes around**. In a slideshow it never interrupts whatever else is on the panel. You get three quick flashes in the scoring team's color with `TOUCHDOWN`, `FIELD GOAL` or `SAFETY` knocked out, then the new score with the scoring team's number pulsing, the play (`JALEN HURTS 12 YD RUSH`), `+PAT` or `+2PT` once the try is in, and the quarter and clock. Then the normal board for the rest of the hold.
+
+- **The hold stretches to fit.** While a celebration is pending the card asks for 4 seconds per queued score plus the larger of the widget's `hold_time` and 4 seconds for the board afterwards; the engine still uses the section's `hold_time` if that is longer. With `hold_time = 6` on the section, a card with one touchdown to celebrate holds for 10 seconds. You don't need to raise `hold_time` for it.
+- **The extra point folds in.** A touchdown's kick or two-point conversion never celebrates on its own: it updates the queued celebration's score and its `+PAT` / `+2PT` label. Polls are 10–15 seconds apart, so the touchdown and the kick usually arrive together and the card shows `+PAT` from the start.
+- **Several scores queue.** Scores between turns celebrate in order, up to 3 per turn; older ones are dropped. Two scores inside one poll (a touchdown and a field goal, say) celebrate once.
+- **Only your teams flash.** In every mode, a score by a team you don't track highlights the score briefly and fades back to white — following only `PHI`, a Giants field goal gets the highlight, not the celebration. The highlight shows on the boards, not on `layout = "ticker"`. With an empty `teams` list nothing celebrates.
+- **Each score celebrates once.** A celebration counts as done only once it actually reached the panel, and later rotations don't replay it.
+- **Corrections don't re-celebrate.** When ESPN revises a score downward, the board quietly corrects and any queued celebration for that score is dropped.
+- **Boot is silent.** Points already on the board when the widget first sees a game — after a boot, restart or [hot reload](/concepts/hot-reload/), or a game found mid-drive — don't celebrate.
+
+Scores are detected from the change in each team's total between polls; the feed carries no play list. The play text comes from the feed's last play when that is the scoring play, so a celebration can occasionally show the score with no play text.
+
+In a `mode = "ticker"` or `one_at_a_time` section the celebration takes over the whole panel for its 4 seconds on the next frame the card is drawn, and the card resumes where its takeover began. Anything to its left keeps scrolling underneath, so up to about 80 px of a neighbour can pass unseen behind it. A score that lands while the last card of a ticker section sits in its end-of-scroll hold is cut to the remainder of that hold and resumes on the next pass.
+
+## How often does it poll ESPN?
+
+Every `football.scores` widget in one process shares a single fetcher, so several widgets don't multiply requests.
+
+- **Every 15 seconds** while any game you're showing is live. Lower `update_interval` to poll faster (floored at 10, since ESPN caches for 10 seconds); a higher value makes that widget refresh less often.
+- **Every minute** in the half hour around a kickoff you're showing.
+- **Every 5 minutes** when a game you're showing is scheduled later today.
+- **About hourly** otherwise — the rest of the week, and the offseason.
+- **At most every 6 hours** for a tracked team's schedule, used for the next game and the bye week, and only when the team has no game left in the current week.
+
+A failed request tries the fallback host, then keeps the last good games, marks every card `STALE` beside the state, and backs off — starting at twice the interval, doubling, capped at four hours. A game that disappears from the feed keeps its last state; a final is never inferred from a game vanishing.
+
+## Try it in demo mode
+
+`demo = true` renders five fixture games between PHI and NYG with no network: a live fourth quarter with an Eagles touchdown, halftime, an OT final, next Sunday's game, and a bye week. The live game's touchdown celebrates on its first turn and again every third turn after, so a looping demo keeps showing it. Keep `teams` set — `demo = true` works without it, but with no tracked team the touchdown only highlights the score instead of celebrating.
+
+It is the quickest way to check the layout on your panel, and it is what every GIF on this page shows.
+
+## If it doesn't work
+
+**`led-ticker validate` says `unknown code`.** A team code isn't one of the 32 ESPN abbreviations. The message suggests the closest match — `WAS` gets `Did you mean 'WSH'?` — so swap in the suggested code.
+
+**The board says `STALE`.** A fetch failed on both hosts, or the feed returned something the plugin couldn't parse, so it's showing the last good scores. The logs carry the reason; the label clears on the next good poll. If it never clears, ESPN may have changed the feed or started blocking the sign.
+
+**The scores disappeared, or the sign went dark.** Nothing qualified for a card: `live` mode with no game on, or a `teams` team with nothing scheduled at all — the offseason. A section holding only this widget has nothing to show then, so that section is skipped; if it's the only section with content, the sign goes blank (see [scheduling](/concepts/scheduling/) for how core handles an empty section). Put the widget in a section with other content to keep it in the rotation.
+
+**It still shows Sunday's final on Tuesday.** That is `final_hold_hours`, which defaults to 24 counted from kickoff plus 3 h 30 min — so a 1 PM Sunday game turns over around 4:30 PM Monday. Lower it to see the next game sooner.
+
+**The sign showed a touchdown before my TV did.** Expected. The feed is near real-time and broadcasts run on a delay, so the panel can be ahead of the screen. There is no spoiler delay.
+
+**There's no down and distance on a live game.** Between plays the feed drops those fields and the board drops the line with them; it comes back on the next snap. During a long stoppage the board shows just the score, quarter and clock.
+
+**My team scored but nothing celebrated.** Check that the team is in `teams` and that the section is `mode = "slideshow"`, and remember the first sight of a game after a boot or reload is silent by design.
+
+## Next steps
+
+Pair it with other sports in the same rotation — [hockey.scores](/widgets/hockey/), [tennis.scores](/widgets/tennis/) and [baseball.scores](/widgets/mlb/) are the other live-sports widgets — or see [sections and modes](/concepts/sections-and-modes/) for controlling how long each game holds.
+
+<RelatedPages
+  slugs={["plugins/available", "concepts/sections-and-modes", "widgets/hockey", "widgets/tennis"]}
+/>

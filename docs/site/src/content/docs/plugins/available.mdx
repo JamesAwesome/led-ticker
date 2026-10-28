@@ -69,6 +69,12 @@ Live NHL scores (`type = "hockey.scores"`) — one held scoreboard card per game
 
 <PluginCatalog name="hockey" />
 
+### [football](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/football)
+
+Live NFL scores (`type = "football.scores"`) — one held scoreboard card per game with the score, quarter and clock, who has the ball, down and distance with the ball spot, timeouts remaining and the red zone lit in red, plus final, next-game and bye-week cards. Three modes: `teams` follows the clubs you name, `league` rotates the whole week's slate, and `live` shows only games in progress. Cards are held scoreboards on all three sign shapes, with an optional scrolling `ticker` layout; when a team you follow scores, the card plays a touchdown / field goal / safety celebration on the widget's next turn in the rotation. No API key needed — the data comes from ESPN's public site API, an **unofficial and undocumented feed** that ESPN can change at any time, so the plugin parses defensively and keeps the last good scores on the panel with a `STALE` label if it breaks. Set `demo = true` to preview with no network. See the [football.scores widget page](/widgets/football/) for the full options reference and demo GIFs, or the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/football/README.md) for install steps.
+
+<PluginCatalog name="football" />
+
 ### [tennis](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/tennis)
 
 Live tennis scores (`type = "tennis.scores"`) across ATP, WTA, Challenger, ITF and juniors — one story per match in play, cycling the main tours first. Shows both players with per-set games, the point in progress (`15`/`30`/`40`/`AD`, or the tiebreak count), a serve marker and a break-point badge; it falls back to upcoming fixtures when nothing is on court. Layouts follow sign shape: a scrolling `ticker` at scale 1, a held `scoreboard` on the bigger panels. Data comes from the [Live Tennis API](https://livetennisapi.com) free tier (100 requests/day), and the plugin enforces a 15-minute poll floor to stay inside it. Set `demo = true` to preview with no API key. **Contributed and maintained by the data source's vendor.** See the [tennis.scores widget page](/widgets/tennis/) for the full options reference and demo GIFs, or the [repo README](https://github.com/JamesAwesome/led-ticker-plugins/blob/main/plugins/tennis/README.md) for install steps.

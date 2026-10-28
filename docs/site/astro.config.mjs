@@ -261,6 +261,7 @@ export default defineConfig({
                 { label: "flair.lottery", link: "/widgets/lottery/" },
                 { label: "tennis.scores", link: "/widgets/tennis/" },
                 { label: "hockey.scores", link: "/widgets/hockey/" },
+                { label: "football.scores", link: "/widgets/football/" },
               ],
             },
           ],

@@ -87,10 +87,11 @@ for (const [slug, marker] of Object.entries(SET_MARKERS)) {
 // 2026-10-07: 569864 with the tennis.scores and weather.forecast pages (546881
 // before them) — the old 550000 budget had 3KB left, so the next page to land
 // was always going to trip it. 2026-10-23: 595127 with the hockey.scores page —
-// 5KB left, same story, so re-measured + ~9%. The real exclude-list regression is
-// caught by the "Bigsign reference build" sentinel above; this is the secondary
-// smell test.
-const SMALL_BUDGET_BYTES = 650_000;
+// 5KB left, same story, so re-measured + ~9%. 2026-10-27: 625861 with the
+// football.scores page — 24KB left, so re-measured + ~9% again. The real
+// exclude-list regression is caught by the "Bigsign reference build" sentinel
+// above; this is the secondary smell test.
+const SMALL_BUDGET_BYTES = 680_000;
 const smallPath = new URL("llms-small.txt", dist);
 if (!existsSync(smallPath)) {
   errors.push("missing dist/llms-small.txt");

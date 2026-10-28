@@ -1,0 +1,21 @@
+# render-duration: 40
+# DEMO-mode football.scores held scoreboard on a long (512x64) panel. No
+# network, no key — demo = true renders five fixture games: a live 4th quarter
+# (whose touchdown celebrates on the first turn), halftime, an OT final, the
+# next scheduled game and a bye week. Tracking PHI is what makes the touchdown
+# celebrate.
+[display]
+rows = 64
+cols = 128
+chain_length = 4
+default_scale = 4
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "football.scores"
+teams = ["PHI", "NYG"]
+demo = true

@@ -98,9 +98,11 @@ Two team rows with a dotted divider — chip, abbreviation, large score, the pos
 
 Two 8-row bands in the 5×8 bitmap font, away on top. Each band has a team chip, the abbreviation, the score, a possession dot and three timeout pips; the down and distance (`2ND & 7`) sits on the band of the team with the ball. The quarter is right-aligned in the top band and the clock in the bottom band. The ball spot is left off at this size.
 
+A small brown football marks every card as football, so it can't be mistaken for a hockey card in a mixed rotation. On a game card it sits just left of the quarter; on a next-game card it leads the matchup. It never moves anything else on the card, and it is left off rather than crowd the text. The same 8×8 sprite is the `:football.ball:` emoji, so you can use it in your own messages and section titles.
+
 <DemoGif
   src="/demos-pinned/football-scoreboard-smallsign.gif"
-  caption="smallsign: a green TOUCHDOWN flash, then TD +PAT and JALEN HURTS 12 YD RUSH beside PHI 20 NYG 17, followed by two bands per game — PHI 20 over NYG 17 with the possession dot, timeout pips, 2ND & 7, Q4 and 2:13 — then HALF, FINAL OT, NYG @ PHI on SUN NOV 1 at 1:00 PM, and PHI @ NYG BYE."
+  caption="smallsign: a green TOUCHDOWN flash, then TD +PAT and JALEN HURTS 12 YD RUSH beside PHI 20 NYG 17, followed by two bands per game — PHI 20 over NYG 17 with the possession dot, timeout pips, 2ND & 7, and the football icon beside Q4 over 2:13 — then HALF, FINAL OT, and the football leading NYG @ PHI on SUN NOV 1 at 1:00 PM and PHI @ NYG BYE."
 />
 
 ### On every board
@@ -108,7 +110,7 @@ Two 8-row bands in the 5×8 bitmap font, away on top. Each band has a team chip,
 - **Halftime and quarter breaks:** `HALF`, `END Q3` or `DELAY` in the quarter slot, with no clock and no down and distance.
 - **Red zone:** the down-and-distance line and the possession marker turn red.
 - **Final:** `FINAL`, marked `OT` when it went to overtime, the winner's score green and the loser's dimmed.
-- **Next game:** the day (`TONIGHT`, `SUN NOV 1`), the kickoff time (`TBD` until the league sets it) and the venue. On longboi both chips flank the board with the records and nicknames beneath; on bigsign the away chip leads `NYG 4-3 @ PHI 5-2` (the records drop first when the line is too wide) under a small `NEXT GAME`; on smallsign `NYG @ PHI` is in team colors, no chips, over the venue, with the date and time on the right. A neutral-site game reads `VS` instead of `@`.
+- **Next game:** the day (`TONIGHT`, `SUN NOV 1`), the kickoff time (`TBD` until the league sets it) and the venue. On longboi both chips flank the board with the records and nicknames beneath; on bigsign the away chip leads `NYG 4-3 @ PHI 5-2` (the records drop first when the line is too wide) under a small `NEXT GAME`; on smallsign the football icon leads `NYG @ PHI` in team colors, no chips, over the venue, with the date and time on the right. A neutral-site game reads `VS` instead of `@`.
 - **Bye week:** the next-game card for the game after the bye, labelled `BYE WEEK` on bigsign and longboi, with `BYE` after the matchup on the smallsign.
 
 The clock shows exactly what the last poll reported — it does not tick between polls, because a football clock stops after most plays and the feed carries no "running" flag. Team abbreviations shrink to fit (both rows always share one size). The text palette is fixed; `bg_color` is the one color you can set on the boards.

@@ -100,9 +100,11 @@ A 36 px logo at each edge and a large white score beside each, with the period o
 
 One 16-row band in the 6×12 font: `PHI 98  Q4 1:48  101 NY`. A thin team-colour chip sits at each end, the abbreviation is in team colour, the score is white, and the period (amber) and clock (white, red in clutch time) are centred between them. There are no logos and no leader line at this size; the `ticker` layout carries the leader. When two three-digit scores and long abbreviations crowd the centre, it shrinks rather than collides: the period drops first, then `FINAL/OT` becomes `F/OT`, then it ellipsizes.
 
+Next-game cards add the `:basketball.ball:` sprite after the away chip, but only when the whole card still fits beside it. The ball is the first thing to go: it never costs `STALE`, the weekday, AM/PM or the day label, so a long matchup or a crowded date shows the card without it.
+
 <DemoGif
   src="/demos-pinned/basketball-scoreboard-smallsign.gif"
-  caption="smallsign: a blue 76ERS WIN flash over PHI 112 NY 108 FINAL, then one band per game with team chips at the ends — PHI 98 Q4 1:48 101 NY with the clock in red, then PHI 54 HALF 52 NY, PHI 115 FINAL/OT 118 NY with the winner in green, and NY @ PHI OCT 29 7:30 PM."
+  caption="smallsign: a blue 76ERS WIN flash over PHI 112 NY 108 FINAL, then one band per game with team chips at the ends — PHI 98 Q4 1:48 101 NY with the clock in red, then PHI 54 HALF 52 NY, PHI 115 FINAL/OT 118 NY with the winner in green, and NY @ PHI OCT 30 7:30 PM — the date is tight enough here that the ball is left off."
 />
 
 ### On every board

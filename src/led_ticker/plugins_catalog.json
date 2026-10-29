@@ -19,7 +19,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "pool-v0.1.0",
+          "ref": "pool-v0.2.0",
           "subdirectory": "plugins/pool"
         }
       ]
@@ -54,7 +54,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "baseball-v0.1.0",
+          "ref": "baseball-v1.9.0",
           "subdirectory": "plugins/baseball"
         }
       ]
@@ -77,7 +77,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "crypto-v0.2.0",
+          "ref": "crypto-v0.2.1",
           "subdirectory": "plugins/crypto"
         }
       ]
@@ -100,7 +100,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "calendar-v0.1.0",
+          "ref": "calendar-v0.1.1",
           "subdirectory": "plugins/calendar"
         }
       ]
@@ -123,7 +123,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "rss-v0.2.0",
+          "ref": "rss-v0.2.1",
           "subdirectory": "plugins/rss"
         }
       ]
@@ -146,7 +146,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "weather-v0.2.0",
+          "ref": "weather-v0.4.1",
           "subdirectory": "plugins/weather"
         }
       ]
@@ -270,7 +270,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "storefront-v0.1.0",
+          "ref": "storefront-v0.2.0",
           "subdirectory": "plugins/storefront"
         }
       ]
@@ -293,7 +293,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "flight-v0.1.0",
+          "ref": "flight-v0.2.0",
           "subdirectory": "plugins/flight"
         }
       ]
@@ -319,7 +319,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "stocks-v0.6.0",
+          "ref": "stocks-v0.7.0",
           "subdirectory": "plugins/stocks"
         }
       ]
@@ -342,7 +342,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "hockey-v0.1.0",
+          "ref": "hockey-v0.1.1",
           "subdirectory": "plugins/hockey"
         }
       ]

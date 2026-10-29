@@ -45,6 +45,7 @@ _KIND_LABELS = {
     "emoji": "emoji",
     "fonts": "fonts",
     "borders": "borders",
+    "backgrounds": "backgrounds",
     "color_providers": "color providers",
     "animations": "animations",
     "easing": "easing",
@@ -64,6 +65,8 @@ def _install_hint(kind: str, name: str) -> str:
         return f'Use  animation = "{name}"  on a widget,'
     if kind == "borders":
         return f'Use  border = "{name}"  on a widget,'
+    if kind == "backgrounds":
+        return f'Use  background = "{name}"  on a widget,'
     if kind == "emoji":
         return f"Use  :{name}:  inline in widget text,"
     if kind == "fonts":

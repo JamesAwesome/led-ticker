@@ -9,6 +9,7 @@
 | `font_color` | RGB list / string / table | `[255, 255, 0]` | Constant `[r,g,b]`, `"rainbow"`, `"color_cycle"`, `"random"`, or `{style="gradient", from=[...], to=[...]}`. |
 | `bg_color` | RGB list | none | Background fill color. Painted across the full panel before text. |
 | `border` | `"rainbow"` \| `"color_cycle"` \| `"lightbulbs"` \| `[r,g,b]` \| `{style="...", ...}` | none | Perimeter border ring — five styles (rainbow chase, color cycle, constant, bands, lightbulbs); see [/concepts/borders/](/concepts/borders/). |
+| `background` | `"<plugin.style>"` \| `{style="<plugin.style>", ...}` | none | Full-panel effect painted behind the content (under the image, before the border) — plugin-provided styles such as `flair.fireworks`; see [/concepts/backgrounds/](/concepts/backgrounds/). |
 | `animation` | string / table | none | `"typewriter"` for character-by-character reveal. Use the inline-table form to tune speed: `animation = {style = "typewriter", frames_per_char = 6}` (default `frames_per_char = 3` ≈ 150 ms/char at the 50 ms engine tick). |
 | `padding` | int | `6` | Horizontal padding (in logical pixels) when scrolling. |
 | `text_y_offset` | int | `0` | Vertical text nudge in logical rows. Negative = up. |

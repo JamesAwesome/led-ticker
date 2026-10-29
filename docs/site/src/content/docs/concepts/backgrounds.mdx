@@ -1,0 +1,72 @@
+---
+title: Backgrounds
+description: Full-panel background effects painted behind a widget's text, under its image and border — plugin-provided styles such as flair.fireworks.
+---
+
+import TomlExample from "../../../components/TomlExample.astro";
+import RelatedPages from "../../../components/RelatedPages.astro";
+
+A **background** is a full-panel effect painted _behind_ a widget's content, every render tick, for as long as the widget is on screen. It is the sibling of a [border](/concepts/borders/): same config shape, same animation plumbing, different layer. The paint order on every host widget is
+
+**background → image → border → text**
+
+so a background shows through an image's transparent (skipped-black) regions, sits under the border ring, and never covers the text. Because `background` and `border` are separate fields, you can run both on one widget — fireworks behind a rainbow ring, for example.
+
+Core ships no built-in background styles; they come from plugins. The first is `flair.fireworks` from the [flair pack](/plugins/available/#flair-text-effects-flair-pack).
+
+## Config
+
+Shorthand (defaults):
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "HAPPY NEW YEAR"
+font_color = [255, 255, 255]
+border = "rainbow"
+background = "flair.fireworks"`}
+/>
+
+Inline table with the plugin's knobs (`style` is the registered name; every other key goes to that style's constructor and is validated at config load — an unknown key is a `led-ticker validate` error, not a silent no-op):
+
+<TomlExample
+  code={`background = { style = "flair.fireworks", bursts = 3, speed = 1.5, colors = [[255, 60, 60], [255, 180, 0]] }`}
+/>
+
+## Where it works
+
+`background` is accepted on every widget that accepts `border`:
+
+| Widget type                                     | `background`?                      |
+| ----------------------------------------------- | ---------------------------------- |
+| `message`                                       | yes                                |
+| `countdown`, `countup`                          | yes                                |
+| `two_row`                                       | yes                                |
+| `gif`, `image`                                  | yes — painted under the image      |
+| `clock`                                         | yes                                |
+| data widgets (`weather.current`, `rss.feed`, …) | no — `led-ticker validate` rule 72 |
+
+A plugin widget opts in by declaring a `background` field on its class, exactly as for `border`.
+
+## How it animates
+
+Each background reads the widget's per-effect frame counter (`frame_for("background")`), so it ticks at the engine's 50 ms cadence, freezes while a transition composites the widget, and keeps its phase across `loop_count` repeats when the style sets `restart_on_visit = false`. On `gif` / `image` widgets an animated background (`frame_invariant = false`) forces the per-tick render loop, the same way an animated border does, so it keeps moving over a static image.
+
+A background style is expected to be a pure function of the frame counter: transitions re-render the outgoing and incoming widgets many times at the same paused frame, and a stateful particle simulation would smear. The flair pack's fireworks derive every burst from `(seed, slot, cycle)` for exactly this reason.
+
+## Why isn't this a border?
+
+Borders paint a ring at the panel edge; a background paints the whole panel behind the content. Early on, `flair.fireworks` shipped as a border, which worked but spent the widget's only `border` slot — you could have fireworks _or_ a rainbow ring, not both. `background` is the dedicated slot.
+
+## For plugin authors
+
+Register a class with `api.background(name)`; it needs a `frame_invariant` class attribute and `paint(canvas, frame_count)`. Inherit `BackgroundEffectBase` from `led_ticker.plugin` to have the attribute enforced at class-definition time. Paint with `SetPixel` only, avoid writing pure black (it would erase the host's `bg_color` fill), and unwrap to the real canvas for LED-grain output on a scaled sign. See the [Plugin API reference](/plugins/api-reference/).
+
+<RelatedPages
+  slugs={[
+    "concepts/borders",
+    "concepts/color-providers",
+    "reference/frame-counters",
+    "plugins/available",
+  ]}
+/>

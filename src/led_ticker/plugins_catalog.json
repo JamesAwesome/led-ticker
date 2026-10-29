@@ -327,11 +327,14 @@
     {
       "name": "hockey",
       "namespace": "hockey",
-      "summary": "Live NHL scores from the NHL's public web API (no key) — score, period and clock, shots, power play and empty net, goal celebrations, final and next-game cards; modes teams, league and live.",
+      "summary": "Live NHL scores from the NHL's public web API (no key) — score, period and clock, shots, power play and empty net, goal celebrations, final and next-game cards; :hockey.puck: emoji; modes teams, league and live.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/hockey",
       "provides": {
         "widgets": [
           "hockey.scores"
+        ],
+        "emoji": [
+          "hockey.puck"
         ]
       },
       "sources": [
@@ -342,7 +345,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "hockey-v0.1.1",
+          "ref": "hockey-v0.2.0",
           "subdirectory": "plugins/hockey"
         }
       ]
@@ -350,11 +353,14 @@
     {
       "name": "football",
       "namespace": "football",
-      "summary": "Live NFL scores from ESPN's public site API (no key) — score, quarter and clock, possession, down and distance, timeouts and the red zone, touchdown / field goal / safety celebrations, final, next-game and bye-week cards; modes teams, league and live.",
+      "summary": "Live NFL scores from ESPN's public site API (no key) — score, quarter and clock, possession, down and distance, timeouts and the red zone, touchdown / field goal / safety celebrations, final, next-game and bye-week cards; :football.ball: emoji; modes teams, league and live.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/football",
       "provides": {
         "widgets": [
           "football.scores"
+        ],
+        "emoji": [
+          "football.ball"
         ]
       },
       "sources": [
@@ -365,7 +371,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "football-v0.1.0",
+          "ref": "football-v0.2.0",
           "subdirectory": "plugins/football"
         }
       ]
@@ -391,7 +397,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "basketball-v0.1.0",
+          "ref": "basketball-v0.2.0",
           "subdirectory": "plugins/basketball"
         }
       ]

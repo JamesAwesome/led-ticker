@@ -132,6 +132,16 @@ Set `layout = "ticker"` for one scrolling line per game, in the same wording as 
 | Dim gray    | The loser's score on a final, and unused timeout pips                         |
 | Dark gray   | `STALE`, the venue, team records, and labels such as `NEXT GAME` / `BYE WEEK` |
 
+## Team logos as emoji
+
+Every bundled team logo is also an emoji, named after the lower-case team code (the same code you use in `teams`): `:football.phi:`, `:football.nyg:`, `:football.dal:` and so on for all 32 teams. Use them in messages, section titles and two-row cards. On the bigsign and longboi the logo is cropped to the mark and drawn 32 px tall (up to 64 px wide, so wordmarks keep their shape). On the smallsign it's an 8×8 sprite, which reads as a splash of team colour rather than a logo.
+
+```toml
+[playlist.section.title]
+type = "message"
+text = ":football.phi: PHILLY :football.phi:"
+```
+
 ## Scoring celebration
 
 When a team in your `teams` list scores, that game's card plays a 4-second celebration **the next time its turn comes around**. In a slideshow it never interrupts whatever else is on the panel. You get three quick flashes in the scoring team's color with `TOUCHDOWN`, `FIELD GOAL` or `SAFETY` knocked out, then the new score with the scoring team's number pulsing, the play (`JALEN HURTS 12 YD RUSH`), `+PAT` or `+2PT` once the try is in, and the quarter and clock. Then the normal board for the rest of the hold.

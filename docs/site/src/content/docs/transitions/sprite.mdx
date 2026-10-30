@@ -1,6 +1,6 @@
 ---
 title: Sprite and flair transitions
-description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, flair.poker card-suit ripple, flair.lightning bolt-strike, and flair.fairy pixie-dust transitions."
+description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, flair.poker card-suit ripple, flair.lightning bolt-strike, flair.fairy pixie-dust, and flair.laser beam-write transitions."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -447,5 +447,76 @@ Direction is **not** a knob — pick the variant (`.forward` / `.reverse` / `.al
 - **Two phases.** The first half flies the fairy across, drawing a dwelling cone of dust over the outgoing widget; the second half opens the settled line to reveal the incoming widget against black outside the gap (same `GetPixel` constraint as `flair.lightning` and `flair.poker`). Section `bg_color` shows inside the gap from the first sliver.
 - **Near-straight flight.** The path is a gentle center-band line — the magic is in the dust, not a loop-de-loop — so the settled line never doubles back on itself and can split cleanly.
 - **Stateless sparks, no warm-up.** Every spark is a pure function of the column and the transition's progress — no particle simulation, no caches — so the first firing after boot costs the same as every other.
+
+### `flair.laser` (flair >= 0.15.0, core >= 4.31)
+
+`flair.laser` writes the sign the way a commercial LED message board's "laser" effect does: beams reach in from one panel edge, erase the old content pixel by pixel in a back-and-forth raster, then write the new content the same way. Each beam is a one-pixel bar from the edge to the pixel it is working on, in that pixel's own colour — a red headline is erased by red beams, a rainbow one by rainbow beams. It works on every widget type, because the content is snapshotted as pixels rather than text. Six variants, named by the edge the beams come from: `flair.laser.top`, `.bottom`, `.left`, `.right`, `.alternating` (top → right → bottom → left, one per firing) and `.random`.
+
+<DemoGif
+  src="/demos-pinned/transition-flair-laser.gif"
+  caption="`flair.laser.alternating` — three beams erase the old message from one edge, then write the new one"
+/>
+
+#### Install
+
+`flair.laser` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Edge cycles every firing"
+  code={`[transitions]
+duration = 2.5        # the floor is 2.4 s; 2.5–3.5 s reads well
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = "flair.laser.alternating"
+
+[[playlist.section.widget]]
+type = "message"
+text = "LASER"
+center = true
+font_color = [255, 120, 40]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = "flair.laser.alternating"
+
+[[playlist.section.widget]]
+type = "message"
+text = "WRITE"
+center = true
+font_color = [80, 200, 255]`}
+/>
+
+<TomlExample
+  title="Old text leaves to the left, new text arrives from the right"
+  code={`[[playlist.section]]
+transition = {type = "flair.laser.left", write_from = "right"}`}
+/>
+
+#### Knobs
+
+| Knob         | Default                          | Notes                                                                                                                                                                                                                                                               |
+| ------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `beams`      | `3`                              | Number of independent beams. The lit content is split into that many equal slices (across the panel for top/bottom, down it for left/right); each beam erases then writes its own slice at its own constant speed. `1` is the classic single back-and-forth raster. |
+| `write_from` | omitted (same edge as the erase) | `"top"` / `"bottom"` / `"left"` / `"right"` / `"opposite"` — the edge the **write** phase's beams come from. The variant names the erase edge. `"opposite"` mirrors whatever edge is erasing, so it composes with `.alternating` and `.random`.                     |
+
+The erase direction is **not** a knob — pick the variant. The beam colour is always the content's own colour.
+
+#### Behavior notes
+
+- **Two phases, one timeline.** The transition `duration` covers both erase and write; time splits in proportion to how many lit pixels each side has, so a short message erases quickly and a long one takes longer. An empty outgoing (boot, wake from dark) goes straight to writing. All beams finish together at 95 % of the duration; the last 5 % is the usual snap to the incoming widget.
+- **Backgrounds.** The section `bg_color` is painted by the engine, never by the widget, so it is never lasered: erased pixels show the old background, and the panel switches to the new background the moment the first beam starts writing. A widget's own fill (`image`/`gif` `bg_color`, `two_row` band colours) is content and gets written pixel by pixel.
+- **Snapshot, not a live draw.** Both widgets are drawn once per firing into an offscreen raster at physical resolution; the beams work from that, so a clock ticking over mid-transition can't leave stray pixels behind. A live incoming (a clock with seconds) is written showing its time at the start and jumps to live on the final frame. On the bigsign a logical pixel is a 4×4 block written in four passes of four, with a one-real-pixel beam.
+- **Cross-scale sections.** When the next section uses a different `scale`, the incoming content is written at the outgoing scale and pops to its own size on the final frame — the same accepted limitation as `flair.fairy`, `flair.lightning` and `flair.fireworks`.
 
 <RelatedPages slugs={["transitions/push", "transitions/wipe", "concepts/animations"]} />

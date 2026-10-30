@@ -91,6 +91,7 @@ export default defineConfig({
               // must be added here — llms-small picks them up automatically via exclude.
               paths: [
                 "concepts/animations",
+                "concepts/backgrounds",
                 "concepts/borders",
                 "concepts/busy-light",
                 "concepts/color-providers",
@@ -262,6 +263,7 @@ export default defineConfig({
                 { label: "tennis.scores", link: "/widgets/tennis/" },
                 { label: "hockey.scores", link: "/widgets/hockey/" },
                 { label: "football.scores", link: "/widgets/football/" },
+                { label: "basketball.scores", link: "/widgets/basketball/" },
               ],
             },
           ],
@@ -317,6 +319,7 @@ export default defineConfig({
           items: [
             { label: "How rendering works", link: "/concepts/how-rendering-works/" },
             { label: "Animations", link: "/concepts/animations/" },
+            { label: "Backgrounds", link: "/concepts/backgrounds/" },
             { label: "Borders", link: "/concepts/borders/" },
             { label: "Busy light", link: "/concepts/busy-light/" },
             { label: "Color providers", link: "/concepts/color-providers/" },

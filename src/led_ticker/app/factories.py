@@ -21,6 +21,7 @@ from led_ticker.app.coercion import (
     _allowed_init_kwargs,
     _build_plugin_style,
     _coerce_animation,
+    _coerce_background,
     _coerce_border,
     _coerce_color_provider,
     _coerce_widget_cfg,
@@ -100,6 +101,13 @@ FIELD_HINTS: dict[str, FieldHint] = {
         "animated border painted at panel edges"
         " — five styles (rainbow chase, color cycle, constant, bands, lightbulbs)"
         "; see /concepts/borders/",
+        "none",
+    ),
+    "background": FieldHint(
+        '"<plugin.style>" | {style="<plugin.style>", ...}',
+        "full-panel effect painted BEHIND the content (under the image, before"
+        " the border) — plugin-provided styles only, e.g. flair.fireworks"
+        "; see /concepts/backgrounds/",
         "none",
     ),
     "schedule": FieldHint(
@@ -275,6 +283,7 @@ _DISPATCH_APPLICABLE_TYPES: dict[str, set[str] | None] = {
     "font_threshold": None,
     "animation": {"message", "gif", "image"},
     "border": {"message", "countdown", "countup", "two_row", "gif", "image"},
+    "background": {"message", "countdown", "countup", "two_row", "gif", "image"},
     "schedule": None,
     "text_wrap": {"gif", "image"},
     "text_separator": {"gif", "image"},
@@ -835,6 +844,24 @@ async def validate_widget_cfg(
         )
     if border_value is not None:
         widget_cfg["border"] = _coerce_border(border_value)
+
+    # `background` — same host set and the same gate shape as `border`
+    # (a plugin widget opts in by declaring the attrs field). Painted
+    # behind the content, before the border; see backgrounds.py.
+    background_value = widget_cfg.pop("background", None)
+    if (
+        background_value is not None
+        and widget_type
+        not in ("message", "countdown", "countup", "two_row", "gif", "image")
+        and not _widget_declares_field(cls, "background")
+    ):
+        raise ValueError(
+            f'background is only valid on type="message", "countdown", '
+            f'"countup", "two_row", "gif", "image", or "clock"; '
+            f"got type={widget_type!r}."
+        )
+    if background_value is not None:
+        widget_cfg["background"] = _coerce_background(background_value)
 
     # text_wrap / text_separator / text_separator_color — single-row
     # image widgets only (gif, image). bottom_text_wrap / bottom_text_separator

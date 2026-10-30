@@ -1,0 +1,19 @@
+# render-duration: 36
+# DEMO-mode basketball.scores on a smallsign (160x16, scale 1): one 16-row band,
+# team chips at the ends, the score, and the period and clock in the centre
+# (red in clutch time). No logos at this size. Same four fixture games as the
+# longboi demo.
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 60
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6
+
+[[playlist.section.widget]]
+type = "basketball.scores"
+teams = ["PHI", "NY"]
+demo = true

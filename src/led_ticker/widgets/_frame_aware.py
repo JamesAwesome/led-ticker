@@ -63,6 +63,7 @@ class FrameAwareBase:
             "bottom_color",
             "highlight_color",
             "border",
+            "background",
             "animation",
             "text_separator_color",
             "bottom_text_separator_color",

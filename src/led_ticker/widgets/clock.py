@@ -27,6 +27,7 @@ from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
+from led_ticker.widgets._effects import paint_background
 from led_ticker.widgets._frame_aware import FrameAwareBase
 
 
@@ -81,6 +82,9 @@ class Clock(FrameAwareBase):
     # Optional perimeter border — same contract as TickerMessage.border;
     # declaring the field satisfies factories' border-type gate.
     border: Any | None = attrs.field(default=None, kw_only=True)
+    # Optional full-panel background effect — painted BEFORE the border
+    # (and under any image); see backgrounds.py. Same counter contract.
+    background: Any | None = attrs.field(default=None, kw_only=True)
     _baseline_y: int = attrs.field(init=False, default=-1)
 
     @classmethod
@@ -149,6 +153,7 @@ class Clock(FrameAwareBase):
         # TickerCountdown. Border reads its per-effect counter via
         # frame_for("border") so transitions freeze and visit-resets honor
         # restart_on_visit.
+        paint_background(self, canvas)
         if self.border is not None:
             self.border.paint(canvas, self.frame_for("border"))
 

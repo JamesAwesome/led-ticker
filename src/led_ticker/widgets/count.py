@@ -23,6 +23,7 @@ from led_ticker.drawing import compute_baseline, compute_cursor, get_text_width
 from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.text_render import draw_text, draw_text_per_char
 from led_ticker.widgets import register
+from led_ticker.widgets._effects import paint_background
 from led_ticker.widgets._frame_aware import FrameAwareBase
 
 
@@ -118,6 +119,9 @@ class _CountWidget(FrameAwareBase):
     padding: int = 6
     # Optional perimeter border — same contract as TickerMessage.border.
     border: Any | None = attrs.field(default=None, kw_only=True)
+    # Optional full-panel background effect — painted BEFORE the border
+    # (and under any image); see backgrounds.py. Same counter contract.
+    background: Any | None = attrs.field(default=None, kw_only=True)
     # Optional IANA timezone (e.g. "America/New_York"); None = the sign's local
     # date. Same field + validation as the clock widget so "today" matches the
     # clock/schedule when a tz is configured.
@@ -188,6 +192,7 @@ class _CountWidget(FrameAwareBase):
             self._baseline_y = compute_baseline(self.font, canvas, valign="center")
         baseline_y = self._baseline_y
 
+        paint_background(self, canvas)
         if self.border is not None:
             self.border.paint(canvas, self.frame_for("border"))
 

@@ -155,7 +155,9 @@ class TickerMessage(FrameAwareBase):
 
         Called by the engine immediately BEFORE a scroll's `stop_pos` is
         computed so the scroll measures the current value, then resolution
-        is locked for the scroll loop. No-op for non-token widgets."""
+        is locked for the scroll loop; and before a transition freezes the
+        incoming widget, so it composites the live value rather than its raw
+        or last-visit text. No-op for non-token widgets."""
         if self._token is None or not self._token.has_tokens:
             return
         registry = get_data_registry()

@@ -1537,6 +1537,22 @@ class TestScrollBetween:
         assert seen, "incoming was never composited"
         assert set(seen) == {"9:31"}, f"raw/stale token composited: {seen}"
 
+    async def test_raising_resolve_trips_breaker(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """A raising `resolve_tokens_now` trips the breaker instead of
+        escaping the scroll-between and stranding the outgoing paused."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing.pause_frame = mock.Mock()
+        outgoing.resume_frame = mock.Mock()
+        incoming.resolve_tokens_now = mock.Mock(side_effect=RuntimeError("boom"))
+        ticker = Ticker(monitors=[], frame=mock_frame)
+
+        await ticker._scroll_between(canvas, outgoing, incoming)
+        assert ticker.breaker.disabled, "raising resolve did not trip the breaker"
+        outgoing.resume_frame.assert_called_once()
+
 
 class TestDrawScrollFrame:
     """Unit tests for the private _draw_scroll_frame helper."""

@@ -503,10 +503,14 @@ class Ticker:
         pause/resume here explicitly because `_run_swap` dispatches us
         directly, bypassing `run_transition`.
         """
+        # Resolve tokens before the freeze (and before either pause), same as
+        # `run_transition`; a raising resolve trips the breaker.
+        try:
+            self._resolve_now_if_supported(incoming)
+        except Exception as exc:
+            self.breaker.trip(incoming, exc)
         if hasattr(outgoing, "pause_frame"):
             outgoing.pause_frame()
-        # Resolve tokens before the freeze, same as `run_transition`.
-        self._resolve_now_if_supported(incoming)
         if hasattr(incoming, "pause_frame"):
             incoming.pause_frame()
         # Reset the incoming widget's frame counter so frame-aware effects

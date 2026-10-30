@@ -1431,6 +1431,83 @@ class TestRunTransition:
         assert seen, "incoming was never composited"
         assert set(seen) == {"9:31"}, f"raw/stale token composited: {seen}"
 
+    async def test_revisited_incoming_composites_current_value(self, no_sleep):
+        """Second visit: the widget's cache holds last visit's value; the
+        transition must composite the source's CURRENT value instead."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.sources import (
+            DataRegistry,
+            StaticSource,
+            get_data_registry,
+            set_data_registry,
+        )
+        from led_ticker.widgets.message import TickerMessage
+
+        prev = get_data_registry()
+        src = StaticSource(id="t", value="9:31")
+        src.refresh()
+        reg = DataRegistry()
+        reg.add(src)
+        set_data_registry(reg)
+        try:
+            canvas = _StubCanvas(width=160, height=16)
+            frame = mock.Mock()
+            frame.swap.side_effect = lambda c: c
+            outgoing = TickerMessage(text="OLD", font_color=RGB_WHITE)
+            incoming = TickerMessage(text=":t:", font_color=RGB_WHITE)
+            incoming.draw(canvas)  # first visit caches "9:31"
+            src.value = "9:32"
+            src.refresh()
+            seen = []
+            real_draw = TickerMessage.draw
+
+            def _draw(self, c, *a, **kw):
+                if self is incoming:
+                    seen.append(self._resolved_text)
+                return real_draw(self, c, *a, **kw)
+
+            with mock.patch.object(TickerMessage, "draw", _draw):
+                await run_transition(
+                    canvas,
+                    frame,
+                    outgoing,
+                    incoming,
+                    transition=PushLeft(),
+                    duration=0.2,
+                )
+        finally:
+            set_data_registry(prev)
+        assert set(seen) == {"9:32"}, f"last-visit value composited: {seen}"
+
+    async def test_raising_resolve_trips_breaker_and_leaves_outgoing_running(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """A raising `resolve_tokens_now` must not escape the transition or
+        strand the outgoing widget paused: it trips the breaker and the
+        transition completes."""
+        from led_ticker.render_breaker import RenderBreaker
+
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing.pause_frame = mock.Mock()
+        outgoing.resume_frame = mock.Mock()
+        incoming.resolve_tokens_now = mock.Mock(side_effect=RuntimeError("boom"))
+        breaker = RenderBreaker()
+
+        await run_transition(
+            canvas,
+            mock_frame,
+            outgoing,
+            incoming,
+            transition=Cut(),
+            duration=0.1,
+            breaker=breaker,
+        )
+        assert breaker.disabled, "raising resolve did not trip the breaker"
+        outgoing.resume_frame.assert_called_once()
+
     async def test_resets_incoming_frame_counter_before_compositor_draws(
         self,
         canvas,

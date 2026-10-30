@@ -1,5 +1,5 @@
 ---
-description: Multi-persona panel review of the led-ticker docs site (PM, UX, prospective user, technical writer). Sonnet-powered personas in parallel; Opus synthesis in chat.
+description: Multi-persona panel review of the led-ticker docs site (PM, UX, prospective user, technical writer). Sonnet-powered personas in parallel; synthesis in chat.
 ---
 
 # Docs site panel review
@@ -35,7 +35,7 @@ Spawn the chosen personas as parallel `Agent` calls in a SINGLE message (multipl
 - `description`: short label like `"PM docs review"`
 - `prompt`: the verbatim persona prompt below
 
-After all dispatched personas return, do the synthesis pass YOURSELF in this conversation (you're on Opus). Don't dispatch synthesis as a fifth agent — the personas' reviews are already loaded in your context, and synthesis is exactly the cross-persona pattern matching + bumper-sticker thesis judgment that earns Opus's cost. Skip the synthesis section if only one persona was requested.
+After all dispatched personas return, do the synthesis pass yourself in this conversation. Don't dispatch synthesis as a fifth agent — the personas' reviews are already loaded in your context, and the cross-persona pattern matching + thesis judgment belongs with the session model. Skip the synthesis section if only one persona was requested.
 
 ## Path mapping
 

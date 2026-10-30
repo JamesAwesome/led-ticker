@@ -50,7 +50,7 @@ loop_count = 1
 [playlist.section.title]   # optional title card
 type = "message"
 text = "Weather"
-color = [255, 150, 190]
+font_color = [255, 150, 190]
 
 [[playlist.section.widget]]   # one or more widgets per section
 type = "weather.current"
@@ -110,7 +110,7 @@ Sections-pass loop — for each confirmed section in the outline:
 2. Ask only the widget-specific questions the snippet's "must customize" list requires. Use AskUserQuestion. **If the user picked a custom brand font in Phase 1, also append `font` / `font_size` / `font_threshold` to every text-bearing widget in this section even if the snippet's must-customize list omits them** — the snippets are pre-fonts and need the brand applied.
 3. For asset-bearing sections (gif, image, custom font): collect assets per `references/asset-handling.md`. Place fonts in `config/fonts/<file>` and images in `config/assets/<file>`. Verify the path exists before referencing it in TOML. Never fetch URLs silently.
 4. Write the section's TOML to the in-progress config buffer using the `[[playlist.section]]` / `[[playlist.section.widget]]` structure. If the section has a `[playlist.section.title]` and brand fonts are in play, apply the brand font to the title too.
-5. Run per-section lint: run `led-ticker validate config/config.toml --json` and surface any `errors` or `warnings` from the output as flag-and-ask items, citing each `rule` and `fix` field. Then check font-size vs viewing distance (see step 5a below) and any remaining issues from `references/decision-rules.md` not caught by the validator.
+5. Run per-section lint: run `led-ticker validate config/config.toml --json` and surface any `errors` or `warnings` from the output as flag-and-ask items, citing each `rule` and `fix` field. Then check font-size vs viewing distance (below) and any remaining issues from `references/decision-rules.md` not caught by the validator.
 
    **Additionally** check font-size vs viewing distance: if Phase 1 distance was `medium` and the user picked a `font_size ≥ 24`, OR distance was `far` and `font_size < 22`, flag with: "Phase 1 distance was <X>; recommended `font_size` is <range>; you picked <N>. Want me to align with the recommendation?" Cite `references/asset-handling.md` viewing-distance table.
 
@@ -181,8 +181,8 @@ Load `references/decision-rules.md`, `references/widget-selection.md`, `referenc
    | Too small at far + bigsign + currently BDF | `font` field on text widgets | Hires Inter at `font_size = 24–32` (consult `references/asset-handling.md` distance table). Migrate from BDF default. |
    | Too small + already hires | `font_size` value | Bump `font_size` up one tier (16→22, 22→28, 28→32). |
    | Too aggressive / busy | `font_color`, `border`, transitions | Swap per-char `rainbow` → `color_cycle`. Replace `wipe_alternating` / `nyancat.alternating` → `cut` or `wipe_left`. Lengthen `hold_time` by 50%. Drop animated `border` to constant or remove. |
-   | Too slow / too much dead time | `hold_time`, `transition_duration` | Reduce `hold_time` by 30–50%. If `transition_duration > 1000`, drop to 600. Consider `cut` for inter-widget transitions. |
-   | Too fast / can't read it | `hold_time`, `transition_duration` | Raise `hold_time` by 50%. If using fast transitions (`cut`, `push_left` at 400ms), bump duration to 800ms or swap to a wipe. |
+   | Too slow / too much dead time | `hold_time`, `transition_duration` | Reduce `hold_time` by 30–50%. If `transition_duration > 1.0`, drop to 0.6 (seconds). Consider `cut` for inter-widget transitions. |
+   | Too fast / can't read it | `hold_time`, `transition_duration` | Raise `hold_time` by 50%. If using fast transitions (`cut`, `push_left` at 0.4), bump `transition_duration` to 0.8 or swap to a wipe. |
    | Wrong colors / bad contrast | `bg_color` vs `font_color` luminance | If both colors are light or both are dark, adjust one for contrast (rough luminance heuristic: sum of RGB channels; push them apart). For brand-locked colors, propose adding a `border` for separation. |
    | Image fit looks bad + `fit="stretch"` + non-matching aspect | `fit`, image dimensions | Propose `fit="pillarbox"` (image wider than panel) or `fit="letterbox"` (image taller than panel) per `references/asset-handling.md` decision tree. Add `image_align` if pillarboxing. |
    | Border / animation feels off | `border.speed`, `border.char_offset`, `border.thickness`, `animation` | If border feels too fast: lower `speed` (default 4 on bigsign; try 2). Too uniform: raise `char_offset`. Too thin from far: increase `thickness` from 1 to 2. Typewriter feels off-pace: tune `frames_per_char` (default 3; raise for slower reveal). |

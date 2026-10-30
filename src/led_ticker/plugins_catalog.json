@@ -379,14 +379,44 @@
     {
       "name": "basketball",
       "namespace": "basketball",
-      "summary": "Live NBA scores from ESPN's public site API (no key) — a horizontal arena board with bundled team logos on the big panels, score, quarter and clock, points leaders, a final-buzzer win celebration, final and next-game cards; :basketball.ball: emoji; modes teams, league and live.",
+      "summary": "Live NBA scores from ESPN's public site API (no key) — a horizontal arena board with bundled team logos on the big panels, score, quarter and clock, points leaders, a final-buzzer win celebration, final and next-game cards; :basketball.ball: and a :basketball.<team>: logo emoji for every team; modes teams, league and live.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/basketball",
       "provides": {
         "widgets": [
           "basketball.scores"
         ],
         "emoji": [
-          "basketball.ball"
+          "basketball.ball",
+          "basketball.atl",
+          "basketball.bkn",
+          "basketball.bos",
+          "basketball.cha",
+          "basketball.chi",
+          "basketball.cle",
+          "basketball.dal",
+          "basketball.den",
+          "basketball.det",
+          "basketball.gs",
+          "basketball.hou",
+          "basketball.ind",
+          "basketball.lac",
+          "basketball.lal",
+          "basketball.mem",
+          "basketball.mia",
+          "basketball.mil",
+          "basketball.min",
+          "basketball.no",
+          "basketball.ny",
+          "basketball.okc",
+          "basketball.orl",
+          "basketball.phi",
+          "basketball.phx",
+          "basketball.por",
+          "basketball.sa",
+          "basketball.sac",
+          "basketball.tor",
+          "basketball.utah",
+          "basketball.wsh"
         ]
       },
       "sources": [
@@ -397,7 +427,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "basketball-v0.2.0",
+          "ref": "basketball-v0.3.0",
           "subdirectory": "plugins/basketball"
         }
       ]

@@ -100,11 +100,11 @@ A 36 px logo at each edge and a large white score beside each, with the period o
 
 One 16-row band in the 6×12 font: `PHI 98  Q4 1:48  101 NY`. A thin team-colour chip sits at each end, the abbreviation is in team colour, the score is white, and the period (amber) and clock (white, red in clutch time) are centred between them. There are no logos and no leader line at this size; the `ticker` layout carries the leader. When two three-digit scores and long abbreviations crowd the centre, it shrinks rather than collides: the period drops first, then `FINAL/OT` becomes `F/OT`, then it ellipsizes.
 
-Next-game cards add the `:basketball.ball:` sprite after the away chip, but only when the whole card still fits beside it. The ball is the first thing to go: it never costs `STALE`, the weekday, AM/PM or the day label, so a long matchup or a crowded date shows the card without it.
+Every card carries the `:basketball.ball:` sprite, so the band reads as basketball at a glance next to other sports. On a next-game card the ball _is_ the `@` (and the `VS` at a neutral site): `NY 🏀 PHI`. It's narrower than `@`, so it always shows. On live, halftime and final cards it sits flush against the away chip, before the abbreviation. The row moves only 4 px, which never costs the period, `FINAL/OT` or `STALE`. Set `ball_at = false` for the plain-text `NY @ PHI` and no ball. The same 8×8 sprite is the `:basketball.ball:` emoji.
 
 <DemoGif
   src="/demos-pinned/basketball-scoreboard-smallsign.gif"
-  caption="smallsign: a blue 76ERS WIN flash over PHI 112 NY 108 FINAL, then one band per game with team chips at the ends — PHI 98 Q4 1:48 101 NY with the clock in red, then PHI 54 HALF 52 NY, PHI 115 FINAL/OT 118 NY with the winner in green, and NY @ PHI OCT 30 7:30 PM — the date is tight enough here that the ball is left off."
+  caption="smallsign: a blue 76ERS WIN flash over PHI 112 NY 108 FINAL, then one band per game with team chips at the ends and the basketball against the away chip — PHI 98 Q4 1:48 101 NY with the clock in red, then PHI 54 HALF 52 NY, PHI 115 FINAL/OT 118 NY with the winner in green, and the next game as NY, the ball in place of the @, PHI OCT 30 7:30 PM."
 />
 
 ### On every board
@@ -120,6 +120,16 @@ The clock shows exactly what the last poll reported — it does not tick between
 ### The scrolling ticker
 
 Set `layout = "ticker"` for one scrolling line per game, in the same wording as the boards: `PHI 98 · NY 101 · Q4 1:48 · J. EMBIID 31 · J. BRUNSON 28`. A final reads `PHI 115 · NY 118 · FINAL/OT`. Use `mode = "ticker"` on the section, since this layout scrolls rather than holds. Win celebrations are built for `mode = "slideshow"` sections — see [Win celebration](#win-celebration) for what happens in a scrolling one.
+
+## Team logos as emoji
+
+Every bundled team logo is also an emoji, named after the lower-case team code: `:basketball.phi:`, `:basketball.ny:`, `:basketball.bos:` and so on for all 30 teams. Use them in messages, section titles and two-row cards. On the bigsign and longboi the logo is cropped to the mark and drawn 32 px tall (up to 64 px wide, so wordmarks keep their shape). On the smallsign it's an 8×8 sprite, which reads as a splash of team colour rather than a logo.
+
+```toml
+[playlist.section.title]
+type = "message"
+text = ":basketball.phi: PHILLY :basketball.phi:"
+```
 
 ## Win celebration
 

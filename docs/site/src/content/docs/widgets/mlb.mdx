@@ -13,12 +13,12 @@ The **baseball.scores** widget (`type = "baseball.scores"`, from the **[baseball
 
 <DemoGif
   src="/demos-pinned/baseball-scores.gif"
-  caption="baseball.scores on a long panel: a scrolling series-record line, then per-game hero scoreboards — a Final (Yankees 7, Red Sox 2), a live at-bat (bottom 8th, 2 outs, 3-2 count, runners on), and an upcoming-game preview with the matchup and first-pitch time."
+  caption="baseball.scores on a long panel: a scrolling series-record line, then per-game hero scoreboards with each team's logo beside its score — a Final (Yankees 7, Red Sox 2), a live at-bat (bottom 8th, 2 outs, 3-2 count, runners on), and an upcoming-game preview with both logos, the matchup and first-pitch time."
 />
 
 That full scoreboard is the wide-sign look; a shorter sign shows a tidy two-row card, and the narrowest shows a scrolling line — same widget, no config change.
 
-**Requires led-ticker-core >= 4.9.** The `demo = true` mode used for every GIF on this page needs led-ticker-baseball >= 1.6.0.
+**Requires led-ticker-core >= 4.9.** The `demo = true` mode used for every GIF on this page needs led-ticker-baseball >= 1.6.0, and the team logos need >= 1.10.0.
 
 <Aside type="tip">
   Want to see the live at-bat, the Final, and the upcoming-game card right now? Set `demo = true`
@@ -48,7 +48,7 @@ To install the plugin on a Docker deploy, add its line to the plugin manifest an
 # First plugin? Create your manifest from the example:
 cp -n config/requirements-plugins.example.txt config/requirements-plugins.txt
 # Add the package (one name per line), then restart:
-echo "led-ticker-baseball==1.6.0" >> config/requirements-plugins.txt
+echo "led-ticker-baseball==1.10.0" >> config/requirements-plugins.txt
 docker compose restart
 ```
 
@@ -85,8 +85,8 @@ Not sure which you have? Most short DIY builds are **[smallsign](/hardware/small
 You can also pin a shape explicitly with `layout = "ticker"`, `"scoreboard"`, or `"two_row"`.
 
 - **`ticker`** — one scrolling line: pre-game `NYY @ BOS Today 7:05 PM`, live `NYY 3 BOS 5 ▲6 ◇◆◇ 1·2·1` (score, inning, bases, and balls·strikes·outs in color), final `NYY 4 BOS 5 (Final)` (win green, loss red), postponed `NYY @ BOS (PPD: Rain)`. Spring Training and All-Star games append `(ST)` / `(ASG)`.
-- **`scoreboard`** — a two-column board: away name and score on the left, home on the right, with the inning and outs above the ball-strike count and the base diamonds in the center. Names render in team brand colors; scores go green on a win and red on a loss; base diamonds are yellow when occupied and dim grey when empty.
-- **`two_row`** — a held top band (the series title) over a scrolling bottom band (the per-game line), sized for a bigsign.
+- **`scoreboard`** — a two-column board: away name and score on the left, home on the right, with the inning and outs above the ball-strike count and the base diamonds in the center. Names render in team brand colors; scores go green on a win and red on a loss; base diamonds are yellow when occupied and dim grey when empty. A 30 px team logo sits at each outer edge beside the score.
+- **`two_row`** — a held top band (the series title) over a scrolling bottom band (the per-game line), sized for a bigsign. A 24 px team logo leads each abbreviation in the top band; when two long abbreviations, two-digit scores and the series dashes would crowd the band, both abbreviations shrink together.
 
 <Aside type="note">
   On the big hero-card signs (bigsign, longboi) — every layout, `ticker` included — the colors and
@@ -96,7 +96,21 @@ You can also pin a shape explicitly with `layout = "ticker"`, `"scoreboard"`, or
   [Color providers](/concepts/color-providers/) for the `font_color` forms.
 </Aside>
 
+On both cards the next-game matchup puts each team's logo in front of its name. Set `logos = false` to draw the cards without logos; a team with no bundled logo is drawn the same way on its side only. The smallsign and the `ticker` crawl never show logos.
+
 If you set `layout = "scoreboard"` on a panel narrower than 400 real pixels (a bigsign at 256px), it degrades to `two_row` — the scoreboard's fixed anchors assume a wide panel and would otherwise clip the home team off the edge. Explicit `two_row` or `ticker` always renders as requested at any width.
+
+## Team logos as emoji
+
+Every bundled team logo is also an emoji, named after the lower-case team code (the same code you use in `team`): `:baseball.phi:`, `:baseball.nyy:`, `:baseball.lad:` and so on for all 30 teams. Use them in messages, section titles and two-row cards. On the bigsign and longboi the logo is cropped to the mark and drawn 32 px tall (up to 64 px wide, so wide marks like the Reds' C keep their shape). On the smallsign it's an 8×8 sprite, which reads as a splash of team colour rather than a logo.
+
+```toml
+[playlist.section.title]
+type = "message"
+text = ":baseball.nyy: BRONX :baseball.nyy:"
+```
+
+Near-black pixels are dropped because they're invisible on the panel, so a navy or brown mark (Yankees, Padres, Royals, Tigers, Rays) reads dim on any sign.
 
 ## In your rotation
 
@@ -124,21 +138,22 @@ A welcome message and the live game hold and rotate in one section, no special m
 
 `team` is required (unless `demo = true`); everything else is optional.
 
-| Field              | Type                                                        | Default         | Notes                                                                                                                                           |
-| ------------------ | ----------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `team`             | str                                                         | required        | MLB team abbreviation, 2–3 letters (e.g. `"NYY"`, `"KC"`, `"SD"`). Case-insensitive. Optional when `demo = true`.                               |
-| `layout`           | `"auto"` / `"ticker"` / `"scoreboard"` / `"two_row"`        | `"auto"`        | Explicit override; omit to auto-select from real panel width — see [One widget, every sign](#one-widget-every-sign).                            |
-| `final_hold_hours` | int                                                         | `6`             | Hours after a game ends to keep showing its final score before the widget drops out of the rotation.                                            |
-| `timezone`         | str (IANA)                                                  | system local    | Timezone for formatting game times, e.g. `"America/New_York"`. See [Scheduling](/concepts/scheduling/) for the shared timezone convention.      |
-| `font_color`       | color / `"rainbow"` / `"color_cycle"` / `"shimmer"` / table | brand colors    | Override all text color; default keeps per-segment brand and win/loss colors. Scale-1 only — see [Color providers](/concepts/color-providers/). |
-| `font`             | str                                                         | `"6x12"`        | Font for names and scores. A hires name (e.g. `"Inter-Regular"`) needs `font_size`. Scale-1 (smallsign) only.                                   |
-| `top_font`         | str                                                         | same as `font`  | Top-band font, scale-1 `two_row` layout only.                                                                                                   |
-| `top_row_height`   | int, px                                                     | half the canvas | Height of the held top band, scale-1 `two_row` layout only.                                                                                     |
-| `bg_color`         | `[r, g, b]`                                                 | none            | Background fill behind game text. Scale-1 only — the physical renderers paint their own palette.                                                |
-| `padding`          | int, px                                                     | `6`             | Horizontal spacing after each line when scrolling (ticker).                                                                                     |
-| `update_interval`  | int, seconds                                                | `300` (5 min)   | How often to poll StatsAPI for fresh game state — see [Data source](#data-source).                                                              |
-| `demo`             | bool                                                        | `false`         | Render the fixed fixture series instead of calling StatsAPI — see [Try it in demo mode](#try-it-in-demo-mode).                                  |
-| `schedule`         | table                                                       | none            | Core visibility window — only show this widget during set hours. See [Scheduling](/concepts/scheduling/).                                       |
+| Field              | Type                                                        | Default         | Notes                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `team`             | str                                                         | required        | MLB team abbreviation, 2–3 letters (e.g. `"NYY"`, `"KC"`, `"SD"`). Case-insensitive. Optional when `demo = true`.                                           |
+| `layout`           | `"auto"` / `"ticker"` / `"scoreboard"` / `"two_row"`        | `"auto"`        | Explicit override; omit to auto-select from real panel width — see [One widget, every sign](#one-widget-every-sign).                                        |
+| `logos`            | bool                                                        | `true`          | Paint the bundled team logos on the bigsign `two_row` card and the longboi `scoreboard`. `false` draws those cards without logos. Ignored on the smallsign. |
+| `final_hold_hours` | int                                                         | `6`             | Hours after a game ends to keep showing its final score before the widget drops out of the rotation.                                                        |
+| `timezone`         | str (IANA)                                                  | system local    | Timezone for formatting game times, e.g. `"America/New_York"`. See [Scheduling](/concepts/scheduling/) for the shared timezone convention.                  |
+| `font_color`       | color / `"rainbow"` / `"color_cycle"` / `"shimmer"` / table | brand colors    | Override all text color; default keeps per-segment brand and win/loss colors. Scale-1 only — see [Color providers](/concepts/color-providers/).             |
+| `font`             | str                                                         | `"6x12"`        | Font for names and scores. A hires name (e.g. `"Inter-Regular"`) needs `font_size`. Scale-1 (smallsign) only.                                               |
+| `top_font`         | str                                                         | same as `font`  | Top-band font, scale-1 `two_row` layout only.                                                                                                               |
+| `top_row_height`   | int, px                                                     | half the canvas | Height of the held top band, scale-1 `two_row` layout only.                                                                                                 |
+| `bg_color`         | `[r, g, b]`                                                 | none            | Background fill behind game text. Scale-1 only — the physical renderers paint their own palette.                                                            |
+| `padding`          | int, px                                                     | `6`             | Horizontal spacing after each line when scrolling (ticker).                                                                                                 |
+| `update_interval`  | int, seconds                                                | `300` (5 min)   | How often to poll StatsAPI for fresh game state — see [Data source](#data-source).                                                                          |
+| `demo`             | bool                                                        | `false`         | Render the fixed fixture series instead of calling StatsAPI — see [Try it in demo mode](#try-it-in-demo-mode).                                              |
+| `schedule`         | table                                                       | none            | Core visibility window — only show this widget during set hours. See [Scheduling](/concepts/scheduling/).                                                   |
 
 The `top_*` options only apply under `layout = "two_row"` (or `auto` resolving to it) on a scale-1 sign; the widget rejects them at config-load under other explicit layouts.
 
@@ -157,7 +172,7 @@ Haven't tried it yet? [Try it in demo mode](#try-it-in-demo-mode) above takes ab
 
 ## The rest of the baseball family
 
-The **baseball** plugin ships four more widgets that share this data and design, so a game-day board can be more than the score. Pair `baseball.scores` with [`baseball.standings`](/widgets/mlb_standings/) to keep your division race on the wall, add [`baseball.promotions`](/widgets/mlb_promotions/) so you never miss bobblehead night, and drop in the family showpiece — [`baseball.statcast`](/widgets/mlb_statcast/), the day's longest home run drawing its own trajectory arc — plus [`baseball.attendance`](/widgets/mlb_attendance/) for the crowd. It also brings the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/) and the `:baseball.ball:` emoji.
+The **baseball** plugin ships four more widgets that share this data and design, so a game-day board can be more than the score. Pair `baseball.scores` with [`baseball.standings`](/widgets/mlb_standings/) to keep your division race on the wall, add [`baseball.promotions`](/widgets/mlb_promotions/) so you never miss bobblehead night, and drop in the family showpiece — [`baseball.statcast`](/widgets/mlb_statcast/), the day's longest home run drawing its own trajectory arc — plus [`baseball.attendance`](/widgets/mlb_attendance/) for the crowd. It also brings the `baseball.roll*` rolling-ball [sprite transition](/transitions/sprite/), the `:baseball.ball:` emoji and a [logo emoji](#team-logos-as-emoji) for every team.
 
 <RelatedPages
   slugs={[

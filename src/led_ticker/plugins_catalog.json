@@ -27,7 +27,7 @@
     {
       "name": "baseball",
       "namespace": "baseball",
-      "summary": "MLB scores, standings, promotions, statcast & attendance widgets, baseball.roll* transitions, and the :baseball.ball: emoji.",
+      "summary": "MLB scores, standings, promotions, statcast & attendance widgets, baseball.roll* transitions, bundled team logos on the big panels, and the :baseball.ball: emoji plus a :baseball.<team>: logo emoji for every team.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/baseball",
       "provides": {
         "widgets": [
@@ -43,7 +43,37 @@
           "baseball.roll_alternating"
         ],
         "emoji": [
-          "baseball.ball"
+          "baseball.ball",
+          "baseball.ari",
+          "baseball.atl",
+          "baseball.bal",
+          "baseball.bos",
+          "baseball.chc",
+          "baseball.cin",
+          "baseball.cle",
+          "baseball.col",
+          "baseball.cws",
+          "baseball.det",
+          "baseball.hou",
+          "baseball.kc",
+          "baseball.laa",
+          "baseball.lad",
+          "baseball.mia",
+          "baseball.mil",
+          "baseball.min",
+          "baseball.nym",
+          "baseball.nyy",
+          "baseball.oak",
+          "baseball.phi",
+          "baseball.pit",
+          "baseball.sd",
+          "baseball.sea",
+          "baseball.sf",
+          "baseball.stl",
+          "baseball.tb",
+          "baseball.tex",
+          "baseball.tor",
+          "baseball.wsh"
         ]
       },
       "sources": [
@@ -54,7 +84,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "baseball-v1.9.0",
+          "ref": "baseball-v1.10.0",
           "subdirectory": "plugins/baseball"
         }
       ]

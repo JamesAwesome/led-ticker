@@ -505,6 +505,8 @@ class Ticker:
         """
         if hasattr(outgoing, "pause_frame"):
             outgoing.pause_frame()
+        # Resolve tokens before the freeze, same as `run_transition`.
+        self._resolve_now_if_supported(incoming)
         if hasattr(incoming, "pause_frame"):
             incoming.pause_frame()
         # Reset the incoming widget's frame counter so frame-aware effects

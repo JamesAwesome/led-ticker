@@ -325,6 +325,11 @@ async def run_transition(
     # advances its frame counter and either tears its phase
     # or eats into the next section's animation budget.
     _pause_presenter(outgoing)
+    # Resolve the incoming widget's value tokens BEFORE freezing it: a widget
+    # that has never been drawn still holds its raw `:clock.now:` text (and a
+    # revisited one holds last visit's value), and the freeze would keep that
+    # on screen for the whole transition.
+    _resolve_presenter(incoming)
     _pause_presenter(incoming)
     # Reset the incoming widget's frame counter so frame-aware effects
     # (typewriter, color_cycle, rainbow) render their visit-initial
@@ -416,6 +421,12 @@ def _pause_presenter(obj: Any) -> None:
     pause = getattr(obj, "pause_frame", None)
     if callable(pause):
         pause()
+
+
+def _resolve_presenter(obj: Any) -> None:
+    resolve = getattr(obj, "resolve_tokens_now", None)
+    if callable(resolve):
+        resolve()
 
 
 def _resume_presenter(obj: Any) -> None:

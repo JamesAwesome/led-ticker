@@ -12,6 +12,7 @@
 | `layout` | `"auto"` \| `"scoreboard"` \| `"ticker"` | `"auto"` | Render shape. `auto` picks the held scoreboard on every sign. See [Layouts](#layouts-one-held-board-per-sign-shape). |
 | `update_interval` | int seconds | `15` | Live poll cadence. Lower than 15 speeds live polling up (**floored at 10**); a higher value makes that widget refresh less often. See [How often it polls](#how-often-does-it-poll-the-nhl). |
 | `hold_time` | float seconds | `0.0` | Minimum per-card hold. The engine uses the larger of this and the section's `hold_time`. A pending goal celebration extends it automatically. |
+| `celebration_flash` | bool | `false` | **Photosensitivity warning:** `true` opens every celebration with three full-panel flashes (about 5 per second) in the team's colour, which can trigger seizures in people with photosensitive epilepsy. Leave it `false` on any sign other people can see. With `false` the celebration is the detail card alone, for the same 4 s. led-ticker logs a warning at startup while it is on. See [the celebration](#goal-celebration). |
 | `demo` | bool | `false` | Render four fixture games — a live power play with a goal, an intermission, an OT final and the next game — with no network. Every GIF on this page was rendered this way. |
 | `padding` | int | `6` | Horizontal padding (logical pixels) after each story on the scale > 1 ticker crawl only (`layout = "ticker"`). A number >= 0. |
 | `bg_color` | RGB list | none | Background fill behind every board, the ticker crawl and the celebration card, at any scale. |

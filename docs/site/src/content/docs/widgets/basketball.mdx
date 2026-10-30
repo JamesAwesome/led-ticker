@@ -14,7 +14,7 @@ This page is for sign owners configuring the widget in TOML. No API key and no a
 
 <DemoGif
   src="/demos-pinned/basketball-scoreboard-longboi.gif"
-  caption="full arena board on a long panel: a blue 76ERS WIN flash, then the FINAL detail card with PHI 112 – NY 108, J. EMBIID 31 PTS and the 76ers logo; then the live board, PHI 98 – NY 101 in Q4 with a red 1:48 clock, J. EMBIID 31 PTS and J. BRUNSON 28 PTS under the scores and the orange quarter-by-quarter line; then a 54 – 52 HALF, an OT final with the winner's 118 in green, and Thursday's NEXT GAME with both logos."
+  caption="full arena board on a long panel: the win celebration, a FINAL detail card with PHI 112 – NY 108, J. EMBIID 31 PTS and the 76ers logo; then the live board, PHI 98 – NY 101 in Q4 with a red 1:48 clock, J. EMBIID 31 PTS and J. BRUNSON 28 PTS under the scores and the orange quarter-by-quarter line; then a 54 – 52 HALF, an OT final with the winner's 118 in green, and Thursday's NEXT GAME with both logos."
 />
 
 **Requires led-ticker-core >= 4.31.**
@@ -93,7 +93,7 @@ A 36 px logo at each edge and a large white score beside each, with the period o
 
 <DemoGif
   src="/demos-pinned/basketball-scoreboard-bigsign.gif"
-  caption="the same games on a 256x64 panel: a blue 76ERS WIN flash, then the FINAL detail card with the 76ers logo, PHI 112 NY 108 and J. EMBIID 31 PTS; then the live board with a logo at each edge, PHI 98 and NY 101 around Q4 and a red 1:48 with EMBIID 31 and BRUNSON 28 along the bottom; then a 54 – 52 HALF card, an OT final with 118 in green, and the NEXT GAME card."
+  caption="the same games on a 256x64 panel: the win celebration, a FINAL detail card with the 76ers logo, PHI 112 NY 108 and J. EMBIID 31 PTS; then the live board with a logo at each edge, PHI 98 and NY 101 around Q4 and a red 1:48 with EMBIID 31 and BRUNSON 28 along the bottom; then a 54 – 52 HALF card, an OT final with 118 in green, and the NEXT GAME card."
 />
 
 ### Smallsign (160×16)
@@ -104,7 +104,7 @@ Every card carries the `:basketball.ball:` sprite, so the band reads as basketba
 
 <DemoGif
   src="/demos-pinned/basketball-scoreboard-smallsign.gif"
-  caption="smallsign: a blue 76ERS WIN flash over PHI 112 NY 108 FINAL, then one band per game with team chips at the ends and the basketball against the away chip — PHI 98 Q4 1:48 101 NY with the clock in red, then PHI 54 HALF 52 NY, PHI 115 FINAL/OT 118 NY with the winner in green, and the next game as NY, the ball in place of the @, PHI OCT 30 7:30 PM."
+  caption="smallsign: the win celebration, PHI 112 NY 108 FINAL, then one band per game with team chips at the ends and the basketball against the away chip — PHI 98 Q4 1:48 101 NY with the clock in red, then PHI 54 HALF 52 NY, PHI 115 FINAL/OT 118 NY with the winner in green, and the next game as NY, the ball in place of the @, PHI OCT 30 7:30 PM."
 />
 
 ### On every board
@@ -133,9 +133,16 @@ text = ":basketball.phi: PHILLY :basketball.phi:"
 
 ## Win celebration
 
-When a team in your `teams` list **wins** at the final buzzer, that game's card plays a roughly 4-second celebration **the next time its turn comes around**. In a slideshow it never interrupts whatever else is on the panel. You get a few quick flashes of the panel in the winner's colour with `76ERS WIN` knocked out (`PHI WIN` when the nickname will not fit), then the final score with the winner's number pulsing, `FINAL` (or `FINAL/OT`), the winner's points leader and the winner's logo. Then the normal board for the rest of the hold.
+<Aside type="danger" title="Photosensitivity warning">
+  The celebration's flash is off by default. With `celebration_flash = true`, each celebration opens
+  with three full-panel flashes at about 5 per second in the team's colour. Flashing at that rate
+  can trigger seizures in people with photosensitive epilepsy. Leave it off on any sign in a shared
+  or public space. The GIFs on this page show the default, with no flash.
+</Aside>
 
-- **Only wins celebrate.** A tracked team's loss settles onto the final board with no flash, and nothing fires per basket.
+When a team in your `teams` list **wins** at the final buzzer, that game's card plays a roughly 4-second celebration **the next time its turn comes around**. In a slideshow it never interrupts whatever else is on the panel. You get the final score with the winner's number pulsing, `FINAL` (or `FINAL/OT`), the winner's points leader and the winner's logo. Then the normal board for the rest of the hold. With `celebration_flash = true` it opens with three quick flashes of the panel in the winner's colour with `76ERS WIN` knocked out (`PHI WIN` when the nickname will not fit).
+
+- **Only wins celebrate.** A tracked team's loss settles onto the final board with no celebration, and nothing fires per basket.
 - **The hold stretches to fit.** While a celebration is pending the card asks for 4 seconds plus the larger of the widget's `hold_time` and 4 seconds for the board afterwards; you don't need to raise `hold_time` for it.
 - **Once per game.** A celebration counts as done only once it actually reached the panel, and later rotations don't replay it.
 - **Boot is silent.** A game that is already final when the widget first sees it — after a boot, restart or [hot reload](/concepts/hot-reload/) — does not celebrate; only a game the widget watched go from live to final does.

@@ -14,7 +14,7 @@ This page is for sign owners configuring the widget in TOML. No API key and no a
 
 <DemoGif
   src="/demos-pinned/football-scoreboard-longboi.gif"
-  caption="full scoreboard on a long panel: three green TOUCHDOWN flashes and the JALEN HURTS 12 YD RUSH detail with +PAT, then PHI 20 – NYG 17 in Q4 with 2:13 left, the possession arrow on NYG and 2ND & 7 · PHI 24, a 10 – 10 HALF, an OT final with the winner's 27 in green, Sunday's next game at Lincoln Financial Field, and the BYE WEEK card pointing at the game after."
+  caption="full scoreboard on a long panel: the touchdown celebration with JALEN HURTS 12 YD RUSH with +PAT, then PHI 20 – NYG 17 in Q4 with 2:13 left, the possession arrow on NYG and 2ND & 7 · PHI 24, a 10 – 10 HALF, an OT final with the winner's 27 in green, Sunday's next game at Lincoln Financial Field, and the BYE WEEK card pointing at the game after."
 />
 
 **Requires led-ticker-core >= 4.30.**
@@ -102,7 +102,7 @@ A small brown football marks every card as football, so it can't be mistaken for
 
 <DemoGif
   src="/demos-pinned/football-scoreboard-smallsign.gif"
-  caption="smallsign: a green TOUCHDOWN flash, then TD +PAT and JALEN HURTS 12 YD RUSH beside PHI 20 NYG 17, followed by two bands per game — PHI 20 over NYG 17 with the possession dot, timeout pips, 2ND & 7, and the football icon beside Q4 over 2:13 — then HALF, FINAL OT, and the football leading NYG @ PHI on SUN NOV 1 at 1:00 PM and PHI @ NYG BYE."
+  caption="smallsign: the touchdown celebration, TD +PAT and JALEN HURTS 12 YD RUSH beside PHI 20 NYG 17, followed by two bands per game — PHI 20 over NYG 17 with the possession dot, timeout pips, 2ND & 7, and the football icon beside Q4 over 2:13 — then HALF, FINAL OT, and the football leading NYG @ PHI on SUN NOV 1 at 1:00 PM and PHI @ NYG BYE."
 />
 
 ### On every board
@@ -144,12 +144,19 @@ text = ":football.phi: PHILLY :football.phi:"
 
 ## Scoring celebration
 
-When a team in your `teams` list scores, that game's card plays a 4-second celebration **the next time its turn comes around**. In a slideshow it never interrupts whatever else is on the panel. You get three quick flashes in the scoring team's color with `TOUCHDOWN`, `FIELD GOAL` or `SAFETY` knocked out, then the new score with the scoring team's number pulsing, the play (`JALEN HURTS 12 YD RUSH`), `+PAT` or `+2PT` once the try is in, and the quarter and clock. Then the normal board for the rest of the hold.
+<Aside type="danger" title="Photosensitivity warning">
+  The celebration's flash is off by default. With `celebration_flash = true`, each celebration opens
+  with three full-panel flashes at about 5 per second in the team's colour. Flashing at that rate
+  can trigger seizures in people with photosensitive epilepsy. Leave it off on any sign in a shared
+  or public space. The GIFs on this page show the default, with no flash.
+</Aside>
+
+When a team in your `teams` list scores, that game's card plays a 4-second celebration **the next time its turn comes around**. In a slideshow it never interrupts whatever else is on the panel. You get the scoring kind and the new score with the scoring team's number pulsing, the play (`JALEN HURTS 12 YD RUSH`), `+PAT` or `+2PT` once the try is in, and the quarter and clock. Then the normal board for the rest of the hold. With `celebration_flash = true` it opens with three quick flashes in the scoring team's color with `TOUCHDOWN`, `FIELD GOAL` or `SAFETY` knocked out.
 
 - **The hold stretches to fit.** While a celebration is pending the card asks for 4 seconds per queued score plus the larger of the widget's `hold_time` and 4 seconds for the board afterwards; the engine still uses the section's `hold_time` if that is longer. With `hold_time = 6` on the section, a card with one touchdown to celebrate holds for 10 seconds. You don't need to raise `hold_time` for it.
 - **The extra point folds in.** A touchdown's kick or two-point conversion never celebrates on its own: it updates the queued celebration's score and its `+PAT` / `+2PT` label. Polls are 10–15 seconds apart, so the touchdown and the kick usually arrive together and the card shows `+PAT` from the start.
 - **Several scores queue.** Scores between turns celebrate in order, up to 3 per turn; older ones are dropped. Two scores inside one poll (a touchdown and a field goal, say) celebrate once.
-- **Only your teams flash.** In every mode, a score by a team you don't track highlights the score briefly and fades back to white — following only `PHI`, a Giants field goal gets the highlight, not the celebration. The highlight shows on the boards, not on `layout = "ticker"`. With an empty `teams` list nothing celebrates.
+- **Only your teams celebrate.** In every mode, a score by a team you don't track highlights the score briefly and fades back to white — following only `PHI`, a Giants field goal gets the highlight, not the celebration. The highlight shows on the boards, not on `layout = "ticker"`. With an empty `teams` list nothing celebrates.
 - **Each score celebrates once.** A celebration counts as done only once it actually reached the panel, and later rotations don't replay it.
 - **Corrections don't re-celebrate.** When ESPN revises a score downward, the board quietly corrects and any queued celebration for that score is dropped.
 - **Boot is silent.** Points already on the board when the widget first sees a game — after a boot, restart or [hot reload](/concepts/hot-reload/), or a game found mid-drive — don't celebrate.

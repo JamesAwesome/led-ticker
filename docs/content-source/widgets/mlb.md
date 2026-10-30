@@ -41,6 +41,7 @@ Spring Training and All-Star games append `(ST)` or `(ASG)` in ticker mode.
 | `small_font` | string | same as `font` | Font for the centre zone (inning, B/S count, base diamonds). Scoreboard layout only. Defaults to the same font as `font`. |
 | `small_font_size` | int | none | Point size for `small_font`. |
 | `small_font_threshold` | int | same as `font_threshold` | Anti-alias threshold for `small_font`. |
+| `logos` | bool | `true` | Paint the bundled team logos on the bigsign `two_row` card and the longboi `scoreboard`. `false` draws those cards without logos. Ignored on the smallsign. |
 | `update_interval` | int | `300` | Seconds between StatsAPI fetches. |
 
 ## Team codes

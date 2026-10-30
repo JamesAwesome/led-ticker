@@ -145,7 +145,10 @@ def test_baseball_provides_full_typed_surface():
         "baseball.roll_reverse",
         "baseball.roll_alternating",
     }
-    assert prov.emoji == ("baseball.ball",)
+    # The ball, then a logo emoji for each of the 30 teams.
+    assert prov.emoji[0] == "baseball.ball"
+    assert len(prov.emoji) == 31
+    assert {"baseball.nyy", "baseball.phi", "baseball.cws"} <= set(prov.emoji)
 
 
 def test_pokeball_provides_transitions_and_emoji():

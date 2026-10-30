@@ -358,7 +358,9 @@ class TwoRowMessage(FrameAwareBase):
         Called by the engine immediately BEFORE a scroll's `stop_pos` is
         computed so the scroll measures the current value; resolution is then
         locked (`_resolution_locked`) for the scroll loop so a 1 Hz source
-        tick can't move the width mid-scroll (constraints #6/#7). No-op for
+        tick can't move the width mid-scroll (constraints #6/#7). Also called
+        before a transition freezes the incoming widget, so it composites the
+        live value rather than its raw or last-visit text. No-op for
         non-token widgets."""
         reg = get_data_registry()
         if self._top_token is not None and self._top_token.has_tokens:

@@ -1,6 +1,7 @@
 """Transition effects between widgets."""
 
 import asyncio
+import logging
 from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
@@ -9,6 +10,8 @@ from led_ticker._types import Canvas
 from led_ticker.render_breaker import guard_for_transition
 from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.ticker import _maybe_wrap, _swap
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 # --- Easing functions ---
 
@@ -324,6 +327,12 @@ async def run_transition(
     # the transition. Otherwise rendering the widget for compositing
     # advances its frame counter and either tears its phase
     # or eats into the next section's animation budget.
+    # Resolve the incoming widget's value tokens BEFORE freezing it: a widget
+    # that has never been drawn still holds its raw `:clock.now:` text (and a
+    # revisited one holds last visit's value), and the freeze would keep that
+    # on screen for the whole transition. Done ahead of both pauses so a
+    # raising resolve can't strand the outgoing widget paused.
+    _resolve_presenter(incoming, breaker)
     _pause_presenter(outgoing)
     _pause_presenter(incoming)
     # Reset the incoming widget's frame counter so frame-aware effects
@@ -416,6 +425,22 @@ def _pause_presenter(obj: Any) -> None:
     pause = getattr(obj, "pause_frame", None)
     if callable(pause):
         pause()
+
+
+def _resolve_presenter(obj: Any, breaker: Any = None) -> None:
+    """Force a token resolve on ``obj`` if it has the hook. A raising
+    resolve trips the breaker (when given) instead of escaping the
+    transition — the widget then composites its cached text."""
+    resolve = getattr(obj, "resolve_tokens_now", None)
+    if not callable(resolve):
+        return
+    try:
+        resolve()
+    except Exception as exc:
+        if breaker is None:
+            logger.exception("resolve_tokens_now failed on %s", type(obj).__name__)
+        else:
+            breaker.trip(obj, exc)
 
 
 def _resume_presenter(obj: Any) -> None:

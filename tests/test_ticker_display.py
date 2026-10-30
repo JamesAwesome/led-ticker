@@ -1494,6 +1494,65 @@ class TestScrollBetween:
         # healthy outgoing side kept rendering across swaps
         assert len(set(good.seen)) >= 2
 
+    async def test_incoming_tokens_resolved_before_freeze(self, no_sleep):
+        """Same contract as run_transition: the incoming widget resolves its
+        tokens before pause_frame locks them, so the scroll-in never shows
+        the raw `:t:` text."""
+        from rgbmatrix import _StubCanvas
+
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.sources import (
+            DataRegistry,
+            StaticSource,
+            get_data_registry,
+            set_data_registry,
+        )
+        from led_ticker.widgets.message import TickerMessage
+
+        prev = get_data_registry()
+        src = StaticSource(id="t", value="9:31")
+        src.refresh()
+        reg = DataRegistry()
+        reg.add(src)
+        set_data_registry(reg)
+        try:
+            canvas = _StubCanvas(width=160, height=16)
+            frame = mock.Mock()
+            frame.swap.side_effect = lambda c: c
+            outgoing = TickerMessage(text="OLD", font_color=RGB_WHITE)
+            incoming = TickerMessage(text=":t:", font_color=RGB_WHITE)
+            seen = []
+            real_draw = TickerMessage.draw
+
+            def _draw(self, c, *a, **kw):
+                if self is incoming:
+                    seen.append(self._resolved_text)
+                return real_draw(self, c, *a, **kw)
+
+            ticker = Ticker(monitors=[], frame=frame)
+            with mock.patch.object(TickerMessage, "draw", _draw):
+                await ticker._scroll_between(canvas, outgoing, incoming)
+        finally:
+            set_data_registry(prev)
+        assert seen, "incoming was never composited"
+        assert set(seen) == {"9:31"}, f"raw/stale token composited: {seen}"
+
+    async def test_raising_resolve_trips_breaker(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        """A raising `resolve_tokens_now` trips the breaker instead of
+        escaping the scroll-between and stranding the outgoing paused."""
+        outgoing = make_widget(40)
+        incoming = make_widget(40)
+        outgoing.pause_frame = mock.Mock()
+        outgoing.resume_frame = mock.Mock()
+        incoming.resolve_tokens_now = mock.Mock(side_effect=RuntimeError("boom"))
+        ticker = Ticker(monitors=[], frame=mock_frame)
+
+        await ticker._scroll_between(canvas, outgoing, incoming)
+        assert ticker.breaker.disabled, "raising resolve did not trip the breaker"
+        outgoing.resume_frame.assert_called_once()
+
 
 class TestDrawScrollFrame:
     """Unit tests for the private _draw_scroll_frame helper."""

@@ -34,7 +34,7 @@ Two modes: **docs** (polished — source TOML committed under `docs/site/demos-p
    - Pure black `[0,0,0]` → renders INVISIBLE on the panel. Warn unless used intentionally as "transparent"; suggest `[10,10,10]` or a brand colour.
    - Pure white `[255,255,255]` → washes blue-white. Suggest cream `[255,244,214]`.
    - Dark-on-dark (luminance Δ < 30) → low-contrast risk; suggest previewing at `brightness = 60`.
-   - Brand fallbacks (§6 Firebird phoenix-warm palette): flame `[255,92,38]`, ember `[214,40,57]`, amber `[255,183,3]`, cream `[255,244,214]`, dusk `[99,60,138]`. IG social-handle magenta `[225,48,108]` is the social handle color only, not a brand color.
+   - Brand fallbacks (Firebird palette, `config/config.firebird.example.toml`): flame `[255,92,38]`, ember `[214,40,57]`, amber `[255,183,3]`, cream `[255,244,214]`, dusk `[99,60,138]`. IG social-handle magenta `[225,48,108]` is the social handle color only, not a brand color.
 
 4. **Caption (docs mode only).** Read 2-3 existing `<DemoGif caption="...">` lines from `docs/site/src/content/docs/widgets/<widget>.mdx` and match their matter-of-fact, visual voice.
 

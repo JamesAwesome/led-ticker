@@ -327,14 +327,46 @@
     {
       "name": "hockey",
       "namespace": "hockey",
-      "summary": "Live NHL scores from the NHL's public web API (no key) — score, period and clock, shots, power play and empty net, goal celebrations, final and next-game cards; :hockey.puck: emoji; modes teams, league and live.",
+      "summary": "Live NHL scores from the NHL's public web API (no key) — score, period and clock, shots, power play and empty net, goal celebrations, final and next-game cards; bundled team logos on the big panels; :hockey.puck: and a :hockey.<team>: logo emoji for every team; modes teams, league and live.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/hockey",
       "provides": {
         "widgets": [
           "hockey.scores"
         ],
         "emoji": [
-          "hockey.puck"
+          "hockey.puck",
+          "hockey.ana",
+          "hockey.bos",
+          "hockey.buf",
+          "hockey.car",
+          "hockey.cbj",
+          "hockey.cgy",
+          "hockey.chi",
+          "hockey.col",
+          "hockey.dal",
+          "hockey.det",
+          "hockey.edm",
+          "hockey.fla",
+          "hockey.lak",
+          "hockey.min",
+          "hockey.mtl",
+          "hockey.njd",
+          "hockey.nsh",
+          "hockey.nyi",
+          "hockey.nyr",
+          "hockey.ott",
+          "hockey.phi",
+          "hockey.pit",
+          "hockey.sea",
+          "hockey.sjs",
+          "hockey.stl",
+          "hockey.tbl",
+          "hockey.tor",
+          "hockey.uta",
+          "hockey.van",
+          "hockey.vgk",
+          "hockey.wpg",
+          "hockey.wsh"
         ]
       },
       "sources": [
@@ -345,7 +377,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "hockey-v0.2.0",
+          "ref": "hockey-v0.4.0",
           "subdirectory": "plugins/hockey"
         }
       ]
@@ -353,14 +385,46 @@
     {
       "name": "football",
       "namespace": "football",
-      "summary": "Live NFL scores from ESPN's public site API (no key) — score, quarter and clock, possession, down and distance, timeouts and the red zone, touchdown / field goal / safety celebrations, final, next-game and bye-week cards; :football.ball: emoji; modes teams, league and live.",
+      "summary": "Live NFL scores from ESPN's public site API (no key) — score, quarter and clock, possession, down and distance, timeouts and the red zone, touchdown / field goal / safety celebrations, final, next-game and bye-week cards; bundled team logos on the big panels; :football.ball: and a :football.<team>: logo emoji for every team; modes teams, league and live.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/football",
       "provides": {
         "widgets": [
           "football.scores"
         ],
         "emoji": [
-          "football.ball"
+          "football.ball",
+          "football.ari",
+          "football.atl",
+          "football.bal",
+          "football.buf",
+          "football.car",
+          "football.chi",
+          "football.cin",
+          "football.cle",
+          "football.dal",
+          "football.den",
+          "football.det",
+          "football.gb",
+          "football.hou",
+          "football.ind",
+          "football.jax",
+          "football.kc",
+          "football.lac",
+          "football.lar",
+          "football.lv",
+          "football.mia",
+          "football.min",
+          "football.ne",
+          "football.no",
+          "football.nyg",
+          "football.nyj",
+          "football.phi",
+          "football.pit",
+          "football.sea",
+          "football.sf",
+          "football.tb",
+          "football.ten",
+          "football.wsh"
         ]
       },
       "sources": [
@@ -371,7 +435,7 @@
         {
           "type": "git",
           "url": "https://github.com/JamesAwesome/led-ticker-plugins",
-          "ref": "football-v0.2.0",
+          "ref": "football-v0.4.0",
           "subdirectory": "plugins/football"
         }
       ]

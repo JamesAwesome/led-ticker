@@ -53,7 +53,7 @@ concurrency:
 
 jobs:
   changes:
-    runs-on: self-hosted
+    runs-on: led-ticker
     outputs:
       python: ${{ steps.f.outputs.python }}
       docs: ${{ steps.f.outputs.docs }}
@@ -92,7 +92,7 @@ jobs:
   lint:
     needs: changes
     if: needs.changes.outputs.python == 'true'
-    runs-on: self-hosted
+    runs-on: led-ticker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,7 +110,7 @@ jobs:
   typecheck:
     needs: changes
     if: needs.changes.outputs.python == 'true'
-    runs-on: self-hosted
+    runs-on: led-ticker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -123,7 +123,7 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.python == 'true'
-    runs-on: self-hosted
+    runs-on: led-ticker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -149,7 +149,7 @@ jobs:
   test-latest-pillow:
     needs: changes
     if: github.event_name == 'schedule' || needs.changes.outputs.python == 'true'
-    runs-on: self-hosted
+    runs-on: led-ticker
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -166,7 +166,7 @@ jobs:
   gif-plan-test:
     needs: changes
     if: needs.changes.outputs.gif_plan == 'true'
-    runs-on: self-hosted
+    runs-on: led-ticker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -179,7 +179,7 @@ jobs:
   docs-lint:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
-    runs-on: self-hosted
+    runs-on: led-ticker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -208,7 +208,7 @@ jobs:
   docker-build:
     needs: changes
     if: needs.changes.outputs.docker == 'true'
-    runs-on: self-hosted
+    runs-on: led-ticker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -227,7 +227,7 @@ jobs:
   ci-passed:
     needs: [changes, lint, typecheck, test, test-latest-pillow, gif-plan-test, docs-lint, docker-build]
     if: always()
-    runs-on: self-hosted
+    runs-on: led-ticker
     steps:
       - name: Verify all required jobs passed (or skipped)
         env:

@@ -519,7 +519,7 @@ The erase direction is **not** a knob — pick the variant. The beam colour is a
 - **Snapshot, not a live draw.** Both widgets are drawn once per firing into an offscreen raster at physical resolution; the beams work from that, so a clock ticking over mid-transition can't leave stray pixels behind. A live incoming (a clock with seconds) is written showing its time at the start and jumps to live on the final frame. On the bigsign a logical pixel is a 4×4 block written in four passes of four, with a one-real-pixel beam.
 - **Cross-scale sections.** When the next section uses a different `scale`, the incoming content is written at the outgoing scale and pops to its own size on the final frame — the same accepted limitation as `flair.fairy`, `flair.lightning` and `flair.fireworks`.
 
-### `flair.accordion` (core >= 4.32)
+### `flair.accordion` (flair >= 0.17.0, core >= 4.32)
 
 `flair.accordion` plays the outgoing content like a dealer spreading a deck of cards: the message bunches into an overlapping stack that slides off one edge, then the incoming stack slides in from the far edge and fans out into place. Overlap is real occlusion, like a card fan, and the spread is tied to travel, so the content is tightest at the panel edge and reaches its full spacing exactly on arrival. It works on every widget type, because the content is snapshotted as pixels rather than text. Two variants:
 

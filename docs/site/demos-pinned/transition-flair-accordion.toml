@@ -1,5 +1,5 @@
 # render-duration: 9
-# requires-plugins: led-ticker-flair (with flair.accordion; render locally with the plugin installed)
+# requires-plugins: led-ticker-flair (>= 0.17.0; render locally with the plugin installed)
 [display]
 rows = 64
 cols = 256

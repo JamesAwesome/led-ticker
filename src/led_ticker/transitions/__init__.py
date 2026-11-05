@@ -221,6 +221,27 @@ def get_transition_class(name: str) -> type[Transition]:
 # --- Transition runner ---
 
 
+def _wrapper_geometry_differs(
+    canvas: Any, incoming_scale: int, incoming_content_height: int
+) -> bool:
+    """True when `_maybe_wrap(unwrap_to_real(canvas), incoming_scale,
+    incoming_content_height)` would yield different geometry (scale or
+    logical height) than `canvas` currently has.
+
+    A raw unwrapped canvas reads as scale 1 at its own height, and the
+    target height mirrors `_maybe_wrap`'s rule: a scale-1 request that is
+    not shorter than the panel stays raw (full panel height).
+    """
+    if incoming_scale != getattr(canvas, "scale", 1):
+        return True
+    real_h = unwrap_to_real(canvas).height
+    if incoming_scale > 1 or incoming_content_height < real_h:
+        target_h = incoming_content_height
+    else:
+        target_h = real_h
+    return canvas.height != target_h
+
+
 async def run_transition(
     canvas: Canvas,
     frame: Any,
@@ -255,7 +276,9 @@ async def run_transition(
     from `canvas.height`). Must match the new section's `content_height`
     so the incoming widget dissolves IN at the same y-positions that
     `run_slideshow` will draw it at after the transition completes; otherwise
-    the rows visibly jump vertically when the section starts.
+    the rows visibly jump vertically when the section starts. A
+    content-height difference alone (same scale) also triggers the re-wrap,
+    honouring ``scale_switch_at`` exactly as a scale change does.
 
     ``outgoing_bg_color`` and ``incoming_bg_color`` make the per-frame
     reset preserve bg color through the transition. Without them, the
@@ -295,8 +318,15 @@ async def run_transition(
     if hasattr(transition, "min_frames"):
         frame_count = max(frame_count, transition.min_frames)
 
-    current_scale = getattr(canvas, "scale", 1)
-    needs_switch = incoming_scale is not None and incoming_scale != current_scale
+    # Re-wrap when the incoming section's wrapper geometry differs from the
+    # current one: a different scale OR (at the same scale) a different
+    # logical `content_height` — otherwise the incoming widget is drawn
+    # through the outgoing wrapper's `y_offset_real`/height and snaps
+    # vertically once the section starts. `None` (within-section callers)
+    # never switches.
+    needs_switch = incoming_scale is not None and _wrapper_geometry_differs(
+        canvas, incoming_scale, incoming_content_height
+    )
     incoming_canvas: Canvas | None = None
 
     # `scale_switch_at` controls when the canvas is re-wrapped at incoming_scale.

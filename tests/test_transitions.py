@@ -1,6 +1,7 @@
 """Tests for transition effects."""
 
 import unittest.mock as mock
+from typing import Any
 
 import pytest
 
@@ -2149,6 +2150,170 @@ class TestCrossScaleNoAllocation:
             incoming_scale=4,
         )
         bigsign_frame.create_canvas.assert_not_called()
+
+
+class TestRunTransitionSameScaleContentHeight:
+    """Regression: a section change at the SAME scale but a different
+    `content_height` must re-wrap exactly like a scale change does. Before
+    the fix `needs_switch` only compared scales, so the incoming widget was
+    drawn through the OUTGOING wrapper (its `y_offset_real` + logical
+    height) for the whole transition and snapped vertically when the
+    section started. Bigsign repro: section A `content_height = 16`,
+    section B `content_height = 12`, both scale 4.
+    """
+
+    class _Recorder:
+        min_frames: int = 0
+
+        def __init__(self, inner: Any) -> None:
+            self._inner = inner
+            self.scale_switch_at = getattr(inner, "scale_switch_at", 0.5)
+            self.frames: list[tuple[float, int, int, int]] = []
+
+        def frame_at(
+            self, t: float, canvas: Any, outgoing: Any, incoming: Any, **k: Any
+        ) -> Any:
+            self.frames.append(
+                (
+                    t,
+                    id(canvas),
+                    canvas.height,
+                    getattr(canvas, "y_offset_real", 0),
+                )
+            )
+            return self._inner.frame_at(t, canvas, outgoing, incoming, **k)
+
+    async def test_same_scale_content_height_change_rewraps(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        outgoing_wrapper = ScaledCanvas(real_bigsign_canvas, scale=4, content_height=16)
+        rec = self._Recorder(Dissolve())
+        result = await run_transition(
+            outgoing_wrapper,
+            bigsign_frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+            incoming_content_height=12,
+        )
+        assert isinstance(result, ScaledCanvas)
+        assert result is not outgoing_wrapper
+        assert result.scale == 4
+        assert result.height == 12
+        assert result.y_offset_real == (64 - 12 * 4) // 2
+        # Outgoing geometry before scale_switch_at, incoming at/after it.
+        for t, _cid, h, _y in rec.frames:
+            assert h == (12 if t >= rec.scale_switch_at else 16), rec.frames
+        bigsign_frame.create_canvas.assert_not_called()
+
+    async def test_same_scale_content_height_change_respects_switch_at_1(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        """Hard-edged sweeps (`scale_switch_at = 1.0`) keep the outgoing
+        geometry until the final frame, exactly as for a scale change."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.transitions.wipe import WipeLeft
+
+        rec = self._Recorder(WipeLeft())
+        result = await run_transition(
+            ScaledCanvas(real_bigsign_canvas, scale=4, content_height=16),
+            bigsign_frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+            incoming_content_height=12,
+        )
+        heights = [h for _t, _c, h, _y in rec.frames]
+        assert all(h == 16 for h in heights[:-1]), heights
+        assert heights[-1] == 12, heights
+        assert result.height == 12
+
+    async def test_same_scale_same_content_height_does_not_rewrap(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        wrapper = ScaledCanvas(real_bigsign_canvas, scale=4, content_height=12)
+        rec = self._Recorder(Dissolve())
+        result = await run_transition(
+            wrapper,
+            bigsign_frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+            incoming_content_height=12,
+        )
+        assert result is wrapper
+        assert {cid for _t, cid, _h, _y in rec.frames} == {id(wrapper)}
+
+    async def test_same_scale_content_height_change_early_switch(
+        self, real_bigsign_canvas, bigsign_frame, make_widget, no_sleep
+    ):
+        """`scale_switch_at <= 0` re-wraps before the first frame."""
+        from led_ticker.scaled_canvas import ScaledCanvas
+
+        class _ImmediateSwitchDissolve(Dissolve):
+            scale_switch_at = 0.0
+
+        outgoing_wrapper = ScaledCanvas(real_bigsign_canvas, scale=4, content_height=16)
+        rec = self._Recorder(_ImmediateSwitchDissolve())
+        result = await run_transition(
+            outgoing_wrapper,
+            bigsign_frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+            incoming_content_height=12,
+        )
+        assert rec.frames
+        assert all(h == 12 for _t, _c, h, _y in rec.frames), rec.frames
+        assert id(outgoing_wrapper) not in {c for _t, c, _h, _y in rec.frames}
+        assert result.height == 12
+        bigsign_frame.create_canvas.assert_not_called()
+
+    async def test_raw_canvas_scale1_same_height_does_not_rewrap(
+        self, make_widget, no_sleep
+    ):
+        """Smallsign: raw 160x16 canvas at scale 1, content_height 16 —
+        `_maybe_wrap` would leave it raw, so no switch."""
+        from rgbmatrix import RGBMatrix, RGBMatrixOptions
+
+        opts = RGBMatrixOptions()
+        opts.cols = 32
+        opts.rows = 16
+        opts.chain_length = 5
+        raw = RGBMatrix(options=opts).CreateFrameCanvas()
+        frame = mock.Mock()
+        frame.get_clean_canvas.return_value = raw
+        frame.swap.side_effect = lambda c: c
+        rec = self._Recorder(Dissolve())
+        result = await run_transition(
+            raw,
+            frame,
+            make_widget(40),
+            make_widget(40),
+            transition=rec,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=1,
+            incoming_content_height=16,
+        )
+        assert result is raw
+        assert {c for _t, c, _h, _y in rec.frames} == {id(raw)}
 
 
 class TestRunTransitionDurationMs:

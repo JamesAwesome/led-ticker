@@ -1,6 +1,6 @@
 ---
 title: Sprite and flair transitions
-description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, flair.poker card-suit ripple, flair.lightning bolt-strike, flair.fairy pixie-dust, and flair.laser beam-write transitions."
+description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, flair.poker card-suit ripple, flair.lightning bolt-strike, flair.fairy pixie-dust, flair.laser beam-write, and flair.accordion card-fan transitions."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -518,5 +518,86 @@ The erase direction is **not** a knob — pick the variant. The beam colour is a
 - **Backgrounds.** The section `bg_color` is painted by the engine, never by the widget, so it is never lasered: erased pixels show the old background, and the panel switches to the new background the moment the first beam starts writing. A widget's own fill (`image`/`gif` `bg_color`, `two_row` band colours) is content and gets written pixel by pixel.
 - **Snapshot, not a live draw.** Both widgets are drawn once per firing into an offscreen raster at physical resolution; the beams work from that, so a clock ticking over mid-transition can't leave stray pixels behind. A live incoming (a clock with seconds) is written showing its time at the start and jumps to live on the final frame. On the bigsign a logical pixel is a 4×4 block written in four passes of four, with a one-real-pixel beam.
 - **Cross-scale sections.** When the next section uses a different `scale`, the incoming content is written at the outgoing scale and pops to its own size on the final frame — the same accepted limitation as `flair.fairy`, `flair.lightning` and `flair.fireworks`.
+
+### `flair.accordion` (flair >= 0.17.0, core >= 4.32)
+
+`flair.accordion` plays the outgoing content like a dealer spreading a deck of cards: the message bunches into an overlapping stack that slides off one edge, then the incoming stack slides in from the far edge and fans out into place. Overlap is real occlusion, like a card fan, and the spread is tied to travel, so the content is tightest at the panel edge and reaches its full spacing exactly on arrival. It works on every widget type, because the content is snapshotted as pixels rather than text. Two variants:
+
+| Type                      | Motion                                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `flair.accordion.sweep`   | Cards are scooped up one by one and the stack is pushed off; the incoming stack is laid down card by card. |
+| `flair.accordion.stretch` | The content moves as one piece, squeezing shut as it leaves and opening up as it lands.                    |
+
+<DemoGif
+  src="/demos-pinned/transition-flair-accordion.gif"
+  caption="`flair.accordion.sweep` — the old message bunches into a deck and slides off left, the new one slides in and fans out"
+/>
+
+#### Install
+
+`flair.accordion` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Deck slides off left, new deck fans in from the right"
+  code={`[transitions]
+duration = 2.0
+easing = "ease_in_out"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = "flair.accordion.sweep"
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = "flair.accordion.sweep"
+
+[[playlist.section.widget]]
+type = "message"
+text = "YOGA"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 183, 3]`}
+/>
+
+<TomlExample
+  title="The stretch variant, mirrored"
+  code={`[[playlist.section]]
+transition = {type = "flair.accordion.stretch", direction = "right"}`}
+/>
+
+#### Knobs
+
+| Knob        | Default  | Notes                                                                                       |
+| ----------- | -------- | ------------------------------------------------------------------------------------------- |
+| `direction` | `"left"` | `"left"` exits left and enters from the right; `"right"` mirrors it (`"left"` / `"right"`). |
+
+Recommended: `duration = 2.0` with `easing = "ease_in_out"`.
+
+#### Behavior notes
+
+- **Borders stay still.** A bordered widget keeps its border ring in place, painted over the cards; the content moves, including any text that overlaps the ring.
+- **Two-row widgets.** Each row gets its own deck; the decks move in lockstep. Each pixel goes with the row that draws it, so a descender, an i or j dot, or a `text_y_offset` nudge stays with its own row; where the two rows overlap, a pixel both rows draw goes to the band it sits in. (A two-row widget with a `background` is the exception: see below.)
+- **Background effects.** A widget with a `background` effect (and full-panel `image`/`gif` widgets) has no gaps to fan, so it slides as a single card (both rows of a `two_row` included).
+- **Image/gif widgets.** Core draws only the picture during a transition (no border, no text overlay), so a bordered or captioned image gets no ring and no row split: the picture moves as one deck.
+- **Backgrounds.** The section `bg_color` is painted by the engine, never by the transition. The panel switches to the new section's background at the halfway point, on the same frame the incoming deck starts to slide in, with no black flash. The short empty beat just before it (which can be zero frames on a fast transition) still shows the outgoing background.
 
 <RelatedPages slugs={["transitions/push", "transitions/wipe", "concepts/animations"]} />

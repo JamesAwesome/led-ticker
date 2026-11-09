@@ -528,6 +528,13 @@ The erase direction is **not** a knob — pick the variant. The beam colour is a
 | `flair.accordion.sweep`   | Cards are scooped up one by one and the stack is pushed off; the incoming stack is laid down card by card. |
 | `flair.accordion.stretch` | The content moves as one piece, squeezing shut as it leaves and opening up as it lands.                    |
 
+Each has an `.alternating` variant (flair >= 0.18.0) that flips sides every time it fires: left, then right, then left. A firing cut off partway still counts, so the next one switches.
+
+| Type                                  | Motion                                     |
+| ------------------------------------- | ------------------------------------------ |
+| `flair.accordion.sweep.alternating`   | `flair.accordion.sweep`, flipping sides.   |
+| `flair.accordion.stretch.alternating` | `flair.accordion.stretch`, flipping sides. |
+
 <DemoGif
   src="/demos-pinned/transition-flair-accordion.gif"
   caption="`flair.accordion.sweep` — the old message bunches into a deck and slides off left, the new one slides in and fans out"
@@ -584,11 +591,19 @@ font_color = [255, 183, 3]`}
 transition = {type = "flair.accordion.stretch", direction = "right"}`}
 />
 
+<TomlExample
+  title="Alternating, starting from the right"
+  code={`[[playlist.section]]
+transition = {type = "flair.accordion.sweep.alternating", direction = "right"}`}
+/>
+
 #### Knobs
 
 | Knob        | Default  | Notes                                                                                       |
 | ----------- | -------- | ------------------------------------------------------------------------------------------- |
 | `direction` | `"left"` | `"left"` exits left and enters from the right; `"right"` mirrors it (`"left"` / `"right"`). |
+
+On the `.alternating` variants, `direction` sets the side of the first firing; after that the side flips every firing.
 
 Recommended: `duration = 2.0` with `easing = "ease_in_out"`.
 

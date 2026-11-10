@@ -278,7 +278,7 @@ class SpinAnimation:
 
 ### `AnimationFrame.pixel_gain`
 
-Return a `pixel_gain` callable to twinkle, fade or blink individual pixels of the rendered text — the engine paints the text normally, then scales each lit pixel by `pixel_gain(x, y)`. Coordinates are real panel pixels, and the result is clamped to `[0, 1]`. Build the callable fresh each `frame_for` call from the frame counter; the engine never caches the proxy it wraps the canvas in, because the canvas changes on every swap.
+Return a `pixel_gain` callable to twinkle or fade individual pixels of the rendered text — the engine paints the text normally, then scales each lit pixel by `pixel_gain(x, y)`. Coordinates are real panel pixels, and the result is clamped to `[0, 1]`. Build the callable fresh each `frame_for` call from the frame counter; the engine never caches the proxy it wraps the canvas in, because the canvas changes on every swap.
 
 Behavior to design around:
 

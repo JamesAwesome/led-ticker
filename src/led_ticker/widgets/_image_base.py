@@ -448,10 +448,11 @@ class _BaseImageWidget(FrameAwareBase):
                     "(set on a single-row image widget; remove bottom_text)"
                 )
             if not emits_lens and self.text_align in ("scroll", "scroll_over"):
+                anim_name = type(self.animation).__name__.lower()
                 raise ValueError(
                     f"animation is not compatible with "
                     f"text_align={self.text_align!r} "
-                    "(typewriter on a moving marquee is incoherent; "
+                    f"({anim_name} on a moving marquee is incoherent; "
                     "use text_align=auto/left/right)"
                 )
             if not self.text:

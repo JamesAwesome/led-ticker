@@ -1855,6 +1855,24 @@ class TestImageTypewriter:
                 animation=Typewriter(),
             )
 
+    def test_animation_scroll_error_names_the_animation(self, tmp_path):
+        class Blink:
+            emits_lens = False
+
+            def frame_for(self, *a):  # pragma: no cover
+                raise AssertionError
+
+        with pytest.raises(ValueError, match="blink on a moving marquee"):
+            self._make_still(
+                tmp_path, text="Hello", text_align="scroll", animation=Blink()
+            )
+        with pytest.raises(ValueError, match="typewriter on a moving marquee"):
+            from led_ticker.animations import Typewriter
+
+            self._make_still(
+                tmp_path, text="Hello", text_align="scroll", animation=Typewriter()
+            )
+
     def test_animation_with_scroll_over_align_raises(self, tmp_path):
         from led_ticker.animations import Typewriter
 

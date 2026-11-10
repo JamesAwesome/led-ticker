@@ -35,6 +35,16 @@ def test_gain_clamped():
     assert real.get_pixel(2, 2) == (7, 8, 9)  # skipped, not blacked out
 
 
+def test_subfill_gain_clamped():
+    real = HeadlessCanvas(8, 8)
+    GainCanvas(real, lambda x, y: 2.0).SubFill(0, 0, 2, 2, 200, 100, 0)
+    assert real.get_pixel(0, 0) == (200, 100, 0)  # not 400, 200, 0
+    assert real.get_pixel(1, 1) == (200, 100, 0)
+    real.Fill(7, 8, 9)
+    GainCanvas(real, lambda x, y: -1).SubFill(0, 0, 2, 2, 200, 100, 0)
+    assert real.get_pixel(0, 0) == (7, 8, 9)  # skipped, not blacked out
+
+
 def test_zero_gain_setpixel_preserves_background():
     real = HeadlessCanvas(8, 8)
     real.Fill(0, 0, 255)
@@ -110,6 +120,20 @@ def test_nested_wrapper():
     ).SetPixel(1, 1, 100, 0, 0)
     assert real._pixels == ref._pixels
     assert real.count_nonzero() > 0
+
+
+def test_with_pixel_gain_preserves_non_default_content_height():
+    # Image overlays wrap at e.g. scale 2 / content_height 32 on a 64-tall
+    # panel; dropping content_height would shift y_offset_real.
+    real = HeadlessCanvas(64, 64)
+    src = ScaledCanvas(real, scale=2, content_height=24)
+    wrapped = with_pixel_gain(src, lambda x, y: 1.0)
+    assert wrapped.content_height == 24
+    assert wrapped.y_offset_real == src.y_offset_real != 0
+    wrapped.SetPixel(3, 2, 200, 0, 0)
+    ref = HeadlessCanvas(64, 64)
+    ScaledCanvas(ref, scale=2, content_height=24).SetPixel(3, 2, 200, 0, 0)
+    assert real._pixels == ref._pixels and real._pixels
 
 
 def _text_widget(animation=None, center=False, **kw):

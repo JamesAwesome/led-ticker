@@ -44,6 +44,7 @@ from led_ticker.fonts import (
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.lens_render import LensTextRenderer
 from led_ticker.pixel_emoji import has_animated_emoji, has_renderable_emoji
+from led_ticker.pixel_gain import with_pixel_gain
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled
 from led_ticker.sources import (
     TokenizedField,
@@ -1270,6 +1271,7 @@ class _BaseImageWidget(FrameAwareBase):
         baseline_y: int,
         provider: Any,
         text_override: str | None = None,
+        pixel_gain: Any | None = None,
     ) -> None:
         """Paint the overlay text either normally or through the
         stationary fisheye lens onto ``text_canvas``.
@@ -1285,6 +1287,10 @@ class _BaseImageWidget(FrameAwareBase):
         untouched — the border keeps its existing position and stays
         unwarped by construction (it never routes through the strip)."""
         if lens is None:
+            # pixel_gain (twinkle) only on the plain path: lens > gain.
+            # Proxy rebuilt per call — the canvas changes every swap.
+            if pixel_gain is not None:
+                text_canvas = with_pixel_gain(text_canvas, pixel_gain)
             self._draw_text(text_canvas, x, baseline_y, provider, text_override)
             return
 
@@ -1326,6 +1332,7 @@ class _BaseImageWidget(FrameAwareBase):
         text_x_right: int,
         lens: Any | None = None,
         text_override: str | None = None,
+        pixel_gain: Any | None = None,
     ) -> None:
         """Compose one frame: reset canvas (Clear or Fill bg) + paint
         image + paint border + paint text in the right order for the
@@ -1381,6 +1388,7 @@ class _BaseImageWidget(FrameAwareBase):
                 baseline_y,
                 provider,
                 text_override=text_override,
+                pixel_gain=pixel_gain,
             )
             self._paint_skip_black(canvas)
             if self.border is not None:
@@ -1396,6 +1404,7 @@ class _BaseImageWidget(FrameAwareBase):
                 baseline_y,
                 provider,
                 text_override=text_override,
+                pixel_gain=pixel_gain,
             )
         else:
             self._paint_image(canvas)
@@ -1438,6 +1447,7 @@ class _BaseImageWidget(FrameAwareBase):
                 baseline_y,
                 provider,
                 text_override=text_override,
+                pixel_gain=pixel_gain,
             )
 
     def _render_wrap_tick(
@@ -1829,6 +1839,7 @@ class _BaseImageWidget(FrameAwareBase):
                 # branch above never animates (validation refuses
                 # scroll aligns for typewriter and `text_wrap` for lens).
                 lens = None
+                pixel_gain = None
                 text_override = None
                 if self.animation is not None:
                     # Typewriter resolution freeze (I3) — must engage
@@ -1849,6 +1860,7 @@ class _BaseImageWidget(FrameAwareBase):
                     if anim_frame is not None:
                         text_override = anim_frame.visible_text
                         lens = getattr(anim_frame, "lens", None)
+                        pixel_gain = getattr(anim_frame, "pixel_gain", None)
                 self._render_tick(
                     canvas,
                     text_canvas,
@@ -1858,6 +1870,7 @@ class _BaseImageWidget(FrameAwareBase):
                     text_x_right,
                     lens=lens,
                     text_override=text_override,
+                    pixel_gain=pixel_gain,
                 )
             canvas = frame.swap(canvas)
             # Follow the new back-buffer so next tick paints to the

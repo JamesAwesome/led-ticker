@@ -2643,6 +2643,64 @@ class TestImageTokenTypewriterFreeze:
         assert widget._anim_resolution_lock is True
         assert widget._resolved_text_single == "ABCDE"
 
+    @staticmethod
+    def _stub_anim(locks=None):
+        from led_ticker.animations import AnimationFrame
+
+        class _Anim:
+            restart_on_visit = True
+
+            def frame_for(self, frame, full_text, canvas_width, text_width):
+                return AnimationFrame(visible_text=full_text)
+
+        if locks is not None:
+            _Anim.locks_resolution = locks
+        return _Anim()
+
+    def test_locks_resolution_false_keeps_tokens_live(self, tmp_path):
+        """`locks_resolution = False` animations leave the overlay token
+        live across ticks within one visit."""
+        from led_ticker.sources import StaticSource
+
+        src = StaticSource(id="t", value="ABCDE")
+        _set_registry(src)
+        widget = self._make_still(
+            tmp_path,
+            text=":t:",
+            text_align="left",
+            animation=self._stub_anim(locks=False),
+        )
+        canvas = _stub_canvas()
+        widget._resolve_overlay_text(locked=False)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        assert widget._anim_resolution_lock is False
+        assert widget._resolved_text_single == "ABCDE"
+
+        src.value = "ZZ"
+        src.refresh()
+        widget._resolve_overlay_text(locked=False)
+        widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+        assert widget._anim_resolution_lock is False
+        assert widget._resolved_text_single == "ZZ"
+
+    def test_locks_resolution_default_still_locks(self, tmp_path):
+        from led_ticker.sources import StaticSource
+
+        for anim in (self._stub_anim(), self._stub_anim(locks=True)):
+            src = StaticSource(id="t", value="ABCDE")
+            _set_registry(src)
+            widget = self._make_still(
+                tmp_path, text=":t:", text_align="left", animation=anim
+            )
+            canvas = _stub_canvas()
+            widget._resolve_overlay_text(locked=False)
+            widget._render_tick(canvas, canvas, 0, 12, 2, 60)
+            assert widget._anim_resolution_lock is True
+            src.value = "ZZ"
+            src.refresh()
+            widget._resolve_overlay_text(locked=False)
+            assert widget._resolved_text_single == "ABCDE"
+
     def test_value_change_mid_reveal_does_not_corrupt_slice(self, tmp_path):
         """A source value change mid-reveal does NOT corrupt the typewriter
         slice — the resolution is frozen to the start-of-reveal value."""

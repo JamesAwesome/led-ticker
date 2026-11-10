@@ -1428,6 +1428,7 @@ class _BaseImageWidget(FrameAwareBase):
                     and self._token_text is not None
                     and self._token_text.has_tokens
                     and not self._anim_resolution_lock
+                    and getattr(self.animation, "locks_resolution", True)
                 ):
                     self._resolve_overlay_text(locked=False)
                     self._anim_resolution_lock = True

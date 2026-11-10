@@ -226,6 +226,7 @@ class TickerMessage(FrameAwareBase):
             and self._token is not None
             and self._token.has_tokens
             and not self._anim_resolution_lock
+            and getattr(self.animation, "locks_resolution", True)
         ):
             # Resolve once at the start of the reveal, then freeze.
             self.resolve_tokens_now()

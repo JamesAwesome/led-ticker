@@ -256,6 +256,8 @@ An animation can instead return a **`LensSpec`** on `AnimationFrame.lens` (defau
 
 **Scaled displays (bigsign, `default_scale > 1`):** the rotate path uses a snapshot-artifact architecture. Before the spin begins, the widget renders the full text — including hi-res fonts and hi-res emoji at their correct physical size — into a full-resolution offscreen buffer, then downsamples it to half-physical resolution. That half-resolution artifact is what rotates each tick, so the rotation itself runs at half detail. When the spin settles (`rotation == 0.0`), the widget reverts to the normal full-detail draw path automatically, so the resting state is always sharp.
 
+**Token-resolution lock (`locks_resolution`).** By default the host freezes live `:id:` value tokens for the whole visit once an animation starts, so a reveal that slices the string (typewriter) keeps a stable length. An animation whose effect never depends on the text content (blink, twinkle) can set the class attribute `locks_resolution = False` to keep tokens updating live mid-visit. The attribute is duck-typed and optional; absent means `True`.
+
 Two behavior notes for plugin animation authors:
 
 - **Mid-spin detail:** the artifact renders at half physical resolution during the spin, then sharpens on settle. This is expected and intentional — not a rendering error.

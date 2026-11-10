@@ -123,6 +123,13 @@ class Animation(Protocol):
 
     See ``Typewriter`` for the canonical implementation.
 
+    Animations MAY set the class attribute ``locks_resolution`` (default
+    ``True`` when absent). While True, the host freezes live ``:id:`` value
+    tokens for the whole visit once the animation starts, so a reveal that
+    slices the string (typewriter) or an effect keyed to its length keeps a
+    stable text. Set it ``False`` for effects that never depend on the text
+    content (e.g. blink, twinkle) so tokens keep updating live mid-visit.
+
     Rotation-capable animations set ``rotation`` (degrees, clockwise-
     positive) on the frames they return, and declare the class attribute
     ``emits_rotation = True`` — a duck-typed marker validate rule 63

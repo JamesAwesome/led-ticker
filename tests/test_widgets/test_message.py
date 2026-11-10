@@ -642,6 +642,55 @@ class TestTickerMessageInlineTokens:
         w.reset_frame()
         assert w._anim_resolution_lock is False
 
+    @staticmethod
+    def _stub_anim(locks=None):
+        from led_ticker.animations import AnimationFrame
+
+        class _Anim:
+            restart_on_visit = True
+
+            def frame_for(self, frame, full_text, canvas_width, text_width):
+                return AnimationFrame(visible_text=full_text)
+
+        if locks is not None:
+            _Anim.locks_resolution = locks
+        return _Anim()
+
+    def test_locks_resolution_false_keeps_tokens_live(self):
+        """An animation declaring `locks_resolution = False` (blink,
+        twinkle) must NOT freeze live tokens for the visit."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        src = StaticSource(id="t", value="ABCDE")
+        self._registry(src)
+        w = TickerMessage(text=":t:", animation=self._stub_anim(locks=False))
+        w.draw(self._stub())
+        assert w._anim_resolution_lock is False
+        assert w._resolved_text == "ABCDE"
+
+        src.value = "ZZ"
+        src.refresh()
+        w.draw(self._stub())
+        assert w._resolved_text == "ZZ"
+        assert w._anim_resolution_lock is False
+
+    def test_locks_resolution_default_still_locks(self):
+        """No attribute (and an explicit True) keeps the freeze."""
+        from led_ticker.sources import StaticSource
+        from led_ticker.widgets.message import TickerMessage
+
+        for anim in (self._stub_anim(), self._stub_anim(locks=True)):
+            src = StaticSource(id="t", value="ABCDE")
+            self._registry(src)
+            w = TickerMessage(text=":t:", animation=anim)
+            w.draw(self._stub())
+            assert w._anim_resolution_lock is True
+            src.value = "ZZ"
+            src.refresh()
+            w.draw(self._stub())
+            assert w._resolved_text == "ABCDE"
+
     def test_resolve_tokens_now_invalidates_width(self):
         """`resolve_tokens_now()` forces a resolve + width invalidate even
         when the value width is unchanged (engine pre-scroll hook)."""

@@ -105,6 +105,20 @@ AUTO_TEXT_ALIGN_FOR_IMAGE: dict[str, str] = {
     "center": "scroll_over",
 }
 
+
+def resolve_text_align(text_align: str, image_align: str, bottom_text: str) -> str:
+    """Resolve ``text_align="auto"`` exactly as the widget does.
+
+    Single source of truth shared by ``_validate_common`` and
+    ``validate`` rule 14 so static validation can't drift from runtime.
+    Two-row mode (``bottom_text`` set) leaves ``"auto"`` untouched; an
+    unknown ``image_align`` is returned unresolved (rejected elsewhere).
+    """
+    if text_align == "auto" and not bottom_text:
+        return AUTO_TEXT_ALIGN_FOR_IMAGE.get(image_align, text_align)
+    return text_align
+
+
 TEXT_EDGE_PADDING_PX: int = 2
 MIN_SCROLL_SPEED_MS: int = 20
 HOLD_TIME_FLOOR: float = 0.05
@@ -390,7 +404,9 @@ class _BaseImageWidget(FrameAwareBase):
         # (e.g. "right") which obscures the user's intent.
         text_align_was_auto = self.text_align == "auto"
         if self.text_align == "auto" and not self.bottom_text:
-            self.text_align = AUTO_TEXT_ALIGN_FOR_IMAGE[image_align]
+            self.text_align = resolve_text_align(
+                self.text_align, image_align, self.bottom_text
+            )
         # Always validate text_align even when text="" (in single-row
         # mode); an explicit bogus value should surface during config-
         # load. Skip in two-row mode where text_align is unused.
@@ -453,7 +469,9 @@ class _BaseImageWidget(FrameAwareBase):
                     f"animation is not compatible with "
                     f"text_align={self.text_align!r} "
                     f"({anim_name} on a moving marquee is incoherent; "
-                    "use text_align=auto/left/right)"
+                    "set an explicit non-scroll text_align ('left' or "
+                    "'right'); note the default 'auto' resolves to "
+                    "a scroll mode for a centered image)"
                 )
             if not self.text:
                 raise ValueError(

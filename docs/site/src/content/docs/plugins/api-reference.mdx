@@ -241,10 +241,12 @@ Plugin authors register a backend with **`api.backend(name)`** from inside their
 
 ### `AnimationFrame.rotation` and `emits_rotation`
 
-`AnimationFrame` — the return value of `Animation.frame_for` — carries two fields:
+`AnimationFrame` — the return value of `Animation.frame_for` — carries these fields:
 
 - **`visible_text: str`** — the slice of the message text to render this tick (used by typewriter).
 - **`rotation: float`** — a clockwise rotation in degrees to apply to the rendered text this tick. The default is `0.0`, which takes the normal draw path with no rotation. When non-zero, the message widget renders the text into an offscreen surface, rotates that surface around the text block's center, and composites it back to the canvas.
+
+- **`pixel_gain: Callable[[int, int], float] | None`** — a per-pixel brightness multiplier over **real-pixel** coordinates `(x, y)`, clamped to `[0, 1]`. The default is `None`, which leaves every draw path byte-identical. It scales the lit pixels of the widget's text only — borders and backgrounds are never routed through it. A pixel whose gained color rounds to black is skipped rather than written, so dimmed text never punches a black hole in a background or border. See [`AnimationFrame.pixel_gain`](#animationframepixel_gain) below.
 
 An animation that emits non-zero rotations must also set `emits_rotation = True` as a class attribute. This opt-in marker tells the validator to run rule 63.
 
@@ -270,6 +272,27 @@ class SpinAnimation:
     def frame_for(self, frame: int, full_text: str, canvas_width: int, text_width: int) -> AnimationFrame:
         degrees = (frame * 6) % 360  # one full revolution every 60 ticks (3 s at 20 fps)
         return AnimationFrame(visible_text=full_text, rotation=float(degrees))
+```
+
+### `AnimationFrame.pixel_gain`
+
+Return a `pixel_gain` callable to twinkle, fade or blink individual pixels of the rendered text — the engine paints the text normally, then scales each lit pixel by `pixel_gain(x, y)`. Coordinates are real panel pixels, and the result is clamped to `[0, 1]`. Build the callable fresh each `frame_for` call from the frame counter; the engine never caches the proxy it wraps the canvas in, because the canvas changes on every swap.
+
+Behavior to design around:
+
+- **Precedence is rotation > lens > `pixel_gain`.** Gain applies on the plain, non-rotating, non-lensed text path only. It works on the `message` widget and the `gif`/`image` single-row text overlay.
+- **BDF text twinkles per logical pixel.** On a scaled display each logical pixel is a block of real pixels; the gain is sampled once per block (its top-left), so the block changes brightness as a unit. Hi-res glyphs twinkle per real pixel.
+- **Dimmed means transparent.** A pixel that dims to black is not written, so the border or background beneath shows through.
+- **Inline animated image emoji are not gained.** They paint through `SetImage`; static emoji sprites are gained along with the text.
+
+```python
+@api.animation("sparkle")
+class Sparkle:
+    def frame_for(self, frame: int, full_text: str, canvas_width: int, text_width: int) -> AnimationFrame:
+        def gain(x: int, y: int) -> float:
+            return 1.0 if (x * 7 + y * 13 + frame) % 5 else 0.2
+
+        return AnimationFrame(visible_text=full_text, pixel_gain=gain)
 ```
 
 For time-based math in animation classes, `ENGINE_TICK_MS` (importable from `led_ticker.plugin`, listed in the [Helpers table](#helpers)) gives the engine's render cadence — 50 ms per tick — so you can convert a desired rotation speed in degrees/second to a per-tick increment without hardcoding the cadence.

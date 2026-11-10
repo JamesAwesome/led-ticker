@@ -9,6 +9,16 @@ and the hi-res path (``unwrap_to_real(canvas).SetPixel``). ``SubFill`` is
 sampled ONCE per block (top-left), so a BDF logical pixel twinkles as a
 unit; hi-res glyphs twinkle per real pixel.
 
+Gain is only called for ON-PANEL writes: a write whose bounding box misses
+the wrapped canvas entirely (BDF draw paths don't clip, so long scrolling text
+paints far off-panel) returns before sampling, keeping per-frame gain cost
+bounded by the panel size, not the text width. A write straddling an edge
+(overlap, not just top-left in bounds) is still sampled and painted.
+
+A fully-dimmed NON-black source is skipped (transparent); a black source
+(0, 0, 0) is written as black as before, so black text on a ``bg_color``
+section still draws.
+
 Known limit: inline ANIMATED image emoji paint via ``SetImage`` and are not
 gained; static sprites are.
 
@@ -34,19 +44,30 @@ class GainCanvas:
         self.real = real
         self._gain = gain
 
+    def _off_panel(self, x: int, y: int, w: int, h: int) -> bool:
+        W = getattr(self.real, "width", None)
+        H = getattr(self.real, "height", None)
+        if W is None or H is None:
+            return False
+        return x + w <= 0 or x >= W or y + h <= 0 or y >= H
+
     def SetPixel(self, x: int, y: int, r: int, g: int, b: int) -> None:
+        if self._off_panel(x, y, 1, 1):
+            return  # never sample gain off-panel
         k = _clamp(self._gain(x, y))
         rr, gg, bb = round(r * k), round(g * k), round(b * k)
-        if not (rr or gg or bb):
+        if (r or g or b) and not (rr or gg or bb):
             return  # fully dimmed: transparent, never punch a black hole
         self.real.SetPixel(x, y, rr, gg, bb)
 
     def SubFill(
         self, x: int, y: int, width: int, height: int, r: int, g: int, b: int
     ) -> None:
+        if self._off_panel(x, y, width, height):
+            return
         k = _clamp(self._gain(x, y))
         rr, gg, bb = round(r * k), round(g * k), round(b * k)
-        if not (rr or gg or bb):
+        if (r or g or b) and not (rr or gg or bb):
             return
         self.real.SubFill(x, y, width, height, rr, gg, bb)
 

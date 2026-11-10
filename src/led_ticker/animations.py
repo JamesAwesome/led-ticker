@@ -88,7 +88,9 @@ class AnimationFrame:
                   path only). BDF text twinkles per logical pixel (block
                   top-left sampled); hi-res glyphs per real pixel. Inline
                   ANIMATED image emoji paint via ``SetImage`` and are not
-                  gained. See :mod:`led_ticker.pixel_gain`.
+                  gained. ``gain`` is only called for on-panel writes (a
+                  write wholly off the panel never samples it). See
+                  :mod:`led_ticker.pixel_gain`.
     """
 
     visible_text: str

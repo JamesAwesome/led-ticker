@@ -10,7 +10,7 @@ from led_ticker.animations import AnimationFrame
 from led_ticker.backends.headless import HeadlessCanvas
 from led_ticker.borders import ConstantBorder
 from led_ticker.colors import RGB_WHITE
-from led_ticker.fonts import FONT_DEFAULT
+from led_ticker.fonts import FONT_DEFAULT, get_bdf_for
 from led_ticker.pixel_gain import GainCanvas, with_pixel_gain
 from led_ticker.scaled_canvas import ScaledCanvas, unwrap_to_real
 from led_ticker.widgets.message import TickerMessage
@@ -228,3 +228,66 @@ class TestImageOverlay:
         assert (255, 255, 255) in set(plain.values())
         assert nz(gained) == nz(no_text)
         assert nz(gained)  # image pixels intact
+
+
+class TestOffPanelAndBlack:
+    def test_off_canvas_setpixel_never_samples_gain(self):
+        calls = []
+        g = GainCanvas(HeadlessCanvas(8, 8), lambda x, y: calls.append((x, y)) or 1.0)
+        for xy in ((-1, 0), (8, 0), (0, -1), (0, 8), (100, 100)):
+            g.SetPixel(*xy, 255, 255, 255)
+        assert calls == []
+
+    def test_off_canvas_subfill_never_samples_gain(self):
+        calls = []
+        g = GainCanvas(HeadlessCanvas(8, 8), lambda x, y: calls.append((x, y)) or 1.0)
+        g.SubFill(-4, 0, 4, 4, 255, 255, 255)  # ends exactly at x=0
+        g.SubFill(8, 0, 4, 4, 255, 255, 255)
+        g.SubFill(0, 8, 4, 4, 255, 255, 255)
+        g.SubFill(0, -4, 4, 4, 255, 255, 255)
+        assert calls == []
+
+    def test_straddling_subfill_samples_and_paints_live_columns(self):
+        real = HeadlessCanvas(8, 8)
+        calls = []
+        GainCanvas(real, lambda x, y: calls.append((x, y)) or 0.5).SubFill(
+            -2, 0, 4, 4, 200, 0, 0
+        )
+        assert calls == [(-2, 0)]
+        assert real.get_pixel(0, 0) == (100, 0, 0)
+        assert real.get_pixel(1, 3) == (100, 0, 0)
+        assert real.get_pixel(2, 0) == (0, 0, 0)
+
+    def test_black_source_still_writes_black(self):
+        real = HeadlessCanvas(8, 8)
+        real.Fill(0, 0, 255)
+        GainCanvas(real, lambda x, y: 0.5).SetPixel(1, 1, 0, 0, 0)
+        GainCanvas(real, lambda x, y: 0.5).SubFill(3, 3, 2, 2, 0, 0, 0)
+        assert real.get_pixel(1, 1) == (0, 0, 0)
+        assert real.get_pixel(3, 3) == (0, 0, 0)
+        assert real.get_pixel(4, 4) == (0, 0, 0)
+
+    def test_nonblack_dimmed_to_black_still_skipped(self):
+        real = HeadlessCanvas(8, 8)
+        real.Fill(0, 0, 255)
+        GainCanvas(real, lambda x, y: 0.0).SetPixel(1, 1, 255, 255, 255)
+        assert real.get_pixel(1, 1) == (0, 0, 255)
+
+    def test_long_text_gain_calls_bounded_by_panel(self):
+
+        real = HeadlessCanvas(256, 64)
+        scaled = ScaledCanvas(real, scale=4, content_height=16)
+        calls = []
+
+        def gain(x, y):
+            calls.append((x, y))
+            return 1.0
+
+        wrapped = with_pixel_gain(scaled, gain)
+        text = "The quick brown fox jumps over the lazy dog. " * 4  # >150 chars
+        assert len(text) >= 150
+        # Start at logical x=20 (panel is 64 wide): most text lands off-panel.
+        wrapped.draw_bdf_text(get_bdf_for(FONT_DEFAULT), 20, 12, RGB_WHITE, text)
+        blocks_on_panel = (256 // 4) * (64 // 4)
+        assert 0 < len(calls) <= blocks_on_panel
+        assert all(0 <= x < 256 and 0 <= y < 64 for x, y in calls)

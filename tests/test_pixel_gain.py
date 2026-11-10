@@ -30,8 +30,24 @@ def test_gain_clamped():
     real = HeadlessCanvas(8, 8)
     with_pixel_gain(real, lambda x, y: 2.0).SetPixel(1, 1, 200, 100, 0)
     assert real.get_pixel(1, 1) == (200, 100, 0)
+    real.SetPixel(2, 2, 7, 8, 9)
     with_pixel_gain(real, lambda x, y: -1).SetPixel(2, 2, 200, 100, 0)
-    assert real.get_pixel(2, 2) == (0, 0, 0)
+    assert real.get_pixel(2, 2) == (7, 8, 9)  # skipped, not blacked out
+
+
+def test_zero_gain_setpixel_preserves_background():
+    real = HeadlessCanvas(8, 8)
+    real.Fill(0, 0, 255)
+    with_pixel_gain(real, lambda x, y: 0.0).SetPixel(3, 3, 255, 255, 255)
+    assert real.get_pixel(3, 3) == (0, 0, 255)
+
+
+def test_zero_gain_subfill_preserves_background():
+    real = HeadlessCanvas(8, 8)
+    real.Fill(0, 0, 255)
+    GainCanvas(real, lambda x, y: 0.0).SubFill(0, 0, 2, 2, 255, 255, 255)
+    assert real.get_pixel(0, 0) == (0, 0, 255)
+    assert real.get_pixel(1, 1) == (0, 0, 255)
 
 
 def test_gain_reaches_bdf_scaled_path():
@@ -120,9 +136,9 @@ class _Stub:
 def test_message_text_twinkles_border_does_not():
     border = ConstantBorder((0, 0, 255))
     c = HeadlessCanvas(160, 16)
-    # centered so the text doesn't collide with the border (text overpaints
-    # border on collision by design; a gain-0 text pixel writes black).
-    _text_widget(_Stub(pixel_gain=lambda x, y: 0.0), center=True, border=border).draw(c)
+    # non-centered: text starts at x=0 and collides with the left border
+    # column; gain-0 text must leave those border pixels intact.
+    _text_widget(_Stub(pixel_gain=lambda x, y: 0.0), border=border).draw(c)
     assert all(v == (0, 0, 255) for v in c._pixels.values() if v != (0, 0, 0))
     # border fully present, no text pixels inside the perimeter
     ref = HeadlessCanvas(160, 16)

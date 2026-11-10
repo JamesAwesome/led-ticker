@@ -36,13 +36,19 @@ class GainCanvas:
 
     def SetPixel(self, x: int, y: int, r: int, g: int, b: int) -> None:
         k = _clamp(self._gain(x, y))
-        self.real.SetPixel(x, y, round(r * k), round(g * k), round(b * k))
+        rr, gg, bb = round(r * k), round(g * k), round(b * k)
+        if not (rr or gg or bb):
+            return  # fully dimmed: transparent, never punch a black hole
+        self.real.SetPixel(x, y, rr, gg, bb)
 
     def SubFill(
         self, x: int, y: int, width: int, height: int, r: int, g: int, b: int
     ) -> None:
         k = _clamp(self._gain(x, y))
-        self.real.SubFill(x, y, width, height, round(r * k), round(g * k), round(b * k))
+        rr, gg, bb = round(r * k), round(g * k), round(b * k)
+        if not (rr or gg or bb):
+            return
+        self.real.SubFill(x, y, width, height, rr, gg, bb)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.real, name)

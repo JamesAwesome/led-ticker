@@ -12,6 +12,7 @@ visibility, providers control color. The two compose freely.
 
 import dataclasses
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -78,11 +79,24 @@ class AnimationFrame:
                   Emitted by lens-capable animations (e.g. the flair plugin's
                   fisheye). Duck-typed marker for validate rule 64:
                   ``emits_lens = True`` on the animation class.
+    pixel_gain:   ``(x, y) -> float`` brightness multiplier over REAL-pixel
+                  coords (clamped to ``[0, 1]``), applied to the lit pixels
+                  of the widget's TEXT only (border/background are never
+                  gained). ``None`` (the default) leaves every draw path
+                  byte-identical. Precedence: rotation > lens > pixel_gain
+                  (gain applies on the plain, non-rotating, non-lensed text
+                  path only). BDF text twinkles per logical pixel (block
+                  top-left sampled); hi-res glyphs per real pixel. Inline
+                  ANIMATED image emoji paint via ``SetImage`` and are not
+                  gained. ``gain`` is only called for on-panel writes (a
+                  write wholly off the panel never samples it). See
+                  :mod:`led_ticker.pixel_gain`.
     """
 
     visible_text: str
     rotation: float = 0.0
     lens: LensSpec | None = None
+    pixel_gain: Callable[[int, int], float] | None = None
 
 
 @runtime_checkable
@@ -108,6 +122,13 @@ class Animation(Protocol):
     ``len`` unless the animation defines ``count_units(text)``.
 
     See ``Typewriter`` for the canonical implementation.
+
+    Animations MAY set the class attribute ``locks_resolution`` (default
+    ``True`` when absent). While True, the host freezes live ``:id:`` value
+    tokens for the whole visit once the animation starts, so a reveal that
+    slices the string (typewriter) or an effect keyed to its length keeps a
+    stable text. Set it ``False`` for effects that never depend on the text
+    content (e.g. blink, twinkle) so tokens keep updating live mid-visit.
 
     Rotation-capable animations set ``rotation`` (degrees, clockwise-
     positive) on the frames they return, and declare the class attribute

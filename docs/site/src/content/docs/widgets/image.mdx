@@ -266,6 +266,8 @@ hold_time = 8.0`}
 
 `animation = "typewriter"` rejects three combinations: `bottom_text` set (two-row layout), `text_align = "scroll"` / `"scroll_over"` (cursor moves each tick), or empty `text`. Drop the conflicting setting; typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
+`text_align` defaults to `"auto"`, which on a centered image (`image_align = "center"`, the default) resolves to `"scroll_over"` — so an animation other than the fisheye lens needs an explicit `text_align = "left"` or `"right"`. This applies to plugin animations such as `flair.blink` and `flair.twinkle` too; `led-ticker validate` reports it as rule 14.
+
 ### The fisheye lens is single-row only too
 
 `animation = "flair.fisheye"` rejects `bottom_text` set (two-row layout), a non-center `text_valign`, and `text_wrap` — `led-ticker validate` catches all three at config-load (rule 65). Unlike typewriter, the lens is compatible with `text_align = "scroll"` / `"scroll_over"` — the scroll IS the lens effect. See [Animations: `flair.fisheye`](/concepts/animations/#gif-and-image-widgets) for the full constraint list.

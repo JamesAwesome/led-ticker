@@ -17,6 +17,7 @@ from led_ticker.fonts import FONT_DEFAULT
 from led_ticker.fonts.hires_loader import HiresFont
 from led_ticker.lens_render import LensTextRenderer
 from led_ticker.pixel_emoji import has_renderable_emoji
+from led_ticker.pixel_gain import with_pixel_gain
 from led_ticker.rotate import lens_blit, make_rotation_surface
 from led_ticker.scaled_canvas import is_scaled
 from led_ticker.sources import (
@@ -225,6 +226,7 @@ class TickerMessage(FrameAwareBase):
             and self._token is not None
             and self._token.has_tokens
             and not self._anim_resolution_lock
+            and getattr(self.animation, "locks_resolution", True)
         ):
             # Resolve once at the start of the reveal, then freeze.
             self.resolve_tokens_now()
@@ -258,10 +260,12 @@ class TickerMessage(FrameAwareBase):
             visible_text = anim_frame.visible_text
             rotation = getattr(anim_frame, "rotation", 0.0)
             lens = getattr(anim_frame, "lens", None)
+            pixel_gain = getattr(anim_frame, "pixel_gain", None)
         else:
             visible_text = full_text
             rotation = 0.0
             lens = None
+            pixel_gain = None
 
         if self._content_width < 0:
             if self._has_emoji:
@@ -437,8 +441,14 @@ class TickerMessage(FrameAwareBase):
                 run_total = count_text_chars(full_text)
             else:
                 run_total = len(full_text)
+            # pixel_gain (twinkle): text-only proxy, rebuilt per draw. Applies
+            # only on the plain path (rotation > lens > gain); border and
+            # background paint on the raw canvas, never through the proxy.
+            text_canvas: Any = draw_canvas
+            if rotate_surface is None and pixel_gain is not None:
+                text_canvas = with_pixel_gain(draw_canvas, pixel_gain)
             cursor_pos += draw_text_run(
-                draw_canvas,
+                text_canvas,
                 self.font,
                 cursor_pos,
                 baseline_y,

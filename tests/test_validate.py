@@ -304,6 +304,7 @@ async def test_rule14_typewriter_on_gif_single_row_ok(conf):
         path = "x.gif"
         animation = "typewriter"
         text = "world"
+        text_align = "center"
         """)
     result = await validate_config(conf(GOOD_CONFIG + extra))
     # single-row with non-empty text — typewriter is allowed on gif
@@ -5565,3 +5566,190 @@ async def test_rule71_validate_widget_cfg_raises_widget_text():
     }
     with pytest.raises(ValueError, match="font_size=14 is the single-row knob"):
         await validate_widget_cfg(cfg, session=None)
+
+
+# --- Rule 14 mirrors the runtime non-lens predicate (AR3 M2) -----------------
+
+
+class _R14NonLensAnim:
+    restart_on_visit = True
+
+    def frame_for(self, frame, full_text, canvas_width, text_width):
+        from led_ticker.animations import AnimationFrame
+
+        return AnimationFrame(visible_text=full_text)
+
+
+class _R14LensAnim(_R14NonLensAnim):
+    emits_lens = True
+
+
+@pytest.fixture
+def _r14_registry():
+    from led_ticker.animations import _ANIMATION_REGISTRY
+
+    _ANIMATION_REGISTRY["r14stub.plain"] = _R14NonLensAnim
+    _ANIMATION_REGISTRY["r14stub.lens"] = _R14LensAnim
+    yield
+    _ANIMATION_REGISTRY.pop("r14stub.plain", None)
+    _ANIMATION_REGISTRY.pop("r14stub.lens", None)
+
+
+def _r14_widget(anim_toml, extra_fields):
+    return textwrap.dedent(f"""\
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        text = "hello"
+        animation = {anim_toml}
+        {extra_fields}
+        """)
+
+
+@pytest.mark.parametrize(
+    "anim_toml,name",
+    [
+        ('"typewriter"', "typewriter"),
+        ('{style = "typewriter"}', "typewriter"),
+        ('"r14stub.plain"', "r14stub.plain"),
+        ('{style = "r14stub.plain"}', "r14stub.plain"),
+    ],
+)
+@pytest.mark.parametrize(
+    "fields",
+    ['text_align = "scroll"', 'text_align = "scroll_over"', 'bottom_text = "b"'],
+)
+async def test_rule14_refuses_any_non_lens_animation(
+    conf, _r14_registry, anim_toml, name, fields
+):
+    result = await validate_config(conf(GOOD_CONFIG + _r14_widget(anim_toml, fields)))
+    r14 = [e for e in result.errors if e.rule == 14]
+    assert r14, result.errors
+    assert any(name in e.message for e in r14)
+
+
+@pytest.mark.parametrize("fields", ['text_align = "scroll"', 'bottom_text = "b"'])
+async def test_rule14_allows_lens_animation_on_scroll(conf, _r14_registry, fields):
+    result = await validate_config(
+        conf(GOOD_CONFIG + _r14_widget('{style = "r14stub.lens"}', fields))
+    )
+    assert not [e for e in result.errors if e.rule == 14], result.errors
+
+
+# --- AR4: rule 14 resolves text_align like the runtime -----------------------
+
+
+def _r14_img(wtype, fields, anim='"typewriter"', text="hi"):
+    return GOOD_CONFIG + textwrap.dedent(f"""\
+
+        [[playlist.section.widget]]
+        type = "{wtype}"
+        path = "x.png"
+        text = "{text}"
+        animation = {anim}
+        {fields}
+        """)
+
+
+@pytest.mark.parametrize("wtype", ["image", "gif"])
+@pytest.mark.parametrize("fields", ["", 'text_align = "auto"'])
+async def test_rule14_default_auto_center_is_scroll_over(conf, wtype, fields):
+    result = await validate_config(conf(_r14_img(wtype, fields)))
+    r14 = [e for e in result.errors if e.rule == 14]
+    assert r14, result.errors
+    assert "left" in r14[0].fix and "auto" not in r14[0].fix
+
+
+@pytest.mark.parametrize(
+    "fields,fires",
+    [
+        ('image_align = "left"', False),
+        ('image_align = "right"', False),
+        ('text_align = "left"', False),
+        ('text_align = "auto"\n        image_align = "left"', False),
+        ('image_align = "center"', True),
+    ],
+)
+async def test_rule14_auto_resolution_matrix(conf, fields, fires):
+    result = await validate_config(conf(_r14_img("image", fields)))
+    assert bool([e for e in result.errors if e.rule == 14]) is fires, result.errors
+
+
+async def test_rule14_skips_unresolvable_animation(conf):
+    result = await validate_config(
+        conf(_r14_img("image", 'text_align = "scroll"', anim='"no.such_anim"'))
+    )
+    assert not [e for e in result.errors if e.rule == 14]
+    assert result.errors  # still blocked by the unknown-animation error elsewhere
+
+
+async def test_rule14_lens_with_empty_text_refused(conf, _r14_registry):
+    result = await validate_config(
+        conf(
+            _r14_img(
+                "image",
+                'text_align = "scroll"',
+                anim='{style = "r14stub.lens"}',
+                text="",
+            )
+        )
+    )
+    r14 = [e for e in result.errors if e.rule == 14]
+    assert r14 and all("non-empty" in e.message for e in r14)
+
+
+@pytest.mark.parametrize(
+    "text_align", ["auto", "left", "right", "scroll", "scroll_over"]
+)
+@pytest.mark.parametrize("image_align", ["left", "right", "center"])
+@pytest.mark.parametrize("bottom_text", ["", "b"])
+@pytest.mark.parametrize("lens", [False, True])
+async def test_rule14_parity_with_runtime(
+    conf, _r14_registry, tmp_path, text_align, image_align, bottom_text, lens
+):
+    """validate rule 14 refuses exactly when the real widget constructor does
+    (for the rule-14 error class: scroll/two-row refusals of non-lens)."""
+    from PIL import Image
+
+    from led_ticker.widgets.still import StillImage
+
+    png = tmp_path / "x.png"
+    Image.new("RGB", (4, 4), (255, 0, 0)).save(png)
+    anim = "r14stub.lens" if lens else "r14stub.plain"
+    fields = (
+        f'text_align = "{text_align}"\n        image_align = "{image_align}"\n'
+        f'        bottom_text = "{bottom_text}"'
+    )
+    cfg = _r14_img("image", fields, anim=f'{{style = "{anim}"}}')
+    result = await validate_config(conf(cfg))
+    v_refuses = any(e.rule == 14 for e in result.errors)
+
+    from led_ticker.app.coercion import _coerce_animation
+
+    kwargs = {
+        "path": str(png),
+        "text": "hi",
+        "animation": _coerce_animation({"style": anim}),
+        "text_align": text_align,
+        "image_align": image_align,
+        "bottom_text": bottom_text,
+    }
+    try:
+        StillImage(**kwargs)
+        rt_refuses = False
+    except ValueError:
+        rt_refuses = True
+    # Lens + two-row is rule 65's territory, not 14's.
+    if lens and bottom_text:
+        return
+    assert v_refuses == rt_refuses, (text_align, image_align, bottom_text, lens)
+
+
+# --- AR5: non-string image_align must not crash rule 14 ----------------------
+
+
+@pytest.mark.parametrize("ia", ["[1, 2]", "{a = 1}"])
+async def test_rule14_non_string_image_align_does_not_crash(conf, ia):
+    result = await validate_config(conf(_r14_img("image", f"image_align = {ia}")))
+    assert result.errors  # reported by the image_align type check, no traceback

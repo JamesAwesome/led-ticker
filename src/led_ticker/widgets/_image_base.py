@@ -44,6 +44,7 @@ from led_ticker.fonts import (
 from led_ticker.fonts.hires_loader import HiresFont as _HiresFont
 from led_ticker.lens_render import LensTextRenderer
 from led_ticker.pixel_emoji import has_animated_emoji, has_renderable_emoji
+from led_ticker.pixel_gain import with_pixel_gain
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled
 from led_ticker.sources import (
     TokenizedField,
@@ -103,6 +104,20 @@ AUTO_TEXT_ALIGN_FOR_IMAGE: dict[str, str] = {
     "right": "left",
     "center": "scroll_over",
 }
+
+
+def resolve_text_align(text_align: str, image_align: str, bottom_text: str) -> str:
+    """Resolve ``text_align="auto"`` exactly as the widget does.
+
+    Single source of truth shared by ``_validate_common`` and
+    ``validate`` rule 14 so static validation can't drift from runtime.
+    Two-row mode (``bottom_text`` set) leaves ``"auto"`` untouched; an
+    unknown ``image_align`` is returned unresolved (rejected elsewhere).
+    """
+    if text_align == "auto" and not bottom_text:
+        return AUTO_TEXT_ALIGN_FOR_IMAGE.get(image_align, text_align)
+    return text_align
+
 
 TEXT_EDGE_PADDING_PX: int = 2
 MIN_SCROLL_SPEED_MS: int = 20
@@ -389,7 +404,9 @@ class _BaseImageWidget(FrameAwareBase):
         # (e.g. "right") which obscures the user's intent.
         text_align_was_auto = self.text_align == "auto"
         if self.text_align == "auto" and not self.bottom_text:
-            self.text_align = AUTO_TEXT_ALIGN_FOR_IMAGE[image_align]
+            self.text_align = resolve_text_align(
+                self.text_align, image_align, self.bottom_text
+            )
         # Always validate text_align even when text="" (in single-row
         # mode); an explicit bogus value should surface during config-
         # load. Skip in two-row mode where text_align is unused.
@@ -447,11 +464,14 @@ class _BaseImageWidget(FrameAwareBase):
                     "(set on a single-row image widget; remove bottom_text)"
                 )
             if not emits_lens and self.text_align in ("scroll", "scroll_over"):
+                anim_name = type(self.animation).__name__.lower()
                 raise ValueError(
                     f"animation is not compatible with "
                     f"text_align={self.text_align!r} "
-                    "(typewriter on a moving marquee is incoherent; "
-                    "use text_align=auto/left/right)"
+                    f"({anim_name} on a moving marquee is incoherent; "
+                    "set an explicit non-scroll text_align ('left' or "
+                    "'right'); note the default 'auto' resolves to "
+                    "a scroll mode for a centered image)"
                 )
             if not self.text:
                 raise ValueError(
@@ -1270,6 +1290,7 @@ class _BaseImageWidget(FrameAwareBase):
         baseline_y: int,
         provider: Any,
         text_override: str | None = None,
+        pixel_gain: Any | None = None,
     ) -> None:
         """Paint the overlay text either normally or through the
         stationary fisheye lens onto ``text_canvas``.
@@ -1285,6 +1306,10 @@ class _BaseImageWidget(FrameAwareBase):
         untouched — the border keeps its existing position and stays
         unwarped by construction (it never routes through the strip)."""
         if lens is None:
+            # pixel_gain (twinkle) only on the plain path: lens > gain.
+            # Proxy rebuilt per call — the canvas changes every swap.
+            if pixel_gain is not None:
+                text_canvas = with_pixel_gain(text_canvas, pixel_gain)
             self._draw_text(text_canvas, x, baseline_y, provider, text_override)
             return
 
@@ -1326,6 +1351,7 @@ class _BaseImageWidget(FrameAwareBase):
         text_x_right: int,
         lens: Any | None = None,
         text_override: str | None = None,
+        pixel_gain: Any | None = None,
     ) -> None:
         """Compose one frame: reset canvas (Clear or Fill bg) + paint
         image + paint border + paint text in the right order for the
@@ -1381,6 +1407,7 @@ class _BaseImageWidget(FrameAwareBase):
                 baseline_y,
                 provider,
                 text_override=text_override,
+                pixel_gain=pixel_gain,
             )
             self._paint_skip_black(canvas)
             if self.border is not None:
@@ -1396,6 +1423,7 @@ class _BaseImageWidget(FrameAwareBase):
                 baseline_y,
                 provider,
                 text_override=text_override,
+                pixel_gain=pixel_gain,
             )
         else:
             self._paint_image(canvas)
@@ -1419,6 +1447,7 @@ class _BaseImageWidget(FrameAwareBase):
                     and self._token_text is not None
                     and self._token_text.has_tokens
                     and not self._anim_resolution_lock
+                    and getattr(self.animation, "locks_resolution", True)
                 ):
                     self._resolve_overlay_text(locked=False)
                     self._anim_resolution_lock = True
@@ -1438,6 +1467,7 @@ class _BaseImageWidget(FrameAwareBase):
                 baseline_y,
                 provider,
                 text_override=text_override,
+                pixel_gain=pixel_gain,
             )
 
     def _render_wrap_tick(
@@ -1829,6 +1859,7 @@ class _BaseImageWidget(FrameAwareBase):
                 # branch above never animates (validation refuses
                 # scroll aligns for typewriter and `text_wrap` for lens).
                 lens = None
+                pixel_gain = None
                 text_override = None
                 if self.animation is not None:
                     # Typewriter resolution freeze (I3) — must engage
@@ -1840,6 +1871,7 @@ class _BaseImageWidget(FrameAwareBase):
                         self._token_text is not None
                         and self._token_text.has_tokens
                         and not self._anim_resolution_lock
+                        and getattr(self.animation, "locks_resolution", True)
                     ):
                         self._resolve_overlay_text(locked=False)
                         self._anim_resolution_lock = True
@@ -1849,6 +1881,7 @@ class _BaseImageWidget(FrameAwareBase):
                     if anim_frame is not None:
                         text_override = anim_frame.visible_text
                         lens = getattr(anim_frame, "lens", None)
+                        pixel_gain = getattr(anim_frame, "pixel_gain", None)
                 self._render_tick(
                     canvas,
                     text_canvas,
@@ -1858,6 +1891,7 @@ class _BaseImageWidget(FrameAwareBase):
                     text_x_right,
                     lens=lens,
                     text_override=text_override,
+                    pixel_gain=pixel_gain,
                 )
             canvas = frame.swap(canvas)
             # Follow the new back-buffer so next tick paints to the

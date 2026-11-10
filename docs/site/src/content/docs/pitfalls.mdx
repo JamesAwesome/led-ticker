@@ -35,9 +35,9 @@ Static `text_x_offset` doesn't compose with the per-tick scroll cursor. Either s
 
 Other widget types have their own draw paths and ignore `animation` silently — the validator rejects it explicitly to make the no-op visible. For dynamic color on `weather.current`, `rss.feed`, the crypto widgets, or `two_row`, use `font_color = "rainbow"` or a gradient instead.
 
-### Rule 14 — `animation = "typewriter"` on `gif` / `image` is single-row only
+### Rule 14 — a non-lens `animation` on `gif` / `image` is single-row and non-scrolling
 
-Typewriter draws fixed-position glyphs and rejects three combinations: `bottom_text` set (two-row mode), `text_align = "scroll"` / `"scroll_over"` (cursor moves each tick), or empty `text`. Drop the conflicting setting. Typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
+Typewriter (and plugin animations such as `flair.blink` / `flair.twinkle`) rejects three combinations on `gif` / `image`: `bottom_text` set (two-row mode), a scrolling `text_align` (`"scroll"` / `"scroll_over"`), or empty `text`. The default `text_align = "auto"` on a centered image resolves to `"scroll_over"`, so set an explicit `text_align = "left"` or `"right"`. Lens animations (fisheye) keep the scroll modes but still need non-empty `text`. Typewriter still composes with `font_color = "rainbow"` and `border = "rainbow"`.
 
 ### Rule 71 — `font_size` or a hi-res `font` on a two-row `gif` / `image`
 

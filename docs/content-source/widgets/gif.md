@@ -66,7 +66,7 @@ Setting `bottom_text` to a non-empty string switches the widget to **two-row mod
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `animation` | string | none | `"typewriter"` for character-by-character text reveal. Single-row only — raises if `bottom_text` is set or `text_align` is `"scroll"` / `"scroll_over"`. See rule 14. |
+| `animation` | string | none | `"typewriter"` for character-by-character text reveal. Single-row only — raises if `bottom_text` is set or `text_align` is `"scroll"` / `"scroll_over"` (the default `"auto"` on a centered image resolves to `scroll_over`, so set `text_align = "left"` or `"right"`). See rule 14. |
 
 ## Border and background
 

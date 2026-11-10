@@ -45,6 +45,15 @@ def test_subfill_gain_clamped():
     assert real.get_pixel(0, 0) == (7, 8, 9)  # skipped, not blacked out
 
 
+def test_nan_gain_leaves_pixel_unchanged():
+    real = HeadlessCanvas(8, 8)
+    nan = float("nan")
+    GainCanvas(real, lambda x, y: nan).SetPixel(1, 1, 200, 100, 0)
+    GainCanvas(real, lambda x, y: nan).SubFill(2, 2, 2, 2, 10, 20, 30)
+    assert real.get_pixel(1, 1) == (200, 100, 0)
+    assert real.get_pixel(3, 3) == (10, 20, 30)
+
+
 def test_zero_gain_setpixel_preserves_background():
     real = HeadlessCanvas(8, 8)
     real.Fill(0, 0, 255)

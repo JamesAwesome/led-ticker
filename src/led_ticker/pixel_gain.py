@@ -32,6 +32,8 @@ from led_ticker.scaled_canvas import ScaledCanvas
 
 
 def _clamp(g: float) -> float:
+    if g != g:  # NaN: leave the pixel unchanged rather than crash round()
+        return 1.0
     return 0.0 if g < 0.0 else 1.0 if g > 1.0 else g
 
 

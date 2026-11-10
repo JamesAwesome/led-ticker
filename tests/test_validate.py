@@ -5744,3 +5744,12 @@ async def test_rule14_parity_with_runtime(
     if lens and bottom_text:
         return
     assert v_refuses == rt_refuses, (text_align, image_align, bottom_text, lens)
+
+
+# --- AR5: non-string image_align must not crash rule 14 ----------------------
+
+
+@pytest.mark.parametrize("ia", ["[1, 2]", "{a = 1}"])
+async def test_rule14_non_string_image_align_does_not_crash(conf, ia):
+    result = await validate_config(conf(_r14_img("image", f"image_align = {ia}")))
+    assert result.errors  # reported by the image_align type check, no traceback

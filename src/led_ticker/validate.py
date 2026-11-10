@@ -1119,10 +1119,15 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             )
                         )
                     raw_ta14 = widget_cfg.get("text_align", "auto")
-                    ta14 = resolve_text_align(
-                        raw_ta14,
-                        widget_cfg.get("image_align", "center"),
-                        widget_cfg.get("bottom_text", ""),
+                    ia14 = widget_cfg.get("image_align", "center")
+                    # Non-string values are reported by their own type
+                    # checks; resolving them would raise (unhashable key).
+                    ta14 = (
+                        resolve_text_align(
+                            raw_ta14, ia14, widget_cfg.get("bottom_text", "")
+                        )
+                        if isinstance(raw_ta14, str) and isinstance(ia14, str)
+                        else raw_ta14
                     )
                     if ta14 in ("scroll", "scroll_over"):
                         resolved_note = (

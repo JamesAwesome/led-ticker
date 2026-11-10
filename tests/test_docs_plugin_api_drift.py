@@ -119,3 +119,21 @@ def test_exported_names_match() -> None:
         f"led_ticker.plugin.__all__: {sorted(extra)}.\n"
         "They were removed from __all__, or the table has a typo."
     )
+
+
+def test_animation_surface_documented() -> None:
+    """Every AnimationFrame field and duck-typed animation class marker the
+    plugin surface promises must appear in the API reference page."""
+    import dataclasses
+
+    from led_ticker.animations import AnimationFrame
+
+    page_text = PAGE_PATH.read_text()
+    fields = {f.name for f in dataclasses.fields(AnimationFrame)}
+    assert "pixel_gain" in fields
+    markers = {"locks_resolution", "emits_lens", "emits_rotation"}
+    missing = sorted(n for n in fields | markers if n not in page_text)
+    assert not missing, (
+        f"AnimationFrame fields / animation markers undocumented in "
+        f"api-reference.mdx: {missing}"
+    )

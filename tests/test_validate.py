@@ -5565,3 +5565,72 @@ async def test_rule71_validate_widget_cfg_raises_widget_text():
     }
     with pytest.raises(ValueError, match="font_size=14 is the single-row knob"):
         await validate_widget_cfg(cfg, session=None)
+
+
+# --- Rule 14 mirrors the runtime non-lens predicate (AR3 M2) -----------------
+
+
+class _R14NonLensAnim:
+    restart_on_visit = True
+
+    def frame_for(self, frame, full_text, canvas_width, text_width):
+        from led_ticker.animations import AnimationFrame
+
+        return AnimationFrame(visible_text=full_text)
+
+
+class _R14LensAnim(_R14NonLensAnim):
+    emits_lens = True
+
+
+@pytest.fixture
+def _r14_registry():
+    from led_ticker.animations import _ANIMATION_REGISTRY
+
+    _ANIMATION_REGISTRY["r14stub.plain"] = _R14NonLensAnim
+    _ANIMATION_REGISTRY["r14stub.lens"] = _R14LensAnim
+    yield
+    _ANIMATION_REGISTRY.pop("r14stub.plain", None)
+    _ANIMATION_REGISTRY.pop("r14stub.lens", None)
+
+
+def _r14_widget(anim_toml, extra_fields):
+    return textwrap.dedent(f"""\
+
+        [[playlist.section.widget]]
+        type = "image"
+        path = "x.png"
+        text = "hello"
+        animation = {anim_toml}
+        {extra_fields}
+        """)
+
+
+@pytest.mark.parametrize(
+    "anim_toml,name",
+    [
+        ('"typewriter"', "typewriter"),
+        ('{style = "typewriter"}', "typewriter"),
+        ('"r14stub.plain"', "r14stub.plain"),
+        ('{style = "r14stub.plain"}', "r14stub.plain"),
+    ],
+)
+@pytest.mark.parametrize(
+    "fields",
+    ['text_align = "scroll"', 'text_align = "scroll_over"', 'bottom_text = "b"'],
+)
+async def test_rule14_refuses_any_non_lens_animation(
+    conf, _r14_registry, anim_toml, name, fields
+):
+    result = await validate_config(conf(GOOD_CONFIG + _r14_widget(anim_toml, fields)))
+    r14 = [e for e in result.errors if e.rule == 14]
+    assert r14, result.errors
+    assert any(name in e.message for e in r14)
+
+
+@pytest.mark.parametrize("fields", ['text_align = "scroll"', 'bottom_text = "b"'])
+async def test_rule14_allows_lens_animation_on_scroll(conf, _r14_registry, fields):
+    result = await validate_config(
+        conf(GOOD_CONFIG + _r14_widget('{style = "r14stub.lens"}', fields))
+    )
+    assert not [e for e in result.errors if e.rule == 14], result.errors

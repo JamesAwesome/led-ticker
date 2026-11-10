@@ -1082,7 +1082,27 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
 
             # Rule 14: typewriter on gif/image constraints
             is_gif_or_image = wtype in ("gif", "image")
-            if is_gif_or_image and widget_cfg.get("animation") == "typewriter":
+            anim_raw14 = widget_cfg.get("animation")
+            anim14 = None
+            if anim_raw14 is not None:
+                try:
+                    anim14 = _coerce_animation(anim_raw14)
+                except ValueError, TypeError:
+                    anim14 = None
+            # Mirrors the runtime predicate in `_BaseImageWidget._validate_common`:
+            # ANY non-lens animation (typewriter, flair.blink, plugin ones,
+            # string or inline-table form) is single-row and non-scroll.
+            # Unresolvable specs are refused too (unless a known lens).
+            if (
+                is_gif_or_image
+                and anim_raw14 is not None
+                and not getattr(anim14, "emits_lens", False)
+            ):
+                anim_label14 = (
+                    anim_raw14.get("style")
+                    if isinstance(anim_raw14, dict)
+                    else anim_raw14
+                )
                 if widget_cfg.get("bottom_text", "") != "":
                     issues.append(
                         ValidationIssue(
@@ -1090,7 +1110,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             location=loc,
                             severity="error",
                             message=(
-                                "animation='typewriter' on gif/image is"
+                                f"animation={anim_label14!r} on gif/image is"
                                 " single-row only; bottom_text is set"
                             ),
                             fix="Remove animation or remove bottom_text",
@@ -1103,7 +1123,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             location=loc,
                             severity="error",
                             message=(
-                                "animation='typewriter' on gif/image"
+                                f"animation={anim_label14!r} on gif/image"
                                 " cannot combine with scrolling text_align"
                             ),
                             fix=(
@@ -1119,7 +1139,7 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
                             location=loc,
                             severity="error",
                             message=(
-                                "animation='typewriter' on gif/image"
+                                f"animation={anim_label14!r} on gif/image"
                                 " requires non-empty text"
                             ),
                             fix="Add text = '...' or remove animation",

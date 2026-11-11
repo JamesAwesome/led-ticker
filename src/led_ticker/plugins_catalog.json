@@ -263,20 +263,58 @@
     {
       "name": "flair",
       "namespace": "flair",
-      "summary": "Flair text-effect pack — flair.lottery lottery-ball roll-in widget, flair.propeller animation (spinning in-plane reveal on message widgets), flair.fisheye scroll-lens animation, and flair.spinout / flair.fireworks / flair.stickers transitions (outgoing widget spins out, bursts into fireworks, or gets buried under an emoji sticker-bomb that peels away). Part of the led-ticker-flair pack.",
+      "summary": "Flair effects pack — the flair.lottery lottery-ball roll-in widget; text animations (flair.propeller spin-in, flair.fisheye scroll lens, flair.twinkle, flair.blink); background effects painted behind widget content (flair.fireworks, flair.twinkle, flair.snow); and a family of transitions — spinout, fireworks, sticker-bomb, card-suit poker ripple, lightning, fairy, laser, accordion, interlock, blinds, snow, split-flap and sand. Part of the led-ticker-flair pack.",
       "homepage": "https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair",
       "provides": {
         "widgets": [
           "flair.lottery"
         ],
-        "animations": [
-          "flair.propeller",
-          "flair.fisheye"
-        ],
         "transitions": [
           "flair.spinout",
           "flair.fireworks",
-          "flair.stickers"
+          "flair.stickers",
+          "flair.poker",
+          "flair.lightning",
+          "flair.fairy.forward",
+          "flair.fairy.reverse",
+          "flair.fairy.alternating",
+          "flair.laser.top",
+          "flair.laser.bottom",
+          "flair.laser.left",
+          "flair.laser.right",
+          "flair.laser.alternating",
+          "flair.laser.random",
+          "flair.accordion.sweep",
+          "flair.accordion.stretch",
+          "flair.accordion.sweep.alternating",
+          "flair.accordion.stretch.alternating",
+          "flair.interlock.horizontal",
+          "flair.interlock.vertical",
+          "flair.interlock.alternating",
+          "flair.interlock.random",
+          "flair.blinds.down",
+          "flair.blinds.up",
+          "flair.blinds.right",
+          "flair.blinds.left",
+          "flair.blinds.alternating",
+          "flair.blinds.random",
+          "flair.snow",
+          "flair.splitflap.forward",
+          "flair.splitflap.reverse",
+          "flair.splitflap.alternating",
+          "flair.splitflap.random",
+          "flair.sand"
+        ],
+        "backgrounds": [
+          "flair.fireworks",
+          "flair.twinkle",
+          "flair.snow"
+        ],
+        "animations": [
+          "flair.propeller",
+          "flair.fisheye",
+          "flair.twinkle",
+          "flair.blink"
         ]
       },
       "sources": [

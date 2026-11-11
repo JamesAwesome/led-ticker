@@ -95,7 +95,7 @@ On top of the widget-type check above, typewriter on `gif` / `image` rejects thr
 
 ## `flair.propeller` (flair pack)
 
-`flair.propeller` is a plugin animation from the [flair pack](/plugins/available/#flair-text-effects-flair-pack) (`led-ticker-flair >= 0.2.0`, core >= 4.3). The `message` widget's text spins in-plane like a propeller the moment the widget appears — easing out over the configured number of revolutions and settling exactly flat — then holds readable for the rest of `hold_time`. Transitions wait for the spin to finish before firing.
+`flair.propeller` is a plugin animation from the [flair pack](/plugins/available/#flair-effects-flair-pack) (`led-ticker-flair >= 0.2.0`, core >= 4.3). The `message` widget's text spins in-plane like a propeller the moment the widget appears — easing out over the configured number of revolutions and settling exactly flat — then holds readable for the rest of `hold_time`. Transitions wait for the spin to finish before firing.
 
 <DemoGif
   src="/demos-pinned/animation-flair-propeller.gif"
@@ -196,7 +196,7 @@ font_color = [255, 100, 255]`}
 
 ## `flair.fisheye` (flair pack)
 
-`flair.fisheye` is a plugin animation from the [flair pack](/plugins/available/#flair-text-effects-flair-pack) (`led-ticker-flair >= 0.4.0`, core >= 4.7). A `message` widget's scrolling text passes through a stationary "fisheye lens" centered on the panel: letters enter compressed at the edges, swell as they cross the middle, and compress again on exit. The lens is fixed — the scroll provides all the motion, so the effect runs for the whole scroll and a section can cut away at any moment. Inline emoji ride the lens too — curated and [standard-emoji-pack](/assets/emoji/#standard-emoji) sprites alike swell through the center and compress at the edges, in both their unicode (🚀) and `:slug:` forms.
+`flair.fisheye` is a plugin animation from the [flair pack](/plugins/available/#flair-effects-flair-pack) (`led-ticker-flair >= 0.4.0`, core >= 4.7). A `message` widget's scrolling text passes through a stationary "fisheye lens" centered on the panel: letters enter compressed at the edges, swell as they cross the middle, and compress again on exit. The lens is fixed — the scroll provides all the motion, so the effect runs for the whole scroll and a section can cut away at any moment. Inline emoji ride the lens too — curated and [standard-emoji-pack](/assets/emoji/#standard-emoji) sprites alike swell through the center and compress at the edges, in both their unicode (🚀) and `:slug:` forms.
 
 <DemoGif
   src="/demos-pinned/animation-flair-fisheye.gif"
@@ -367,7 +367,7 @@ Same rule as `message`: on a scaled sign (bigsign) a hi-res font warps along wit
 
 ## `flair.twinkle` (flair pack)
 
-`flair.twinkle` is a plugin animation from the [flair pack](/plugins/available/#flair-text-effects-flair-pack) (`led-ticker-flair >= 0.20.0`, core >= 4.33). It makes held text sparkle: a share of the lit pixels in each letter drift between dim and full brightness, each on its own phase, so the message shimmers while staying readable. At the default `min_brightness = 0.15` no pixel ever goes fully dark, so it reads as a glow, not a flash.
+`flair.twinkle` is a plugin animation from the [flair pack](/plugins/available/#flair-effects-flair-pack) (`led-ticker-flair >= 0.20.0`, core >= 4.33). It makes held text sparkle: a share of the lit pixels in each letter drift between dim and full brightness, each on its own phase, so the message shimmers while staying readable. At the default `min_brightness = 0.15` no pixel ever goes fully dark, so it reads as a glow, not a flash.
 
 <DemoGif
   src="/demos-pinned/animation-flair-twinkle.gif"
@@ -423,7 +423,7 @@ The sparkle pattern is fixed to the panel, not to the letters. On text that hold
 
 ## `flair.blink` (flair pack)
 
-`flair.blink` is a plugin animation from the [flair pack](/plugins/available/#flair-text-effects-flair-pack) (`led-ticker-flair >= 0.20.0`, core >= 4.33). It switches the text hard on and off: visible for the "on" part of each period, blank for the rest. Every visit opens on visible text, and on a `message` widget the engine waits for the next "on" phase before firing a transition, so a scene change never starts from a blank panel.
+`flair.blink` is a plugin animation from the [flair pack](/plugins/available/#flair-effects-flair-pack) (`led-ticker-flair >= 0.20.0`, core >= 4.33). It switches the text hard on and off: visible for the "on" part of each period, blank for the rest. Every visit opens on visible text, and on a `message` widget the engine waits for the next "on" phase before firing a transition, so a scene change never starts from a blank panel.
 
 <DemoGif
   src="/demos-pinned/animation-flair-blink.gif"

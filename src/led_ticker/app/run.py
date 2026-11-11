@@ -429,21 +429,30 @@ def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
         return None
 
 
-def _cached_trans_obj(cache: dict[int, tuple[Any, Any]], trans_cfg: Any) -> Any:
+def _cached_trans_obj(
+    cache: dict[tuple[str, int], tuple[Any, Any]],
+    trans_cfg: Any,
+    role: str = "widget",
+) -> Any:
     """Build a section's transition once and reuse it on every later pass.
 
     Stateful transitions (``wipe_alternating``, ``push_alternating``, plugin
     ``.alternating`` / ``.random`` variants) keep their variant counter on the
     instance. Rebuilding per section entry reset it, so the section always
-    entered with the first variant. Keyed by ``id(trans_cfg)``; the entry holds
+    entered with the first variant. ``role`` ("entry" / "widget") keeps a
+    section's entry and between-widget transitions on separate instances, so
+    the entry rotation can't lock to the number of widget swaps per pass (4
+    variants + 3 swaps would otherwise land every entry on the same variant).
+    Keyed by ``(role, id(trans_cfg))``; the entry holds
     a reference to the config so the id cannot be reused while cached. The run
     loop clears the cache on hot-reload. A failed build (``None`` = cut) is
     cached too, so its warning logs once per config load, not once per pass."""
-    hit = cache.get(id(trans_cfg))
+    key = (role, id(trans_cfg))
+    hit = cache.get(key)
     if hit is not None and hit[0] is trans_cfg:
         return hit[1]
     obj = _build_trans_obj_guarded(trans_cfg)
-    cache[id(trans_cfg)] = (trans_cfg, obj)
+    cache[key] = (trans_cfg, obj)
     return obj
 
 
@@ -1002,7 +1011,7 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
         )
         # Per-section transitions, built once per config load (see
         # _cached_trans_obj). Cleared whenever a hot-reload lands.
-        section_trans_cache: dict[int, tuple[Any, Any]] = {}
+        section_trans_cache: dict[tuple[str, int], tuple[Any, Any]] = {}
 
         # Compute the panel height to use for hi-res font_size warnings.
         # Only meaningful on the small sign (default_scale == 1) — bigsign
@@ -1258,14 +1267,16 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         #   3. between_sections (global default)
                         if section.entry_transition is not None:
                             entry_trans = _cached_trans_obj(
-                                section_trans_cache, section.entry_transition
+                                section_trans_cache,
+                                section.entry_transition,
+                                role="entry",
                             )
                             entry_duration = section.entry_transition.duration
                             entry_easing = section.entry_transition.easing
                             entry_fps = section.entry_transition.transition_fps
                         elif section.transition_specified:
                             entry_trans = _cached_trans_obj(
-                                section_trans_cache, section.transition
+                                section_trans_cache, section.transition, role="entry"
                             )
                             entry_duration = section.transition.duration
                             entry_easing = section.transition.easing

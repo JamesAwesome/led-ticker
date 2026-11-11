@@ -109,12 +109,15 @@ led-ticker-flair
 
 ### [Flair text effects (flair pack)](https://github.com/JamesAwesome/led-ticker-plugins/tree/main/plugins/flair)
 
-The flair pack also ships two text-animation effects and two transitions, all coming with the same `led-ticker-flair` install as the [`flair.lottery` widget](/widgets/lottery/) above. `flair.propeller` and `flair.spinout` pair together for a full spin-in / spin-out cycle. See [Animations](/concepts/animations/) and [Sprite transitions](/transitions/sprite/) for full documentation, demo GIFs, and per-knob details.
+The flair pack also ships text-animation effects, background effects and transitions, all coming with the same `led-ticker-flair` install as the [`flair.lottery` widget](/widgets/lottery/) above. `flair.propeller` and `flair.spinout` pair together for a full spin-in / spin-out cycle. See [Animations](/concepts/animations/) and [Sprite transitions](/transitions/sprite/) for full documentation, demo GIFs, and per-knob details.
 
 - **flair.propeller** (`animation`, flair >= 0.2.0) — `message` widget text spins in-plane on entry, settling flat before hold time begins.
 - **flair.spinout** (`transition`, flair >= 0.3.0, core >= 4.6) — the outgoing widget's content accelerates and spins out, then cuts to incoming.
 - **flair.fisheye** (`animation`, flair >= 0.4.0, core >= 4.7; `gif`/`image` single-row text overlays too as of core >= 4.13) — scrolling text passes through a stationary squeeze-and-bulge lens; the scroll provides the motion.
 - **flair.fireworks** (`transition`, flair >= 0.7.0, core >= 4.10) — staggered firework bursts launch and open over the outgoing widget, then bloom in lockstep to reveal the incoming widget through the expanding circles.
+- **flair.twinkle** (`animation`, flair >= 0.20.0, core >= 4.33) — held text sparkles as individual pixels dim and brighten on their own phase. See [Animations](/concepts/animations/#flairtwinkle-flair-pack).
+- **flair.blink** (`animation`, flair >= 0.20.0, core >= 4.33) — text switches hard on and off, with rates capped below 3 flashes a second for photosensitive viewers. See [Animations](/concepts/animations/#flairblink-flair-pack).
+- **flair.twinkle** and **flair.snow** (`background`, flair >= 0.20.0, core >= 4.33) — a twinkling single-LED starfield, or falling snow, painted behind a widget's content. See [Backgrounds](/concepts/backgrounds/).
 
 ---
 

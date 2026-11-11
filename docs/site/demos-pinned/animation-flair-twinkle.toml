@@ -1,0 +1,22 @@
+# render-duration: 6
+# requires-plugins: led-ticker-flair (>= 0.20.0; render locally with the plugin installed)
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "CANDLELIGHT FLOW"
+center = true
+font_color = [255, 183, 3]
+animation = "flair.twinkle"

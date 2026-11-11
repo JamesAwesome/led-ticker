@@ -934,7 +934,7 @@ transition = {type = "flair.splitflap.forward", flips = 0, stagger = 0.8}`}
 | `flips`   | `3`     | In-between characters each position clatters through before it lands, a whole number from 0 to 12. They're picked from characters about as wide as that position, so a wide letter never spills onto its neighbours. `0` flips straight from the old character to the new one. |
 | `stagger` | `0.5`   | Share of the transition spent rippling across the message, from 0 to 0.9. `0` flips every character together; higher values spread them out (and make each flap quicker).                                                                                                      |
 
-`.alternating` passes both knobs to each direction.
+`.alternating` and `.random` accept both knobs too and pass them to each direction.
 
 It's meant to be watched: give it about `duration = 3.0`. The shortest transition is 36 frames (1.8 s at the default 20 fps).
 

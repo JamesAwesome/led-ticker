@@ -1,8 +1,9 @@
 ---
 title: Animations
-description: Animate text on your sign — typewriter reveals, flair.propeller spinning entry, and flair.fisheye lens-scrolling, all composing with any font_color.
+description: Animate text on your sign — typewriter reveals, plus flair.propeller spins, flair.fisheye lens-scrolling, flair.twinkle sparkle and flair.blink.
 ---
 
+import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
@@ -13,7 +14,7 @@ Animations are a separate axis from color providers. A widget can carry both sim
 
 Animations may also emit a per-frame `rotation` (degrees, clockwise) that the message widget renders through an offscreen rotate around the text block's center — the flair plugin's `propeller` effect uses this seam. On scaled displays (bigsign), the spin runs at half physical resolution from a pre-rendered snapshot that captures hires fonts and emoji at their correct size; the resting frame always renders at full detail. Animated `font_color` providers (rainbow, color_cycle, shimmer) pause for the duration of the spin and resume at settle — the color phase keeps advancing in the background, so on settle the sweep continues exactly where it left off.
 
-Animations may also emit a per-frame `pixel_gain` — a brightness multiplier per real pixel — which dims or hides individual lit pixels of the text (e.g. twinkle or fade effects). It applies to the plain text path only (rotation and lens take precedence), never touches borders or backgrounds, and a fully dimmed pixel is left transparent rather than painted black. Plugin authors: see [`AnimationFrame.pixel_gain`](/plugins/api-reference/#animationframepixel_gain).
+Animations may also emit a per-frame `pixel_gain` — a brightness multiplier per real pixel — which dims or hides individual lit pixels of the text (the flair pack's [`flair.twinkle`](#flairtwinkle-flair-pack) uses it). It applies to the plain text path only (rotation and lens take precedence), never touches borders or backgrounds, and a fully dimmed pixel is left transparent rather than painted black. Plugin authors: see [`AnimationFrame.pixel_gain`](/plugins/api-reference/#animationframepixel_gain).
 
 <DemoGif
   src="/demos/concepts-animations.gif"
@@ -67,18 +68,18 @@ Typewriter has `restart_on_visit = true` — the reveal counter resets every tim
 
 ## Where it works
 
-| Widget type                   | `animation = "typewriter"`?            | `animation = "flair.propeller"`?                  | `animation = "flair.fisheye"`?                                                     |
-| ----------------------------- | -------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `message`                     | yes                                    | yes                                               | yes                                                                                |
-| `countdown`                   | no                                     | no                                                | no                                                                                 |
-| `gif`                         | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | yes — single-row only, core >= 4.13 (see [gif/image note](#gif-and-image-widgets)) |
-| `image`                       | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | yes — single-row only, core >= 4.13 (see [gif/image note](#gif-and-image-widgets)) |
-| `two_row`                     | no                                     | no                                                | no                                                                                 |
-| `weather.current`, `rss.feed` | no                                     | no                                                | no                                                                                 |
+| Widget type                   | `typewriter`                           | `flair.propeller`                                 | `flair.fisheye`                                                                    | `flair.blink` / `flair.twinkle`                              |
+| ----------------------------- | -------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `message`                     | yes                                    | yes                                               | yes                                                                                | yes                                                          |
+| `countdown`                   | no                                     | no                                                | no                                                                                 | no                                                           |
+| `gif`                         | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | yes — single-row only, core >= 4.13 (see [gif/image note](#gif-and-image-widgets)) | yes — single-row, explicit `text_align = "left"` / `"right"` |
+| `image`                       | yes — single-row only (see note below) | accepted but rotation is ignored [^propeller-gif] | yes — single-row only, core >= 4.13 (see [gif/image note](#gif-and-image-widgets)) | yes — single-row, explicit `text_align = "left"` / `"right"` |
+| `two_row`                     | no                                     | no                                                | no                                                                                 | no                                                           |
+| `weather.current`, `rss.feed` | no                                     | no                                                | no                                                                                 | no                                                           |
 
 [^propeller-gif]: `flair.propeller` is accepted on `gif` and `image` at config-load so a section can carry both a spinning `message` and an image widget without a validation error, but the rotation has no visible effect — only `message` widgets render the spin.
 
-On `gif` and `image` widgets, both typewriter and the fisheye lens are restricted to single-row text overlays. Typewriter will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty. The fisheye lens has its own single-row constraints — see [gif and image widgets](#gif-and-image-widgets) under `flair.fisheye` below.
+On `gif` and `image` widgets, both typewriter and the fisheye lens are restricted to single-row text overlays. Typewriter will raise a configuration error if `bottom_text` is also set (which activates two-row mode), if `text_align` is `"scroll"` or `"scroll_over"` (incompatible with a fixed-position reveal), or if `text` is empty. The fisheye lens has its own single-row constraints — see [gif and image widgets](#gif-and-image-widgets) under `flair.fisheye` below. `flair.blink` and `flair.twinkle` follow the typewriter rules on these widgets — see [Blink and twinkle on `gif` and `image`](#blink-and-twinkle-on-gif-and-image).
 
 ## Tips
 
@@ -362,9 +363,142 @@ The lens overlay on `gif`/`image` is single-row only, the same restriction typew
 
 Same rule as `message`: on a scaled sign (bigsign) a hi-res font warps along with the text, subject to the same `magnify × font line-height ≤ content_height` ceiling described above. On a smallsign (scale 1) a hi-res font renders normally (unwarped) and `led-ticker validate` warns — rule 64 fires for `gif`/`image` exactly as it does for `message`.
 
+---
+
+## `flair.twinkle` (flair pack)
+
+`flair.twinkle` is a plugin animation from the [flair pack](/plugins/available/#flair-text-effects-flair-pack) (`led-ticker-flair >= 0.20.0`, core >= 4.33). It makes held text sparkle: a share of the lit pixels in each letter drift between dim and full brightness, each on its own phase, so the message shimmers while staying readable. At the default `min_brightness = 0.15` no pixel ever goes fully dark, so it reads as a glow, not a flash.
+
+<DemoGif
+  src="/demos-pinned/animation-flair-twinkle.gif"
+  caption="`message` with `animation = flair.twinkle` — individual pixels of each letter dim and brighten on their own phase"
+/>
+
+<TomlExample
+  title="Twinkling text (the demo above)"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "CANDLELIGHT FLOW"
+center = true
+font_color = [255, 183, 3]
+animation = "flair.twinkle"`}
+/>
+
+### Install
+
+Add one line to `config/requirements-plugins.txt`:
+
+```text
+led-ticker-flair
+```
+
+See [Plugins](/plugins/) for the install flow.
+
+### Tuning the sparkle
+
+Switch to an inline table to change how much of the text twinkles and how deep the dimming goes:
+
+<TomlExample
+  code={`animation = {style = "flair.twinkle", density = 0.8, speed = 1.5, min_brightness = 0.1}`}
+/>
+
+| Knob             | Default       | Meaning                                                                                                                     |
+| ---------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `density`        | `0.6`         | Fraction of text pixels that twinkle, in `(0, 1]`; the rest hold full brightness.                                           |
+| `speed`          | `1.0`         | Twinkle rate, in `(0, 2.0]` — capped to stay comfortable to look at.                                                        |
+| `min_brightness` | `0.15`        | The dimmest a twinkling pixel gets, in `[0, 1)`. At `0`, twinkling pixels fade all the way out at the bottom of each cycle. |
+| `seed`           | none (random) | An integer that fixes the pattern, for a reproducible demo GIF. Omit it on a real sign.                                     |
+
+### Use it on text that holds still
+
+The sparkle pattern is fixed to the panel, not to the letters. On text that holds in place the letters shimmer; on scrolling text the letters slide through a stationary field and it reads as noise. The twinkle rate also follows the animation counter, which on scrolling text advances once per scroll step — so on a fast-scroll section the shimmer speeds up too.
+
+### What twinkles
+
+- Only the text. Borders and [backgrounds](/concepts/backgrounds/) are untouched, so twinkling text composes with `background = "flair.twinkle"` (a twinkling starfield behind it) or `background = "flair.snow"`.
+- `font_color` providers keep working — the twinkle scales whatever color the provider picked for each pixel.
+- On a scaled sign (bigsign), BDF text twinkles per logical pixel (each 4×4 block dims as one); hi-res fonts twinkle per real LED. Animated image emoji don't twinkle.
+
+---
+
+## `flair.blink` (flair pack)
+
+`flair.blink` is a plugin animation from the [flair pack](/plugins/available/#flair-text-effects-flair-pack) (`led-ticker-flair >= 0.20.0`, core >= 4.33). It switches the text hard on and off: visible for the "on" part of each period, blank for the rest. Every visit opens on visible text, and on a `message` widget the engine waits for the next "on" phase before firing a transition, so a scene change never starts from a blank panel.
+
+<DemoGif
+  src="/demos-pinned/animation-flair-blink.gif"
+  caption="`message` with `animation = flair.blink` at the defaults — on for 750 ms, off for 250 ms, once a second"
+/>
+
+<TomlExample
+  title="Blinking text (the demo above)"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "DROP-INS WELCOME"
+center = true
+font_color = [255, 92, 38]
+animation = "flair.blink"`}
+/>
+
+<Aside type="caution" title="Blink rates are capped for photosensitive viewers">
+  Fast flashing can trigger seizures in people with photosensitive epilepsy. `flair.blink` refuses any setting that would flash faster than 3 times a second (the [WCAG 2.3.1 three-flashes threshold](https://www.w3.org/WAI/WCAG22/Understanding/three-flashes-or-below-threshold.html)), and the limit holds even when the text is scrolling at the engine's fastest 20 ms step. In practice:
+
+- The shortest allowed `period_ms` is about **850** (17 animation frames; anything from `826` up rounds to 17).
+- The default — `period_ms = 1000`, `duty = 0.75` — is one blink a second.
+- A faster setting is a `led-ticker validate` error unless you add `allow_fast = true`. Think about who walks past your sign before you do.
+
+</Aside>
+
+### Install
+
+Same one line as the other flair effects — add `led-ticker-flair` to `config/requirements-plugins.txt` ([install flow](/plugins/)).
+
+### Tuning the blink
+
+<TomlExample
+  code={`animation = {style = "flair.blink", period_ms = 1500, duty = 0.6, count = 4}`}
+/>
+
+| Knob         | Default | Meaning                                                                                                                                                                                   |
+| ------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `period_ms`  | `1000`  | One on + off cycle, in milliseconds (counted in 50 ms animation frames, rounded). Minimum about `850` without `allow_fast`, maximum `60000`; the off part may be at most 1 s (see below). |
+| `duty`       | `0.75`  | Fraction of each period the text is visible, in `(0, 1)`.                                                                                                                                 |
+| `count`      | `0`     | Blink this many times, then stay on. `0` blinks for the whole visit.                                                                                                                      |
+| `allow_fast` | `false` | Opt in to periods shorter than about 850 ms (faster than 3 flashes a second). Must be a real boolean (`true`, not `"true"`).                                                              |
+
+### Why is a long "off" phase refused?
+
+Because a transition could start on blank text. The engine will extend a hold by up to 1 second to land the transition on an "on" phase, so the off part of the cycle — `period_ms × (1 − duty)` — may be at most 1 s (20 frames). `period_ms = 2000, duty = 0.5` is fine (1 s off); `period_ms = 3000, duty = 0.5` is refused (1.5 s off). Use a shorter period or a higher `duty`.
+
+### What blinks
+
+Inline emoji and [colored value tokens](/concepts/value-tokens/) blank along with the text. Borders and [backgrounds](/concepts/backgrounds/) stay lit, so a blinking message over `background = "flair.twinkle"` keeps the starfield going during the off phase.
+
+---
+
+## Blink and twinkle on `gif` and `image`
+
+Both effects also work on the `gif` and `image` widgets' single-row text overlay, with the same rules typewriter has there: no `bottom_text`, non-empty `text`, and a non-scrolling `text_align`. The last one catches people out — the default `text_align = "auto"` on a centered image resolves to `"scroll_over"`, which these animations refuse, so set `text_align = "left"` or `"right"` explicitly:
+
+<TomlExample
+  code={`[[playlist.section.widget]]
+type = "gif"
+path = "config/assets/phoenix_transparent.gif"
+text = "OPEN"
+text_align = "left"
+animation = "flair.blink"`}
+/>
+
+One honest gap: the "wait for the next on phase" hold extension is `message`-only today. On `gif` / `image` a hold can end during the off phase, and the transition then starts from blank text.
+
+### Only one animation per widget
+
+`animation` is a single slot. `flair.blink`, `flair.twinkle`, `typewriter`, `flair.propeller` and `flair.fisheye` can't be combined on one widget — pick one. Color providers, borders and backgrounds are separate fields and compose freely.
+
 <RelatedPages
   slugs={[
     "concepts/color-providers",
+    "concepts/backgrounds",
     "reference/frame-counters",
     "widgets/message",
     "widgets/gif",

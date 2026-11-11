@@ -156,7 +156,7 @@ async def _run_build_checks(
     list[tuple[str, Any]],
     list[tuple[str, str, str, str | None, str | None]],
 ]:
-    """Run validate_widget_cfg for every widget.
+    """Run validate_widget_cfg for every widget and section title.
 
     Returns (build_errors, coerce_warnings, migration_errors):
     - build_errors: (location, error_msg) pairs
@@ -172,30 +172,41 @@ async def _run_build_checks(
     issues: list[tuple[str, str]] = []
     warnings: list[tuple[str, Any]] = []
     migrations: list[tuple[str, str, str, str | None, str | None]] = []
+
+    async def _check(cfg: dict[str, Any], loc: str) -> None:
+        collected: list[Any] = []
+        try:
+            await validate_widget_cfg(
+                cfg,
+                session=None,
+                config_dir=config_dir,
+                coercion_collector=collected,
+            )
+        except MigrationError as e:
+            migrations.append(
+                (loc, e.message, e.suggested_fix, e.fix_key, e.fix_replacement_key)
+            )
+        except Exception as e:
+            issues.append((loc, str(e)))
+        for w in collected:
+            warnings.append((loc, w))
+
     for i, section in enumerate(sections):
+        if section.title is not None:
+            # #533: a title is a `type = "message"` widget built by
+            # `_build_title`, so it gets the same build-time checks — without
+            # this a bad effect config on a title passed validate and the
+            # title was silently skipped at runtime. Mirror `_build_title`'s
+            # cfg shaping; `color` and `schedule` are dropped because their
+            # dedicated title rules (41 / title-schedule) already report them.
+            title_cfg = copy.deepcopy(section.title)
+            title_cfg.pop("color", None)
+            title_cfg.pop("schedule", None)
+            title_cfg["type"] = "message"
+            title_cfg.setdefault("text", "")
+            await _check(title_cfg, f"section[{i}].title")
         for j, widget_cfg in enumerate(section.widgets):
-            widget_warnings: list[Any] = []
-            try:
-                await validate_widget_cfg(
-                    copy.deepcopy(widget_cfg),
-                    session=None,
-                    config_dir=config_dir,
-                    coercion_collector=widget_warnings,
-                )
-            except MigrationError as e:
-                migrations.append(
-                    (
-                        f"section[{i}].widget[{j}]",
-                        e.message,
-                        e.suggested_fix,
-                        e.fix_key,
-                        e.fix_replacement_key,
-                    )
-                )
-            except Exception as e:
-                issues.append((f"section[{i}].widget[{j}]", str(e)))
-            for w in widget_warnings:
-                warnings.append((f"section[{i}].widget[{j}]", w))
+            await _check(copy.deepcopy(widget_cfg), f"section[{i}].widget[{j}]")
     return issues, warnings, migrations
 
 

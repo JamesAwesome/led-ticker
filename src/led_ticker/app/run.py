@@ -429,6 +429,33 @@ def _build_trans_obj_guarded(trans_cfg: Any) -> Any:
         return None
 
 
+def _cached_trans_obj(
+    cache: dict[tuple[str, int], tuple[Any, Any]],
+    trans_cfg: Any,
+    role: str = "widget",
+) -> Any:
+    """Build a section's transition once and reuse it on every later pass.
+
+    Stateful transitions (``wipe_alternating``, ``push_alternating``, plugin
+    ``.alternating`` / ``.random`` variants) keep their variant counter on the
+    instance. Rebuilding per section entry reset it, so the section always
+    entered with the first variant. ``role`` ("entry" / "widget") keeps a
+    section's entry and between-widget transitions on separate instances, so
+    the entry rotation can't lock to the number of widget swaps per pass (4
+    variants + 3 swaps would otherwise land every entry on the same variant).
+    Keyed by ``(role, id(trans_cfg))``; the entry holds
+    a reference to the config so the id cannot be reused while cached. The run
+    loop clears the cache on hot-reload. A failed build (``None`` = cut) is
+    cached too, so its warning logs once per config load, not once per pass."""
+    key = (role, id(trans_cfg))
+    hit = cache.get(key)
+    if hit is not None and hit[0] is trans_cfg:
+        return hit[1]
+    obj = _build_trans_obj_guarded(trans_cfg)
+    cache[key] = (trans_cfg, obj)
+    return obj
+
+
 def build_source_registry(
     sources: list, session: Any, config_dir: Any = None
 ) -> DataRegistry:
@@ -982,6 +1009,9 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
         default_section_trans: Transition | None = _build_trans_obj_guarded(
             config.between_sections
         )
+        # Per-section transitions, built once per config load (see
+        # _cached_trans_obj). Cleared whenever a hot-reload lands.
+        section_trans_cache: dict[tuple[str, int], tuple[Any, Any]] = {}
 
         # Compute the panel height to use for hi-res font_size warnings.
         # Only meaningful on the small sign (default_scale == 1) — bigsign
@@ -1067,6 +1097,7 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                     if _reload_res is not None:
                         config = _reload_res.config
                         default_section_trans = _reload_res.default_section_trans
+                        section_trans_cache.clear()
                         schedule_task = _reload_res.schedule_task
                         source_refresh_task = _reload_res.source_refresh_task
                         # Mirrors the mid-cycle reload pin below: a reload
@@ -1132,6 +1163,7 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         if _reload_res is not None:
                             config = _reload_res.config
                             default_section_trans = _reload_res.default_section_trans
+                            section_trans_cache.clear()
                             schedule_task = _reload_res.schedule_task
                             source_refresh_task = _reload_res.source_refresh_task
                             _any_section_ran = True
@@ -1234,14 +1266,18 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                         #   2. transition (when transition_specified)
                         #   3. between_sections (global default)
                         if section.entry_transition is not None:
-                            entry_trans = _build_trans_obj_guarded(
-                                section.entry_transition
+                            entry_trans = _cached_trans_obj(
+                                section_trans_cache,
+                                section.entry_transition,
+                                role="entry",
                             )
                             entry_duration = section.entry_transition.duration
                             entry_easing = section.entry_transition.easing
                             entry_fps = section.entry_transition.transition_fps
                         elif section.transition_specified:
-                            entry_trans = _build_trans_obj_guarded(section.transition)
+                            entry_trans = _cached_trans_obj(
+                                section_trans_cache, section.transition, role="entry"
+                            )
                             entry_duration = section.transition.duration
                             entry_easing = section.transition.easing
                             entry_fps = section.transition.transition_fps
@@ -1329,7 +1365,9 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
                             widget_trans_cfg is not None
                             and widget_trans_cfg.type != "cut"
                         ):
-                            transition_fn = _build_trans_obj_guarded(widget_trans_cfg)
+                            transition_fn = _cached_trans_obj(
+                                section_trans_cache, widget_trans_cfg
+                            )
                             transition_config = widget_trans_cfg
                         else:
                             transition_fn = None

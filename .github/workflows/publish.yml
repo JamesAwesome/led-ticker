@@ -1,7 +1,7 @@
 name: publish
 
 # Publishes `led-ticker-core` to PyPI via OIDC Trusted Publishing when a GitHub
-# Release is published. Runs on GitHub-hosted runners (NOT self-hosted) and
+# Release is published. Runs on GitHub-hosted runners and
 # is gated behind the `release` environment (required reviewer).
 on:
   release:

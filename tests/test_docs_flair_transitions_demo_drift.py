@@ -2,7 +2,8 @@
 
 Enforces the DOCS-STYLE.md §4 "Snippet/GIF parity" hard rule for
 `transitions/sprite.mdx`: for each pinned flair transition demo listed in
-VERBATIM_DEMOS, the TOML body from `[transitions]` to the end of the file
+VERBATIM_DEMOS, the TOML body from `[transitions]` (or the first
+`[[playlist.section]]` when the demo has no `[transitions]`) to the end of the file
 (everything a reader copies; the `[display]` block and render headers are
 demo plumbing) must appear character-for-character in the page.
 
@@ -32,13 +33,19 @@ VERBATIM_DEMOS = (
     "transition-flair-accordion",
     "transition-flair-interlock",
     "transition-flair-blinds",
+    "transition-flair-snow",
+    "transition-flair-splitflap",
+    "transition-flair-sand",
 )
 
 
 def _snippet_body(name: str) -> str:
     text = (DEMOS / f"{name}.toml").read_text()
+    # From [transitions] when the demo sets one, else from the first section.
     start = text.find("[transitions]")
-    assert start != -1, f"{name}.toml has no [transitions] block"
+    if start == -1:
+        start = text.find("[[playlist.section]]")
+    assert start != -1, f"{name}.toml has no [transitions] or section block"
     return text[start:].rstrip("\n")
 
 

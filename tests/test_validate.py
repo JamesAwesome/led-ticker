@@ -5753,3 +5753,95 @@ async def test_rule14_parity_with_runtime(
 async def test_rule14_non_string_image_align_does_not_crash(conf, ia):
     result = await validate_config(conf(_r14_img("image", f"image_align = {ia}")))
     assert result.errors  # reported by the image_align type check, no traceback
+
+
+class TestSectionTitleBuildChecks:
+    """#533: section titles go through the same build-time validation as
+    widgets. Previously the static pass never built titles, so a bad
+    effect config on a title passed `validate` and the title was then
+    silently skipped at runtime (`_build_title` raising inside run.py)."""
+
+    _BASE = """
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+
+[[playlist.section]]
+mode = "slideshow"
+
+[playlist.section.title]
+text = "TITLE"
+{title_extra}
+
+[[playlist.section.widget]]
+type = "message"
+text = "W"
+"""
+
+    async def _validate(self, conf, title_extra: str):
+        return await validate_config(conf(self._BASE.format(title_extra=title_extra)))
+
+    async def test_bad_title_effect_kwargs_is_error_at_title_location(self, conf):
+        result = await self._validate(
+            conf, 'animation = {style = "typewriter", bogus = 1}'
+        )
+        title_errors = [e for e in result.errors if e.location == "section[0].title"]
+        assert len(title_errors) == 1, result.errors
+        assert "bogus" in title_errors[0].message
+
+    async def test_clean_title_adds_no_issues(self, conf):
+        result = await self._validate(
+            conf, 'animation = {style = "typewriter", frames_per_char = 4}'
+        )
+        assert not [i for i in result.errors if "title" in i.location]
+        assert not [i for i in result.warnings if "title" in i.location]
+
+    async def test_title_color_migration_reported_once(self, conf):
+        result = await self._validate(conf, 'color = "random"')
+        hits = [e for e in result.errors if e.location == "section[0].title"]
+        assert len(hits) == 1, hits
+        assert hits[0].fix_key == "color"
+
+    async def test_title_schedule_refusal_reported_once(self, conf):
+        result = await self._validate(
+            conf, 'schedule = {days = ["mon"], start = "09:00", end = "17:00"}'
+        )
+        hits = [e for e in result.errors if e.location == "section[0].title"]
+        assert len(hits) == 1, hits
+        assert "schedul" in hits[0].message
+
+    async def test_malformed_title_schedule_reported_once(self, conf):
+        """A malformed schedule must not add a second (parse) error on top of
+        the title-schedule refusal."""
+        result = await self._validate(
+            conf, 'schedule = {days = ["funday"], start = "09:00", end = "17:00"}'
+        )
+        hits = [e for e in result.errors if e.location == "section[0].title"]
+        assert len(hits) == 1, hits
+        assert "not schedulable" in hits[0].message
+
+    async def test_title_type_is_forced_to_message(self, conf):
+        """`_build_title` overrides any user `type`; validation must too, or a
+        title written as `type = "clock"` would be checked as a clock (which
+        rejects `text`)."""
+        result = await self._validate(conf, 'type = "clock"')
+        assert not [e for e in result.errors if e.location == "section[0].title"]
+
+    async def test_title_and_widget_report_identically(self, conf):
+        """Same bad cfg on a title and a widget -> same issues, so titles
+        can't drift from the message-widget surface."""
+        bad = 'font = "NoSuchFont-Regular"\nfont_size = 12'
+        result = await validate_config(
+            conf(self._BASE.format(title_extra=bad) + bad + "\n")
+        )
+
+        def at(loc):
+            return sorted(
+                (i.severity, i.rule, i.message)
+                for i in [*result.errors, *result.warnings]
+                if i.location == loc
+            )
+
+        assert at("section[0].title"), result
+        assert at("section[0].title") == at("section[0].widget[0]")

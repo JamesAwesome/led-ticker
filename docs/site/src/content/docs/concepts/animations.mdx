@@ -459,12 +459,12 @@ Same one line as the other flair effects — add `led-ticker-flair` to `config/r
   code={`animation = {style = "flair.blink", period_ms = 1500, duty = 0.6, count = 4}`}
 />
 
-| Knob         | Default | Meaning                                                                                                                                                                  |
-| ------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `period_ms`  | `1000`  | One on + off cycle, in milliseconds (counted in 50 ms animation frames, rounded). Minimum about `850` without `allow_fast`; the off part may be at most 1 s (see below). |
-| `duty`       | `0.75`  | Fraction of each period the text is visible, in `(0, 1)`.                                                                                                                |
-| `count`      | `0`     | Blink this many times, then stay on. `0` blinks for the whole visit.                                                                                                     |
-| `allow_fast` | `false` | Opt in to periods shorter than about 850 ms (faster than 3 flashes a second). Must be a real boolean (`true`, not `"true"`).                                             |
+| Knob         | Default | Meaning                                                                                                                                                                                   |
+| ------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `period_ms`  | `1000`  | One on + off cycle, in milliseconds (counted in 50 ms animation frames, rounded). Minimum about `850` without `allow_fast`, maximum `60000`; the off part may be at most 1 s (see below). |
+| `duty`       | `0.75`  | Fraction of each period the text is visible, in `(0, 1)`.                                                                                                                                 |
+| `count`      | `0`     | Blink this many times, then stay on. `0` blinks for the whole visit.                                                                                                                      |
+| `allow_fast` | `false` | Opt in to periods shorter than about 850 ms (faster than 3 flashes a second). Must be a real boolean (`true`, not `"true"`).                                                              |
 
 ### Why is a long "off" phase refused?
 

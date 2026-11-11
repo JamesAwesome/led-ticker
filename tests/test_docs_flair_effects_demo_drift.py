@@ -64,8 +64,15 @@ def test_snippets_match_demo_tomls_verbatim(page: str):
         assert any(ln.startswith(("animation = ", "background = ")) for ln in lines), (
             f"{name}.toml has no `animation = ` / `background = ` line"
         )
+        # Whole-line match (a substring check would let `text = "OPEN"` match
+        # a longer line). Snippet lines may open with `code={\`` or close
+        # with `\`}` inside a <TomlExample>; strip those wrappers.
+        page_lines = {
+            ln.strip().removeprefix("code={`").removesuffix("`}")
+            for ln in mdx_text.splitlines()
+        }
         for line in lines:
-            assert line in mdx_text, (
+            assert line in page_lines, (
                 f"snippet/GIF parity violation: {name}.toml renders {name}.gif "
                 f"(embedded in {page}), but this config line is not on the "
                 f"page verbatim:\n  {line}"

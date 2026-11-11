@@ -59,18 +59,19 @@ With knobs — a denser, warmer field:
   code={`background = {style = "flair.twinkle", density = 0.05, speed = 1.2, color = [255, 200, 120]}`}
 />
 
-| Knob      | Default           | Meaning                                                                                   |
-| --------- | ----------------- | ----------------------------------------------------------------------------------------- |
-| `density` | `0.03`            | Fraction of panel pixels that are stars, in `(0, 1]`.                                     |
-| `speed`   | `1.0`             | Twinkle rate, in `(0, 2.0]`.                                                              |
-| `color`   | `[255, 230, 180]` | Peak star color as `[r, g, b]`; each star scales it by its current brightness.            |
-| `seed`    | none (random)     | An integer that fixes the starfield, for a reproducible demo GIF. Omit it on a real sign. |
+| Knob         | Default           | Meaning                                                                                                                                                   |
+| ------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `density`    | `0.03`            | Fraction of panel pixels that are stars, in `(0, 1]`.                                                                                                     |
+| `speed`      | `1.0`             | Twinkle rate, in `(0, 2.0]`.                                                                                                                              |
+| `color`      | `[255, 230, 180]` | Peak star color as `[r, g, b]`; each star scales it by its current brightness.                                                                            |
+| `brightness` | `1.0`             | Dims the whole starfield, in `(0, 1]`; `0.3` keeps the stars subtle behind text (`led-ticker-flair >= 0.23.0`). Very low values can leave the field dark. |
+| `seed`       | none (random)     | An integer that fixes the starfield, for a reproducible demo GIF. Omit it on a real sign.                                                                 |
 
 The field keeps twinkling across `loop_count` repeats instead of restarting each visit. For text that sparkles too, pair it with the [`flair.twinkle` animation](/concepts/animations/#flairtwinkle-flair-pack) — that one dims the text's own pixels and leaves the background alone.
 
 ## `flair.snow` falling snow
 
-`background = "flair.snow"` drops snow behind the widget (`led-ticker-flair >= 0.20.0`, core >= 4.33). Each flake falls at its own speed, sways a little sideways, and re-enters at a new column when it wraps off the bottom. For a snow flurry _between_ widgets, see [the `flair.snow` transition](/transitions/sprite/).
+`background = "flair.snow"` drops snow behind the widget (`led-ticker-flair >= 0.20.0`, core >= 4.33). Each flake falls at its own speed, sways a little sideways, and re-enters at a new column when it wraps off the bottom. For a snow flurry _between_ widgets, see [the `flair.snow` transition](/transitions/sprite/#flairsnow-flair--0200-core--433).
 
 <DemoGif
   src="/demos-pinned/background-flair-snow.gif"

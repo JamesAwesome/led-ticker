@@ -1,0 +1,23 @@
+# render-duration: 4
+# requires-plugins: led-ticker-flair (>= 0.20.0; render locally with the plugin installed)
+# Bigsign geometry flattened to 256x64 for the headless renderer (it ignores pixel_mapper_config).
+[display]
+rows = 64
+cols = 256
+chain_length = 1
+default_scale = 4
+brightness = 70
+
+[transitions]
+default = "cut"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 6.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "NIGHT FLOW"
+center = true
+font_color = [255, 244, 214]
+background = "flair.twinkle"

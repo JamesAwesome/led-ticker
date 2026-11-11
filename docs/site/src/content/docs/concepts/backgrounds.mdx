@@ -1,8 +1,9 @@
 ---
 title: Backgrounds
-description: Full-panel background effects painted behind a widget's text, under its image and border — plugin-provided styles such as flair.fireworks.
+description: Full-panel background effects painted behind a widget's text, under its image and border — flair.fireworks, flair.twinkle starfields and flair.snow.
 ---
 
+import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
@@ -12,7 +13,7 @@ A **background** is a full-panel effect painted _behind_ a widget's content, eve
 
 so a background shows through an image's transparent (skipped-black) regions, sits under the border ring, and never covers the text. Because `background` and `border` are separate fields, you can run both on one widget — fireworks behind a rainbow ring, for example.
 
-Core ships no built-in background styles; they come from plugins. The first is `flair.fireworks` from the [flair pack](/plugins/available/#flair-text-effects-flair-pack).
+Core ships no built-in background styles; they come from plugins. The [flair pack](/plugins/available/#flair-text-effects-flair-pack) ships three: `flair.fireworks`, [`flair.twinkle`](#flairtwinkle-starfield) (a twinkling starfield) and [`flair.snow`](#flairsnow-falling-snow) (falling snow).
 
 ## Config
 
@@ -33,9 +34,82 @@ Inline table with the plugin's knobs (`style` is the registered name; every othe
   code={`background = { style = "flair.fireworks", bursts = 3, speed = 1.5, colors = [[255, 60, 60], [255, 180, 0]] }`}
 />
 
+## `flair.twinkle` starfield
+
+`background = "flair.twinkle"` paints a twinkling starfield behind the widget (`led-ticker-flair >= 0.20.0`, core >= 4.33). Each star is a single physical LED, so on every sign — including a scaled bigsign — the field reads as fine glitter rather than chunky blocks.
+
+<DemoGif
+  src="/demos-pinned/background-flair-twinkle.gif"
+  caption="`message` on a bigsign with `background = flair.twinkle` — single-LED stars brighten and fade behind the text"
+/>
+
+<TomlExample
+  title="Starfield (the demo above)"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "NIGHT FLOW"
+center = true
+font_color = [255, 244, 214]
+background = "flair.twinkle"`}
+/>
+
+With knobs — a denser, warmer field:
+
+<TomlExample
+  code={`background = {style = "flair.twinkle", density = 0.05, speed = 1.2, color = [255, 200, 120]}`}
+/>
+
+| Knob         | Default           | Meaning                                                                                                                                                   |
+| ------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `density`    | `0.03`            | Fraction of panel pixels that are stars, in `(0, 1]`.                                                                                                     |
+| `speed`      | `1.0`             | Twinkle rate, in `(0, 2.0]`.                                                                                                                              |
+| `color`      | `[255, 230, 180]` | Peak star color as `[r, g, b]`; each star scales it by its current brightness.                                                                            |
+| `brightness` | `1.0`             | Dims the whole starfield, in `(0, 1]`; `0.3` keeps the stars subtle behind text (`led-ticker-flair >= 0.23.0`). Very low values can leave the field dark. |
+| `seed`       | none (random)     | An integer that fixes the starfield, for a reproducible demo GIF. Omit it on a real sign.                                                                 |
+
+The field keeps twinkling across `loop_count` repeats instead of restarting each visit. For text that sparkles too, pair it with the [`flair.twinkle` animation](/concepts/animations/#flairtwinkle-flair-pack) — that one dims the text's own pixels and leaves the background alone.
+
+## `flair.snow` falling snow
+
+`background = "flair.snow"` drops snow behind the widget (`led-ticker-flair >= 0.20.0`, core >= 4.33). Each flake falls at its own speed, sways a little sideways, and re-enters at a new column when it wraps off the bottom. For a snow flurry _between_ widgets, see [the `flair.snow` transition](/transitions/sprite/#flairsnow-flair--0200-core--433).
+
+<DemoGif
+  src="/demos-pinned/background-flair-snow.gif"
+  caption="`message` on a bigsign with `background = { style = flair.snow, flake = flake, density = 1.0, wind = 0.1 }` — 5×5 snowflakes drift down behind the text"
+/>
+
+<TomlExample
+  title="Snowflakes (the demo above)"
+  code={`[[playlist.section.widget]]
+type = "message"
+text = "WINTER YIN"
+center = true
+font_color = [255, 244, 214]
+background = {style = "flair.snow", flake = "flake", density = 1.0, wind = 0.1}`}
+/>
+
+The shorthand uses the defaults — single-LED `"dot"` flakes at three per 1000 panel pixels, a fine dusting:
+
+<TomlExample code={`background = "flair.snow"`} />
+
+| Knob              | Default           | Meaning                                                                                                                                         |
+| ----------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flake`           | `"dot"`           | Flake shape: `"dot"` (one LED), `"plus"` (a 5-LED cross), `"flake"` (a 5×5 snowflake, 9 LEDs), or an emoji slug that has an 8×8 low-res sprite. |
+| `density`         | `3.0`             | Flakes per 1000 panel pixels, in `(0, 50]`.                                                                                                     |
+| `speed`           | `1.0`             | Fall speed, in `(0, 5]`.                                                                                                                        |
+| `speed_variation` | `0.4`             | How much individual flakes' speeds differ, in `[0, 1)`. `0` makes them all fall together.                                                       |
+| `drift`           | `0.3`             | Sideways sway amplitude, `>= 0`.                                                                                                                |
+| `wind`            | `0.0`             | Constant sideways push; negative blows left.                                                                                                    |
+| `color`           | `[200, 220, 255]` | Flake color as `[r, g, b]` for `dot` / `plus` / `flake` (emoji flakes keep their own colors).                                                   |
+| `seed`            | none (random)     | An integer that fixes the pattern, for a reproducible demo GIF. Omit it on a real sign.                                                         |
+
+### Why don't my emoji flakes look like snowflakes?
+
+Emoji flakes use the slug's 8×8 [low-res sprite](/assets/emoji/), painted 1:1 on the real panel — so on a bigsign they're 8 LEDs wide, not block-expanded, and they look small. And the low-res sprite isn't always what the name suggests: `:snow:` is a grey rain-cloud weather icon. For snow, use `flake = "flake"`. A slug with no low-res sprite (hi-res-only or standard-emoji-pack-only) is refused at config load.
+
 ## Where it works
 
-`background` is accepted on every widget that accepts `border`:
+`background` — every style above — is accepted on every widget that accepts `border`:
 
 | Widget type                                     | `background`?                      |
 | ----------------------------------------------- | ---------------------------------- |
@@ -65,8 +139,10 @@ Register a class with `api.background(name)`; it needs a `frame_invariant` class
 <RelatedPages
   slugs={[
     "concepts/borders",
+    "concepts/animations",
     "concepts/color-providers",
     "reference/frame-counters",
     "plugins/available",
+    "transitions/sprite",
   ]}
 />

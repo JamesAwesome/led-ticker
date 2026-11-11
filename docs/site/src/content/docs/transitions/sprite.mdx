@@ -1,6 +1,6 @@
 ---
 title: Sprite and flair transitions
-description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, flair.poker card-suit ripple, flair.lightning bolt-strike, flair.fairy pixie-dust, flair.laser beam-write, and flair.accordion card-fan transitions."
+description: "Flair-pack transitions — Nyan Cat, Pokéball, Sailor Moon, Pac-Man sprites, plus the flair.spinout, flair.fireworks, flair.stickers emoji sticker-bomb, flair.poker card-suit ripple, flair.lightning bolt-strike, flair.fairy pixie-dust, flair.laser beam-write, flair.accordion card-fan, flair.interlock strand-mesh, flair.blinds venetian-blind, flair.snow flurry, flair.splitflap departure-board, and flair.sand crumble-and-pour transitions."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
@@ -614,5 +614,414 @@ Recommended: `duration = 2.0` with `easing = "ease_in_out"`.
 - **Background effects.** A widget with a `background` effect (and full-panel `image`/`gif` widgets) has no gaps to fan, so it slides as a single card (both rows of a `two_row` included).
 - **Image/gif widgets.** Core draws only the picture during a transition (no border, no text overlay), so a bordered or captioned image gets no ring and no row split: the picture moves as one deck.
 - **Backgrounds.** The section `bg_color` is painted by the engine, never by the transition. The panel switches to the new section's background at the halfway point, on the same frame the incoming deck starts to slide in, with no black flash. The short empty beat just before it (which can be zero frames on a fast transition) still shows the outgoing background.
+
+### `flair.interlock` (flair >= 0.19.0, core >= 4.32)
+
+`flair.interlock` is the BetaBrite / Alpha "Interlock" special mode. The panel is cut into thin strands. Alternate strands of the old message slide off toward opposite edges, then the new message's strands race in from opposite edges and mesh together. Each strand keeps one direction for the whole transition, like a conveyor belt. It works on every widget type, because the content is snapshotted as pixels rather than text. Four variants:
+
+| Type                          | Strands                      | Even strands travel          | Odd strands travel |
+| ----------------------------- | ---------------------------- | ---------------------------- | ------------------ |
+| `flair.interlock.horizontal`  | rows (the Alpha classic)     | left → right                 | right → left       |
+| `flair.interlock.vertical`    | columns                      | top → bottom                 | bottom → top       |
+| `flair.interlock.alternating` | cycles horizontal → vertical | one axis per firing          |                    |
+| `flair.interlock.random`      | a random axis and direction  | never the same twice running |                    |
+
+<DemoGif
+  src="/demos-pinned/transition-flair-interlock.gif"
+  caption="`flair.interlock.alternating` — the old message splits into row strands that slide off both edges, then the new one meshes in; the next firing uses column strands"
+/>
+
+#### Install
+
+`flair.interlock` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Row strands, then column strands, between every section"
+  code={`[transitions]
+duration = 1.5
+between_sections = "flair.interlock.alternating"
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "YOGA"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 183, 3]`}
+/>
+
+<TomlExample
+  title="One section, chunkier strands"
+  code={`[[playlist.section]]
+transition = {type = "flair.interlock.horizontal", strand = 2}`}
+/>
+
+#### Knobs
+
+| Knob     | Default | Notes                                                                                                                                         |
+| -------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strand` | `1`     | Strand thickness in logical rows (or columns), a positive whole number. On the bigsign at `default_scale = 4`, one logical row is 4 LED rows. |
+
+`.alternating` and `.random` pass `strand` through to every variant. The shortest transition is 24 frames (1.2 s at the default 20 fps); `duration = 1.5` reads well.
+
+#### Behavior notes
+
+- **Travel is sized to the content.** The strands travel just far enough to clear the content off the panel. The old message has just gone at the halfway point and the new one starts arriving right after, so the halfway frame is the only blank one, even for short centred text.
+- **`.alternating` and `.random` cycle on `between_sections`.** Set them on `[transitions] between_sections`, as the demo does, to get a different variant at each section change. A section's own `transition` is rebuilt every time that section starts, so as a section entry it fires the first variant (horizontal) every time.
+- **Borders move with the content.** A bordered widget's ring is cut into strands along with everything else.
+- **Backgrounds.** The panel switches to the new section's `bg_color` at the halfway point, on that blank frame, so there's no visible cut.
+- **Cross-scale sections.** The incoming content is snapshotted at the halfway point at its own scale, so it meshes in at its native size.
+- **Letterboxed sections** (for example `scale = 2, content_height = 16` on a 64-row panel). Strands are cut from the content rows; any lit rows in the blank bands above and below travel with the nearest edge strand.
+
+### `flair.blinds` (flair >= 0.19.0, core >= 4.32)
+
+`flair.blinds` is the venetian-blind (or "shutter") reveal found on modern LED sign controllers. The panel is cut into equal slats, and every slat opens at the same moment in the same direction, revealing the new message through the old one. There's no sweep line; for that look use the [wipe family](/transitions/wipe/). It works on every widget type. Six variants, named by the direction each slat opens:
+
+| Type                       | Slats                           | Each slat opens              |
+| -------------------------- | ------------------------------- | ---------------------------- |
+| `flair.blinds.down`        | horizontal                      | top → bottom                 |
+| `flair.blinds.up`          | horizontal                      | bottom → top                 |
+| `flair.blinds.right`       | vertical                        | left → right                 |
+| `flair.blinds.left`        | vertical                        | right → left                 |
+| `flair.blinds.alternating` | cycles down → right → up → left | one direction per firing     |
+| `flair.blinds.random`      | a different direction each time | never the same twice running |
+
+<DemoGif
+  src="/demos-pinned/transition-flair-blinds.gif"
+  caption="`flair.blinds.alternating` with four slats — horizontal slats open downward onto the new message, then vertical slats open to the right"
+/>
+
+#### Install
+
+`flair.blinds` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Four slats, a new direction at every section change"
+  code={`[transitions]
+duration = 1.5
+between_sections = {type = "flair.blinds.alternating", slats = 4}
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+
+[[playlist.section.widget]]
+type = "message"
+text = "YOGA"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 183, 3]`}
+/>
+
+<TomlExample
+  title="One section, default slats"
+  code={`[[playlist.section]]
+transition = "flair.blinds.down"`}
+/>
+
+#### Knobs
+
+| Knob    | Default | Notes                                                                                                                                                                                 |
+| ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `slats` | `8`     | Number of slats, a positive whole number. Slats are whole logical pixels, the last one takes any remainder, and the count is capped so every slat is at least one logical pixel wide. |
+
+On `.alternating` and `.random`, an explicit `slats` applies to every direction. The shortest transition is 16 frames (0.8 s at the default 20 fps); 1.0–1.5 s reads well.
+
+Horizontal slats split the 16 logical rows of a standard section, on the smallsign and on the bigsign at `default_scale = 4` alike. The default 8 slats are 2 rows each, so each slat has only one in-between step. Use `slats = 4`, as the demo does, for a smoother open.
+
+#### Behavior notes
+
+- **`.alternating` and `.random` cycle on `between_sections`.** Set them on `[transitions] between_sections`, as the demo does, to get a different direction at each section change. A section's own `transition` is rebuilt every time that section starts, so as a section entry it opens downward every time.
+- **Backgrounds.** The opened part of each slat shows the new section's `bg_color`, and the rest still shows the old one.
+- **Cross-scale sections.** The old and new messages share the panel for the whole transition, so incoming content renders at the outgoing scale and pops to its own size on the final frame. `flair.laser`, `flair.fairy` and `flair.lightning` have the same limitation.
+- **Letterboxed sections** (for example `scale = 2, content_height = 16` on a 64-row panel). Horizontal slats split the content rows, so they're all the same size. The blank band on the side a slat opens from opens with that slat's first row; the band on the far side opens when its slat finishes.
+
+### `flair.snow` (flair >= 0.20.0, core >= 4.33)
+
+`flair.snow` swaps content behind a flurry. A ragged front of snow sweeps down the panel with flakes falling ahead of it; above the front you see the incoming widget, below it the outgoing content is still showing. The flurry builds in the middle of the transition and thins to nothing before the final cut. It works on every widget type, because the content is snapshotted as pixels rather than text. There is one variant, `flair.snow`.
+
+`flair.snow` is also a [background effect](/concepts/backgrounds/) (`background = "flair.snow"`), which drops snow behind a widget's content for as long as it is on screen. The transition and the background share the flake shapes but are configured separately.
+
+<DemoGif
+  src="/demos-pinned/transition-flair-snow.gif"
+  caption="`flair.snow` with the built-in snowflake — a snow front falls down the panel, leaving the new message above it"
+/>
+
+#### Install
+
+`flair.snow` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Snowflakes, a little denser than the default"
+  code={`[transitions]
+duration = 2.0
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = {type = "flair.snow", flake = "flake", density = 8.0}
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = {type = "flair.snow", flake = "flake", density = 8.0}
+
+[[playlist.section.widget]]
+type = "message"
+text = "YOGA"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 183, 3]`}
+/>
+
+<TomlExample
+  title="Default dot flakes"
+  code={`[[playlist.section]]
+transition = "flair.snow"`}
+/>
+
+#### Knobs
+
+| Knob      | Default           | Notes                                                                                                                                                                                                                        |
+| --------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flake`   | `"dot"`           | `"dot"` (one LED), `"plus"` (a 5-LED cross), `"flake"` (a hand-drawn 5×5 snowflake), or an [emoji slug](/assets/emoji/) with an 8×8 low-res form. Hi-res-only slugs are refused. `:snow:` is a rain-cloud icon, not a flake. |
+| `density` | `6.0`             | Flakes per 1000 panel pixels at the peak of the flurry, from just above 0 up to 50.                                                                                                                                          |
+| `drift`   | `0.3`             | Sideways sway, `0` or more.                                                                                                                                                                                                  |
+| `wind`    | `0.0`             | Constant sideways push. Negative blows left.                                                                                                                                                                                 |
+| `color`   | `[230, 240, 255]` | Flake colour for `"dot"`, `"plus"` and `"flake"`. Emoji flakes keep their own colours.                                                                                                                                       |
+| `seed`    | none (OS entropy) | An int makes every firing fall the same way, for reproducible GIFs. Leave it unset on a real sign so each firing gets a fresh pattern.                                                                                       |
+
+The shortest transition is 24 frames (1.2 s at the default 20 fps); the demo uses `duration = 2.0`.
+
+#### Behavior notes
+
+- **Flakes paint on top, never black.** The flakes are drawn over both messages, so they read on any `bg_color`.
+- **Backgrounds.** The section `bg_color` doesn't follow the front: the outgoing background stays until the final cut, then the new section's background appears. Adjacent sections with different `bg_color` pop at that cut.
+- **Cross-scale sections.** The incoming content renders at the outgoing scale until the final frame, then pops to its own size. `flair.laser` and `flair.fairy` have the same limitation.
+
+### `flair.splitflap` (flair >= 0.21.0, core >= 4.33)
+
+`flair.splitflap` is the Solari split-flap departure board. Every character of the old message is a flap hinged across its middle: the top half falls over to reveal the next character, then the bottom half folds down after it. Each character clatters through a few in-between characters before landing on the new one, and the characters settle one after another in a ripple. The flaps flip in place, in your widget's own font, size and colour, on the normal panel background (no tiles). Four variants, named by the ripple:
+
+| Type                          | Characters settle                     |
+| ----------------------------- | ------------------------------------- |
+| `flair.splitflap.forward`     | left → right                          |
+| `flair.splitflap.reverse`     | right → left                          |
+| `flair.splitflap.alternating` | forward, then reverse, one per firing |
+| `flair.splitflap.random`      | in a random order, fresh each firing  |
+
+<DemoGif
+  src="/demos-pinned/transition-flair-splitflap.gif"
+  caption="`flair.splitflap.forward` — VINYASA flips character by character, left to right, through in-between letters to YIN YOGA"
+/>
+
+#### Install
+
+`flair.splitflap` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+<TomlExample
+  title="Departure-board flip between two class names"
+  code={`[transitions]
+duration = 3.0
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = "flair.splitflap.forward"
+
+[[playlist.section.widget]]
+type = "message"
+text = "VINYASA"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = "flair.splitflap.forward"
+
+[[playlist.section.widget]]
+type = "message"
+text = "YIN YOGA"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 183, 3]`}
+/>
+
+<TomlExample
+  title="One flap per character, rippling more slowly"
+  code={`[[playlist.section]]
+transition = {type = "flair.splitflap.forward", flips = 0, stagger = 0.8}`}
+/>
+
+#### Knobs
+
+| Knob      | Default | Notes                                                                                                                                                                                                                                                                          |
+| --------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `flips`   | `3`     | In-between characters each position clatters through before it lands, a whole number from 0 to 12. They're picked from characters about as wide as that position, so a wide letter never spills onto its neighbours. `0` flips straight from the old character to the new one. |
+| `stagger` | `0.5`   | Share of the transition spent rippling across the message, from 0 to 0.9. `0` flips every character together; higher values spread them out (and make each flap quicker).                                                                                                      |
+
+`.alternating` and `.random` accept both knobs too and pass them to each direction.
+
+It's meant to be watched: give it about `duration = 3.0`. The shortest transition is 36 frames (1.8 s at the default 20 fps).
+
+#### Behavior notes
+
+- **In-between characters are borrowed.** They're cut from the two messages on screen, so they always match your font and colour, but they're a shuffle of those characters, not an A-B-C run. A message with only one or two distinct characters gets fewer in-between flips.
+- **Unchanged characters stay put.** A character that is identical, in the same place, in both messages doesn't flip.
+- **Different lengths.** Extra positions flip from blank, or to blank.
+- **`.alternating` cycles on `between_sections`.** Set it on `[transitions] between_sections` to switch ripple direction at each section change. A section's own `transition` is rebuilt every time that section starts, so as a section entry it ripples forward every time.
+- **Two-row widgets** flip each row on its own hinge. Between a two-row widget and a one-row one, the single row pairs with the top row, and the bottom row flips from or to blank.
+- **Images, gifs and background effects** have no characters to find, so they're cut into character-width strips that flip the same way.
+- **Borders stay put.** A bordered widget's ring doesn't flip. The new section's border takes over halfway through, while the characters are still clattering.
+- **Backgrounds and cross-scale sections.** Both messages share the panel for the whole transition, so the new section's `bg_color` arrives at the closing cut and its scale on the final frame. `flair.laser` and `flair.blinds` have the same limitation.
+- **Smallsign.** At 16 rows each half-flap is only a few LEDs tall. It works, but it reads best on the bigsign.
+
+### `flair.sand` (flair >= 0.22.0, core >= 4.33)
+
+`flair.sand` turns the outgoing content into sand. Every lit pixel becomes a grain that lets go at its own slightly random moment and falls off the bottom of the panel. Then the incoming content pours in from the top: each of its grains drops straight down and stops on its own pixel, the bottom rows landing first, until the new content is built. Text, borders and backgrounds all turn to sand. It works on every widget type, because the content is snapshotted as pixels rather than text. There is one variant, `flair.sand`.
+
+<DemoGif
+  src="/demos-pinned/transition-flair-sand.gif"
+  caption="`flair.sand` — FIREBIRD crumbles into falling grains, then YOGA pours in from the top and stacks into place"
+/>
+
+#### Install
+
+`flair.sand` ships in the same `led-ticker-flair` package:
+
+```text
+led-ticker-flair
+```
+
+One install registers every flair transition and animation. See [Plugins](/plugins/) for the install flow.
+
+#### Minimal config
+
+`transition` is a **section** field, not a widget field: it runs between that section's widgets and as the section's entry. The engine's default `duration` of 0.5 s is too fast to read as sand, so set about 3 s on the transition itself:
+
+<TomlExample
+  title="Three-second sand between two sections"
+  code={`[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = {type = "flair.sand", duration = 3}
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 2.0
+transition = {type = "flair.sand", duration = 3}
+
+[[playlist.section.widget]]
+type = "message"
+text = "YOGA"
+center = true
+font = "Inter-Bold"
+font_size = 44
+font_color = [255, 183, 3]`}
+/>
+
+<TomlExample
+  title="Sand at every section change"
+  code={`[transitions]
+between_sections = "flair.sand"
+duration = 3`}
+/>
+
+#### Knobs
+
+| Knob   | Default | Notes                                                                                            |
+| ------ | ------- | ------------------------------------------------------------------------------------------------ |
+| `seed` | none    | An int makes the crumble and pour identical on every run; unset gives a fresh pattern each time. |
+
+The shortest transition is 30 frames (1.5 s at the default 20 fps).
+
+#### Behavior notes
+
+- **Black content doesn't turn to sand.** Like the other snapshot transitions, only non-black pixels become grains, so black text on a coloured section `bg_color` disappears at the start and the incoming content cuts in at the end. Use a non-black ink, or a widget-level background (for example `top_bg_color` on [`two_row`](/widgets/two_row/)), which does turn to sand.
+- **Each real LED is a grain.** On a scaled sign (the bigsign at `default_scale = 4`) the 16 LEDs of a logical pixel fall separately, so the sand is fine-grained at any scale.
+- **Animated backgrounds freeze.** A widget's animated `background` is captured as one still frame and crumbles from there.
+- **Backgrounds and cross-scale sections.** The first half crumbles the outgoing content over its own `bg_color`; the second half pours the incoming content over the incoming `bg_color`, at the incoming scale, so a cross-scale section arrives at its native size.
 
 <RelatedPages slugs={["transitions/push", "transitions/wipe", "concepts/animations"]} />

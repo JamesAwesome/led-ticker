@@ -5811,6 +5811,23 @@ text = "W"
         assert len(hits) == 1, hits
         assert "schedul" in hits[0].message
 
+    async def test_malformed_title_schedule_reported_once(self, conf):
+        """A malformed schedule must not add a second (parse) error on top of
+        the title-schedule refusal."""
+        result = await self._validate(
+            conf, 'schedule = {days = ["funday"], start = "09:00", end = "17:00"}'
+        )
+        hits = [e for e in result.errors if e.location == "section[0].title"]
+        assert len(hits) == 1, hits
+        assert "not schedulable" in hits[0].message
+
+    async def test_title_type_is_forced_to_message(self, conf):
+        """`_build_title` overrides any user `type`; validation must too, or a
+        title written as `type = "clock"` would be checked as a clock (which
+        rejects `text`)."""
+        result = await self._validate(conf, 'type = "clock"')
+        assert not [e for e in result.errors if e.location == "section[0].title"]
+
     async def test_title_and_widget_report_identically(self, conf):
         """Same bad cfg on a title and a widget -> same issues, so titles
         can't drift from the message-widget surface."""

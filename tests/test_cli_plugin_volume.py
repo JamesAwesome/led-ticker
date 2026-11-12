@@ -59,4 +59,45 @@ def test_validate_list_fields_sees_volume(monkeypatch, calls):
 @pytest.mark.parametrize("argv", [["plugin", "status"], ["plugins"]])
 def test_plugin_status_sees_volume(monkeypatch, calls, argv):
     _run(monkeypatch, argv)
+    assert calls[0] == "see"
+    assert calls[-1] == "load"
+
+
+@pytest.mark.parametrize(
+    ("argv", "verb"),
+    [(["plugin", "list"], "cmd_list"), (["plugin", "search", "x"], "cmd_search")],
+)
+def test_plugin_list_and_search_see_volume(monkeypatch, calls, argv, verb):
+    from led_ticker.app import plugin_cmd
+
+    monkeypatch.setattr(plugin_cmd, verb, lambda *a, **k: calls.append("load") or 0)
+    _run(monkeypatch, argv)
     assert calls == ["see", "load"]
+
+
+def test_webui_sees_volume_before_serving(monkeypatch, calls, tmp_path):
+    import led_ticker.config as config_mod
+    import led_ticker.webui as webui_mod
+
+    monkeypatch.setattr(config_mod, "read_web_config", lambda _p: object())
+
+    async def fake_run_webui(*_a):
+        calls.append("load")
+
+    monkeypatch.setattr(webui_mod, "run_webui", fake_run_webui)
+    _run(monkeypatch, ["--config", str(tmp_path / "c.toml"), "webui"])
+    assert calls == ["see", "load"]
+
+
+def test_see_plugin_volume_puts_volume_site_packages_on_path(monkeypatch, tmp_path):
+    """Unstubbed: the CLI helper really targets its volume root."""
+    py = f"{sys.version_info.major}.{sys.version_info.minor}"
+    sp = tmp_path / "venv" / "lib" / f"python{py}" / "site-packages"
+    sp.mkdir(parents=True)
+    monkeypatch.setattr(cli, "_PLUGIN_VOLUME_ROOT", tmp_path)
+    saved = list(sys.path)
+    try:
+        cli._see_plugin_volume()
+        assert sys.path[0] == str(sp)
+    finally:
+        sys.path[:] = saved

@@ -2109,3 +2109,17 @@ def test_real_subprocess_reader_captures_final_error_line(tmp_path):
         pc._PIP_FAILURE_SINK.reset(tok)
     assert rc == 1
     assert sink and "ERROR: final cause" in sink[-1]
+
+
+def test_apply_volume_visibility_warns_on_python_mismatch(tmp_path, caplog):
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / "venv" / "lib" / "python3.0" / "site-packages").mkdir(parents=True)
+    saved = list(sys.path)
+    try:
+        with caplog.at_level("WARNING", logger="led_ticker.plugin_reconcile"):
+            r.apply_volume_visibility(volume_root=tmp_path)
+        assert sys.path == saved
+        assert "different Python" in caplog.text
+    finally:
+        sys.path[:] = saved

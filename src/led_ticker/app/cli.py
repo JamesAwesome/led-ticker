@@ -58,6 +58,10 @@ def _format_plugins(result) -> str:
     return "\n".join(lines)
 
 
+# Module-level so tests can point it away from a real /data/plugins.
+_PLUGIN_VOLUME_ROOT = Path("/data/plugins")
+
+
 def _see_plugin_volume() -> None:
     """Make plugins installed in the Docker plugin volume visible to this process.
 
@@ -70,7 +74,7 @@ def _see_plugin_volume() -> None:
     """
     from led_ticker.plugin_reconcile import apply_volume_visibility  # noqa: PLC0415
 
-    apply_volume_visibility()
+    apply_volume_visibility(_PLUGIN_VOLUME_ROOT)
 
 
 def _run_plugin_status(config: Path) -> None:
@@ -361,6 +365,9 @@ def main() -> None:
             # thinking nothing is available — `plugin list` shows the catalog).
             plugin_parser.print_help()
             sys.exit(0)
+        # status/list/search read the installed set (entry points); the
+        # manifest-only verbs don't care, and the volume is a no-op off Docker.
+        _see_plugin_volume()
         if pc == "status":
             _run_plugin_status(args.config)
             sys.exit(0)

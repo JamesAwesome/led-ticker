@@ -856,6 +856,16 @@ def apply_volume_visibility(volume_root: Path = Path("/data/plugins")) -> None:
     py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     sp = volume_root / "venv" / "lib" / f"python{py_version}" / "site-packages"
     if not sp.is_dir():
+        if (volume_root / "venv").is_dir():
+            # Venv built for another Python (image bump): the display's boot
+            # reconcile rebuilds it, but until then plugins are invisible here.
+            _log.warning(
+                "plugin volume venv %s has no python%s site-packages (built for a "
+                "different Python?) — plugins in it are invisible until the "
+                "display restarts and rebuilds it",
+                volume_root / "venv",
+                py_version,
+            )
         return
     sp_str = str(sp)
     if sp_str in sys.path:

@@ -33,6 +33,13 @@ def _setup_logging(level: str = "info") -> None:
     logger.addHandler(handler)
 
 
+def _logs_to_stderr() -> None:
+    """Re-point the root logger's stdout handlers at stderr."""
+    for h in logging.getLogger().handlers:
+        if isinstance(h, logging.StreamHandler) and h.stream is sys.stdout:
+            h.setStream(sys.stderr)
+
+
 def _format_plugins(result) -> str:
     """Human-readable summary of loaded + failed plugins for `led-ticker plugins`."""
     lines: list[str] = []
@@ -58,11 +65,31 @@ def _format_plugins(result) -> str:
     return "\n".join(lines)
 
 
+# Module-level so tests can point it away from a real /data/plugins.
+_PLUGIN_VOLUME_ROOT = Path("/data/plugins")
+
+
+def _see_plugin_volume() -> None:
+    """Make plugins installed in the Docker plugin volume visible to this process.
+
+    The display process puts ``/data/plugins/venv``'s site-packages on
+    ``sys.path`` during boot reconcile, but a one-shot CLI command (e.g.
+    ``docker exec led-ticker led-ticker validate ...``) runs the base
+    interpreter, so without this every ``flair.*`` / ``nyancat.*`` reference
+    reads as "plugin not loaded". Visibility only, never installs; a no-op off
+    Docker (no volume venv).
+    """
+    from led_ticker.plugin_reconcile import apply_volume_visibility  # noqa: PLC0415
+
+    apply_volume_visibility(_PLUGIN_VOLUME_ROOT)
+
+
 def _run_plugin_status(config: Path) -> None:
     """Load plugins for the config and print loaded/failed (shared by
     `plugin status` and the deprecated `plugins` alias)."""
     from led_ticker._plugin_loader import load_plugins_for_config  # noqa: PLC0415
 
+    _see_plugin_volume()
     try:
         result = load_plugins_for_config(config)
     except (OSError, ValueError) as e:
@@ -345,6 +372,11 @@ def main() -> None:
             # thinking nothing is available — `plugin list` shows the catalog).
             plugin_parser.print_help()
             sys.exit(0)
+        # list/search read the installed set (entry points); status sees the
+        # volume inside _run_plugin_status. The other verbs only edit the
+        # manifest or shell out to pip, which doesn't inherit sys.path.
+        if pc in ("list", "search"):
+            _see_plugin_volume()
         if pc == "status":
             _run_plugin_status(args.config)
             sys.exit(0)
@@ -460,13 +492,18 @@ def main() -> None:
         # VISIBLE to the webui's config validator before it serves — otherwise
         # validate_config emits false-positive "plugin not loaded" warnings for
         # every plugin widget type. Visibility only; the webui never installs.
-        from led_ticker.plugin_reconcile import apply_volume_visibility  # noqa: PLC0415
-
-        apply_volume_visibility()
+        _see_plugin_volume()
         asyncio.run(run_webui(args.config, web_cfg))
         sys.exit(0)
 
     if args.command == "validate":
+        if args.json_output:
+            # --json stdout is a machine contract; plugin-load INFO lines (now
+            # that volume plugins load under docker exec) must not precede it.
+            _logs_to_stderr()
+        # Before ANY plugin load: --list-fields loads plugins below, and
+        # validate_config loads them in _validate_static_prebuild.
+        _see_plugin_volume()
         if args.list_fields is not None:
             from led_ticker.app.factories import _list_section_fields  # noqa: PLC0415
 

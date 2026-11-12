@@ -41,6 +41,19 @@ def _hermetic_entry_point_plugins(monkeypatch):
     monkeypatch.setattr(importlib.metadata, "entry_points", _no_plugin_entry_points)
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_plugin_volume(monkeypatch, tmp_path_factory):
+    """Point the CLI's plugin-volume visibility at an empty dir, so a suite run
+    inside the Docker image never prepends the real /data/plugins venv to
+    sys.path (tests that drive ``cli.main()`` would otherwise do so for the
+    rest of the session)."""
+    from led_ticker.app import cli
+
+    monkeypatch.setattr(
+        cli, "_PLUGIN_VOLUME_ROOT", tmp_path_factory.getbasetemp() / "no-plugin-volume"
+    )
+
+
 @pytest.fixture
 def canvas():
     """Mock LED canvas with standard width and height."""

@@ -2109,3 +2109,35 @@ def test_real_subprocess_reader_captures_final_error_line(tmp_path):
         pc._PIP_FAILURE_SINK.reset(tok)
     assert rc == 1
     assert sink and "ERROR: final cause" in sink[-1]
+
+
+def test_apply_volume_visibility_warns_on_python_mismatch(tmp_path, caplog):
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / "venv" / "lib" / "python3.0" / "site-packages").mkdir(parents=True)
+    saved = list(sys.path)
+    try:
+        with caplog.at_level("WARNING", logger="led_ticker.plugin_reconcile"):
+            r.apply_volume_visibility(volume_root=tmp_path)
+        assert sys.path == saved
+        assert "python3.0" in caplog.text
+        assert "Restart the display" in caplog.text
+    finally:
+        sys.path[:] = saved
+
+
+def test_apply_volume_visibility_quiet_while_venv_is_being_rebuilt(tmp_path, caplog):
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / "venv").mkdir()  # rmtree'd + recreated, no lib/ yet
+    # ...or mid `python -m venv`: our lib/pythonX.Y exists, site-packages not yet.
+    py = f"{sys.version_info.major}.{sys.version_info.minor}"
+    (tmp_path / "venv" / "lib" / f"python{py}").mkdir(parents=True)
+    saved = list(sys.path)
+    try:
+        with caplog.at_level("WARNING", logger="led_ticker.plugin_reconcile"):
+            r.apply_volume_visibility(volume_root=tmp_path)
+        assert sys.path == saved
+        assert caplog.text == ""
+    finally:
+        sys.path[:] = saved

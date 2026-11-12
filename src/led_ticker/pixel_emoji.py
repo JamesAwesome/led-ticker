@@ -34,6 +34,8 @@ from led_ticker import emoji_pack
 from led_ticker._curated_noto_hires import NOTO_HIRES as _NOTO_ADOPTED_RAW
 from led_ticker._emoji_pack_bmp import PACK_BMP
 from led_ticker._types import Canvas, Font, PixelData
+from led_ticker.fall_emoji import FALL_PACK_FALLBACK_SLUGS
+from led_ticker.kawaii_emoji import KAWAII_PACK_FALLBACK_SLUGS
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, paint_hires
 from led_ticker.text_render import draw_text, draw_text_per_char
 
@@ -2939,10 +2941,26 @@ def _build_emoji_registry() -> dict[str, PixelData]:
     from led_ticker.fall_emoji import FALL_LOWRES
 
     registry.update(FALL_LOWRES)
+    # Cute / anime 8×8 set — same pack-fallback shape. See kawaii_emoji.py.
+    from led_ticker.kawaii_emoji import KAWAII_LOWRES
+
+    registry.update(KAWAII_LOWRES)
     return registry
 
 
 EMOJI_REGISTRY: dict[str, PixelData] = {}
+
+# Every curated slug that ALSO exists in the standard-emoji pack: these carry
+# a hand-drawn 8×8 lowres (the scale-1 fallback) and deliberately NO curated
+# hires, so `_hires_for` falls through to the pack's Noto glyph on scaled
+# signs. This is the ONE sanctioned curated/pack overlap —
+# `tests/test_emoji_pack_asset.py::test_no_curated_collisions` checks it.
+# Add a set here only by adding a hand-drawn lowres module like fall_emoji /
+# kawaii_emoji; never register a curated hires for one of these slugs.
+
+PACK_FALLBACK_SLUGS: frozenset[str] = (
+    FALL_PACK_FALLBACK_SLUGS | KAWAII_PACK_FALLBACK_SLUGS
+)
 
 
 def _auto_trim_hires(hires: HiResEmoji) -> HiResEmoji:

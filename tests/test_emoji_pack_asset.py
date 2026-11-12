@@ -19,21 +19,28 @@ class TestManifest:
 
     def test_no_curated_collisions(self):
         """Curated and pack slugs never overlap — with ONE sanctioned carve-out:
-        `fall_emoji.FALL_PACK_FALLBACK_SLUGS` are pack slugs that carry a curated
-        LOWRES sprite (the scale-1 fallback) and NO curated hires, so the pack's
-        Noto glyph still renders on scaled signs. Anything else overlapping is a
-        collision."""
+        `pixel_emoji.PACK_FALLBACK_SLUGS` (the fall + kawaii hand-drawn sets) are
+        pack slugs that carry a curated LOWRES sprite (the scale-1 fallback) and
+        NO curated hires, so the pack's Noto glyph still renders on scaled
+        signs. Anything else overlapping is a collision."""
         from led_ticker.fall_emoji import FALL_PACK_FALLBACK_SLUGS
-        from led_ticker.pixel_emoji import HIRES_REGISTRY, _get_registry
+        from led_ticker.kawaii_emoji import KAWAII_PACK_FALLBACK_SLUGS
+        from led_ticker.pixel_emoji import (
+            HIRES_REGISTRY,
+            PACK_FALLBACK_SLUGS,
+            _get_registry,
+        )
 
+        # The aggregate is exactly the union of the per-module sets (a new
+        # hand-drawn module must be added to BOTH places).
+        expected = FALL_PACK_FALLBACK_SLUGS | KAWAII_PACK_FALLBACK_SLUGS
+        assert expected == PACK_FALLBACK_SLUGS
         packed = {ln.split("\t")[1] for ln in _MANIFEST.read_text().splitlines()}
         # The carve-out must be real pack slugs (typo tripwire) ...
-        assert packed >= FALL_PACK_FALLBACK_SLUGS, FALL_PACK_FALLBACK_SLUGS - packed
+        assert packed >= PACK_FALLBACK_SLUGS, PACK_FALLBACK_SLUGS - packed
         # ... and lowres-only: a curated hires here would shadow the Noto glyph.
-        assert not (FALL_PACK_FALLBACK_SLUGS & set(HIRES_REGISTRY))
-        curated = (
-            set(_get_registry()) | set(HIRES_REGISTRY)
-        ) - FALL_PACK_FALLBACK_SLUGS
+        assert not (PACK_FALLBACK_SLUGS & set(HIRES_REGISTRY))
+        curated = (set(_get_registry()) | set(HIRES_REGISTRY)) - PACK_FALLBACK_SLUGS
         assert not (curated & packed), curated & packed
 
 

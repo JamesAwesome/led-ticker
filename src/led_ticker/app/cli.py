@@ -58,11 +58,27 @@ def _format_plugins(result) -> str:
     return "\n".join(lines)
 
 
+def _see_plugin_volume() -> None:
+    """Make plugins installed in the Docker plugin volume visible to this process.
+
+    The display process puts ``/data/plugins/venv``'s site-packages on
+    ``sys.path`` during boot reconcile, but a one-shot CLI command (e.g.
+    ``docker exec led-ticker led-ticker validate ...``) runs the base
+    interpreter, so without this every ``flair.*`` / ``nyancat.*`` reference
+    reads as "plugin not loaded". Visibility only, never installs; a no-op off
+    Docker (no volume venv).
+    """
+    from led_ticker.plugin_reconcile import apply_volume_visibility  # noqa: PLC0415
+
+    apply_volume_visibility()
+
+
 def _run_plugin_status(config: Path) -> None:
     """Load plugins for the config and print loaded/failed (shared by
     `plugin status` and the deprecated `plugins` alias)."""
     from led_ticker._plugin_loader import load_plugins_for_config  # noqa: PLC0415
 
+    _see_plugin_volume()
     try:
         result = load_plugins_for_config(config)
     except (OSError, ValueError) as e:
@@ -460,13 +476,14 @@ def main() -> None:
         # VISIBLE to the webui's config validator before it serves — otherwise
         # validate_config emits false-positive "plugin not loaded" warnings for
         # every plugin widget type. Visibility only; the webui never installs.
-        from led_ticker.plugin_reconcile import apply_volume_visibility  # noqa: PLC0415
-
-        apply_volume_visibility()
+        _see_plugin_volume()
         asyncio.run(run_webui(args.config, web_cfg))
         sys.exit(0)
 
     if args.command == "validate":
+        # Before ANY plugin load: --list-fields loads plugins below, and
+        # validate_config loads them in _validate_static_prebuild.
+        _see_plugin_volume()
         if args.list_fields is not None:
             from led_ticker.app.factories import _list_section_fields  # noqa: PLC0415
 

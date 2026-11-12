@@ -8,7 +8,7 @@ name: docs-deploy
 # Cloudflare's automatic Git-triggered builds are turned OFF in the
 # Pages project's Build → Branch control settings, so this workflow is
 # the only way deploys reach Cloudflare. One pipeline = one place to
-# debug, one set of env / pnpm / uv versions to keep aligned.
+# debug, one set of env / pnpm versions to keep aligned.
 
 on:
   push:
@@ -46,15 +46,6 @@ jobs:
           # leave most pages dateless.
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: true
-
-      # No `actions/setup-python`: `uv sync` reads `.python-version` and
-      # installs the interpreter via uv's own Python distribution.
-      - name: Install Python deps
-        run: uv sync
-
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
@@ -66,7 +57,9 @@ jobs:
         working-directory: docs/site
         run: pnpm install --frozen-lockfile
 
-      - name: Build site (renders demo gifs first)
+      # Pure Node: demo gifs are committed under public/demos and
+      # re-rendered by maintainers via `pnpm run build-demos`, not here.
+      - name: Build site
         working-directory: docs/site
         run: pnpm run build
 

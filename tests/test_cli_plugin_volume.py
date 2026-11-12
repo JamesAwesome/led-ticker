@@ -6,6 +6,8 @@ reconcile puts on sys.path. Without `apply_volume_visibility()` before the
 plugin load, every `flair.*` / `nyancat.*` reference reads as an unknown style.
 """
 
+import json
+import logging
 import sys
 from pathlib import Path
 
@@ -14,6 +16,18 @@ import pytest
 from led_ticker import _plugin_loader, plugin_reconcile
 from led_ticker._plugin_loader import LoadedPlugins
 from led_ticker.app import cli
+
+
+@pytest.fixture(autouse=True)
+def _root_logger_reset():
+    """cli.main() adds a root StreamHandler and sets INFO; don't leak it."""
+    root = logging.getLogger()
+    level, handlers = root.level, list(root.handlers)
+    yield
+    root.setLevel(level)
+    for h in list(root.handlers):
+        if h not in handlers:
+            root.removeHandler(h)
 
 
 @pytest.fixture
@@ -108,26 +122,24 @@ def test_see_plugin_volume_puts_volume_site_packages_on_path(monkeypatch, tmp_pa
 
 
 def test_validate_json_stdout_is_pure_json(monkeypatch, calls, tmp_path, capsys):
-    """Plugin-load log lines must not precede --json output on stdout."""
-    import json
-    import logging
-
+    """Plugin-load logs AND a volume-visibility warning (emitted before any
+    load) must not precede --json output on stdout."""
     import led_ticker.validate as validate_mod
+
+    def warning_see(*_a, **_k):
+        logging.getLogger("led_ticker.plugin_reconcile").warning("venv mismatch")
+
+    monkeypatch.setattr(plugin_reconcile, "apply_volume_visibility", warning_see)
 
     async def fake_validate(path, strict=False):
         logging.getLogger("led_ticker._plugin_loader").info("plugin 'flair' loaded")
         return validate_mod.ValidationResult(path=Path(path))
 
     monkeypatch.setattr(validate_mod, "validate_config", fake_validate)
-    root = logging.getLogger()
-    saved_handlers, saved_level = list(root.handlers), root.level
-    try:
-        cfg = tmp_path / "config.toml"
-        cfg.write_text("")
-        _run(monkeypatch, ["validate", "--json", str(cfg)])
-        out, err = capsys.readouterr()
-        json.loads(out)
-        assert "plugin 'flair' loaded" in err
-    finally:
-        root.handlers[:] = saved_handlers
-        root.setLevel(saved_level)
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("")
+    _run(monkeypatch, ["validate", "--json", str(cfg)])
+    out, err = capsys.readouterr()
+    json.loads(out)
+    assert "venv mismatch" in err
+    assert "plugin 'flair' loaded" in err

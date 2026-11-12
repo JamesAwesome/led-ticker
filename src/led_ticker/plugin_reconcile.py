@@ -856,7 +856,11 @@ def apply_volume_visibility(volume_root: Path = Path("/data/plugins")) -> None:
     py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     sp = volume_root / "venv" / "lib" / f"python{py_version}" / "site-packages"
     if not sp.is_dir():
-        others = sorted(p.name for p in (volume_root / "venv" / "lib").glob("python*"))
+        others = sorted(
+            p.name
+            for p in (volume_root / "venv" / "lib").glob("python*")
+            if p.name != f"python{py_version}"
+        )
         if others:
             # Venv built for another Python (image bump). Only warn on a real
             # mismatch: a venv mid-rebuild (rmtree + `python -m venv`) has no

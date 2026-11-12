@@ -2130,6 +2130,9 @@ def test_apply_volume_visibility_quiet_while_venv_is_being_rebuilt(tmp_path, cap
     import led_ticker.plugin_reconcile as r
 
     (tmp_path / "venv").mkdir()  # rmtree'd + recreated, no lib/ yet
+    # ...or mid `python -m venv`: our lib/pythonX.Y exists, site-packages not yet.
+    py = f"{sys.version_info.major}.{sys.version_info.minor}"
+    (tmp_path / "venv" / "lib" / f"python{py}").mkdir(parents=True)
     saved = list(sys.path)
     try:
         with caplog.at_level("WARNING", logger="led_ticker.plugin_reconcile"):

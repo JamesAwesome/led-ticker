@@ -19,9 +19,14 @@ from led_ticker.app import cli
 @pytest.fixture
 def calls(monkeypatch):
     log: list[str] = []
-    monkeypatch.setattr(
-        plugin_reconcile, "apply_volume_visibility", lambda *a, **k: log.append("see")
-    )
+
+    def fake_see(*args, **kwargs):
+        # Every call site must go through cli._PLUGIN_VOLUME_ROOT, never the
+        # function's /data/plugins default.
+        assert args == (cli._PLUGIN_VOLUME_ROOT,) and not kwargs
+        log.append("see")
+
+    monkeypatch.setattr(plugin_reconcile, "apply_volume_visibility", fake_see)
 
     def fake_load(_config):
         log.append("load")
@@ -59,8 +64,7 @@ def test_validate_list_fields_sees_volume(monkeypatch, calls):
 @pytest.mark.parametrize("argv", [["plugin", "status"], ["plugins"]])
 def test_plugin_status_sees_volume(monkeypatch, calls, argv):
     _run(monkeypatch, argv)
-    assert calls[0] == "see"
-    assert calls[-1] == "load"
+    assert calls == ["see", "load"]
 
 
 @pytest.mark.parametrize(
@@ -101,3 +105,29 @@ def test_see_plugin_volume_puts_volume_site_packages_on_path(monkeypatch, tmp_pa
         assert sys.path[0] == str(sp)
     finally:
         sys.path[:] = saved
+
+
+def test_validate_json_stdout_is_pure_json(monkeypatch, calls, tmp_path, capsys):
+    """Plugin-load log lines must not precede --json output on stdout."""
+    import json
+    import logging
+
+    import led_ticker.validate as validate_mod
+
+    async def fake_validate(path, strict=False):
+        logging.getLogger("led_ticker._plugin_loader").info("plugin 'flair' loaded")
+        return validate_mod.ValidationResult(path=Path(path))
+
+    monkeypatch.setattr(validate_mod, "validate_config", fake_validate)
+    root = logging.getLogger()
+    saved_handlers, saved_level = list(root.handlers), root.level
+    try:
+        cfg = tmp_path / "config.toml"
+        cfg.write_text("")
+        _run(monkeypatch, ["validate", "--json", str(cfg)])
+        out, err = capsys.readouterr()
+        json.loads(out)
+        assert "plugin 'flair' loaded" in err
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)

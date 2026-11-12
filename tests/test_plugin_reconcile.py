@@ -2120,6 +2120,21 @@ def test_apply_volume_visibility_warns_on_python_mismatch(tmp_path, caplog):
         with caplog.at_level("WARNING", logger="led_ticker.plugin_reconcile"):
             r.apply_volume_visibility(volume_root=tmp_path)
         assert sys.path == saved
-        assert "different Python" in caplog.text
+        assert "python3.0" in caplog.text
+        assert "Restart the display" in caplog.text
+    finally:
+        sys.path[:] = saved
+
+
+def test_apply_volume_visibility_quiet_while_venv_is_being_rebuilt(tmp_path, caplog):
+    import led_ticker.plugin_reconcile as r
+
+    (tmp_path / "venv").mkdir()  # rmtree'd + recreated, no lib/ yet
+    saved = list(sys.path)
+    try:
+        with caplog.at_level("WARNING", logger="led_ticker.plugin_reconcile"):
+            r.apply_volume_visibility(volume_root=tmp_path)
+        assert sys.path == saved
+        assert caplog.text == ""
     finally:
         sys.path[:] = saved

@@ -33,6 +33,13 @@ def _setup_logging(level: str = "info") -> None:
     logger.addHandler(handler)
 
 
+def _logs_to_stderr() -> None:
+    """Re-point the root logger's stdout handlers at stderr."""
+    for h in logging.getLogger().handlers:
+        if isinstance(h, logging.StreamHandler) and h.stream is sys.stdout:
+            h.setStream(sys.stderr)
+
+
 def _format_plugins(result) -> str:
     """Human-readable summary of loaded + failed plugins for `led-ticker plugins`."""
     lines: list[str] = []
@@ -365,9 +372,11 @@ def main() -> None:
             # thinking nothing is available — `plugin list` shows the catalog).
             plugin_parser.print_help()
             sys.exit(0)
-        # status/list/search read the installed set (entry points); the
-        # manifest-only verbs don't care, and the volume is a no-op off Docker.
-        _see_plugin_volume()
+        # list/search read the installed set (entry points); status sees the
+        # volume inside _run_plugin_status. The other verbs only edit the
+        # manifest or shell out to pip, which doesn't inherit sys.path.
+        if pc in ("list", "search"):
+            _see_plugin_volume()
         if pc == "status":
             _run_plugin_status(args.config)
             sys.exit(0)
@@ -488,6 +497,10 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "validate":
+        if args.json_output:
+            # --json stdout is a machine contract; plugin-load INFO lines (now
+            # that volume plugins load under docker exec) must not precede it.
+            _logs_to_stderr()
         # Before ANY plugin load: --list-fields loads plugins below, and
         # validate_config loads them in _validate_static_prebuild.
         _see_plugin_volume()

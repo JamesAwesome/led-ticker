@@ -134,7 +134,7 @@ Borders paint a ring at the panel edge; a background paints the whole panel behi
 
 ## For plugin authors
 
-Register a class with `api.background(name)`; it needs a `frame_invariant` class attribute and `paint(canvas, frame_count)`. Inherit `BackgroundEffectBase` from `led_ticker.plugin` to have the attribute enforced at class-definition time. Paint with `SetPixel` only, avoid writing pure black (it would erase the host's `bg_color` fill), and unwrap to the real canvas for LED-grain output on a scaled sign. See the [Plugin API reference](/plugins/api-reference/).
+Register a class with `api.background(name)`; it needs a `frame_invariant` class attribute and `paint(canvas, frame_count)`. Inherit `BackgroundEffectBase` from `led_ticker.plugin` to have the attribute enforced at class-definition time. Paint with `SetPixel` only, avoid writing pure black (it would erase the host's `bg_color` fill), and unwrap to the real canvas for LED-grain output on a scaled sign. On every host — text widgets and `gif` / `image` alike — the canvas handed to `paint` carries the section's logical scale: check `is_scaled(canvas)` and read `canvas.scale` (1 when not scaled) to size anything that should line up with the text drawn over it, such as per-character color cells. Never infer the scale from the panel height. See the [Plugin API reference](/plugins/api-reference/).
 
 <RelatedPages
   slugs={[

@@ -465,3 +465,135 @@ class TestPaintOrderImageWidgets:
             await gif._play_no_text(mock_frame.swap.return_value, mock_frame, 1)
         names = [c[0] for c in manager.mock_calls]
         assert names[:2] == ["background", "image"]
+
+
+# ---------------------------------------------------------------------------
+# Logical scale on image hosts (#535)
+# ---------------------------------------------------------------------------
+
+
+class _ScaleHost:
+    """Minimal image-host stand-in: declares `_logical_scale` the way
+    `_BaseImageWidget` does, and a `background` slot."""
+
+    def __init__(self, scale: int, background: Any) -> None:
+        self._logical_scale = scale
+        self.background = background
+
+    def frame_for(self, attr_name: str) -> int:
+        return 7
+
+
+class _TextHost:
+    """Text-host stand-in: no `_logical_scale` field at all."""
+
+    def __init__(self, background: Any) -> None:
+        self.background = background
+
+    def frame_for(self, attr_name: str) -> int:
+        return 7
+
+
+class TestLogicalScaleOnImageHosts:
+    """Image hosts hand `paint_background` the UNWRAPPED real canvas (image
+    pixels map 1:1 to LEDs). The helper must re-wrap it at the widget's
+    `_logical_scale` so a background plugin sees `canvas.scale` on every
+    host — the same signal text hosts already provide via `_maybe_wrap`."""
+
+    def test_wraps_real_canvas_at_widget_logical_scale(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.scaled_canvas import is_scaled, unwrap_to_real
+        from led_ticker.widgets._effects import paint_background
+
+        real = HeadlessCanvas(256, 64)
+        bg = _Recorder()
+        paint_background(_ScaleHost(4, bg), real)
+
+        ((seen, frame),) = bg.calls
+        assert is_scaled(seen)
+        assert seen.scale == 4
+        assert unwrap_to_real(seen) is real
+        assert frame == 7
+
+    def test_wrapper_covers_the_full_panel(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.widgets._effects import paint_background
+
+        real = HeadlessCanvas(256, 64)
+        bg = _Recorder()
+        paint_background(_ScaleHost(4, bg), real)
+
+        ((seen, _),) = bg.calls
+        assert (seen.width, seen.height) == (64, 16)
+        assert seen.y_offset_real == 0
+        # The recorder's SetPixel(0, 0) through the wrapper lands as a
+        # 4×4 block at the panel's top-left.
+        assert real.get_pixel(3, 3) == (1, 2, 3)
+        assert real.get_pixel(4, 4) == (0, 0, 0)
+
+    def test_scale_one_passes_the_raw_canvas_through(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.widgets._effects import paint_background
+
+        real = HeadlessCanvas(160, 16)
+        bg = _Recorder()
+        paint_background(_ScaleHost(1, bg), real)
+
+        ((seen, _),) = bg.calls
+        assert seen is real
+
+    def test_already_scaled_canvas_is_not_rewrapped(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets._effects import paint_background
+
+        wrapper = ScaledCanvas(HeadlessCanvas(256, 64), scale=2, content_height=32)
+        bg = _Recorder()
+        # Stale `_logical_scale` must not win over a canvas that already
+        # carries its scale.
+        paint_background(_ScaleHost(4, bg), wrapper)
+
+        ((seen, _),) = bg.calls
+        assert seen is wrapper
+
+    def test_host_without_logical_scale_passes_the_canvas_through(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.widgets._effects import paint_background
+
+        real = HeadlessCanvas(256, 64)
+        bg = _Recorder()
+        paint_background(_TextHost(bg), real)
+
+        ((seen, _),) = bg.calls
+        assert seen is real
+
+    async def test_still_play_no_text_hands_background_a_scaled_canvas(
+        self, tmp_path
+    ) -> None:
+        """End-to-end on a real image host: the engine stashes the section
+        scale via `Ticker._set_logical_scale` before `play()`, and the
+        background painted from `_play_no_text` sees it."""
+        from PIL import Image
+
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.scaled_canvas import is_scaled
+        from led_ticker.ticker import Ticker
+        from led_ticker.widgets.still import StillImage
+
+        p = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (200, 0, 0)).save(p)
+        still = StillImage(path=p, hold_time=0.1)
+        bg = _StaticRecorder()
+        still.background = bg
+        Ticker._set_logical_scale(still, 4)
+
+        real = HeadlessCanvas(256, 64)
+        frame = mock.Mock()
+        frame.swap.return_value = real
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await still._play_no_text(real, frame)
+
+        assert bg.calls, "background was not painted"
+        seen = bg.calls[0][0]
+        assert is_scaled(seen)
+        assert seen.scale == 4

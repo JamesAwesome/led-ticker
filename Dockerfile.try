@@ -21,7 +21,7 @@
 #   docker rm -f led-try
 #
 # Or via compose: make try   (see compose.try.yaml)
-FROM python:3.14-bookworm
+FROM python:3.15-bookworm
 ENV DEBIAN_FRONTEND=noninteractive
 # Debian security fixes for the base image's packages. This layer is cached by
 # instruction hash, so it runs on the first build and whenever the base layer

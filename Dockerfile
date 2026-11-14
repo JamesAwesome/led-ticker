@@ -19,7 +19,7 @@
 # export the stale lock, and a dep added to pyproject without `uv lock` would
 # ship missing (core installs --no-deps). CI's `uv lock --check` catches the
 # same thing on the PR. Tripwire: tests/test_dockerfile_lock_install.py.
-FROM python:3.14-bookworm AS lock-export
+FROM python:3.15-bookworm AS lock-export
 ARG UV_VERSION=0.9.16
 RUN pip install --no-cache-dir "uv==${UV_VERSION}"
 WORKDIR /lock
@@ -34,7 +34,7 @@ COPY pyproject.toml uv.lock README.md LICENSE /lock/
 RUN uv export --locked --no-hashes --no-emit-project --extra dev \
         -o /lock/requirements.lock.txt
 
-FROM python:3.14-bookworm AS rgbmatrix
+FROM python:3.15-bookworm AS rgbmatrix
 
 # rpi-rgb-led-matrix: jamesawesome/main — Pi5 RP1 support (hzeller#1886, now
 # merged upstream) plus three patches: GCC10 anonymous-param fix (pio_rp1.c),

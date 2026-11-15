@@ -515,21 +515,33 @@ class TestLogicalScaleOnImageHosts:
         assert unwrap_to_real(seen) is real
         assert frame == 7
 
-    def test_wrapper_covers_the_full_panel(self) -> None:
+    @pytest.mark.parametrize(
+        ("scale", "logical_w", "logical_h"),
+        [
+            (4, 64, 16),
+            # 64 // 2 = 32 != the legacy 16-row CONTENT_HEIGHT default: a
+            # wrapper built with `content_height=16` would report height
+            # 16 and y_offset_real 16 here, so this row pins "full panel".
+            (2, 128, 32),
+        ],
+    )
+    def test_wrapper_covers_the_full_panel(
+        self, scale: int, logical_w: int, logical_h: int
+    ) -> None:
         from led_ticker.backends.headless import HeadlessCanvas
         from led_ticker.widgets._effects import paint_background
 
         real = HeadlessCanvas(256, 64)
         bg = _Recorder()
-        paint_background(_ScaleHost(4, bg), real)
+        paint_background(_ScaleHost(scale, bg), real)
 
         ((seen, _),) = bg.calls
-        assert (seen.width, seen.height) == (64, 16)
+        assert (seen.width, seen.height) == (logical_w, logical_h)
         assert seen.y_offset_real == 0
         # The recorder's SetPixel(0, 0) through the wrapper lands as a
-        # 4×4 block at the panel's top-left.
-        assert real.get_pixel(3, 3) == (1, 2, 3)
-        assert real.get_pixel(4, 4) == (0, 0, 0)
+        # scale×scale block at the panel's top-left.
+        assert real.get_pixel(scale - 1, scale - 1) == (1, 2, 3)
+        assert real.get_pixel(scale, scale) == (0, 0, 0)
 
     def test_scale_one_passes_the_raw_canvas_through(self) -> None:
         from led_ticker.backends.headless import HeadlessCanvas

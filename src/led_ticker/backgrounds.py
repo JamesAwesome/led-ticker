@@ -30,7 +30,11 @@ Contract (mirrors ``BorderEffect``, see that module for the rationale):
   at the widget's ``_logical_scale`` before the effect sees it (#535). An
   effect that sizes anything in logical units (e.g. per-character color
   cells meant to line up with text) must read the scale from the canvas and
-  never infer it from the panel height.
+  never infer it from the panel height. ``scale`` is the ONLY wrapper
+  property that agrees across hosts: a text host's wrapper spans the
+  section's content band, the image-host wrapper spans the full panel, so
+  ``width`` / ``height`` / ``y_offset_real`` differ — size by the real
+  canvas's dimensions (``unwrap_to_real``), not the wrapper's.
 - Never raise from ``paint`` — it runs inside the render loop.
 - Prefer not to paint pure black: a background sits on top of the host's
   ``bg_color`` fill and under its image; black writes erase those.

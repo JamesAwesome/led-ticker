@@ -495,6 +495,16 @@ class _TextHost:
 
 
 class TestLogicalScaleOnImageHosts:
+    def test_guarantee_is_signalled_by_api_version_1_2(self) -> None:
+        """The scale-carrying-canvas guarantee is additive and invisible on
+        the public surface (no new export), so plugins detect it through
+        the API minor: `API_VERSION >= (1, 2)`. flair's import seam probes
+        exactly this to refuse an older core loudly instead of rendering
+        6 px color cells on a bigsign gif."""
+        from led_ticker.plugin import API_VERSION
+
+        assert API_VERSION >= (1, 2)
+
     """Image hosts hand `paint_background` the UNWRAPPED real canvas (image
     pixels map 1:1 to LEDs). The helper must re-wrap it at the widget's
     `_logical_scale` so a background plugin sees `canvas.scale` on every

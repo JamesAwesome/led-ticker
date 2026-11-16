@@ -39,7 +39,7 @@ Two rules govern every registration:
 - **Auto-namespacing.** Every name you register is prefixed with your plugin's namespace — `api.widget("clock")` in the `acme` plugin registers `acme.clock` (written in config as `type = "acme.clock"`). You cannot register a bare name or shadow a built-in.
 - **Atomic load.** Calls buffer until `register()` returns cleanly. If `register()` raises, the whole plugin is discarded — there is no half-registered state.
 
-`API_VERSION` (currently `(1, 2)`) is exported so a plugin can check the surface version it was built against. Minor bumps are additive guarantees: `(1, 1)` added `validate_config_warnings`; `(1, 2)` guarantees a [background](/concepts/backgrounds/)'s `paint` receives a canvas carrying the section's logical scale on every host, including `gif` / `image`.
+`API_VERSION` (currently `(1, 2)`) is exported so a plugin can check the surface version it was built against. Minor bumps are additive guarantees: `(1, 1)` added `validate_config_warnings`; `(1, 2)` guarantees a [background](/concepts/backgrounds/)'s `paint` receives a canvas carrying the section's logical scale on every core host, including `gif` / `image`.
 
 ## Registration methods
 
@@ -134,25 +134,25 @@ These are the names you can import from `led_ticker.plugin` — the types you'll
 
 ### Base classes & protocols
 
-| Name                   | What it is                                                                                                                                                                               |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Widget`               | The widget protocol (a `draw()` or play-style widget)                                                                                                                                    |
-| `Container`            | Monitor/container widget base (cycles a live `feed_stories` list)                                                                                                                        |
-| `Updatable`            | Protocol for widgets with `async def update(self)`                                                                                                                                       |
-| `Transition`           | The [transition](/transitions/) protocol (`frame_at`)                                                                                                                                    |
-| `ColorProvider`        | The [color-provider](/concepts/color-providers/) protocol (`color_for`)                                                                                                                  |
-| `ColorProviderBase`    | Base that enforces the `frame_invariant` class attr                                                                                                                                      |
-| `Animation`            | The [animation](/concepts/animations/) protocol (`frame_for`)                                                                                                                            |
-| `BorderEffect`         | The [border](/concepts/borders/) protocol (`paint`)                                                                                                                                      |
-| `BorderEffectBase`     | Base that enforces the `frame_invariant` class attr                                                                                                                                      |
-| `BackgroundEffect`     | The [background](/concepts/backgrounds/) protocol (`paint`) — same shape as `BorderEffect`, painted behind the content; from `(1, 2)` its canvas carries the section scale on every host |
-| `BackgroundEffectBase` | Base that enforces the `frame_invariant` class attr                                                                                                                                      |
-| `DataSource`           | Base class for an inline value source — subclass, implement `compute() -> str`, register with `api.source(name)`                                                                         |
-| `PolledDataSource`     | Base class for async (network-backed) sources — subclass, implement `async def update()`, call `self._set_value(...)` inside it                                                          |
-| `SegmentMessage`       | Re-exported single-line message widget (compose stories from it)                                                                                                                         |
-| `TwoRowMessage`        | Re-exported two-row widget                                                                                                                                                               |
-| `TickerMessage`        | Re-exported single-region scrolling message widget (compose/subclass for rich stories)                                                                                                   |
-| `FrameAwareBase`       | Base for an animated widget — inherit (with `@attrs.define`) and read effect counters via `self.frame_for(name)`; the engine drives the counters.                                        |
+| Name                   | What it is                                                                                                                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Widget`               | The widget protocol (a `draw()` or play-style widget)                                                                                                                                         |
+| `Container`            | Monitor/container widget base (cycles a live `feed_stories` list)                                                                                                                             |
+| `Updatable`            | Protocol for widgets with `async def update(self)`                                                                                                                                            |
+| `Transition`           | The [transition](/transitions/) protocol (`frame_at`)                                                                                                                                         |
+| `ColorProvider`        | The [color-provider](/concepts/color-providers/) protocol (`color_for`)                                                                                                                       |
+| `ColorProviderBase`    | Base that enforces the `frame_invariant` class attr                                                                                                                                           |
+| `Animation`            | The [animation](/concepts/animations/) protocol (`frame_for`)                                                                                                                                 |
+| `BorderEffect`         | The [border](/concepts/borders/) protocol (`paint`)                                                                                                                                           |
+| `BorderEffectBase`     | Base that enforces the `frame_invariant` class attr                                                                                                                                           |
+| `BackgroundEffect`     | The [background](/concepts/backgrounds/) protocol (`paint`) — same shape as `BorderEffect`, painted behind the content; from `(1, 2)` its canvas carries the section scale on every core host |
+| `BackgroundEffectBase` | Base that enforces the `frame_invariant` class attr                                                                                                                                           |
+| `DataSource`           | Base class for an inline value source — subclass, implement `compute() -> str`, register with `api.source(name)`                                                                              |
+| `PolledDataSource`     | Base class for async (network-backed) sources — subclass, implement `async def update()`, call `self._set_value(...)` inside it                                                               |
+| `SegmentMessage`       | Re-exported single-line message widget (compose stories from it)                                                                                                                              |
+| `TwoRowMessage`        | Re-exported two-row widget                                                                                                                                                                    |
+| `TickerMessage`        | Re-exported single-region scrolling message widget (compose/subclass for rich stories)                                                                                                        |
+| `FrameAwareBase`       | Base for an animated widget — inherit (with `@attrs.define`) and read effect counters via `self.frame_for(name)`; the engine drives the counters.                                             |
 
 ### Data & types
 

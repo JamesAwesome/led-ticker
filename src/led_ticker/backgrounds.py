@@ -25,7 +25,7 @@ Contract (mirrors ``BorderEffect``, see that module for the rationale):
 - Paint at physical resolution via ``unwrap_to_real`` when the effect wants
   LED-grain output on a scaled sign.
 - The canvas ``paint`` receives carries the section's LOGICAL SCALE on every
-  host: ``is_scaled(canvas)`` / ``canvas.scale``. Image hosts paint on the
+  core host: ``is_scaled(canvas)`` / ``canvas.scale``. Image hosts paint on the
   unwrapped real canvas, so ``widgets/_effects.paint_background`` re-wraps it
   at the widget's ``_logical_scale`` before the effect sees it (#535). An
   effect that sizes anything in logical units (e.g. per-character color

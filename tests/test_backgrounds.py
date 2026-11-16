@@ -495,6 +495,11 @@ class _TextHost:
 
 
 class TestLogicalScaleOnImageHosts:
+    """Image hosts hand `paint_background` the UNWRAPPED real canvas (image
+    pixels map 1:1 to LEDs). The helper must re-wrap it at the widget's
+    `_logical_scale` so a background plugin sees `canvas.scale` on every
+    core host — the same signal text hosts already provide via `_maybe_wrap`."""
+
     def test_guarantee_is_signalled_by_api_version_1_2(self) -> None:
         """The scale-carrying-canvas guarantee is additive and invisible on
         the public surface (no new export), so plugins detect it through
@@ -504,11 +509,6 @@ class TestLogicalScaleOnImageHosts:
         from led_ticker.plugin import API_VERSION
 
         assert API_VERSION >= (1, 2)
-
-    """Image hosts hand `paint_background` the UNWRAPPED real canvas (image
-    pixels map 1:1 to LEDs). The helper must re-wrap it at the widget's
-    `_logical_scale` so a background plugin sees `canvas.scale` on every
-    host — the same signal text hosts already provide via `_maybe_wrap`."""
 
     def test_wraps_real_canvas_at_widget_logical_scale(self) -> None:
         from led_ticker.backends.headless import HeadlessCanvas
@@ -619,3 +619,111 @@ class TestLogicalScaleOnImageHosts:
         seen = bg.calls[0][0]
         assert is_scaled(seen)
         assert seen.scale == 4
+
+    def test_no_host_module_paints_a_background_directly(self) -> None:
+        """The scale guarantee holds ONLY because every host routes through
+        `paint_background`. A host that copies the adjacent
+        `self.border.paint(real_canvas, ...)` idiom for `background`, or
+        inlines `bg.paint(...)`, silently drops the wrap (6 px twinkle
+        cells on a bigsign gif) with the suite otherwise green. AST-scan
+        every widget module for a direct `.background.paint(...)` /
+        `bg.paint(...)` call."""
+        import ast
+        from pathlib import Path
+
+        import led_ticker.widgets as widgets_pkg
+
+        offenders: list[str] = []
+        for path in sorted(Path(widgets_pkg.__file__).parent.glob("*.py")):
+            if path.name == "_effects.py":
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not (
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                ):
+                    continue
+                if node.func.attr != "paint":
+                    continue
+                recv = node.func.value
+                if (isinstance(recv, ast.Attribute) and recv.attr == "background") or (
+                    isinstance(recv, ast.Name) and recv.id in {"bg", "background"}
+                ):
+                    offenders.append(f"{path.name}:{node.lineno}")
+        assert not offenders, (
+            "direct background.paint() calls bypass the _logical_scale wrap in "
+            f"paint_background: {offenders}"
+        )
+
+    @pytest.fixture
+    def img_path(self, tmp_path):
+        from PIL import Image
+
+        p = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (200, 0, 0)).save(p)
+        return p
+
+    @pytest.fixture
+    def gif_path(self, tmp_path):
+        from PIL import Image
+
+        p = tmp_path / "a.gif"
+        frames = [Image.new("RGB", (4, 4), c) for c in [(255, 0, 0), (0, 255, 0)]]
+        frames[0].save(p, save_all=True, append_images=frames[1:], duration=100, loop=0)
+        return p
+
+    @pytest.mark.parametrize(
+        "path_name",
+        [
+            "still_no_text",
+            "still_single_row_text",
+            "still_two_row_text",
+            "gif_no_text",
+            "gif_single_row_text",
+            "gif_two_row_text",
+        ],
+    )
+    async def test_every_image_paint_path_hands_background_a_scaled_canvas(
+        self, path_name: str, img_path, gif_path
+    ) -> None:
+        """All six image-host paint sites (still/gif × no-text, single-row
+        overlay, two-row overlay) go through `paint_background`, so each
+        hands the effect a scale-4 wrapper over the real buffer. Pins the
+        contract per site: rebinding any ONE host module's
+        `paint_background` to a raw `bg.paint` fails its rows here."""
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.scaled_canvas import is_scaled, unwrap_to_real
+        from led_ticker.ticker import Ticker
+        from led_ticker.widgets.gif import GifPlayer
+        from led_ticker.widgets.still import StillImage
+
+        text_kw = {
+            "no_text": {},
+            "single_row_text": {"text": "HI", "text_align": "left"},
+            # two-row bands are 8 rows each on the 16-tall logical canvas;
+            # the default 6x12 font doesn't fit, 5x8 does.
+            "two_row_text": {
+                "top_text": "HI",
+                "bottom_text": "there",
+                "font": FONT_SMALL,
+            },
+        }[path_name.split("_", 1)[1]]
+        if path_name.startswith("still"):
+            widget = StillImage(path=img_path, hold_time=0.1, **text_kw)
+        else:
+            widget = GifPlayer(path=gif_path, play_count=1, **text_kw)
+        bg = _Recorder()  # frame_invariant=False → forces the per-tick loops
+        widget.background = bg
+        Ticker._set_logical_scale(widget, 4)
+
+        real = HeadlessCanvas(256, 64)
+        frame = mock.Mock()
+        frame.swap.return_value = real
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await widget.play(real, frame, loop_count=1, hold_time=0.1)
+
+        assert bg.calls, f"{path_name}: background never painted"
+        for seen, _ in bg.calls:
+            assert is_scaled(seen) and seen.scale == 4, path_name
+            assert unwrap_to_real(seen) is real, path_name

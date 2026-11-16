@@ -677,20 +677,30 @@ class TestLogicalScaleOnImageHosts:
         [
             "still_no_text",
             "still_single_row_text",
+            "still_single_row_wrap",
             "still_two_row_text",
+            "still_two_row_wrap",
             "gif_no_text",
             "gif_single_row_text",
+            "gif_single_row_wrap",
             "gif_two_row_text",
+            "gif_two_row_wrap",
         ],
     )
     async def test_every_image_paint_path_hands_background_a_scaled_canvas(
         self, path_name: str, img_path, gif_path
     ) -> None:
-        """All six image-host paint sites (still/gif × no-text, single-row
-        overlay, two-row overlay) go through `paint_background`, so each
-        hands the effect a scale-4 wrapper over the real buffer. Pins the
-        contract per site: rebinding any ONE host module's
-        `paint_background` to a raw `bg.paint` fails its rows here."""
+        """All seven image-host `paint_background` call sites — still
+        `_play_no_text` (slow path), gif `_play_no_text`, and the four
+        `_image_base` tick renderers (`_render_tick`, `_render_wrap_tick`,
+        `_render_two_row_tick`, `_render_two_row_wrap_tick`) — hand the
+        effect a scale-4 wrapper over the real buffer. Pins the contract per
+        site: substituting a raw `bg.paint` at any ONE site fails its rows.
+
+        The frame double-buffers for real (two canvases, `swap` returns the
+        other), and each paint must land on the buffer that is swapped
+        NEXT — a wrapper cached per widget would paint the displayed buffer
+        every other tick (constraint #10 flicker) and fails here."""
         from led_ticker.backends.headless import HeadlessCanvas
         from led_ticker.fonts import FONT_SMALL
         from led_ticker.scaled_canvas import is_scaled, unwrap_to_real
@@ -698,15 +708,27 @@ class TestLogicalScaleOnImageHosts:
         from led_ticker.widgets.gif import GifPlayer
         from led_ticker.widgets.still import StillImage
 
+        long = "long text " * 3  # overflows the 64-logical-px canvas
         text_kw = {
             "no_text": {},
             "single_row_text": {"text": "HI", "text_align": "left"},
+            "single_row_wrap": {
+                "text": long,
+                "text_align": "scroll_over",
+                "text_wrap": True,
+            },
             # two-row bands are 8 rows each on the 16-tall logical canvas;
             # the default 6x12 font doesn't fit, 5x8 does.
             "two_row_text": {
                 "top_text": "HI",
                 "bottom_text": "there",
                 "font": FONT_SMALL,
+            },
+            "two_row_wrap": {
+                "top_text": "HI",
+                "bottom_text": long,
+                "font": FONT_SMALL,
+                "bottom_text_wrap": True,
             },
         }[path_name.split("_", 1)[1]]
         if path_name.startswith("still"):
@@ -717,13 +739,20 @@ class TestLogicalScaleOnImageHosts:
         widget.background = bg
         Ticker._set_logical_scale(widget, 4)
 
-        real = HeadlessCanvas(256, 64)
+        buf_a, buf_b = HeadlessCanvas(256, 64), HeadlessCanvas(256, 64)
+        swapped: list[Any] = []
+
+        def _swap(c: Any) -> Any:
+            swapped.append(c)
+            return buf_b if c is buf_a else buf_a
+
         frame = mock.Mock()
-        frame.swap.return_value = real
+        frame.swap.side_effect = _swap
         with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
-            await widget.play(real, frame, loop_count=1, hold_time=0.1)
+            await widget.play(buf_a, frame, loop_count=1, hold_time=0.1)
 
         assert bg.calls, f"{path_name}: background never painted"
-        for seen, _ in bg.calls:
+        assert len(bg.calls) == len(swapped), path_name
+        for (seen, _), target in zip(bg.calls, swapped, strict=True):
             assert is_scaled(seen) and seen.scale == 4, path_name
-            assert unwrap_to_real(seen) is real, path_name
+            assert unwrap_to_real(seen) is target, path_name

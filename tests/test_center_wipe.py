@@ -1,8 +1,9 @@
 """Center wipes: ``wipe_in`` / ``wipe_out`` and their vertical twins.
 
-Task 1 pins the pure span geometry: for every extent (odd and even) and every
-front position ``b`` the erased and kept spans partition the axis exactly, so
-the two fronts can never leave a 1-px gap or overlap at the center.
+Pure span geometry first (for every odd and even extent and every front
+position ``b`` the erased and kept spans partition the axis exactly, so the
+two fronts never leave a 1-px gap or overlap), then the four registered
+transitions on plain, scaled and banded canvases.
 """
 
 from unittest import mock
@@ -108,9 +109,7 @@ def test_sweep_lines_outward_even_example():
     assert sweep_line_spans(160, 10, False, thick=2) == [(68, 70), (90, 92)]
 
 
-# ---------------------------------------------------------------------------
-# Task 2: the four registered transitions
-# ---------------------------------------------------------------------------
+# --- the four registered transitions --------------------------------------
 
 ALL = [WipeIn, WipeOut, WipeInVertical, WipeOutVertical]
 NAMES = ["wipe_in", "wipe_out", "wipe_in_vertical", "wipe_out_vertical"]
@@ -144,17 +143,23 @@ def test_registered(name, cls):
 
 
 @pytest.mark.parametrize("cls", ALL)
-def test_t0_draws_outgoing_only_t1_incoming_only(cls):
-    canvas = HeadlessCanvas(160, 16)
+def test_t0_draws_outgoing_only_t1_incoming_only_through_the_wrapper(cls):
+    """Widgets must be drawn through the ScaledCanvas they were handed, never
+    the unwrapped real canvas (that would render text at scale 1 on the
+    bigsign); and the incoming lands at cursor_pos=0, never at the outgoing's
+    stopped scroll position."""
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    wrapper = ScaledCanvas(HeadlessCanvas(256, 64), scale=4, content_height=16)
     out, inc = _widget(), _widget()
-    cls().frame_at(0.0, canvas, out, inc)
+    cls().frame_at(0.0, wrapper, out, inc, outgoing_scroll_pos=-37)
     assert out.draw.called and not inc.draw.called
+    assert out.draw.call_args.args[0] is wrapper
     out.reset_mock()
     inc.reset_mock()
-    cls().frame_at(1.0, canvas, out, inc, outgoing_scroll_pos=-37)
+    cls().frame_at(1.0, wrapper, out, inc, outgoing_scroll_pos=-37)
     assert inc.draw.called and not out.draw.called
-    # The incoming lands at rest, never at the outgoing's stopped scroll
-    # position (a one-tick jump on the sign otherwise).
+    assert inc.draw.call_args.args[0] is wrapper
     assert inc.draw.call_args.kwargs["cursor_pos"] == 0
 
 
@@ -191,17 +196,6 @@ def test_defaults():
     assert WipeIn.min_frames == 20 and WipeOut.min_frames == 20
     assert WipeInVertical.min_frames == 16 and WipeOutVertical.min_frames == 16
     assert WipeIn(color=(1, 2, 3)).color == (1, 2, 3)
-
-
-def test_wipe_in_midway_erases_edges_and_paints_lines():
-    canvas = HeadlessCanvas(160, 16)
-    WipeIn().frame_at(0.5, canvas, _filling_widget(160, 16), _widget())
-    b = progress_to_b(0.5, 160, True)
-    assert canvas.get_pixel(0, 8) == (0, 0, 0)
-    assert canvas.get_pixel(159, 8) == (0, 0, 0)
-    assert canvas.get_pixel(b, 8) == (255, 255, 0)  # line on the kept side
-    assert canvas.get_pixel(159 - b, 8) == (255, 255, 0)
-    assert canvas.get_pixel(80, 8) == (9, 9, 9)  # center still outgoing
 
 
 @pytest.mark.parametrize("cls", ALL)
@@ -248,23 +242,17 @@ def _palette(get, coords):
     return {get(x, y) for x, y in coords}
 
 
-def test_wipe_out_vertical_near_end_shows_only_black_and_sweep_colour():
+@pytest.mark.parametrize("cls", ALL)
+def test_near_end_shows_only_black_and_sweep_color(cls):
+    """The frame before the cut is black + sweep color: no outgoing sliver,
+    and never a fully black panel (the cycle-1 finding)."""
     canvas = HeadlessCanvas(160, 16)
-    WipeOutVertical().frame_at(0.999, canvas, _filling_widget(160, 16), _widget())
-    seen = _palette(canvas.get_pixel, [(x, y) for x in (0, 80, 159) for y in range(16)])
-    assert seen == {(0, 0, 0), (255, 0, 0)}, seen  # no outgoing grey, no black-only
+    cls().frame_at(0.999, canvas, _filling_widget(160, 16), _widget())
+    seen = _palette(canvas.get_pixel, [(x, y) for x in range(160) for y in range(16)])
+    assert seen == {(0, 0, 0), cls.DEFAULT_COLOR}, (cls.__name__, seen)
 
 
-def test_wipe_in_near_end_shows_only_black_and_sweep_colour():
-    canvas = HeadlessCanvas(160, 16)
-    WipeIn().frame_at(0.999, canvas, _filling_widget(160, 16), _widget())
-    seen = _palette(canvas.get_pixel, [(x, 8) for x in range(160)])
-    assert seen == {(0, 0, 0), (255, 255, 0)}, seen
-
-
-# ---------------------------------------------------------------------------
-# Task 3: banded / scaled canvas coverage (physical-resolution geometry)
-# ---------------------------------------------------------------------------
+# --- banded / scaled canvases: physical-resolution geometry ---------------
 
 
 def _banded():
@@ -309,20 +297,26 @@ def test_wipe_out_vertical_near_end_erases_letterbox_rows_on_banded_wrapper():
     assert seen == {(0, 0, 0), (255, 0, 0)}, seen
 
 
-def test_sweep_line_is_two_times_scale_thick_on_scale4():
+@pytest.mark.parametrize("cls", ALL)
+def test_sweep_lines_are_two_times_scale_thick_on_scale4(cls):
     from led_ticker.scaled_canvas import ScaledCanvas
 
     real = HeadlessCanvas(256, 64)
     wrapper = ScaledCanvas(real, scale=4, content_height=16)
-    WipeOut().frame_at(0.5, wrapper, _widget(), _widget())
-    red_cols = [x for x in range(256) if real.get_pixel(x, 32) == (255, 0, 0)]
-    # Two runs of exactly 8 (= 2 * scale) columns, one per front.
-    assert len(red_cols) == 16
-    left, right = red_cols[:8], red_cols[8:]
-    assert left == list(range(left[0], left[0] + 8))
-    assert right == list(range(right[0], right[0] + 8))
-    # Lines flank the band on the kept side, at full physical height.
-    assert real.get_pixel(left[-1] + 1, 32) == (0, 0, 0)
-    assert real.get_pixel(right[0] - 1, 32) == (0, 0, 0)
-    assert real.get_pixel(left[0], 0) == (255, 0, 0)
-    assert real.get_pixel(left[0], 63) == (255, 0, 0)
+    cls().frame_at(0.5, wrapper, _widget(), _widget())
+    along_x = cls.AXIS == "x"
+    n = 256 if along_x else 64
+
+    def px(i):  # probe along the swept axis, mid cross-extent
+        return real.get_pixel(i, 32) if along_x else real.get_pixel(128, i)
+
+    lit = [i for i in range(n) if px(i) == cls.DEFAULT_COLOR]
+    # Two runs of exactly 8 (= 2 * scale) along the axis, one per front.
+    assert len(lit) == 16, (cls.__name__, lit)
+    a, b = lit[:8], lit[8:]
+    assert a == list(range(a[0], a[0] + 8)) and b == list(range(b[0], b[0] + 8))
+    # Each line spans the FULL cross extent (letterbox rows / all columns).
+    if along_x:
+        assert real.get_pixel(a[0], 0) == real.get_pixel(a[0], 63) == cls.DEFAULT_COLOR
+    else:
+        assert real.get_pixel(0, a[0]) == real.get_pixel(255, a[0]) == cls.DEFAULT_COLOR

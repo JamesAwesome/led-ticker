@@ -13,12 +13,12 @@ The `wipe` family uses a stationary outgoing widget plus a colored sweep line th
 | `wipe_alternating` | cycles through L→R→U→D | cycles colors | Dynamic variety |
 | `wipe_random` | random direction (no immediate repeats) + random color from pool | from `transition_colors` (default: cyan/magenta/white/green) | Unpredictable variety |
 
-`split` is the older cousin of `wipe_out`: the same center-outward black band, but with 1-px magenta edges drawn inside the band and no colour knob; its band stops one column short of each edge, so its last frame keeps a 1-px sliver of the outgoing at both sides. The center variants are not in the `wipe_alternating` / `wipe_random` pools.
+`split` is the fixed-magenta twin of `wipe_out`: the same center-outward black band, but with 1-px magenta edges drawn inside the band and no color knob; its band stops one column short of each edge, so its last frame keeps a 1-px sliver of the outgoing at both sides. The center variants are not in the `wipe_alternating` / `wipe_random` pools.
 
 ## Tuning
 
 - `transition_duration` (seconds): 0.4–0.8 feels right. Each variant has a `min_frames` floor the runner will not go under: at the default 20 fps that is 2.0 s for `wipe_left` / `wipe_right`, 1.0 s for `wipe_in` / `wipe_out`, 0.8 s for `wipe_up` / `wipe_down` and the vertical center pair. Below the floor, raise `transition_fps` instead
-- `transition_color` ([r, g, b]): override the sweep color on a single direction variant
+- `transition_color` ([r, g, b]): override the sweep color on any variant except `wipe_alternating` / `wipe_random`
 - `transition_colors` (list of [r, g, b]): custom color pool for `wipe_alternating` / `wipe_random`
 
 ## Tips

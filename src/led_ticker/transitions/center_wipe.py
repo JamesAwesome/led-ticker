@@ -80,10 +80,23 @@ def sweep_line_spans(n: int, b: int, inward: bool, thick: int) -> list[Span]:
     """Spans of the colored sweep lines: up to ``thick`` pixels of each kept
     span adjacent to an erased edge, never overlapping an erased span.
 
-    Empty when nothing is erased (``b == 0``) or nothing is kept.
+    At ``b == 0`` (nothing erased yet) the lines sit where the fronts will
+    start. Empty when nothing is kept.
     """
+    if thick <= 0 or n <= 0:
+        return []
     erased, kept = center_spans(n, b, inward)
-    if not erased or not kept or thick <= 0:
+    if not erased:
+        # Frame 0: nothing erased yet; show the lines where the fronts will
+        # start (edges for inward, center for outward), like wipe_left/right/
+        # up/down show their line at the edge on frame 0.
+        thick = min(thick, n)
+        if inward:
+            spans = [(0, thick), (n - thick, n)]
+            return [(0, n)] if 2 * thick >= n else spans
+        c = n // 2
+        return [(max(0, c - thick), min(n, c + thick))]
+    if not kept:
         return []
     lines: list[Span] = []
     for lo, hi in kept:
@@ -141,17 +154,15 @@ class _CenterWipe(_BaseWipe):
             else:
                 real.SubFill(0, lo, rw, hi - lo, 0, 0, 0)
 
-        # Sweep lines (2 * scale thick) on the kept side of each front.
+        # Sweep lines (2 * scale thick) on the kept side of each front. Each
+        # line is a full-cross-extent rectangle: one SubFill per span, not a
+        # per-pixel loop (cycle-2 review: 4096 SetPixel/frame at scale 4).
         r, g, bl = self.color
         for lo, hi in sweep_line_spans(n, b, self.INWARD, 2 * scale):
             if along_x:
-                for x in range(lo, hi):
-                    for y in range(rh):
-                        real.SetPixel(x, y, r, g, bl)
+                real.SubFill(lo, 0, hi - lo, rh, r, g, bl)
             else:
-                for y in range(lo, hi):
-                    for x in range(rw):
-                        real.SetPixel(x, y, r, g, bl)
+                real.SubFill(0, lo, rw, hi - lo, r, g, bl)
         return canvas
 
 

@@ -20,7 +20,7 @@ The wipe family runs a colored sweep line across the panel that erases the outgo
 
 ## Tuning
 
-- `transition_duration` (seconds): 0.4–0.8 feels right. Below 0.3 the sweep becomes a flash; above 1.0 it drags.
+- `transition_duration` (seconds): 0.4–0.8 feels right. Below 0.3 the sweep becomes a flash; above 1.0 it drags. Each variant also has a frame floor the runner will not go under (2.0 s for `wipe_left` / `wipe_right`, 1.0 s for `wipe_in` / `wipe_out`, 0.8 s for the vertical ones at the default 20 fps); below the floor, raise `transition_fps` instead.
 - `transition_color` ([r, g, b]): override the sweep color on any single-direction variant (`wipe_left`, `wipe_right`, `wipe_up`, `wipe_down`, `wipe_in`, `wipe_out`, `wipe_in_vertical`, `wipe_out_vertical`).
 - `transition_colors` (list of [r, g, b]): custom color pool for `wipe_alternating` and `wipe_random`. Supply four colors to pair one with each direction.
 

@@ -87,8 +87,17 @@ def test_sweep_lines_sit_on_kept_side(n, inward):
         lines = _cover(sweep_line_spans(n, b, inward, thick=2))
         assert lines <= _cover(kept), (n, b, inward)
         assert not (lines & _cover(erased))
-        if b == 0 or not kept:
+        if not kept:
             assert lines == set()
+
+
+@pytest.mark.parametrize("n", EXTENTS)
+def test_frame_zero_lines_sit_where_the_fronts_start(n):
+    """Family consistency: wipe_left/right/up/down show their line at the
+    edge on frame 0; the center wipes show theirs at the fronts' start."""
+    assert sweep_line_spans(n, 0, True, thick=2) == [(0, 2), (n - 2, n)]
+    c = n // 2
+    assert sweep_line_spans(n, 0, False, thick=2) == [(c - 2, c + 2)]
 
 
 def test_sweep_lines_inward_even_example():
@@ -173,6 +182,46 @@ def test_wipe_in_midway_erases_edges_and_paints_lines():
     assert canvas.get_pixel(b, 8) == (255, 255, 0)  # line on the kept side
     assert canvas.get_pixel(159 - b, 8) == (255, 255, 0)
     assert canvas.get_pixel(80, 8) == (9, 9, 9)  # center still outgoing
+
+
+@pytest.mark.parametrize("cls", ALL)
+def test_midsweep_identity_erases_and_keeps_on_the_declared_axis(cls):
+    """Pins AXIS and INWARD per class with a painting widget: erased spans
+    are black, kept spans still show the outgoing, lines sit on the kept
+    side, all on the declared axis (cycle-2 mutants flipped these silently)."""
+    canvas = HeadlessCanvas(160, 16)
+    cls(color=(1, 2, 3)).frame_at(0.5, canvas, _filling_widget(160, 16), _widget())
+    along_x = cls.AXIS == "x"
+    n = 160 if along_x else 16
+    b = progress_to_b(0.5, n, cls.INWARD)
+    assert b > 0
+    erased, kept = center_spans(n, b, cls.INWARD)
+    lines = _cover(sweep_line_spans(n, b, cls.INWARD, thick=2))
+
+    def px(i):  # pixel at axis coordinate i, mid cross-extent
+        return canvas.get_pixel(i, 8) if along_x else canvas.get_pixel(80, i)
+
+    for lo, hi in erased:
+        assert {px(i) for i in range(lo, hi)} == {(0, 0, 0)}, (cls.__name__, lo, hi)
+    grey = [i for i in _cover(kept) - lines if px(i) == (9, 9, 9)]
+    assert grey, cls.__name__  # outgoing survives on the kept side
+    assert {px(i) for i in lines} == {(1, 2, 3)}, cls.__name__  # transition_color
+    # Along the OTHER axis, a kept coordinate is untouched end to end: the
+    # sweep runs on the declared axis only.
+    k = grey[0]
+    other_n = 16 if along_x else 160
+
+    def probe(j):
+        return canvas.get_pixel(k, j) if along_x else canvas.get_pixel(j, k)
+
+    assert all(probe(j) == (9, 9, 9) for j in range(other_n)), cls.__name__
+
+
+def test_classes_are_re_exported_from_the_package():
+    from led_ticker import transitions as pkg
+
+    for name in ("WipeIn", "WipeOut", "WipeInVertical", "WipeOutVertical"):
+        assert getattr(pkg, name) is globals()[name]
 
 
 def _palette(get, coords):

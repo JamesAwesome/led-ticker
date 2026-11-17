@@ -30,6 +30,12 @@ from led_ticker.transitions import (
     linear,
     run_transition,
 )
+from led_ticker.transitions.center_wipe import (
+    WipeIn,
+    WipeInVertical,
+    WipeOut,
+    WipeOutVertical,
+)
 from led_ticker.transitions.wipe import _BaseWipe
 
 # --- Easing ---
@@ -2002,6 +2008,10 @@ class TestRunTransitionCrossScale:
             PushAlternating(),
             SplitHorizontal(),
             Scroll(),
+            WipeIn(),
+            WipeOut(),
+            WipeInVertical(),
+            WipeOutVertical(),
         ]
         for tr in hard_edged:
             assert tr.scale_switch_at == 1.0, type(tr).__name__

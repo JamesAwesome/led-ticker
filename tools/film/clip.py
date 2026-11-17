@@ -11,7 +11,19 @@ from tools.film.runner import Runner
 
 HERO_MAX_BYTES = 4_000_000
 ENCODE_TIMEOUT = 1800.0  # one two-pass palette encode of a long 4K segment
-LADDER: tuple[tuple[int, int], ...] = ((800, 20), (640, 20), (640, 15))  # (width, fps)
+# (width, fps). Real footage compresses 4-6x worse than renders (LED dot
+# grid + sensor noise), hence the rungs below the plan's three.
+LADDER: tuple[tuple[int, int], ...] = (
+    (800, 20),
+    (640, 20),
+    (640, 15),
+    (640, 12),
+    (560, 12),
+    (480, 10),
+)
+DENOISE = "hqdn3d=4:3:6:4.5"  # temporal+spatial; tames sensor noise before palette
+WEB_WIDTH = 1280
+WEB_CRF = "24"  # ~2 MB for a 30 s hero at 1280 wide
 
 
 @dataclass(frozen=True)
@@ -68,7 +80,7 @@ def gif_argv(
 ) -> list[str]:
     ss, t = _window(seg, fps_src, settings.trim_frames)
     chain = (
-        f"{_crop_filter(bbox, analysis_width, src_width)},fps={settings.fps},"
+        f"{_crop_filter(bbox, analysis_width, src_width)},{DENOISE},fps={settings.fps},"
         f"scale={settings.width}:-1:flags=lanczos,split[a][b];"
         "[a]palettegen=stats_mode=diff[p];"
         "[b][p]paletteuse=dither=bayer:bayer_scale=3"
@@ -116,6 +128,47 @@ def mp4_argv(
         str(out),
     ]
     return argv
+
+
+def web_mp4_argv(
+    src: Path,
+    out: Path,
+    seg: Interval,
+    fps_src: float,
+    bbox: BBox,
+    analysis_width: int,
+    src_width: int,
+) -> list[str]:
+    """Docs-sized h264: the hero loop is a video on the docs site, not a GIF."""
+    ss, t = _window(seg, fps_src, 1)
+    crop = _crop_filter(bbox, analysis_width, src_width)
+    vf = f"{crop},{DENOISE},scale={WEB_WIDTH}:-2"
+    return [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-y",
+        "-ss",
+        ss,
+        "-t",
+        t,
+        "-i",
+        str(src),
+        "-vf",
+        vf,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "slow",
+        "-crf",
+        WEB_CRF,
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        "-an",
+        str(out),
+    ]
 
 
 def emit_gif_within_budget(
@@ -301,6 +354,19 @@ def clip_footage(
                 raise RuntimeError(f"ffmpeg failed writing {mp4}: {err}")
             print(f"{name:32s} mp4 {'full frame' if full_frame else 'cropped'}")
             written.append(mp4)
+            if gif:  # docs mode: also a web-sized cropped mp4 for the hero
+                web = out_dir / f"{name}.web.mp4"
+                res = runner.run(
+                    web_mp4_argv(
+                        src, web, seg, frames.fps, footage.bbox, frames.width, src_width
+                    ),
+                    timeout=ENCODE_TIMEOUT,
+                )
+                if res.returncode != 0:
+                    err = res.stderr.decode(errors="replace")
+                    raise RuntimeError(f"ffmpeg failed writing {web}: {err}")
+                print(f"{name:32s} web mp4 {WEB_WIDTH}w crf {WEB_CRF}")
+                written.append(web)
         contact_sheet(
             src,
             out_dir / f"{name}.contact.png",

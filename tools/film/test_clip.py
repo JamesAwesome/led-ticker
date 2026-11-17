@@ -46,6 +46,7 @@ def test_gif_argv_has_two_pass_palette_and_scaled_crop():
     vf = argv[argv.index("-filter_complex") + 1]
     assert "crop=1200:120:120:240" in vf
     assert "fps=20" in vf and "scale=800:-1" in vf
+    assert vf.index("hqdn3d") < vf.index("fps=20")  # denoise real footage first
     assert "palettegen=stats_mode=diff" in vf
     assert "paletteuse=dither=bayer:bayer_scale=3" in vf
     assert argv[argv.index("-ss") + 1] == "1.100"  # 1 frame trimmed at 10 fps
@@ -105,8 +106,35 @@ def test_emit_gif_stops_at_first_rung_that_fits():
 
 
 def test_emit_gif_over_budget_after_ladder_returns_last_rung():
-    (w, fps, n), runner = _emit([9_000_000, 8_000_000, 7_000_000])
-    assert (w, fps, n) == (640, 15, 7_000_000) and len(runner.calls) == len(LADDER)
+    sizes = [9_000_000 - i for i in range(len(LADDER))]
+    (w, fps, n), runner = _emit(sizes)
+    assert (w, fps) == LADDER[-1] and n == sizes[-1]
+    assert len(runner.calls) == len(LADDER)
+
+
+def test_ladder_descends_to_real_footage_rungs():
+    assert LADDER[:3] == ((800, 20), (640, 20), (640, 15))
+    assert (640, 12) in LADDER and LADDER[-1] == (480, 10)
+    widths = [w for w, _ in LADDER]
+    assert widths == sorted(widths, reverse=True)
+
+
+def test_web_mp4_argv_is_small_denoised_and_cropped():
+    from tools.film.clip import web_mp4_argv
+
+    argv = web_mp4_argv(
+        Path("in.mp4"),
+        Path("o.web.mp4"),
+        Interval(10, 50),
+        10.0,
+        BBox(10, 20, 100, 10),
+        320,
+        3840,
+    )
+    vf = argv[argv.index("-vf") + 1]
+    assert "crop=1200:120:120:240" in vf and "hqdn3d" in vf and "scale=1280:-2" in vf
+    assert argv[argv.index("-crf") + 1] == "24" and "+faststart" in argv
+    assert "-an" in argv and argv[-1] == "o.web.mp4"
 
 
 def test_emit_gif_failed_ffmpeg_raises():
@@ -218,3 +246,24 @@ def test_contact_sheet_argv_pulls_color_frames_from_source():
     vf = argv[argv.index("-filter_complex") + 1]
     assert "crop=1200:120:120:240" in vf and "tile=1x3" in vf
     assert argv[-1] == "a.contact.png"
+
+
+def test_clip_footage_mp4_names_also_get_a_web_mp4_in_docs_mode(tmp_path, monkeypatch):
+    _patch_analysis(monkeypatch)
+    manifest = tmp_path / "m.toml"
+    manifest.write_text("[[playlist.section]] # film: hero\n")
+    from tools.film.clip import clip_footage
+
+    written = clip_footage(
+        Path("in.mp4"),
+        manifest,
+        tmp_path / "out",
+        runner=_runner_ok(),
+        crop=None,
+        take=1,
+        mp4_names={"hero"},
+        hero_budget_names={"hero"},
+        settings=ClipSettings(),
+        size_of=lambda p: 1,
+    )
+    assert [p.name for p in written] == ["hero.gif", "hero.mp4", "hero.web.mp4"]

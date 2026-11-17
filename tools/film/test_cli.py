@@ -199,3 +199,45 @@ def test_cli_missing_file_is_exit_1_not_traceback(capsys, monkeypatch):
     monkeypatch.setattr(cli, "default_runner", lambda: FakeRunner({}))
     assert cli.main(["deploy", "nope.toml"]) == 1
     assert "nope.toml" in capsys.readouterr().err
+
+
+def test_cli_aim_defaults_to_the_shelf_preset_and_prints_state(capsys, monkeypatch):
+    seen = {}
+
+    def fake_aim(preset, runner, **kw):
+        seen["preset"] = preset
+        seen.update(kw)
+        return {
+            "absolute_pan_tilt": [preset.pan, preset.tilt],
+            "absolute_zoom": preset.zoom,
+        }
+
+    monkeypatch.setattr(cli, "aim", fake_aim)
+    monkeypatch.setattr(cli, "default_runner", lambda: FakeRunner({}))
+    assert cli.main(["aim"]) == 0
+    assert seen["preset"] == cli.SMALLSIGN_SHELF
+    assert "zoom=350" in capsys.readouterr().out
+    assert (
+        cli.main(
+            ["aim", "--pan", "-100", "--tilt", "200", "--zoom", "400", "--wb", "4800"]
+        )
+        == 0
+    )
+    p = seen["preset"]
+    assert (p.pan, p.tilt, p.zoom, p.white_balance) == (-100, 200, 400, 4800)
+    assert cli.main(["aim", "--auto-wb"]) == 0
+    assert seen["preset"].white_balance is None
+
+
+def test_cli_session_aim_runs_after_deploy_before_record(monkeypatch):
+    order = []
+    monkeypatch.setattr(cli, "deploy", lambda *a, **k: order.append("deploy"))
+    monkeypatch.setattr(cli, "aim", lambda *a, **k: order.append("aim") or {})
+    monkeypatch.setattr(cli, "record", lambda *a, **k: order.append("record"))
+    monkeypatch.setattr(cli, "restore", lambda *a, **k: order.append("restore"))
+    monkeypatch.setattr(cli, "default_runner", lambda: FakeRunner({}))
+    assert cli.main(["session", "c.toml", "o.mp4", "--seconds", "5"]) == 0
+    assert order == ["deploy", "record", "restore"]
+    order.clear()
+    assert cli.main(["session", "c.toml", "o.mp4", "--seconds", "5", "--aim"]) == 0
+    assert order == ["deploy", "aim", "record", "restore"]

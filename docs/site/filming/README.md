@@ -20,37 +20,47 @@ status board must be on: `film deploy` waits on `status.json`), no `[display.sch
 `[busy_light] enabled = false`, no file assets, Firebird Yoga copy
 (`docs/DOCS-STYLE.md` §6). Validate with `uv run led-ticker validate <file>`.
 
-## Camera setup (once per session, in the Insta360 Link Controller app)
+## Camera setup (once per session)
 
-1. Gimbal: aim at the shelf so the whole 160×16 panel is in frame.
-2. Zoom: until the panel fills about 90 % of the frame width (we need ≥ 8
-   camera px per LED; at 4K that is ≥ 1280 px of panel).
-3. Exposure: **manual**, fixed shutter, lowest ISO that keeps cream text
-   below clipping. Auto-exposure pumps as sections change.
-4. White balance: **manual**. Focus: **manual**, on the panel.
-5. HDR off, face tracking off, mirror off.
+The Insta360 Link is driven over UVC with `uvcc` (runs via `npx`, so Node
+must be on PATH — `nvm use`). The Link only applies pan/tilt/zoom while a
+video stream is open, so `make film-aim` holds a throwaway ffmpeg stream
+while it sends the controls and then reads them back; it fails loudly if
+the camera ignored them (another app holding the device, or the camera
+asleep). Framing survives stream close/reopen while the camera stays
+powered, so run it once at the start of a session (or pass `AIM=1` to
+`make film-session`).
 
-These are UVC settings; they persist while ffmpeg records. Record the final
-values here after session 0:
+Measured 2026-11-17 with the camera on the desk and the sign on the top
+shelf (the preset `camera.SMALLSIGN_SHELF`):
 
-| setting                                   | value                                   |
-| ----------------------------------------- | --------------------------------------- |
-| zoom                                      | _TBD_                                   |
-| shutter / ISO                             | _TBD_                                   |
-| white balance                             | _TBD_                                   |
-| panel brightness (`[display] brightness`) | _TBD (ladder 40/50/60 in session 0)_    |
-| panel-crop threshold (`find_panel_bbox`)  | _TBD if the default 60 needed changing_ |
+| setting                                   | value                                                                   |
+| ----------------------------------------- | ----------------------------------------------------------------------- |
+| pan / tilt (arc-seconds)                  | `-27720` / `36000`                                                      |
+| zoom                                      | `350` (3.5×, digital); panel ≈ 77 % of frame width, ≈ 18 px per LED     |
+| white balance                             | locked `5000` K (auto WB drifts with the panel's colors)                |
+| focus                                     | auto (sharp on the panel; `FOCUS=n` locks it if it hunts)               |
+| exposure                                  | auto — not exposed over UVC; dips content ≈ 20 % for ~1 s after a slate |
+| panel brightness (`[display] brightness`) | `40` (ladder 40/50/60: auto-exposure equalizes them; 40 blooms least)   |
+| panel-crop threshold (`find_panel_bbox`)  | defaults (change 60 / bright 200); detected box ≈ 7 % bezel top/bottom  |
+
+Zoom is digital, so the real detail is what the sensor sees at 1×: about
+6 px per LED from the desk. That is enough for 800 px GIFs (5 px per LED)
+but not for a crisp 4K hero; move the camera to the shelf for that. A
+specular highlight sits on the panel face right of centre (room light);
+kill that light before a real take.
 
 ## A session
 
 ```bash
+make film-aim                                                      # frame the panel, lock WB (once per session)
 make film-deploy  CONFIG=docs/site/filming/features.toml          # backs up + restarts the sign
 make film-record  OUT=captures/features.mp4 SECONDS=900           # two full loops + anchors
 make film-restore                                                  # puts the live config back
 make film-clip    IN=captures/features.mp4 MANIFEST=docs/site/filming/features.toml OUT=docs/site/public/filmed/
 ```
 
-or `make film-session CONFIG=... OUT=... SECONDS=...` for deploy → record →
+or `make film-session CONFIG=... OUT=... SECONDS=... AIM=1` for deploy → aim → record →
 restore in one go (restore runs even if the recording fails).
 
 How long to record: `make plan-gif CONFIG=<file>` gives one loop's length;
@@ -58,9 +68,10 @@ record at least two loops plus a few seconds so the footage holds two anchor
 slates. `film clip` needs a complete loop between two anchors; `TAKE=2`
 selects the second loop if the first had a glitch.
 
-Brightness ladder (session 0): `make film-deploy CONFIG=... BRIGHTNESS=40`,
-record 20 s, then repeat with `BRIGHTNESS=50 RESTORE_FIRST=1` and
-`BRIGHTNESS=60 RESTORE_FIRST=1`; `make film-restore` at the end.
+Brightness ladder (done in session 0, 2026-11-17 — result `40`, baked into
+the three configs): `make film-deploy CONFIG=... BRIGHTNESS=40`, record
+20 s, repeat with `BRIGHTNESS=50 RESTORE_FIRST=1` and `BRIGHTNESS=60
+RESTORE_FIRST=1`; `make film-restore` at the end.
 
 ## Output
 

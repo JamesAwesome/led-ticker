@@ -1,6 +1,6 @@
-"""Record the webcam with ffmpeg's avfoundation input. Camera settings
-(zoom, exposure, white balance, focus) are NOT touched here; they are set
-once per session in the Insta360 Link Controller app (see the runbook)."""
+"""Record the webcam with ffmpeg's avfoundation input. Camera framing
+(pan/tilt/zoom, white balance, focus) is NOT touched here; `camera.aim`
+sets it once per session. Exposure stays auto (not exposed over UVC)."""
 
 import re
 from pathlib import Path

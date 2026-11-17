@@ -1,4 +1,4 @@
-.PHONY: dev hooks test lint typecheck format clean build up update restart down logs try try-down setup docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker panel-map-derive-docker film-deploy film-record film-restore film-clip film-session
+.PHONY: dev hooks test lint typecheck format clean build up update restart down logs try try-down setup docs-dev docs-build docs-check-llms docs-lint docs-format validate render-demo render-long-demos render-long-demo render-pinned-demos plan-gif render-emoji-previews derive-phoenix derive-pride derive-heart-tunnel setup-demo-fonts panel-test panel-test-docker panel-map-reveal panel-map-verify panel-map-derive panel-map-reveal-docker panel-map-verify-docker panel-map-derive-docker film-deploy film-aim film-record film-restore film-clip film-session
 
 # --- Developer Setup ---
 
@@ -212,8 +212,11 @@ render-demo:  ## Render a single demo gif. Usage: make render-demo CONFIG=path/t
 plan-gif:  ## Recommended render --duration for a demo (+ cutoff guard). Usage: make plan-gif CONFIG=path/to.toml
 	uv run python tools/gif_plan/plan.py $(CONFIG)
 
-film-deploy:  ## Back up the sign's config and deploy a filming config. Usage: make film-deploy CONFIG=docs/site/filming/hero.toml [HOST=smallsign] [BRIGHTNESS=60] [RESTORE_FIRST=1]
+film-deploy:  ## Back up the sign's config and deploy a filming config. Usage: make film-deploy CONFIG=docs/site/filming/hero.toml [HOST=smallsign] [BRIGHTNESS=40] [RESTORE_FIRST=1]
 	uv run --no-sync python -m tools.film.cli deploy $(CONFIG) $(if $(HOST),--host $(HOST)) $(if $(BRIGHTNESS),--brightness $(BRIGHTNESS)) $(if $(RESTORE_FIRST),--restore-first)
+
+film-aim:  ## Point and zoom the Insta360 Link at the smallsign (uvcc via npx; needs Node). Usage: make film-aim [PAN=-27720] [TILT=36000] [ZOOM=350] [WB=5000] [FOCUS=40]
+	uv run --no-sync python -m tools.film.cli aim $(if $(PAN),--pan $(PAN)) $(if $(TILT),--tilt $(TILT)) $(if $(ZOOM),--zoom $(ZOOM)) $(if $(WB),--wb $(WB)) $(if $(FOCUS),--focus $(FOCUS))
 
 film-record:  ## Record the Insta360 Link to an mp4. Usage: make film-record OUT=captures/hero.mp4 SECONDS=60 [DEVICE="Insta360 Link"] [SIZE=1920x1080]
 	uv run --no-sync python -m tools.film.cli record $(OUT) --seconds $(SECONDS) $(if $(DEVICE),--device "$(DEVICE)") $(if $(SIZE),--size $(SIZE))
@@ -224,8 +227,8 @@ film-restore:  ## Restore the sign's pre-filming config. Usage: make film-restor
 film-clip:  ## Cut footage into cropped GIFs by slate detection. Usage: make film-clip IN=captures/hero.mp4 MANIFEST=docs/site/filming/hero.toml OUT=docs/site/public/filmed/ [TAKE=1] [CROP=x:y:w:h] [MP4=hero] [HERO=hero] [FULL_FRAME=1] [MP4_ONLY=1] [SLATE_THRESHOLD=180] [CHANGE_THRESHOLD=60]
 	uv run --no-sync python -m tools.film.cli clip $(IN) $(MANIFEST) $(OUT) $(if $(TAKE),--take $(TAKE)) $(if $(CROP),--crop $(CROP)) $(if $(MP4),--mp4 $(MP4)) $(if $(HERO),--hero $(HERO)) $(if $(FULL_FRAME),--full-frame) $(if $(MP4_ONLY),--mp4-only) $(if $(SLATE_THRESHOLD),--slate-threshold $(SLATE_THRESHOLD)) $(if $(CHANGE_THRESHOLD),--change-threshold $(CHANGE_THRESHOLD))
 
-film-session:  ## deploy -> record -> restore in one go. Usage: make film-session CONFIG=docs/site/filming/hero.toml OUT=captures/hero.mp4 SECONDS=60 [HOST=smallsign] [BRIGHTNESS=60]
-	uv run --no-sync python -m tools.film.cli session $(CONFIG) $(OUT) --seconds $(SECONDS) $(if $(HOST),--host $(HOST)) $(if $(BRIGHTNESS),--brightness $(BRIGHTNESS))
+film-session:  ## deploy -> record -> restore in one go. Usage: make film-session CONFIG=docs/site/filming/hero.toml OUT=captures/hero.mp4 SECONDS=60 [HOST=smallsign] [BRIGHTNESS=40] [AIM=1]
+	uv run --no-sync python -m tools.film.cli session $(CONFIG) $(OUT) --seconds $(SECONDS) $(if $(HOST),--host $(HOST)) $(if $(BRIGHTNESS),--brightness $(BRIGHTNESS)) $(if $(AIM),--aim)
 
 render-emoji-previews:  ## Re-generate per-slug emoji preview PNGs in docs/site/public/emoji/
 	uv run python tools/render_emoji_previews.py

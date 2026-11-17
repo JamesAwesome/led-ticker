@@ -53,3 +53,9 @@ def test_fake_runner_records_timeouts():
 def test_subprocess_runner_timeout_is_runtime_error():
     with pytest.raises(RuntimeError, match="timed out"):
         SubprocessRunner().run(["/bin/sleep", "5"], timeout=0.2)
+
+
+def test_tool_missing_hint_for_npx_points_at_node():
+    from tools.film.runner import ToolMissing
+
+    assert "node" in str(ToolMissing("npx")).lower()

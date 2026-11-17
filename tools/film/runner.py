@@ -12,7 +12,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-_BREW_TOOLS = {"ffmpeg", "ffprobe"}
+_HINTS = {
+    "ffmpeg": "; brew install ffmpeg",
+    "ffprobe": "; brew install ffmpeg",
+    "npx": "; npx ships with Node — brew install node (or nvm)",
+}
 
 
 @dataclass(frozen=True)
@@ -28,7 +32,7 @@ class ToolMissing(RuntimeError):
 
     def __init__(self, tool: str) -> None:
         self.tool = tool
-        hint = f"; brew install {tool}" if tool in _BREW_TOOLS else ""
+        hint = _HINTS.get(tool, "")
         super().__init__(f"{tool} not found on PATH{hint}")
 
 

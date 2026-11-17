@@ -9,7 +9,7 @@
 rows = 16
 cols = 32
 chain_length = 5
-brightness = 60
+brightness = 40
 gpio_slowdown = 2
 hardware_mapping = "adafruit-hat"
 hot_reload = true

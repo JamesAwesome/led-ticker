@@ -1,4 +1,4 @@
-"""`python -m tools.film.cli` — deploy / record / restore / clip / session.
+"""`python -m tools.film.cli` — deploy / aim / record / restore / clip / session.
 
 Exit codes: 0 ok; 1 refused, mismatch, no slate, incomplete loop, runtime
 failure (message on stderr); 2 usage, device or tool missing.
@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from tools.film.analyze import BBox, IncompleteLoopError, NoSlateError
+from tools.film.camera import SMALLSIGN_SHELF, CameraPreset, aim
 from tools.film.clip import ClipSettings, CountMismatch, clip_footage
 from tools.film.manifest import ManifestError
 from tools.film.record import (
@@ -54,6 +55,19 @@ def _parser() -> argparse.ArgumentParser:
     d.add_argument("--host", default=DEFAULT_HOST)
     d.add_argument("--restore-first", action="store_true")
     d.add_argument("--brightness", type=int)
+
+    a = sub.add_parser(
+        "aim", help="point and zoom the Insta360 Link at the sign (uvcc via npx)"
+    )
+    a.add_argument("--pan", type=int, default=SMALLSIGN_SHELF.pan, help="arc-seconds")
+    a.add_argument("--tilt", type=int, default=SMALLSIGN_SHELF.tilt, help="arc-seconds")
+    a.add_argument("--zoom", type=int, default=SMALLSIGN_SHELF.zoom, help="100-400")
+    a.add_argument(
+        "--wb", type=int, default=SMALLSIGN_SHELF.white_balance, help="kelvin, locked"
+    )
+    a.add_argument("--auto-wb", action="store_true", help="leave white balance auto")
+    a.add_argument("--focus", type=int, help="0-100, locked (default: auto)")
+    a.add_argument("--device", default=DEFAULT_DEVICE)
 
     r = sub.add_parser("record", help="record the webcam to an mp4")
     r.add_argument("out", type=Path)
@@ -105,7 +119,30 @@ def _parser() -> argparse.ArgumentParser:
     e.add_argument("--host", default=DEFAULT_HOST)
     e.add_argument("--brightness", type=int)
     e.add_argument("--device", default=DEFAULT_DEVICE)
+    e.add_argument(
+        "--aim", action="store_true", help="run `aim` (shelf preset) before recording"
+    )
     return p
+
+
+def _preset(args: argparse.Namespace) -> CameraPreset:
+    return CameraPreset(
+        pan=args.pan,
+        tilt=args.tilt,
+        zoom=args.zoom,
+        white_balance=None if args.auto_wb else args.wb,
+        focus=args.focus,
+    )
+
+
+def _state_line(state: dict[str, object]) -> str:
+    pt = state.get("absolute_pan_tilt")
+    pan, tilt = pt if isinstance(pt, list) and len(pt) == 2 else ("?", "?")
+    return (
+        f"camera: pan={pan} tilt={tilt} zoom={state.get('absolute_zoom')} "
+        f"wb={state.get('white_balance_temperature')} "
+        f"focus={'auto' if state.get('auto_focus') else state.get('absolute_focus')}"
+    )
 
 
 def _run(args: argparse.Namespace, runner: Runner) -> int:
@@ -120,6 +157,8 @@ def _run(args: argparse.Namespace, runner: Runner) -> int:
             brightness=args.brightness,
         )
         print(f"deployed {args.config} to {args.host}; backup {state.get('bak')}")
+    elif args.cmd == "aim":
+        print(_state_line(aim(_preset(args), runner, device=args.device)))
     elif args.cmd == "record":
         if args.list_devices:
             for name in list_devices(runner):
@@ -161,6 +200,8 @@ def _run(args: argparse.Namespace, runner: Runner) -> int:
             )  # deploy mutated, then failed
             raise
         try:
+            if args.aim:
+                print(_state_line(aim(SMALLSIGN_SHELF, runner, device=args.device)))
             record(args.device, args.out, args.seconds, runner)
         finally:
             restore(args.host, runner, now=datetime.now(UTC))

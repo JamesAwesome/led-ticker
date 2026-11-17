@@ -84,7 +84,7 @@ fallback_version = "0.0.0"
 packages = ["src/led_ticker"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "tools/render_demo", "tools/gif_plan"]
+testpaths = ["tests", "tools/render_demo", "tools/gif_plan", "tools/film"]
 pythonpath = ["tests/stubs"]
 asyncio_mode = "auto"
 markers = [

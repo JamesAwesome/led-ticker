@@ -11,7 +11,7 @@ The wipe family runs a colored sweep line across the panel that erases the outgo
 
 <DemoGif
   src="/demos/transitions-wipe.gif"
-  caption="wipe family — left, right, up, down, and random"
+  caption="wipe family — left, right, up, down, and random; the center variants (wipe_in, wipe_out and their vertical twins) share the same look"
 />
 
 ## Variants
@@ -21,7 +21,7 @@ The wipe family runs a colored sweep line across the panel that erases the outgo
 ## Tuning
 
 - `transition_duration` (seconds): 0.4–0.8 feels right. Below 0.3 the sweep becomes a flash; above 1.0 it drags.
-- `transition_color` ([r, g, b]): override the sweep color on any single-direction variant (`wipe_left`, `wipe_right`, `wipe_up`, `wipe_down`).
+- `transition_color` ([r, g, b]): override the sweep color on any single-direction variant (`wipe_left`, `wipe_right`, `wipe_up`, `wipe_down`, `wipe_in`, `wipe_out`, `wipe_in_vertical`, `wipe_out_vertical`).
 - `transition_colors` (list of [r, g, b]): custom color pool for `wipe_alternating` and `wipe_random`. Supply four colors to pair one with each direction.
 
 `wipe_alternating` ignores `transition_color` (the singular form) — it cycles through a palette tied to each direction. Use `transition_colors` to set the pool.

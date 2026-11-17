@@ -6,8 +6,14 @@ The `wipe` family uses a stationary outgoing widget plus a colored sweep line th
 | `wipe_right` | left→right | magenta | Variety |
 | `wipe_up` | bottom→top | white | Vertical change |
 | `wipe_down` | top→bottom | green | Variety |
+| `wipe_in` | both edges→center | yellow | Closing-curtain feel |
+| `wipe_out` | center→both edges | red | Opening reveal |
+| `wipe_in_vertical` | top and bottom→center row | yellow | Vertical close |
+| `wipe_out_vertical` | center row→top and bottom | red | Vertical open |
 | `wipe_alternating` | cycles through L→R→U→D | cycles colors | Dynamic variety |
 | `wipe_random` | random direction (no immediate repeats) + random color from pool | from `transition_colors` (default: cyan/magenta/white/green) | Unpredictable variety |
+
+`split` is the magenta-edged twin of `wipe_out`: same center-outward geometry, fixed edge lines, no colour knob. The center variants are not in the `wipe_alternating` / `wipe_random` pools.
 
 ## Tuning
 

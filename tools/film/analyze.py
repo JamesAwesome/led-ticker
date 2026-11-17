@@ -2,6 +2,7 @@
 panel (the only thing in frame that changes), find white slates, and anchor
 segments to one complete loop so clips never zip one slot late."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -120,7 +121,11 @@ def mean_luma(frame: bytes, bbox: BBox | None, width: int) -> float:
 
 
 def find_slates(
-    luma: list[float], fps: float, *, threshold: float = 180.0, min_seconds: float = 0.5
+    luma: Sequence[float],
+    fps: float,
+    *,
+    threshold: float = 180.0,
+    min_seconds: float = 0.5,
 ) -> list[Interval]:
     min_len = max(1, round(min_seconds * fps))
     slates: list[Interval] = []

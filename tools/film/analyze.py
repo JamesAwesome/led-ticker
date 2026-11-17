@@ -2,7 +2,8 @@
 panel (the only thing in frame that changes), find white slates, and anchor
 segments to one complete loop so clips never zip one slot late."""
 
-from collections.abc import Sequence
+import sys
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -145,14 +146,15 @@ def find_slates(
     return slates
 
 
-def _dense_run(
+def _dense_runs(
     counts: list[int], *, frac: float = 0.5, gap: int = 0
-) -> tuple[int, int]:
-    """Longest run of indices whose count is >= frac*max(counts), tolerating
-    up to `gap` consecutive sub-threshold indices inside a run. Returns
-    (first, last) inclusive."""
+) -> list[tuple[int, int]]:
+    """Runs of indices whose count is >= frac*max(counts), tolerating up to
+    `gap` consecutive sub-threshold indices inside a run; each (first, last)
+    inclusive, longest first (ties keep input order). All-zero input yields
+    one run spanning everything (0 >= 0); find_panel_bbox guards that."""
     cut = max(counts) * frac
-    best = (0, -1)
+    runs: list[tuple[int, int]] = []
     start = None
     miss = 0
     last_hit = -1
@@ -165,13 +167,25 @@ def _dense_run(
         elif start is not None:
             miss += 1
             if miss > gap:
-                if last_hit - start > best[1] - best[0]:
-                    best = (start, last_hit)
+                runs.append((start, last_hit))
                 start = None
                 miss = 0
-    if start is not None and last_hit - start > best[1] - best[0]:
-        best = (start, last_hit)
-    return best
+    if start is not None:
+        runs.append((start, last_hit))
+    return sorted(runs, key=lambda r: r[0] - r[1])  # stable: longest first
+
+
+def _dense_run(
+    counts: list[int], *, frac: float = 0.5, gap: int = 0
+) -> tuple[int, int]:
+    return _dense_runs(counts, frac=frac, gap=gap)[0]
+
+
+def _warn_stderr(msg: str) -> None:
+    print(f"film: warning: {msg}", file=sys.stderr)
+
+
+AMBIGUITY_RATIO = 0.7  # rival run at least this long vs the winner → warn
 
 
 def find_panel_bbox(
@@ -182,6 +196,7 @@ def find_panel_bbox(
     threshold: int = 60,
     bright: int = 200,
     pad_frac: float = 0.04,
+    on_ambiguous: Callable[[str], None] = _warn_stderr,
 ) -> BBox:
     """Box of the panel: pixels that both CHANGE (max-min > threshold) and get
     BRIGHT at some point (max > bright). Changing-only would include the
@@ -214,7 +229,15 @@ def find_panel_bbox(
         ]
 
     y0, y1 = _dense_run(rows(0, width - 1), gap=gap_y)
-    x0, x1 = _dense_run(cols(y0, y1), gap=gap_x)
+    col_runs = _dense_runs(cols(y0, y1), gap=gap_x)
+    x0, x1 = col_runs[0]
+    if len(col_runs) > 1:
+        rx0, rx1 = col_runs[1]
+        if (rx1 - rx0 + 1) >= AMBIGUITY_RATIO * (x1 - x0 + 1):
+            on_ambiguous(
+                f"panel pick is ambiguous: columns {x0}-{x1} chosen over "
+                f"{rx0}-{rx1} (analysis px); check the contact sheet or pass CROP="
+            )
     y0, y1 = _dense_run(rows(x0, x1), gap=gap_y)
     w, h = x1 - x0 + 1, y1 - y0 + 1
     px, py = round(w * pad_frac), round(h * pad_frac)

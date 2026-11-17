@@ -5,6 +5,7 @@ import pytest
 from tools.film.camera import (
     SMALLSIGN_SHELF,
     CameraPreset,
+    StreamHandle,
     aim,
     preset_commands,
     stream_argv,
@@ -22,7 +23,8 @@ LIST = (
 
 def test_uvcc_argv_pins_the_link_by_vendor_and_product():
     argv = uvcc_argv("set", "absolute_zoom", "350")
-    assert argv[:3] == ["npx", "-y", "uvcc@latest"]
+    assert argv[:2] == ["npx", "-y"]
+    assert argv[2].startswith("uvcc@") and argv[2] != "uvcc@latest"  # pinned
     assert argv[argv.index("--vendor") + 1] == "11802"
     assert argv[argv.index("--product") + 1] == "19457"
     assert argv[-3:] == ["set", "absolute_zoom", "350"]
@@ -35,6 +37,7 @@ def test_preset_commands_order_and_manual_modes():
         ["set", "absolute_zoom", "350"],
         ["set", "auto_white_balance_temperature", "0"],
         ["set", "white_balance_temperature", "5000"],
+        ["set", "auto_focus", "1"],
     ]
     with_focus = preset_commands(
         CameraPreset(pan=0, tilt=0, zoom=100, white_balance=None, focus=40)
@@ -42,6 +45,7 @@ def test_preset_commands_order_and_manual_modes():
     assert with_focus == [
         ["set", "absolute_pan_tilt", "0", "0"],
         ["set", "absolute_zoom", "100"],
+        ["set", "auto_white_balance_temperature", "1"],
         ["set", "auto_focus", "0"],
         ["set", "absolute_focus", "40"],
     ]
@@ -58,23 +62,40 @@ def test_smallsign_shelf_preset_is_the_measured_framing():
 
 def test_stream_argv_is_a_null_sink_at_the_recording_mode():
     argv = stream_argv(0, seconds=12.0)
+    assert "-nostdin" in argv
     assert argv[argv.index("-i") + 1] == "0:none"
     assert argv[argv.index("-video_size") + 1] == "3840x2160"
     assert argv[-2:] == ["null", "-"] and "-f" in argv
 
 
-def _export(pan: int, tilt: int, zoom: int) -> bytes:
+def _export(
+    pan: int, tilt: int, zoom: int, *, auto_wb: int = 0, wb: int = 5000
+) -> bytes:
     return (
         b'{"absolute_pan_tilt": [%d, %d], "absolute_zoom": %d, '
-        b'"white_balance_temperature": 5000, "auto_focus": 1}' % (pan, tilt, zoom)
+        b'"auto_white_balance_temperature": %d, "white_balance_temperature": %d, '
+        b'"auto_focus": 1, "absolute_focus": 0}' % (pan, tilt, zoom, auto_wb, wb)
     )
 
 
-def _fake_hold(log: list[str]):
+class _Handle:
+    def __init__(self, alive_for: int = 10**6) -> None:
+        self.polls = 0
+        self.alive_for = alive_for
+
+    def alive(self) -> bool:
+        self.polls += 1
+        return self.polls <= self.alive_for
+
+    def diagnostics(self) -> str:
+        return "ffmpeg: device busy"
+
+
+def _fake_hold(log: list[str], handle: _Handle | None = None):
     @contextmanager
-    def hold(argv: list[str]) -> Iterator[None]:
+    def hold(argv: list[str]) -> Iterator[StreamHandle]:
         log.append("open:" + argv[0])
-        yield
+        yield handle or _Handle()
         log.append("close")
 
     return hold
@@ -122,3 +143,45 @@ def test_aim_unknown_device_raises_before_touching_uvcc():
             sleep=lambda s: None,
         )
     assert all(c[0] == "ffmpeg" for c in runner.calls)
+
+
+def test_aim_raises_when_the_hold_stream_died():
+    runner = FakeRunner(
+        {
+            "ffmpeg": Result(["ffmpeg"], 1, b"", LIST),
+            "npx": lambda argv: Result(argv, 0, _export(-27720, 36000, 350), b""),
+        }
+    )
+    with pytest.raises(RuntimeError, match="stream ended.*device busy"):
+        aim(
+            SMALLSIGN_SHELF,
+            runner,
+            hold=_fake_hold([], _Handle(alive_for=0)),
+            sleep=lambda s: None,
+        )
+    assert not any(c[0] == "npx" for c in runner.calls)  # dead before any set
+
+
+def test_aim_verifies_white_balance_lock():
+    def fake_npx(argv: list[str]) -> Result:
+        if argv[-1] == "export":
+            return Result(argv, 0, _export(-27720, 36000, 350, auto_wb=1), b"")
+        return Result(argv, 0, b"", b"")
+
+    runner = FakeRunner({"ffmpeg": Result(["ffmpeg"], 1, b"", LIST), "npx": fake_npx})
+    with pytest.raises(RuntimeError, match="white balance"):
+        aim(SMALLSIGN_SHELF, runner, hold=_fake_hold([]), sleep=lambda s: None)
+
+
+def test_stream_is_held_for_minutes_not_seconds():
+    argv = stream_argv(0, seconds=600)
+    assert float(argv[argv.index("-t") + 1]) >= 600
+
+
+def test_popen_hold_reports_liveness_and_terminates_on_exit():
+    from tools.film.camera import popen_hold
+
+    with popen_hold(["/bin/sleep", "30"]) as h:
+        assert h.alive()
+        held = h
+    assert not held.alive()  # terminated by the context exit, no zombie

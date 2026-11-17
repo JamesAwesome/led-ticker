@@ -50,6 +50,13 @@ but not for a crisp 4K hero; move the camera to the shelf for that. A
 specular highlight sits on the panel face right of centre (room light);
 kill that light before a real take.
 
+Still app-only (Insta360 Link Controller, none of these are UVC controls):
+**exposure lock** (auto exposure dips the content ≈ 20 % for about a second
+after every white slate, and every clip starts right after one), HDR off,
+tracking off (it would fight the preset mid-take), mirror off. The
+session-0 ladder ran under auto exposure; lock it before a real take if the
+dip shows in the GIFs.
+
 ## A session
 
 ```bash

@@ -21,6 +21,15 @@ Plus the tooling to do it repeatably: swap the sign's config, record from the
 Insta360 Link webcam on James's Mac, cut the recording into cropped GIFs (and
 an mp4 for the hero), and put the sign back the way it was.
 
+
+> **Session 0 amendment (2026-11-17):** the Insta360 Link's zoom is digital
+> only and `uvcc` turned out to work, so camera framing (pan/tilt/zoom, white
+> balance) is set from the terminal by `film aim` rather than in the Link
+> Controller app; exposure is not exposed over UVC and stays app-only. Real
+> detail from the desk is ≈ 6 camera px per LED (below the ≥ 8 target; fine
+> for 800 px GIFs, not for a 4K hero). Real-footage GIFs are 4–6× larger
+> than renders: the hero ships as a web mp4, GIFs are denoised.
+
 ## Why now
 
 The docs have 284 rendered GIFs and zero photographs or video of a running

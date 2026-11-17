@@ -7,6 +7,7 @@ from tools.film.analyze import (
     IncompleteLoopError,
     Interval,
     NoSlateError,
+    _dense_run,
     analyze_footage,
     decode_gray,
     find_panel_bbox,
@@ -188,3 +189,20 @@ def test_find_panel_bbox_ignores_small_flickering_clutter():
     b = find_panel_bbox([bytes(dark), bytes(lit), bytes(dark), bytes(lit)], 320, 180)
     assert (b.x, b.w) == (96, 108)
     assert (b.y, b.h) == (80, 10)
+
+
+def test_dense_run_tie_goes_to_first_and_gap_bridges():
+    assert _dense_run([5, 5, 0, 5, 5]) == (0, 1)  # tie → first run
+    assert _dense_run([5, 5, 0, 5, 5], gap=1) == (0, 4)  # one miss bridged
+    assert _dense_run([5, 5, 0, 0, 5, 5, 5], gap=1) == (4, 6)  # two misses split
+    assert _dense_run([0, 5, 5, 0]) == (1, 2)  # trailing miss excluded
+
+
+def test_find_panel_bbox_warns_when_a_rival_run_is_close(capsys):
+    dark = gray(320, 180, 0)
+    lit = bytearray(dark)
+    rect(lit, 320, BBox(20, 80, 100, 10), 255)  # panel
+    rect(lit, 320, BBox(160, 80, 90, 10), 255)  # a rival nearly as wide
+    warned: list[str] = []
+    find_panel_bbox([bytes(dark), bytes(lit)], 320, 180, on_ambiguous=warned.append)
+    assert warned and "CROP" in warned[0]

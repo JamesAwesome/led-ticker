@@ -62,11 +62,12 @@ def _parser() -> argparse.ArgumentParser:
     a.add_argument("--pan", type=int, default=SMALLSIGN_SHELF.pan, help="arc-seconds")
     a.add_argument("--tilt", type=int, default=SMALLSIGN_SHELF.tilt, help="arc-seconds")
     a.add_argument("--zoom", type=int, default=SMALLSIGN_SHELF.zoom, help="100-400")
-    a.add_argument(
+    wb = a.add_mutually_exclusive_group()
+    wb.add_argument(
         "--wb", type=int, default=SMALLSIGN_SHELF.white_balance, help="kelvin, locked"
     )
-    a.add_argument("--auto-wb", action="store_true", help="leave white balance auto")
-    a.add_argument("--focus", type=int, help="0-100, locked (default: auto)")
+    wb.add_argument("--auto-wb", action="store_true", help="set white balance to auto")
+    a.add_argument("--focus", type=int, help="0-100, locked (default: set auto)")
     a.add_argument("--device", default=DEFAULT_DEVICE)
 
     r = sub.add_parser("record", help="record the webcam to an mp4")
@@ -190,6 +191,8 @@ def _run(args: argparse.Namespace, runner: Runner) -> int:
         )
         print(f"{len(written)} file(s) written to {args.out_dir}")
     elif args.cmd == "session":
+        if args.aim:  # before deploy: a camera failure must leave the sign untouched
+            print(_state_line(aim(SMALLSIGN_SHELF, runner, device=args.device)))
         try:
             deploy(args.host, args.config, runner, now=now, brightness=args.brightness)
         except DeployRefused:
@@ -200,8 +203,6 @@ def _run(args: argparse.Namespace, runner: Runner) -> int:
             )  # deploy mutated, then failed
             raise
         try:
-            if args.aim:
-                print(_state_line(aim(SMALLSIGN_SHELF, runner, device=args.device)))
             record(args.device, args.out, args.seconds, runner)
         finally:
             restore(args.host, runner, now=datetime.now(UTC))

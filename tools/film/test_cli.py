@@ -229,7 +229,7 @@ def test_cli_aim_defaults_to_the_shelf_preset_and_prints_state(capsys, monkeypat
     assert seen["preset"].white_balance is None
 
 
-def test_cli_session_aim_runs_after_deploy_before_record(monkeypatch):
+def test_cli_session_aim_runs_before_deploy(monkeypatch):
     order = []
     monkeypatch.setattr(cli, "deploy", lambda *a, **k: order.append("deploy"))
     monkeypatch.setattr(cli, "aim", lambda *a, **k: order.append("aim") or {})
@@ -240,4 +240,16 @@ def test_cli_session_aim_runs_after_deploy_before_record(monkeypatch):
     assert order == ["deploy", "record", "restore"]
     order.clear()
     assert cli.main(["session", "c.toml", "o.mp4", "--seconds", "5", "--aim"]) == 0
-    assert order == ["deploy", "aim", "record", "restore"]
+    assert order == [
+        "aim",
+        "deploy",
+        "record",
+        "restore",
+    ]  # camera fails → sign untouched
+
+
+def test_cli_aim_wb_and_auto_wb_are_exclusive(capsys, monkeypatch):
+    monkeypatch.setattr(cli, "default_runner", lambda: FakeRunner({}))
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["aim", "--auto-wb", "--wb", "4800"])
+    assert exc.value.code == 2

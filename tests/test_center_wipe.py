@@ -217,8 +217,11 @@ def test_midsweep_identity_erases_and_keeps_on_the_declared_axis(cls):
 
     for lo, hi in erased:
         assert {px(i) for i in range(lo, hi)} == {(0, 0, 0)}, (cls.__name__, lo, hi)
-    grey = [i for i in _cover(kept) - lines if px(i) == (9, 9, 9)]
-    assert grey, cls.__name__  # outgoing survives on the kept side
+    # EVERY kept pixel outside the lines still shows the outgoing: an
+    # over-erase slip (e.g. SubFill width `hi` for `hi - lo`) blacks half
+    # the panel on the outward classes and must not pass (cycle-5 review).
+    grey = sorted(_cover(kept) - lines)
+    assert grey and all(px(i) == (9, 9, 9) for i in grey), cls.__name__
     assert {px(i) for i in lines} == {(1, 2, 3)}, cls.__name__  # transition_color
     # Along the OTHER axis, a kept coordinate is untouched end to end: the
     # sweep runs on the declared axis only.

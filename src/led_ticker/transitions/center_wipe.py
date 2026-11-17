@@ -19,7 +19,7 @@ Odd-center rule: for an odd extent the single center pixel belongs to the
 into one span once they meet, so the fronts can never leave a 1-px gap or
 overlap. The front travel is capped (:func:`front_cap`) one step before the
 fronts would swallow the whole axis, so the frame before the cut shows the
-sweep colour where they meet rather than a black panel. Pinned by the
+sweep color where they nearly meet rather than a black panel. Pinned by the
 partition and cap tests in ``tests/test_center_wipe.py``.
 """
 
@@ -38,7 +38,7 @@ def front_cap(n: int, inward: bool) -> int:
 
     The fronts never swallow the whole axis. At the cap the kept sliver is
     entirely covered by the sweep lines, so the last frame before the cut is
-    black + sweep colour, never a fully black panel (cycle-1 review finding:
+    black + sweep color, never a fully black panel (cycle-1 review finding:
     with the cap at ``half`` the vertical variants spent the final third of
     an ``ease_out`` run on an all-black panel).
     """
@@ -60,12 +60,15 @@ def progress_to_b(t: float, n: int, inward: bool) -> int:
 def center_spans(n: int, b: int, inward: bool) -> tuple[list[Span], list[Span]]:
     """Return ``(erased, kept)`` half-open spans partitioning ``[0, n)``.
 
-    ``b == 0`` erases nothing. Inward erases ``[0, b)`` and ``[n - b, n)``
-    (merged once they meet). Outward erases the center band
-    ``[n // 2 - b, n // 2 + b + n % 2)`` clamped to the panel.
+    ``b == 0`` erases nothing. Inward erases ``[0, b)`` and ``[n - b, n)``.
+    Outward erases the center band ``[n // 2 - b, n // 2 + b + n % 2)``
+    clamped to the panel. Total over ``b`` up to ``(n + 1) // 2`` for direct
+    callers: the fully-erased results (``2 * b >= n`` inward, a full-width
+    band outward) are never reached from ``frame_at``, which caps ``b`` at
+    :func:`front_cap`.
     """
     if b <= 0 or n <= 0:
-        return [], [(0, n)] if n > 0 else []
+        return [], ([(0, n)] if n > 0 else [])
     if inward:
         if 2 * b >= n:
             return [(0, n)], []
@@ -81,7 +84,8 @@ def sweep_line_spans(n: int, b: int, inward: bool, thick: int) -> list[Span]:
     span adjacent to an erased edge, never overlapping an erased span.
 
     At ``b == 0`` (nothing erased yet) the lines sit where the fronts will
-    start. Empty when nothing is kept.
+    start. Empty when nothing is kept, which only direct callers past
+    :func:`front_cap` can produce.
     """
     if thick <= 0 or n <= 0:
         return []

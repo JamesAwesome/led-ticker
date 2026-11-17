@@ -72,6 +72,7 @@ src/led_ticker/
     __init__.py         # Registry, easing, run_transition()
     push.py             # PushLeft/Right/Up/Down, PushAlternating, PushRandom
     wipe.py             # WipeLeft/Right/Up/Down, WipeAlternating, WipeRandom
+    center_wipe.py      # WipeIn/Out (+ _vertical): erase-style center sweeps over _BaseWipe
     effects.py          # Cut, ColorFlash, Dissolve, SplitHorizontal, Scroll
                         # (the nyancat/pokeball/pacman/sailor_moon sprite-trail
                         #  families ship in the led-ticker-plugins monorepo)

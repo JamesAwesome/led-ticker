@@ -51,12 +51,19 @@ def test_b_zero_erases_nothing_and_half_erases_all(n, inward):
 
 
 @pytest.mark.parametrize("n", EXTENTS)
-def test_progress_to_b_endpoints(n):
-    half = (n + 1) // 2
-    assert progress_to_b(0.0, n) == 0
-    assert progress_to_b(0.999, n) == half
-    assert progress_to_b(1.0, n) == half
-    assert all(0 <= progress_to_b(t / 100, n) <= half for t in range(101))
+@pytest.mark.parametrize("inward", [True, False])
+def test_progress_to_b_caps_where_something_is_still_kept(n, inward):
+    """The fronts never swallow the whole axis: at the cap a 1-2 px kept
+    sliver remains and the sweep lines cover ALL of it, so the frame before
+    the cut is black + sweep colour, never a fully black panel."""
+    cap = (n - 1) // 2 if inward else n // 2 - 1
+    assert progress_to_b(0.0, n, inward) == 0
+    assert progress_to_b(0.999, n, inward) == cap
+    assert progress_to_b(1.0, n, inward) == cap
+    assert all(0 <= progress_to_b(t / 100, n, inward) <= cap for t in range(101))
+    erased, kept = center_spans(n, cap, inward)
+    assert erased and kept
+    assert _cover(sweep_line_spans(n, cap, inward, thick=2)) == _cover(kept)
 
 
 def test_inward_spans_shape_even():
@@ -160,7 +167,7 @@ def test_defaults():
 def test_wipe_in_midway_erases_edges_and_paints_lines():
     canvas = HeadlessCanvas(160, 16)
     WipeIn().frame_at(0.5, canvas, _filling_widget(160, 16), _widget())
-    b = progress_to_b(0.5, 160)
+    b = progress_to_b(0.5, 160, True)
     assert canvas.get_pixel(0, 8) == (0, 0, 0)
     assert canvas.get_pixel(159, 8) == (0, 0, 0)
     assert canvas.get_pixel(b, 8) == (255, 255, 0)  # line on the kept side
@@ -168,12 +175,22 @@ def test_wipe_in_midway_erases_edges_and_paints_lines():
     assert canvas.get_pixel(80, 8) == (9, 9, 9)  # center still outgoing
 
 
-def test_wipe_out_vertical_just_before_end_is_fully_black():
+def _palette(get, coords):
+    return {get(x, y) for x, y in coords}
+
+
+def test_wipe_out_vertical_near_end_shows_only_black_and_sweep_colour():
     canvas = HeadlessCanvas(160, 16)
     WipeOutVertical().frame_at(0.999, canvas, _filling_widget(160, 16), _widget())
-    assert all(
-        canvas.get_pixel(x, y) == (0, 0, 0) for x in (0, 80, 159) for y in range(16)
-    )
+    seen = _palette(canvas.get_pixel, [(x, y) for x in (0, 80, 159) for y in range(16)])
+    assert seen == {(0, 0, 0), (255, 0, 0)}, seen  # no outgoing grey, no black-only
+
+
+def test_wipe_in_near_end_shows_only_black_and_sweep_colour():
+    canvas = HeadlessCanvas(160, 16)
+    WipeIn().frame_at(0.999, canvas, _filling_widget(160, 16), _widget())
+    seen = _palette(canvas.get_pixel, [(x, 8) for x in range(160)])
+    assert seen == {(0, 0, 0), (255, 255, 0)}, seen
 
 
 # ---------------------------------------------------------------------------
@@ -184,36 +201,43 @@ def test_wipe_out_vertical_just_before_end_is_fully_black():
 def _banded():
     """256×64 real panel wrapped at scale=2, content_height=16 → 16-row
     letterbox bands at rows 0..15 and 48..63 (same shape as
-    TestBandedCanvasFullPanel in test_transitions.py)."""
+    TestBandedCanvasFullPanel in test_transitions.py). Both bands carry a
+    sentinel so an un-erased band reads as a failure, not as default black."""
     from led_ticker.scaled_canvas import ScaledCanvas
 
     real = HeadlessCanvas(256, 64)
     for x in range(256):
-        for y in range(16):
+        for y in (*range(16), *range(48, 64)):
             real.SetPixel(x, y, 100, 100, 100)
     return real, ScaledCanvas(real, scale=2, content_height=16)
 
 
-def test_wipe_in_blackout_covers_top_band_on_banded_wrapper():
+BAND_ROWS = (*range(16), *range(48, 64))
+
+
+def test_wipe_in_midway_erases_both_letterbox_bands_and_lines_span_them():
     real, wrapper = _banded()
     WipeIn().frame_at(0.5, wrapper, _widget(), _widget())
-    b = progress_to_b(0.5, 256)
+    b = progress_to_b(0.5, 256, True)
     assert b > 0
+    erased_cols = (*range(b), *range(256 - b, 256))
     assert all(
-        real.get_pixel(x, y) == (0, 0, 0)
-        for x in (*range(b), *range(256 - b, 256))
-        for y in range(16)
-    ), "wipe_in blackout did not reach the top letterbox band"
-    # Top band outside the erased spans is untouched (no blanket Clear).
+        real.get_pixel(x, y) == (0, 0, 0) for x in erased_cols for y in BAND_ROWS
+    ), "wipe_in blackout did not reach both letterbox bands"
+    # Sweep lines run the full physical height, letterbox rows included.
+    for y in (4, 32, 60):
+        assert real.get_pixel(b, y) == (255, 255, 0)
+        assert real.get_pixel(255 - b, y) == (255, 255, 0)
+    # Bands outside the erased spans are untouched (no blanket Clear).
     assert real.get_pixel(128, 4) == (100, 100, 100)
+    assert real.get_pixel(128, 60) == (100, 100, 100)
 
 
-def test_wipe_out_vertical_blackout_covers_letterbox_rows_near_end():
+def test_wipe_out_vertical_near_end_erases_letterbox_rows_on_banded_wrapper():
     real, wrapper = _banded()
     WipeOutVertical().frame_at(0.999, wrapper, _widget(), _widget())
-    assert all(
-        real.get_pixel(x, y) == (0, 0, 0) for x in (0, 128, 255) for y in range(64)
-    )
+    seen = _palette(real.get_pixel, [(x, y) for x in (0, 128, 255) for y in range(64)])
+    assert seen == {(0, 0, 0), (255, 0, 0)}, seen
 
 
 def test_sweep_line_is_two_times_scale_thick_on_scale4():

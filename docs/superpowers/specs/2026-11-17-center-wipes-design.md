@@ -41,11 +41,15 @@ fronts; `t >= 1.0` draws incoming only. Identical pattern to `wipe.py`.
 | `wipe_out_vertical` | center row toward top and bottom | rows | red |
 
 **Center math (odd and even sizes).** Let `n` be the swept extent (`rw` or
-`rh`), `half = (n + 1) // 2`, `b = min(int(t * (half + 1)), half)`. For `in`,
-the erased rects are `[0, b)` and `[n - b, n)`; fully erased when `2 * b >= n`.
-For `out`, the band is `[n // 2 - b, n // 2 + b + (n % 2))`, so on an odd
-extent the center pixel belongs to the band from `b = 0` onward and the two
-fronts never leave a 1-px gap or overlap. Pinned by a test over `n in (15, 16, 159, 160, 256)` that
+`rh`). The front travel `b` is linear in `t` and capped at
+`front_cap = (n - 1) // 2` inward, `n // 2 - 1` outward, with multiplier
+`cap + 1` so `b == cap` for any `t` near 1.0. For `in`, the erased rects are
+`[0, b)` and `[n - b, n)`. For `out`, the band is `[n // 2 - b, n // 2 + b + (n % 2))`,
+so on an odd extent the center pixel belongs to the band from `b = 1` onward.
+At the cap a 1-2 px sliver is still kept and the sweep lines cover all of it,
+so the frame before the cut is black plus sweep colour, never a fully black
+panel (cycle-1 review: capping at `half` left the vertical variants black for
+the last third of an `ease_out` run). Pinned by a test over `n in (15, 16, 159, 160, 256)` that
 asserts erased ∪ kept == all pixels and erased ∩ kept == ∅ at every `b`.
 
 **Scale handling.** `_phys(canvas)` for real width/height/scale/y-offset; all

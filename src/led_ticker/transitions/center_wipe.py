@@ -17,7 +17,10 @@ letterbox bands of a banded ``ScaledCanvas`` are erased too.
 Odd-center rule: for an odd extent the single center pixel belongs to the
 ``out`` band from the first erasing frame, and the two ``in`` fronts merge
 into one span once they meet, so the fronts can never leave a 1-px gap or
-overlap. Pinned by the partition test in ``tests/test_center_wipe.py``.
+overlap. The front travel is capped (:func:`front_cap`) one step before the
+fronts would swallow the whole axis, so the frame before the cut shows the
+sweep colour where they meet rather than a black panel. Pinned by the
+partition and cap tests in ``tests/test_center_wipe.py``.
 """
 
 from typing import Any
@@ -29,15 +32,29 @@ from led_ticker.transitions.wipe import _BaseWipe
 Span = tuple[int, int]  # half-open [lo, hi) along the swept axis
 
 
-def progress_to_b(t: float, n: int) -> int:
+def front_cap(n: int, inward: bool) -> int:
+    """Largest front travel at which a 1-2 px sliver of the axis is still
+    kept: ``(n - 1) // 2`` inward, ``n // 2 - 1`` outward.
+
+    The fronts never swallow the whole axis. At the cap the kept sliver is
+    entirely covered by the sweep lines, so the last frame before the cut is
+    black + sweep colour, never a fully black panel (cycle-1 review finding:
+    with the cap at ``half`` the vertical variants spent the final third of
+    an ``ease_out`` run on an all-black panel).
+    """
+    return (n - 1) // 2 if inward else n // 2 - 1
+
+
+def progress_to_b(t: float, n: int, inward: bool) -> int:
     """Front travel in pixels for progress ``t`` over extent ``n``.
 
-    ``half = (n + 1) // 2`` is the travel at which both directions are fully
-    erased; the ``half + 1`` multiplier guarantees ``b == half`` for any
-    ``t`` close to 1.0 (so no sliver of outgoing survives at ``t = 0.999``).
+    Linear in ``t`` with a ``cap + 1`` multiplier so ``b == cap`` for any
+    ``t`` close to 1.0: no outgoing pixel survives at ``t = 0.999``.
     """
-    half = (n + 1) // 2
-    return min(int(t * (half + 1)), half)
+    cap = front_cap(n, inward)
+    if cap <= 0:
+        return 0
+    return min(int(t * (cap + 1)), cap)
 
 
 def center_spans(n: int, b: int, inward: bool) -> tuple[list[Span], list[Span]]:
@@ -113,7 +130,7 @@ class _CenterWipe(_BaseWipe):
 
         along_x = self.AXIS == "x"
         n = rw if along_x else rh
-        b = progress_to_b(t, n)
+        b = progress_to_b(t, n, self.INWARD)
         erased, _kept = center_spans(n, b, self.INWARD)
 
         # Black out the erased spans across the FULL physical cross extent so

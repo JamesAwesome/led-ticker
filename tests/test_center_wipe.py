@@ -174,3 +174,62 @@ def test_wipe_out_vertical_just_before_end_is_fully_black():
     assert all(
         canvas.get_pixel(x, y) == (0, 0, 0) for x in (0, 80, 159) for y in range(16)
     )
+
+
+# ---------------------------------------------------------------------------
+# Task 3: banded / scaled canvas coverage (physical-resolution geometry)
+# ---------------------------------------------------------------------------
+
+
+def _banded():
+    """256×64 real panel wrapped at scale=2, content_height=16 → 16-row
+    letterbox bands at rows 0..15 and 48..63 (same shape as
+    TestBandedCanvasFullPanel in test_transitions.py)."""
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    real = HeadlessCanvas(256, 64)
+    for x in range(256):
+        for y in range(16):
+            real.SetPixel(x, y, 100, 100, 100)
+    return real, ScaledCanvas(real, scale=2, content_height=16)
+
+
+def test_wipe_in_blackout_covers_top_band_on_banded_wrapper():
+    real, wrapper = _banded()
+    WipeIn().frame_at(0.5, wrapper, _widget(), _widget())
+    b = progress_to_b(0.5, 256)
+    assert b > 0
+    assert all(
+        real.get_pixel(x, y) == (0, 0, 0)
+        for x in (*range(b), *range(256 - b, 256))
+        for y in range(16)
+    ), "wipe_in blackout did not reach the top letterbox band"
+    # Top band outside the erased spans is untouched (no blanket Clear).
+    assert real.get_pixel(128, 4) == (100, 100, 100)
+
+
+def test_wipe_out_vertical_blackout_covers_letterbox_rows_near_end():
+    real, wrapper = _banded()
+    WipeOutVertical().frame_at(0.999, wrapper, _widget(), _widget())
+    assert all(
+        real.get_pixel(x, y) == (0, 0, 0) for x in (0, 128, 255) for y in range(64)
+    )
+
+
+def test_sweep_line_is_two_times_scale_thick_on_scale4():
+    from led_ticker.scaled_canvas import ScaledCanvas
+
+    real = HeadlessCanvas(256, 64)
+    wrapper = ScaledCanvas(real, scale=4, content_height=16)
+    WipeOut().frame_at(0.5, wrapper, _widget(), _widget())
+    red_cols = [x for x in range(256) if real.get_pixel(x, 32) == (255, 0, 0)]
+    # Two runs of exactly 8 (= 2 * scale) columns, one per front.
+    assert len(red_cols) == 16
+    left, right = red_cols[:8], red_cols[8:]
+    assert left == list(range(left[0], left[0] + 8))
+    assert right == list(range(right[0], right[0] + 8))
+    # Lines flank the band on the kept side, at full physical height.
+    assert real.get_pixel(left[-1] + 1, 32) == (0, 0, 0)
+    assert real.get_pixel(right[0] - 1, 32) == (0, 0, 0)
+    assert real.get_pixel(left[0], 0) == (255, 0, 0)
+    assert real.get_pixel(left[0], 63) == (255, 0, 0)

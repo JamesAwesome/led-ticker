@@ -173,3 +173,18 @@ def test_analyze_footage_take_must_be_positive(mid_loop_footage):
 def test_footage_reports_peak_luma(mid_loop_footage):
     f = analyze_footage(mid_loop_footage)
     assert 230 < f.peak_luma <= 255  # slate mean over the padded crop
+
+
+def test_find_panel_bbox_ignores_small_flickering_clutter():
+    """Real footage (2026-11-17 probe): a flickering candle lamp top-right,
+    a figurine left of the panel and a leaf garland below all change AND
+    get bright, but each is a small blob; the panel is the one dense band."""
+    dark = gray(320, 180, 0)
+    lit = bytearray(dark)
+    rect(lit, 320, BBox(100, 80, 100, 10), 255)  # the panel
+    rect(lit, 320, BBox(300, 40, 15, 30), 255)  # candle lamp, top-right
+    rect(lit, 320, BBox(70, 78, 12, 14), 255)  # figurine, gap of 18 px to panel
+    rect(lit, 320, BBox(120, 120, 40, 8), 255)  # garland below
+    b = find_panel_bbox([bytes(dark), bytes(lit), bytes(dark), bytes(lit)], 320, 180)
+    assert (b.x, b.w) == (96, 108)
+    assert (b.y, b.h) == (80, 10)

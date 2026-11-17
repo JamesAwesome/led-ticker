@@ -145,6 +145,35 @@ def find_slates(
     return slates
 
 
+def _dense_run(
+    counts: list[int], *, frac: float = 0.5, gap: int = 0
+) -> tuple[int, int]:
+    """Longest run of indices whose count is >= frac*max(counts), tolerating
+    up to `gap` consecutive sub-threshold indices inside a run. Returns
+    (first, last) inclusive."""
+    cut = max(counts) * frac
+    best = (0, -1)
+    start = None
+    miss = 0
+    last_hit = -1
+    for i, c in enumerate(counts):
+        if c >= cut:
+            if start is None:
+                start = i
+            last_hit = i
+            miss = 0
+        elif start is not None:
+            miss += 1
+            if miss > gap:
+                if last_hit - start > best[1] - best[0]:
+                    best = (start, last_hit)
+                start = None
+                miss = 0
+    if start is not None and last_hit - start > best[1] - best[0]:
+        best = (start, last_hit)
+    return best
+
+
 def find_panel_bbox(
     frames: list[bytes],
     width: int,
@@ -154,23 +183,39 @@ def find_panel_bbox(
     bright: int = 200,
     pad_frac: float = 0.04,
 ) -> BBox:
-    """Bounding box of pixels that both CHANGE (max-min > threshold) and get
+    """Box of the panel: pixels that both CHANGE (max-min > threshold) and get
     BRIGHT at some point (max > bright). Changing-only would include the
     slate's glow on the shelf and any transient (a hand); bright-only would
-    include the window. The panel is the only thing that is both."""
+    include the window. Small clutter that is both (a flickering candle, a
+    figurine the slate glow lights up, a garland) is dropped by projection:
+    the panel is the densest contiguous band of qualifying rows, then the
+    densest contiguous run of columns within that band, then rows again
+    within those columns."""
     hi = bytearray(frames[0])
     lo = bytearray(frames[0])
     for f in frames[1:]:
         hi = bytearray(max(a, b) for a, b in zip(hi, f, strict=True))
         lo = bytearray(min(a, b) for a, b in zip(lo, f, strict=True))
-    x0, y0, x1, y1 = width, height, -1, -1
-    for i, (a, b) in enumerate(zip(hi, lo, strict=True)):
-        if a > bright and a - b > threshold:
-            y, x = divmod(i, width)
-            x0, x1 = min(x0, x), max(x1, x)
-            y0, y1 = min(y0, y), max(y1, y)
-    if x1 < 0:
+    mask = bytes(
+        1 if a > bright and a - b > threshold else 0
+        for a, b in zip(hi, lo, strict=True)
+    )
+    if not any(mask):
         raise NoSlateError(_NO_SLATE_MSG)
+    gap_x = max(1, round(width * 0.01))
+    gap_y = max(1, round(height * 0.01))
+
+    def rows(x0: int, x1: int) -> list[int]:
+        return [sum(mask[y * width + x0 : y * width + x1 + 1]) for y in range(height)]
+
+    def cols(y0: int, y1: int) -> list[int]:
+        return [
+            sum(mask[y * width + x] for y in range(y0, y1 + 1)) for x in range(width)
+        ]
+
+    y0, y1 = _dense_run(rows(0, width - 1), gap=gap_y)
+    x0, x1 = _dense_run(cols(y0, y1), gap=gap_x)
+    y0, y1 = _dense_run(rows(x0, x1), gap=gap_y)
     w, h = x1 - x0 + 1, y1 - y0 + 1
     px, py = round(w * pad_frac), round(h * pad_frac)
     x0, y0 = max(0, x0 - px), max(0, y0 - py)

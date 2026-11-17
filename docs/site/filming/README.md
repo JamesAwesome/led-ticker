@@ -83,15 +83,20 @@ RESTORE_FIRST=1`; `make film-restore` at the end.
 ## Output
 
 `film clip` writes, per `# film:` name: `<name>.gif` (≤ 2.5 MB, hero ≤ 4 MB;
-ladder 800px/20fps → 640/20 → 640/15, then reported as OVER BUDGET),
-`<name>.contact.png` (first / middle / last frame for review), and
-`<name>.mp4` for names passed in `MP4=`. For the YouTube loop use
-`MP4=youtube MP4_ONLY=1 FULL_FRAME=1`: one uncropped mp4, no GIF encodes. `film clip`
-prints the detected panel box (analysis and source pixels), the peak slate luma and the
-anchor count before writing anything; if the box is wrong pass `CROP=x:y:w:h` in
-analysis (320-wide) pixels, if slates are missed lower `SLATE_THRESHOLD`, if the box
-bleeds into the room raise `CHANGE_THRESHOLD`. Docs media goes to
-`docs/site/public/filmed/`; YouTube output stays in `captures/` (gitignored).
+denoised, ladder 800px/20fps → 640/20 → 640/15 → 640/12 → 560/12 → 480/10,
+then reported as OVER BUDGET), `<name>.contact.png` (first / middle / last
+frame for review), and for names passed in `MP4=` both `<name>.mp4` (crf 18,
+archival) and `<name>.web.mp4` (1280 wide, crf 24, ≈ 2 MB for the 30 s hero —
+the docs-site hero is this video, not the GIF; real footage never fits a
+30 s loop in 4 MB of GIF). For the YouTube loop use
+`MP4=youtube MP4_ONLY=1 FULL_FRAME=1`: one uncropped mp4, no GIF encodes.
+`film clip` prints the detected panel box (analysis and source pixels), the
+peak slate luma and the anchor count before writing anything, and warns if a
+rival column run came close to the pick; if the box is wrong pass
+`CROP=x:y:w:h` in analysis (320-wide) pixels, if slates are missed lower
+`SLATE_THRESHOLD`, if the box bleeds into the room raise `CHANGE_THRESHOLD`.
+Docs media goes to `docs/site/public/filmed/`; YouTube output stays in
+`captures/` (gitignored).
 
 ## If something goes wrong
 

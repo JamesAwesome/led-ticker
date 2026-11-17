@@ -2,6 +2,14 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Superseded in part by antagonist review cycles 1–3** (ledger:
+> `docs/superpowers/reviews/2026-11-17-center-wipes-antagonist.md`). As shipped:
+> `progress_to_b(t, n, inward)` is three-arg and capped by `front_cap(n, inward)`
+> (`(n - 1) // 2` inward, `n // 2 - 1` outward) instead of `half`; frame 0 paints the
+> sweep lines where the fronts start (not empty at `b == 0`); sweep lines are one
+> `SubFill` per span, not per-pixel `SetPixel`; `transitions/__init__.py` gained the
+> four re-exports. The task text below is the pre-review record.
+
 **Goal:** Four new erase-style wipe transitions whose sweep fronts start or end at the panel center: `wipe_in`, `wipe_out`, `wipe_in_vertical`, `wipe_out_vertical`.
 
 **Architecture:** One new auto-discovered module `src/led_ticker/transitions/center_wipe.py` holding pure span geometry (`progress_to_b`, `center_spans`, `sweep_line_spans`), a private `_CenterWipe(_BaseWipe)` parametrized by `axis` and `inward`, and four thin registered subclasses. Geometry is computed in physical pixels via `_phys` so letterbox bands are erased, same as the existing wipes. No existing transition file changes.

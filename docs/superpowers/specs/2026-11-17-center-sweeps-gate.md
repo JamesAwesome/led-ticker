@@ -1,7 +1,6 @@
 # Gate: item 1, center-in/out and vertical roll + wipe variants
 
-Roadmap: `2026-11-15-effects-roadmap.md`, item 1. Status: **gate open, awaiting
-James's pick of approach and answer to "wanted".** No code written. Untracked.
+Roadmap: `2026-11-15-effects-roadmap.md`, item 1. Status: **closed 2026-11-17, outcome build reduced (approach A), picked by James.**
 
 ## 1. What the audit asked for
 

@@ -151,8 +151,28 @@ def test_t0_draws_outgoing_only_t1_incoming_only(cls):
     assert out.draw.called and not inc.draw.called
     out.reset_mock()
     inc.reset_mock()
-    cls().frame_at(1.0, canvas, out, inc)
+    cls().frame_at(1.0, canvas, out, inc, outgoing_scroll_pos=-37)
     assert inc.draw.called and not out.draw.called
+    # The incoming lands at rest, never at the outgoing's stopped scroll
+    # position (a one-tick jump on the sign otherwise).
+    assert inc.draw.call_args.kwargs["cursor_pos"] == 0
+
+
+@pytest.mark.parametrize("cls", ALL)
+def test_frame_zero_paints_start_lines_through_frame_at(cls):
+    canvas = HeadlessCanvas(160, 16)
+    cls().frame_at(0.0, canvas, _filling_widget(160, 16), _widget())
+    along_x = cls.AXIS == "x"
+    n = 160 if along_x else 16
+    expected = _cover(sweep_line_spans(n, 0, cls.INWARD, thick=2))
+    assert expected
+
+    def px(i):
+        return canvas.get_pixel(i, 8) if along_x else canvas.get_pixel(80, i)
+
+    lit = {i for i in range(n) if px(i) == cls.DEFAULT_COLOR}
+    assert lit == expected, cls.__name__
+    assert all(px(i) == (9, 9, 9) for i in set(range(n)) - expected), cls.__name__
 
 
 @pytest.mark.parametrize("cls", ALL)

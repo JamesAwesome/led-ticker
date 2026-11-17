@@ -1,7 +1,7 @@
 # Design: center wipes (`wipe_in`, `wipe_out`, vertical twins)
 
 Roadmap item 1, approach A (build reduced). Gate: `2026-11-17-center-sweeps-gate.md`.
-Status: short design, awaiting James's approval. Size: small change.
+Status: approved by James 2026-11-17; implemented on `center-wipes`; amended by review cycles 1–3 (see the antagonist ledger). Size: small change.
 
 ## Intent
 
@@ -84,7 +84,7 @@ not part of the PR.
 ## Tests
 
 - Registry: four names present and sorted (`test_transitions_registry.py`).
-- `t = 0` draws outgoing only, `t = 1.0` draws incoming only, for each class.
+- `t = 0` draws outgoing plus the sweep lines at the fronts' start, `t = 1.0` draws incoming only at `cursor_pos = 0`, for each class.
 - Partition test over odd and even extents (above).
 - Letterbox band coverage at banded scale 2 and full-height at scale 4 for one
   horizontal and one vertical class.

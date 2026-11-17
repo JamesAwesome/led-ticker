@@ -30,6 +30,12 @@ from led_ticker.transitions import (
     linear,
     run_transition,
 )
+from led_ticker.transitions.center_wipe import (
+    WipeIn,
+    WipeInVertical,
+    WipeOut,
+    WipeOutVertical,
+)
 from led_ticker.transitions.wipe import _BaseWipe
 
 # --- Easing ---
@@ -82,6 +88,10 @@ class TestTransitionRegistry:
             "push_random",
             "wipe_alternating",
             "wipe_random",
+            "wipe_in",
+            "wipe_out",
+            "wipe_in_vertical",
+            "wipe_out_vertical",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY, f"{name!r} not in registry"
@@ -91,7 +101,7 @@ class TestTransitionRegistry:
             assert arcade_name not in _TRANSITION_REGISTRY, (
                 f"{arcade_name!r} is still in core — should be in led-ticker-arcade"
             )
-        assert len(_TRANSITION_REGISTRY) == 17
+        assert len(_TRANSITION_REGISTRY) == 21
 
     def test_get_unknown_raises(self):
         # get_transition_class now delegates to explain_unknown_transition,
@@ -1998,6 +2008,10 @@ class TestRunTransitionCrossScale:
             PushAlternating(),
             SplitHorizontal(),
             Scroll(),
+            WipeIn(),
+            WipeOut(),
+            WipeInVertical(),
+            WipeOutVertical(),
         ]
         for tr in hard_edged:
             assert tr.scale_switch_at == 1.0, type(tr).__name__

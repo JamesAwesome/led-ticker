@@ -506,6 +506,12 @@ for _mod_info in pkgutil.iter_modules(
 del importlib, pkgutil, _transitions_pkg
 
 # --- Re-export all transition classes ---
+from led_ticker.transitions.center_wipe import (  # noqa: F401
+    WipeIn,
+    WipeInVertical,
+    WipeOut,
+    WipeOutVertical,
+)
 from led_ticker.transitions.effects import (  # noqa: F401
     ColorFlash,
     Cut,

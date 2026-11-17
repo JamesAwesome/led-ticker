@@ -72,6 +72,7 @@ src/led_ticker/
     __init__.py         # Registry, easing, run_transition()
     push.py             # PushLeft/Right/Up/Down, PushAlternating, PushRandom
     wipe.py             # WipeLeft/Right/Up/Down, WipeAlternating, WipeRandom
+    center_wipe.py      # WipeIn/Out (+ _vertical): erase-style center sweeps over _BaseWipe
     effects.py          # Cut, ColorFlash, Dissolve, SplitHorizontal, Scroll
                         # (the nyancat/pokeball/pacman/sailor_moon sprite-trail
                         #  families ship in the led-ticker-plugins monorepo)
@@ -204,7 +205,7 @@ These constraints were learned through extensive real-hardware testing. They are
 30+ transitions registered. Full catalogue + per-family knobs: <https://docs.ledticker.dev/transitions/>. Categories:
 
 - **Push** — outgoing + incoming move together (`push_left/right/up/down`, `push_alternating`, `push_random`). Use draw-blackout-draw to avoid DrawText overlap; receive `outgoing_scroll_pos` from `_swap_and_scroll` so they continue from where text stopped scrolling.
-- **Wipe** — stationary outgoing + colored sweep line erases (`wipe_left/right/up/down`, `wipe_alternating`, `wipe_random`). Draw outgoing at pos=0, SetPixel-blackout regions, draw sweep on top, snap to incoming at t=1.0. Blackouts erase `outgoing.draw()`'s text bleed (DrawText cannot be clipped) — they are NOT redundant against `Clear()`.
+- **Wipe** — stationary outgoing + colored sweep line erases (`wipe_left/right/up/down`, `wipe_alternating`, `wipe_random`; center variants `wipe_in/out` and `wipe_in/out_vertical` in `center_wipe.py`, whose two fronts are capped one step short of swallowing the axis so the last frame is never all black). Draw outgoing at pos=0, SubFill-blackout regions, draw sweep on top, snap to incoming at t=1.0. Blackouts erase `outgoing.draw()`'s text bleed (DrawText cannot be clipped) — they are NOT redundant against `Clear()`.
 - **Sprite-trail** — `nyancat`, `pokeball`, `pacman`, `sailor_moon` ship as per-family packages in the **led-ticker-plugins** monorepo (`transition = "<family>.forward"`, plus `.reverse`/`.alternating`; nyancat/pokeball are hi-res). A bare `transition = "nyancat"` (etc.) raises a migration hint via `_TRANSITION_MIGRATION` pointing at the new `<family>.<variant>` type + the monorepo install line. See "Hi-res transition infra" above for the public surface they consume.
 - **Special** — `cut` (instant), `color_flash` (white flash), `dissolve` (seeded RNG scatter), `split` (center-outward black band), `scroll` (seamless continuous scroll with bullet separator).
 

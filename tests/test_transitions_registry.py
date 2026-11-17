@@ -11,7 +11,16 @@ def test_list_transition_names_returns_sorted_list():
 
 def test_list_transition_names_includes_core_transitions():
     names = list_transition_names()
-    for expected in ("cut", "wipe_left", "push_right", "dissolve"):
+    for expected in (
+        "cut",
+        "wipe_left",
+        "push_right",
+        "dissolve",
+        "wipe_in",
+        "wipe_out",
+        "wipe_in_vertical",
+        "wipe_out_vertical",
+    ):
         assert expected in names, f"{expected!r} not in registry"
 
 

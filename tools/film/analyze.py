@@ -41,6 +41,7 @@ class Footage:
     slates: list[Interval]
     anchors: list[Interval]
     segments: list[Interval]
+    peak_luma: float  # brightest crop-mean seen; a slate should sit near 255
 
 
 class NoSlateError(RuntimeError):
@@ -66,7 +67,8 @@ def decode_gray(
             "-of",
             "csv=p=0",
             str(path),
-        ]
+        ],
+        timeout=60.0,
     )
     if probe.returncode != 0:
         raise RuntimeError(
@@ -85,7 +87,8 @@ def decode_gray(
             "-f",
             "rawvideo",
             "-",
-        ]
+        ],
+        timeout=1800.0,
     )
     if out.returncode != 0:
         raise RuntimeError(
@@ -148,8 +151,13 @@ def find_panel_bbox(
     height: int,
     *,
     threshold: int = 60,
+    bright: int = 200,
     pad_frac: float = 0.04,
 ) -> BBox:
+    """Bounding box of pixels that both CHANGE (max-min > threshold) and get
+    BRIGHT at some point (max > bright). Changing-only would include the
+    slate's glow on the shelf and any transient (a hand); bright-only would
+    include the window. The panel is the only thing that is both."""
     hi = bytearray(frames[0])
     lo = bytearray(frames[0])
     for f in frames[1:]:
@@ -157,7 +165,7 @@ def find_panel_bbox(
         lo = bytearray(min(a, b) for a, b in zip(lo, f, strict=True))
     x0, y0, x1, y1 = width, height, -1, -1
     for i, (a, b) in enumerate(zip(hi, lo, strict=True)):
-        if a - b > threshold:
+        if a > bright and a - b > threshold:
             y, x = divmod(i, width)
             x0, x1 = min(x0, x), max(x1, x)
             y0, y1 = min(y0, y), max(y1, y)
@@ -175,11 +183,20 @@ def segments_between(slates: list[Interval], total_frames: int) -> list[Interval
 
 
 def analyze_footage(
-    frames: GrayFrames, *, crop: BBox | None = None, take: int = 1
+    frames: GrayFrames,
+    *,
+    crop: BBox | None = None,
+    take: int = 1,
+    slate_threshold: float = 180.0,
+    change_threshold: int = 60,
 ) -> Footage:
-    bbox = crop or find_panel_bbox(frames.frames, frames.width, frames.height)
+    if take < 1:
+        raise ValueError(f"take must be >= 1, got {take}")
+    bbox = crop or find_panel_bbox(
+        frames.frames, frames.width, frames.height, threshold=change_threshold
+    )
     luma = [mean_luma(f, bbox, frames.width) for f in frames.frames]
-    slates = find_slates(luma, frames.fps)
+    slates = find_slates(luma, frames.fps, threshold=slate_threshold)
     min_anchor = round(ANCHOR_SECONDS * frames.fps)
     anchors = [s for s in slates if s.end - s.start >= min_anchor]
     if len(anchors) < take + 1:
@@ -190,4 +207,4 @@ def analyze_footage(
     first, last = anchors[take - 1], anchors[take]
     inner = [s for s in slates if first.end <= s.start and s.end <= last.start]
     segments = segments_between([first, *inner, last], len(frames.frames))
-    return Footage(frames, bbox, slates, anchors, segments)
+    return Footage(frames, bbox, slates, anchors, segments, max(luma))

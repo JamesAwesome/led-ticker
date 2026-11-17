@@ -33,7 +33,7 @@ def _list_argv() -> list[str]:
 
 def list_devices(runner: Runner) -> list[str]:
     """Video device names, in index order (ffmpeg prints them to stderr and exits 1)."""
-    res = runner.run(_list_argv())
+    res = runner.run(_list_argv(), timeout=30.0)
     names: list[str] = []
     in_video = False
     for line in res.stderr.decode(errors="replace").splitlines():
@@ -98,8 +98,12 @@ def record(
         listing = ", ".join(repr(d) for d in devices) or "(none)"
         raise DeviceNotFound(f"video device {device!r} not found; available: {listing}")
     out.parent.mkdir(parents=True, exist_ok=True)
+    print(
+        f"recording {seconds:g} s from {device!r} at {size}@{fps} -> {out}", flush=True
+    )
     res = runner.run(
-        record_argv(devices.index(device), out, seconds, size=size, fps=fps)
+        record_argv(devices.index(device), out, seconds, size=size, fps=fps),
+        timeout=seconds + 60.0,
     )
     if res.returncode != 0:
         raise RuntimeError(

@@ -1,7 +1,7 @@
 # Smallsign filming config — YOUTUBE loop (3-5 min, the live sign's shape with public copy).
 # Deploy:  make film-deploy CONFIG=docs/site/filming/youtube.toml
 # Record:  make film-record OUT=captures/youtube.mp4 SECONDS=<two loops; see README>
-# Clip:    make film-clip IN=captures/youtube.mp4 MANIFEST=docs/site/filming/youtube.toml OUT=captures/youtube-out/ MP4=youtube
+# Clip:    make film-clip IN=captures/youtube.mp4 MANIFEST=docs/site/filming/youtube.toml OUT=captures/youtube-out/ MP4=youtube MP4_ONLY=1 FULL_FRAME=1
 # Needs led-ticker-flair, led-ticker-weather (WEATHERAPI_KEY in .env), led-ticker-rss on the sign.
 # Live data (weather, RSS) is fine here: this footage is a one-off upload, not re-filmable docs media.
 # Sports section deliberately omitted (spec open question 4). One slate at the top only (loop anchor).
@@ -18,6 +18,9 @@ hot_reload = true
 
 [busy_light]
 enabled = false
+
+# The status board must be on: `film deploy` waits on status.json to know the display is up.
+[web]
 
 [title]
 delay = 5

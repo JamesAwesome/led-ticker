@@ -147,3 +147,55 @@ def test_cli_bad_crop_is_usage_error(monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.main(["clip", "in.mp4", "m.toml", "out/", "--crop", "1:2:3"])
     assert e.value.code == 2
+
+
+def test_cli_session_deploy_failure_after_mutation_still_restores(monkeypatch):
+    calls = []
+
+    def deploy_times_out(*a, **k):
+        calls.append("deploy")
+        raise TimeoutError("display not up; run film restore")
+
+    monkeypatch.setattr(cli, "deploy", deploy_times_out)
+    monkeypatch.setattr(cli, "record", lambda *a, **k: calls.append("record"))
+    monkeypatch.setattr(
+        cli, "restore", lambda *a, **k: calls.append("restore") or "bak"
+    )
+    monkeypatch.setattr(cli, "default_runner", lambda: FakeRunner({}))
+    assert cli.main(["session", "hero.toml", "o.mp4", "--seconds", "5"]) == 1
+    assert calls == ["deploy", "restore"]
+
+
+def test_cli_clip_full_frame_and_mp4_only_and_thresholds(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(cli, "clip_footage", lambda *a, **kw: seen.update(kw) or [])
+    monkeypatch.setattr(cli, "default_runner", lambda: FakeRunner({}))
+    rc = cli.main(
+        [
+            "clip",
+            "in.mp4",
+            "m.toml",
+            "out/",
+            "--full-frame",
+            "--mp4-only",
+            "--mp4",
+            "youtube",
+            "--slate-threshold",
+            "150",
+            "--change-threshold",
+            "40",
+        ]
+    )
+    assert rc == 0
+    assert seen["full_frame"] is True and seen["gif"] is False
+    assert seen["slate_threshold"] == 150.0 and seen["change_threshold"] == 40
+
+
+def test_cli_missing_file_is_exit_1_not_traceback(capsys, monkeypatch):
+    def missing(*a, **k):
+        raise FileNotFoundError("nope.toml")
+
+    monkeypatch.setattr(cli, "deploy", missing)
+    monkeypatch.setattr(cli, "default_runner", lambda: FakeRunner({}))
+    assert cli.main(["deploy", "nope.toml"]) == 1
+    assert "nope.toml" in capsys.readouterr().err

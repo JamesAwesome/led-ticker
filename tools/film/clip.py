@@ -5,18 +5,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.film.analyze import (
-    BBox,
-    Footage,
-    GrayFrames,
-    Interval,
-    analyze_footage,
-    decode_gray,
-)
+from tools.film.analyze import BBox, Footage, Interval, analyze_footage, decode_gray
 from tools.film.manifest import film_names
 from tools.film.runner import Runner
 
 HERO_MAX_BYTES = 4_000_000
+ENCODE_TIMEOUT = 1800.0  # one two-pass palette encode of a long 4K segment
 LADDER: tuple[tuple[int, int], ...] = ((800, 20), (640, 20), (640, 15))  # (width, fps)
 
 
@@ -146,7 +140,8 @@ def emit_gif_within_budget(
     for width, fps in LADDER:
         rung = ClipSettings(width, fps, settings.max_bytes, settings.trim_frames)
         res = runner.run(
-            gif_argv(src, out, seg, fps_src, bbox, analysis_width, src_width, rung)
+            gif_argv(src, out, seg, fps_src, bbox, analysis_width, src_width, rung),
+            timeout=ENCODE_TIMEOUT,
         )
         if res.returncode != 0:
             raise RuntimeError(
@@ -159,19 +154,56 @@ def emit_gif_within_budget(
     return result
 
 
-def contact_sheet(frames: GrayFrames, seg: Interval, bbox: BBox, out: Path) -> None:
-    from PIL import Image  # Pillow is a core dep; imported lazily to keep the CLI light
+def contact_sheet_argv(
+    src: Path,
+    out: Path,
+    seg: Interval,
+    fps_src: float,
+    bbox: BBox | None,
+    analysis_width: int,
+    src_width: int,
+) -> list[str]:
+    """Three COLOR frames (start / middle / end of the window) from the source,
+    cropped like the GIF, stacked vertically — for judging exposure and color."""
+    ss, t = _window(seg, fps_src, 1)
+    crop = f"{_crop_filter(bbox, analysis_width, src_width)}," if bbox else ""
+    chain = f"{crop}fps={3 / float(t):.6f},scale=800:-1:flags=lanczos,tile=1x3"
+    return [
+        "ffmpeg",
+        "-v",
+        "error",
+        "-y",
+        "-ss",
+        ss,
+        "-t",
+        t,
+        "-i",
+        str(src),
+        "-filter_complex",
+        chain,
+        "-frames:v",
+        "1",
+        str(out),
+    ]
 
-    picks = [seg.start, (seg.start + seg.end) // 2, max(seg.start, seg.end - 1)]
-    tiles = []
-    for i in picks:
-        img = Image.frombytes("L", (frames.width, frames.height), frames.frames[i])
-        img = img.crop((bbox.x, bbox.y, bbox.x + bbox.w, bbox.y + bbox.h))
-        tiles.append(img.resize((bbox.w * 4, bbox.h * 4), Image.Resampling.NEAREST))
-    sheet = Image.new("L", (bbox.w * 4, bbox.h * 4 * 3 + 8), 60)
-    for n, tile in enumerate(tiles):
-        sheet.paste(tile, (0, n * (bbox.h * 4 + 4)))
-    sheet.save(out)
+
+def contact_sheet(
+    src: Path,
+    out: Path,
+    seg: Interval,
+    fps_src: float,
+    bbox: BBox | None,
+    analysis_width: int,
+    src_width: int,
+    runner: Runner,
+) -> None:
+    res = runner.run(
+        contact_sheet_argv(src, out, seg, fps_src, bbox, analysis_width, src_width),
+        timeout=ENCODE_TIMEOUT,
+    )
+    if res.returncode != 0:
+        err = res.stderr.decode(errors="replace")
+        raise RuntimeError(f"ffmpeg failed writing {out}: {err}")
 
 
 def _probe_width(src: Path, runner: Runner) -> int:
@@ -187,8 +219,12 @@ def _probe_width(src: Path, runner: Runner) -> int:
             "-of",
             "csv=p=0",
             str(src),
-        ]
+        ],
+        timeout=60.0,
     )
+    if res.returncode != 0 or not res.stdout.strip():
+        err = res.stderr.decode(errors="replace")
+        raise RuntimeError(f"ffprobe could not read {src}: {err}")
     return int(res.stdout.decode().strip().split(",")[0])
 
 
@@ -203,44 +239,76 @@ def clip_footage(
     mp4_names: set[str],
     hero_budget_names: set[str],
     settings: ClipSettings,
+    full_frame: bool = False,
+    gif: bool = True,
+    slate_threshold: float = 180.0,
+    change_threshold: int = 60,
     size_of: Callable[[Path], int] = lambda p: p.stat().st_size,
 ) -> list[Path]:
     frames = decode_gray(src, runner)
-    footage = analyze_footage(frames, crop=crop, take=take)
+    footage = analyze_footage(
+        frames,
+        crop=crop,
+        take=take,
+        slate_threshold=slate_threshold,
+        change_threshold=change_threshold,
+    )
     names = film_names(manifest.read_text())
     plan = plan_clips(footage, names)
     src_width = _probe_width(src, runner)
+    b = footage.bbox
+    k = src_width / frames.width
+    print(
+        f"bbox {b.x}:{b.y}:{b.w}:{b.h} (analysis) = "
+        f"{round(b.x * k)}:{round(b.y * k)}:{round(b.w * k)}:{round(b.h * k)} "
+        "(source); "
+        f"peak luma {footage.peak_luma:.0f}; {len(footage.anchors)} anchor(s), "
+        f"{len(plan)} clip(s)"
+    )
+    crop_for_mp4 = None if full_frame else footage.bbox
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     for name, seg in plan:
-        budget = HERO_MAX_BYTES if name in hero_budget_names else settings.max_bytes
-        s = ClipSettings(settings.width, settings.fps, budget, settings.trim_frames)
-        gif = out_dir / f"{name}.gif"
-        w, fps, size = emit_gif_within_budget(
-            src,
-            gif,
-            seg,
-            frames.fps,
-            footage.bbox,
-            frames.width,
-            src_width,
-            runner=runner,
-            size_of=size_of,
-            settings=s,
-        )
-        flag = "  OVER BUDGET" if size > budget else ""
-        print(f"{name:32s} {w}x{fps}fps {size / 1e6:5.2f} MB{flag}")
-        written.append(gif)
+        if gif:
+            budget = HERO_MAX_BYTES if name in hero_budget_names else settings.max_bytes
+            s = ClipSettings(settings.width, settings.fps, budget, settings.trim_frames)
+            gif_path = out_dir / f"{name}.gif"
+            w, fps, size = emit_gif_within_budget(
+                src,
+                gif_path,
+                seg,
+                frames.fps,
+                footage.bbox,
+                frames.width,
+                src_width,
+                runner=runner,
+                size_of=size_of,
+                settings=s,
+            )
+            flag = "  OVER BUDGET" if size > budget else ""
+            print(f"{name:32s} {w}x{fps}fps {size / 1e6:5.2f} MB{flag}")
+            written.append(gif_path)
         if name in mp4_names:
             mp4 = out_dir / f"{name}.mp4"
             res = runner.run(
                 mp4_argv(
-                    src, mp4, seg, frames.fps, footage.bbox, frames.width, src_width
-                )
+                    src, mp4, seg, frames.fps, crop_for_mp4, frames.width, src_width
+                ),
+                timeout=ENCODE_TIMEOUT,
             )
             if res.returncode != 0:
                 err = res.stderr.decode(errors="replace")
                 raise RuntimeError(f"ffmpeg failed writing {mp4}: {err}")
+            print(f"{name:32s} mp4 {'full frame' if full_frame else 'cropped'}")
             written.append(mp4)
-        contact_sheet(frames, seg, footage.bbox, out_dir / f"{name}.contact.png")
+        contact_sheet(
+            src,
+            out_dir / f"{name}.contact.png",
+            seg,
+            frames.fps,
+            crop_for_mp4,
+            frames.width,
+            src_width,
+            runner,
+        )
     return written

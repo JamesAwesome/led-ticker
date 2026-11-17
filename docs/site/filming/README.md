@@ -15,7 +15,8 @@ step.
 | `features.toml` | one 4–6 s clip per effect (46 clips)               | 2.0 s anchor slate, then a 1.0 s slate before every section                   |
 | `youtube.toml`  | 3–5 min loop in the live sign's shape, public copy | one 2.0 s anchor slate (one `# film: youtube` clip, full camera frame)        |
 
-All three: smallsign `[display]`, fixed `brightness`, no `[display.schedule]`,
+All three: smallsign `[display]`, fixed `brightness`, an empty `[web]` table (the
+status board must be on: `film deploy` waits on `status.json`), no `[display.schedule]`,
 `[busy_light] enabled = false`, no file assets, Firebird Yoga copy
 (`docs/DOCS-STYLE.md` §6). Validate with `uv run led-ticker validate <file>`.
 
@@ -66,7 +67,12 @@ record 20 s, then repeat with `BRIGHTNESS=50 RESTORE_FIRST=1` and
 `film clip` writes, per `# film:` name: `<name>.gif` (≤ 2.5 MB, hero ≤ 4 MB;
 ladder 800px/20fps → 640/20 → 640/15, then reported as OVER BUDGET),
 `<name>.contact.png` (first / middle / last frame for review), and
-`<name>.mp4` for names passed in `MP4=`. Docs media goes to
+`<name>.mp4` for names passed in `MP4=`. For the YouTube loop use
+`MP4=youtube MP4_ONLY=1 FULL_FRAME=1`: one uncropped mp4, no GIF encodes. `film clip`
+prints the detected panel box (analysis and source pixels), the peak slate luma and the
+anchor count before writing anything; if the box is wrong pass `CROP=x:y:w:h` in
+analysis (320-wide) pixels, if slates are missed lower `SLATE_THRESHOLD`, if the box
+bleeds into the room raise `CHANGE_THRESHOLD`. Docs media goes to
 `docs/site/public/filmed/`; YouTube output stays in `captures/` (gitignored).
 
 ## If something goes wrong

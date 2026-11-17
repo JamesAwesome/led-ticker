@@ -215,14 +215,14 @@ plan-gif:  ## Recommended render --duration for a demo (+ cutoff guard). Usage: 
 film-deploy:  ## Back up the sign's config and deploy a filming config. Usage: make film-deploy CONFIG=docs/site/filming/hero.toml [HOST=smallsign] [BRIGHTNESS=60] [RESTORE_FIRST=1]
 	uv run python -m tools.film.cli deploy $(CONFIG) $(if $(HOST),--host $(HOST)) $(if $(BRIGHTNESS),--brightness $(BRIGHTNESS)) $(if $(RESTORE_FIRST),--restore-first)
 
-film-record:  ## Record the Insta360 Link to an mp4. Usage: make film-record OUT=captures/hero.mp4 SECONDS=60 [DEVICE="Insta360 Link"]
-	uv run python -m tools.film.cli record $(OUT) --seconds $(SECONDS) $(if $(DEVICE),--device "$(DEVICE)")
+film-record:  ## Record the Insta360 Link to an mp4. Usage: make film-record OUT=captures/hero.mp4 SECONDS=60 [DEVICE="Insta360 Link"] [SIZE=1920x1080]
+	uv run python -m tools.film.cli record $(OUT) --seconds $(SECONDS) $(if $(DEVICE),--device "$(DEVICE)") $(if $(SIZE),--size $(SIZE))
 
 film-restore:  ## Restore the sign's pre-filming config. Usage: make film-restore [HOST=smallsign] [FORCE=1]
 	uv run python -m tools.film.cli restore $(if $(HOST),--host $(HOST)) $(if $(FORCE),--force)
 
-film-clip:  ## Cut footage into cropped GIFs by slate detection. Usage: make film-clip IN=captures/hero.mp4 MANIFEST=docs/site/filming/hero.toml OUT=docs/site/public/filmed/ [TAKE=1] [CROP=x:y:w:h] [MP4=hero] [HERO=hero]
-	uv run python -m tools.film.cli clip $(IN) $(MANIFEST) $(OUT) $(if $(TAKE),--take $(TAKE)) $(if $(CROP),--crop $(CROP)) $(if $(MP4),--mp4 $(MP4)) $(if $(HERO),--hero $(HERO))
+film-clip:  ## Cut footage into cropped GIFs by slate detection. Usage: make film-clip IN=captures/hero.mp4 MANIFEST=docs/site/filming/hero.toml OUT=docs/site/public/filmed/ [TAKE=1] [CROP=x:y:w:h] [MP4=hero] [HERO=hero] [FULL_FRAME=1] [MP4_ONLY=1] [SLATE_THRESHOLD=180] [CHANGE_THRESHOLD=60]
+	uv run python -m tools.film.cli clip $(IN) $(MANIFEST) $(OUT) $(if $(TAKE),--take $(TAKE)) $(if $(CROP),--crop $(CROP)) $(if $(MP4),--mp4 $(MP4)) $(if $(HERO),--hero $(HERO)) $(if $(FULL_FRAME),--full-frame) $(if $(MP4_ONLY),--mp4-only) $(if $(SLATE_THRESHOLD),--slate-threshold $(SLATE_THRESHOLD)) $(if $(CHANGE_THRESHOLD),--change-threshold $(CHANGE_THRESHOLD))
 
 film-session:  ## deploy -> record -> restore in one go. Usage: make film-session CONFIG=docs/site/filming/hero.toml OUT=captures/hero.mp4 SECONDS=60 [HOST=smallsign] [BRIGHTNESS=60]
 	uv run python -m tools.film.cli session $(CONFIG) $(OUT) --seconds $(SECONDS) $(if $(HOST),--host $(HOST)) $(if $(BRIGHTNESS),--brightness $(BRIGHTNESS))

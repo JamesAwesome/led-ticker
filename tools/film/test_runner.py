@@ -42,3 +42,14 @@ def test_ssh_argv_uses_batch_mode():
     argv = ssh_argv("smallsign", "ls")
     assert argv[:3] == ["ssh", "-o", "BatchMode=yes"]
     assert argv[-2:] == ["smallsign", "ls"]
+
+
+def test_fake_runner_records_timeouts():
+    r = FakeRunner({"ssh": Result(["ssh"], 0, b"", b"")})
+    r.run(["ssh", "h", "ls"], timeout=30.0)
+    assert r.timeouts == [30.0]
+
+
+def test_subprocess_runner_timeout_is_runtime_error():
+    with pytest.raises(RuntimeError, match="timed out"):
+        SubprocessRunner().run(["/bin/sleep", "5"], timeout=0.2)

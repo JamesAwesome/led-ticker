@@ -58,6 +58,8 @@ class SubprocessRunner:
             )
         except FileNotFoundError as exc:
             raise ToolMissing(argv[0]) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"{argv[0]} timed out after {timeout}s") from exc
         return Result(list(argv), proc.returncode, proc.stdout, proc.stderr)
 
 
@@ -68,6 +70,7 @@ Response = Result | Callable[[list[str]], Result]
 class FakeRunner:
     responses: dict[str, Response]
     calls: list[list[str]] = field(default_factory=list)
+    timeouts: list[float | None] = field(default_factory=list)
 
     def run(
         self,
@@ -77,6 +80,7 @@ class FakeRunner:
         timeout: float | None = None,
     ) -> Result:
         self.calls.append(list(argv))
+        self.timeouts.append(timeout)
         resp = self.responses.get(argv[0])
         if resp is None:
             raise ToolMissing(argv[0])

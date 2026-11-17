@@ -17,7 +17,7 @@ from tools.film.runner import FakeRunner, Result
 def _footage(n_segments: int) -> Footage:
     frames = GrayFrames(32, 18, 10.0, [bytes(32 * 18)] * 200)
     segs = [Interval(10 + 40 * i, 40 + 40 * i) for i in range(n_segments)]
-    return Footage(frames, BBox(4, 6, 24, 4), [], [], segs)
+    return Footage(frames, BBox(4, 6, 24, 4), [], [], segs, 255.0)
 
 
 def test_plan_clips_zips_names_in_order():
@@ -124,3 +124,97 @@ def test_emit_gif_failed_ffmpeg_raises():
             size_of=lambda p: 0,
             settings=ClipSettings(),
         )
+
+
+def _runner_ok():
+    return FakeRunner(
+        {
+            "ffprobe": Result(["ffprobe"], 0, b"3840,2160\n", b""),
+            "ffmpeg": lambda argv: Result(
+                argv, 0, bytes(320 * 180 * 60) if "rawvideo" in argv else b"", b""
+            ),
+        }
+    )
+
+
+def _patch_analysis(monkeypatch):
+    from tools.film import clip as clipmod
+
+    frames = GrayFrames(320, 180, 10.0, [bytes(320 * 180)] * 60)
+    footage = Footage(frames, BBox(10, 20, 100, 10), [], [], [Interval(5, 25)], 255.0)
+    monkeypatch.setattr(clipmod, "decode_gray", lambda *a, **k: frames)
+    monkeypatch.setattr(clipmod, "analyze_footage", lambda *a, **k: footage)
+    monkeypatch.setattr(clipmod, "contact_sheet", lambda *a, **k: None)
+    return footage
+
+
+def test_clip_footage_full_frame_mp4_only_skips_gif_and_crop(tmp_path, monkeypatch):
+    _patch_analysis(monkeypatch)
+    manifest = tmp_path / "m.toml"
+    manifest.write_text("[[playlist.section]] # film: youtube\n")
+    runner = _runner_ok()
+    from tools.film.clip import clip_footage
+
+    written = clip_footage(
+        Path("in.mp4"),
+        manifest,
+        tmp_path / "out",
+        runner=runner,
+        crop=None,
+        take=1,
+        mp4_names={"youtube"},
+        hero_budget_names=set(),
+        settings=ClipSettings(),
+        full_frame=True,
+        gif=False,
+        size_of=lambda p: 1,
+    )
+    assert [p.name for p in written] == ["youtube.mp4"]
+    encodes = [c for c in runner.calls if c[0] == "ffmpeg" and "rawvideo" not in c]
+    assert (
+        len(encodes) == 1
+        and "-vf" not in encodes[0]
+        and encodes[0][-1].endswith("youtube.mp4")
+    )
+
+
+def test_clip_footage_prints_detected_bbox_in_source_pixels(
+    tmp_path, monkeypatch, capsys
+):
+    _patch_analysis(monkeypatch)
+    manifest = tmp_path / "m.toml"
+    manifest.write_text("[[playlist.section]] # film: a\n")
+    from tools.film.clip import clip_footage
+
+    clip_footage(
+        Path("in.mp4"),
+        manifest,
+        tmp_path / "out",
+        runner=_runner_ok(),
+        crop=None,
+        take=1,
+        mp4_names=set(),
+        hero_budget_names=set(),
+        settings=ClipSettings(),
+        size_of=lambda p: 1,
+    )
+    out = capsys.readouterr().out
+    assert "bbox 10:20:100:10 (analysis)" in out and "120:240:1200:120 (source)" in out
+    assert "peak luma 255" in out
+
+
+def test_contact_sheet_argv_pulls_color_frames_from_source():
+    from tools.film.clip import contact_sheet_argv
+
+    argv = contact_sheet_argv(
+        Path("in.mp4"),
+        Path("a.contact.png"),
+        Interval(10, 50),
+        10.0,
+        BBox(10, 20, 100, 10),
+        320,
+        3840,
+    )
+    vf = argv[argv.index("-filter_complex") + 1]
+    assert "crop=1200:120:120:240" in vf and "tile=1x3" in vf
+    assert argv[-1] == "a.contact.png"

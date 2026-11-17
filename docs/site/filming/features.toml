@@ -18,6 +18,9 @@ hot_reload = true
 [busy_light]
 enabled = false
 
+# The status board must be on: `film deploy` waits on status.json to know the display is up.
+[web]
+
 [title]
 delay = 0
 

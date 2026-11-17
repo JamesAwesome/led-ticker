@@ -145,3 +145,31 @@ def test_analyze_footage_incomplete_loop_is_error():
 def test_analyze_footage_explicit_crop_skips_detection(mid_loop_footage):
     f = analyze_footage(mid_loop_footage, crop=BBox(4, 6, 24, 4))
     assert f.bbox == BBox(4, 6, 24, 4)  # exact box, not the padded detected one
+
+
+def test_find_panel_bbox_ignores_dim_glow_that_changes():
+    # Slate light spilling onto the shelf swings by > threshold but never gets bright.
+    dark = gray(320, 180, 0)
+    lit = gray(320, 180, 0)
+    rect(lit, 320, BBox(80, 70, 140, 30), 110)  # glow footprint, peaks at 110
+    rect(lit, 320, BBox(100, 80, 100, 10), 255)  # the panel itself
+    b = find_panel_bbox([bytes(dark), bytes(lit), bytes(dark)], 320, 180)
+    assert (b.x, b.y, b.w, b.h) == (96, 80, 108, 10)
+
+
+def test_analyze_footage_thresholds_are_tunable(mid_loop_footage):
+    # Slate mean inside the (padded) crop is ~236 and content ~85; a 230 slate threshold
+    # still works, a 300 threshold finds nothing.
+    assert analyze_footage(mid_loop_footage, slate_threshold=230.0).segments
+    with pytest.raises(NoSlateError):
+        analyze_footage(mid_loop_footage, slate_threshold=300.0)
+
+
+def test_analyze_footage_take_must_be_positive(mid_loop_footage):
+    with pytest.raises(ValueError, match="take"):
+        analyze_footage(mid_loop_footage, take=0)
+
+
+def test_footage_reports_peak_luma(mid_loop_footage):
+    f = analyze_footage(mid_loop_footage)
+    assert 230 < f.peak_luma <= 255  # slate mean over the padded crop

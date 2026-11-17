@@ -79,6 +79,24 @@ def _parser() -> argparse.ArgumentParser:
     c.add_argument(
         "--hero", type=_names, default=set(), help="names with the 4 MB hero budget"
     )
+    c.add_argument(
+        "--full-frame", action="store_true", help="mp4s use the whole camera frame"
+    )
+    c.add_argument(
+        "--mp4-only", action="store_true", help="skip the GIFs (YouTube loop)"
+    )
+    c.add_argument(
+        "--slate-threshold",
+        type=float,
+        default=180.0,
+        help="crop-mean luma a slate must exceed",
+    )
+    c.add_argument(
+        "--change-threshold",
+        type=int,
+        default=60,
+        help="per-pixel max-min marking the panel",
+    )
 
     e = sub.add_parser("session", help="deploy, record, restore")
     e.add_argument("config", type=Path)
@@ -126,10 +144,22 @@ def _run(args: argparse.Namespace, runner: Runner) -> int:
             mp4_names=args.mp4,
             hero_budget_names=args.hero,
             settings=ClipSettings(),
+            full_frame=args.full_frame,
+            gif=not args.mp4_only,
+            slate_threshold=args.slate_threshold,
+            change_threshold=args.change_threshold,
         )
         print(f"{len(written)} file(s) written to {args.out_dir}")
     elif args.cmd == "session":
-        deploy(args.host, args.config, runner, now=now, brightness=args.brightness)
+        try:
+            deploy(args.host, args.config, runner, now=now, brightness=args.brightness)
+        except DeployRefused:
+            raise  # nothing was changed on the sign
+        except Exception:
+            restore(
+                args.host, runner, now=datetime.now(UTC)
+            )  # deploy mutated, then failed
+            raise
         try:
             record(args.device, args.out, args.seconds, runner)
         finally:
@@ -154,6 +184,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         ManifestError,
         TimeoutError,
         RuntimeError,
+        FileNotFoundError,
+        ValueError,
     ) as exc:
         print(f"film: {exc}", file=sys.stderr)
         return 1

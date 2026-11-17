@@ -65,3 +65,24 @@ def test_youtube_has_one_name():
 
 def test_runbook_exists():
     assert (FILMING / "README.md").exists()
+
+
+@pytest.mark.parametrize("name", CONFIGS)
+def test_filming_configs_enable_the_status_board(name):
+    # Without [web] the display never writes status.json, so film deploy's
+    # wait-for-display would time out and strand the sign (review C1).
+    text = (FILMING / f"{name}.toml").read_text()
+    assert "\n[web]\n" in text
+
+
+@pytest.mark.parametrize("name", CONFIGS)
+def test_every_film_section_is_preceded_by_a_slate(name):
+    text = (FILMING / f"{name}.toml").read_text()
+    headers = [ln for ln in text.splitlines() if ln.startswith("[[playlist.section]]")]
+    for i, h in enumerate(headers):
+        if "# film:" in h:
+            assert i > 0 and "# film:" not in headers[i - 1], h
+    first_body = text.split("\n[[playlist.section]]", 2)[1]  # line-anchored; skip prose
+    assert (
+        "bg_color = [255, 255, 255]" in first_body and "hold_time = 2.0" in first_body
+    )

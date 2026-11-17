@@ -20,6 +20,12 @@ into one span once they meet, so the fronts can never leave a 1-px gap or
 overlap. Pinned by the partition test in ``tests/test_center_wipe.py``.
 """
 
+from typing import Any
+
+from led_ticker._types import Canvas, ColorTuple
+from led_ticker.transitions import _phys, register_transition
+from led_ticker.transitions.wipe import _BaseWipe
+
 Span = tuple[int, int]  # half-open [lo, hi) along the swept axis
 
 
@@ -80,3 +86,95 @@ def sweep_line_spans(n: int, b: int, inward: bool, thick: int) -> list[Span]:
         else:
             merged.append((lo, hi))
     return merged
+
+
+class _CenterWipe(_BaseWipe):
+    """Shared frame logic for the four center wipes. Not registered.
+
+    Subclasses set ``AXIS`` (``"x"`` sweeps columns, ``"y"`` sweeps rows),
+    ``INWARD`` (fronts move toward the center when true), ``DEFAULT_COLOR``
+    and ``min_frames``.
+    """
+
+    AXIS: str = "x"
+    INWARD: bool = True
+
+    def frame_at(
+        self, t: float, canvas: Canvas, outgoing: Any, incoming: Any, **kwargs: Any
+    ) -> Canvas:
+        real, rw, rh, scale, _yo = _phys(canvas)
+        outgoing_scroll_pos: int = kwargs.get("outgoing_scroll_pos", 0)
+
+        if t >= 1.0:
+            incoming.draw(canvas, cursor_pos=0)
+            return canvas
+
+        outgoing.draw(canvas, cursor_pos=outgoing_scroll_pos)
+
+        along_x = self.AXIS == "x"
+        n = rw if along_x else rh
+        b = progress_to_b(t, n)
+        erased, _kept = center_spans(n, b, self.INWARD)
+
+        # Black out the erased spans across the FULL physical cross extent so
+        # letterbox bands on banded wrappers are cleared too.
+        for lo, hi in erased:
+            if along_x:
+                real.SubFill(lo, 0, hi - lo, rh, 0, 0, 0)
+            else:
+                real.SubFill(0, lo, rw, hi - lo, 0, 0, 0)
+
+        # Sweep lines (2 * scale thick) on the kept side of each front.
+        r, g, bl = self.color
+        for lo, hi in sweep_line_spans(n, b, self.INWARD, 2 * scale):
+            if along_x:
+                for x in range(lo, hi):
+                    for y in range(rh):
+                        real.SetPixel(x, y, r, g, bl)
+            else:
+                for y in range(lo, hi):
+                    for x in range(rw):
+                        real.SetPixel(x, y, r, g, bl)
+        return canvas
+
+
+@register_transition("wipe_in")
+class WipeIn(_CenterWipe):
+    """Both side edges sweep toward the center column (Alpha roll-in geometry)."""
+
+    AXIS = "x"
+    INWARD = True
+    DEFAULT_COLOR: ColorTuple = (255, 255, 0)
+    min_frames: int = 20
+
+
+@register_transition("wipe_out")
+class WipeOut(_CenterWipe):
+    """A band opens at the center column and sweeps to both side edges
+    (Alpha roll-out geometry; ``split`` is its fixed-magenta twin)."""
+
+    AXIS = "x"
+    INWARD = False
+    DEFAULT_COLOR: ColorTuple = (255, 0, 0)
+    min_frames: int = 20
+
+
+@register_transition("wipe_in_vertical")
+class WipeInVertical(_CenterWipe):
+    """Top and bottom edges sweep toward the center row (Huidu "close up and down")."""
+
+    AXIS = "y"
+    INWARD = True
+    DEFAULT_COLOR: ColorTuple = (255, 255, 0)
+    min_frames: int = 16
+
+
+@register_transition("wipe_out_vertical")
+class WipeOutVertical(_CenterWipe):
+    """A band opens at the center row and sweeps to top and bottom
+    (Huidu "vertically open from middle")."""
+
+    AXIS = "y"
+    INWARD = False
+    DEFAULT_COLOR: ColorTuple = (255, 0, 0)
+    min_frames: int = 16

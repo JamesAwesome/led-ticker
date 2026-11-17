@@ -5,9 +5,17 @@ front position ``b`` the erased and kept spans partition the axis exactly, so
 the two fronts can never leave a 1-px gap or overlap at the center.
 """
 
+from unittest import mock
+
 import pytest
 
+from led_ticker.backends.headless import HeadlessCanvas
+from led_ticker.transitions import get_transition_class
 from led_ticker.transitions.center_wipe import (
+    WipeIn,
+    WipeInVertical,
+    WipeOut,
+    WipeOutVertical,
     center_spans,
     progress_to_b,
     sweep_line_spans,
@@ -82,3 +90,87 @@ def test_sweep_lines_inward_even_example():
 
 def test_sweep_lines_outward_even_example():
     assert sweep_line_spans(160, 10, False, thick=2) == [(68, 70), (90, 92)]
+
+
+# ---------------------------------------------------------------------------
+# Task 2: the four registered transitions
+# ---------------------------------------------------------------------------
+
+ALL = [WipeIn, WipeOut, WipeInVertical, WipeOutVertical]
+NAMES = ["wipe_in", "wipe_out", "wipe_in_vertical", "wipe_out_vertical"]
+
+
+def _widget():
+    w = mock.Mock()
+    w.hold_time = 0.0
+    w.draw.side_effect = lambda c, cursor_pos=0, **kw: (c, cursor_pos + 40)
+    return w
+
+
+def _filling_widget(w_px: int, h_px: int):
+    """A widget that paints every pixel of the (logical) canvas grey."""
+    w = mock.Mock()
+    w.hold_time = 0.0
+
+    def paint(c, cursor_pos=0, **kw):
+        for x in range(w_px):
+            for y in range(h_px):
+                c.SetPixel(x, y, 9, 9, 9)
+        return c, w_px
+
+    w.draw.side_effect = paint
+    return w
+
+
+@pytest.mark.parametrize(("name", "cls"), list(zip(NAMES, ALL, strict=True)))
+def test_registered(name, cls):
+    assert get_transition_class(name) is cls
+
+
+@pytest.mark.parametrize("cls", ALL)
+def test_t0_draws_outgoing_only_t1_incoming_only(cls):
+    canvas = HeadlessCanvas(160, 16)
+    out, inc = _widget(), _widget()
+    cls().frame_at(0.0, canvas, out, inc)
+    assert out.draw.called and not inc.draw.called
+    out.reset_mock()
+    inc.reset_mock()
+    cls().frame_at(1.0, canvas, out, inc)
+    assert inc.draw.called and not out.draw.called
+
+
+@pytest.mark.parametrize("cls", ALL)
+def test_outgoing_scroll_pos_forwarded(cls):
+    canvas = HeadlessCanvas(160, 16)
+    out = _widget()
+    cls().frame_at(0.3, canvas, out, _widget(), outgoing_scroll_pos=-37)
+    assert out.draw.call_args.kwargs["cursor_pos"] == -37
+
+
+def test_defaults():
+    assert WipeIn.DEFAULT_COLOR == (255, 255, 0)
+    assert WipeOut.DEFAULT_COLOR == (255, 0, 0)
+    assert WipeInVertical.DEFAULT_COLOR == (255, 255, 0)
+    assert WipeOutVertical.DEFAULT_COLOR == (255, 0, 0)
+    assert WipeIn.min_frames == 20 and WipeOut.min_frames == 20
+    assert WipeInVertical.min_frames == 16 and WipeOutVertical.min_frames == 16
+    assert WipeIn(color=(1, 2, 3)).color == (1, 2, 3)
+
+
+def test_wipe_in_midway_erases_edges_and_paints_lines():
+    canvas = HeadlessCanvas(160, 16)
+    WipeIn().frame_at(0.5, canvas, _filling_widget(160, 16), _widget())
+    b = progress_to_b(0.5, 160)
+    assert canvas.get_pixel(0, 8) == (0, 0, 0)
+    assert canvas.get_pixel(159, 8) == (0, 0, 0)
+    assert canvas.get_pixel(b, 8) == (255, 255, 0)  # line on the kept side
+    assert canvas.get_pixel(159 - b, 8) == (255, 255, 0)
+    assert canvas.get_pixel(80, 8) == (9, 9, 9)  # center still outgoing
+
+
+def test_wipe_out_vertical_just_before_end_is_fully_black():
+    canvas = HeadlessCanvas(160, 16)
+    WipeOutVertical().frame_at(0.999, canvas, _filling_widget(160, 16), _widget())
+    assert all(
+        canvas.get_pixel(x, y) == (0, 0, 0) for x in (0, 80, 159) for y in range(16)
+    )

@@ -28,6 +28,12 @@ def ease_in_out(p: float) -> float:
     return 3 * p * p - 2 * p * p * p
 
 
+# The runner's default for a transition that does not declare
+# `scale_switch_at` (the cross-scale re-wrap point and the bg cut-over). The
+# `random` / `auto` wrapper forwards its current child's value and falls back
+# to THIS constant, so the two can't drift.
+DEFAULT_SCALE_SWITCH_AT: float = 0.5
+
 EASING: dict[str, Callable[[float], float]] = {
     "linear": linear,
     "ease_out": ease_out,
@@ -314,6 +320,16 @@ async def run_transition(
     # EASING.keys(); direct dict access here raises a clean KeyError
     # for programmatic callers who skipped that path.
     ease_fn = EASING[easing]
+    # Meta-transition hook 1 (`random` / `auto`): the wrapper exposes its
+    # current child's own duration as `duration_override`. Read it BEFORE
+    # `frame_count` so the frame budget, the `min_frames` floor and the
+    # `duration_ms` kwarg all see the child's timing. `is not None`, not
+    # `or`: a 0.0 must not silently fall back to the section's duration. No
+    # other transition defines the attribute, so every other path is
+    # byte-identical.
+    override = getattr(transition, "duration_override", None)
+    if override is not None:
+        duration = override
     frame_count = max(1, int(duration / scroll_speed))
     if hasattr(transition, "min_frames"):
         frame_count = max(frame_count, transition.min_frames)
@@ -337,7 +353,9 @@ async def run_transition(
     # The scale_switch_at <= 0.0 early-switch path is public surface for plugin
     # transitions (historically used by wand/sprite-trail families); no in-core
     # transition currently sets it below the default.
-    scale_switch_at: float = getattr(transition, "scale_switch_at", 0.5)
+    scale_switch_at: float = getattr(
+        transition, "scale_switch_at", DEFAULT_SCALE_SWITCH_AT
+    )
 
     if needs_switch and scale_switch_at <= 0.0:
         # Switch immediately: re-wrap the current back buffer at the
@@ -447,6 +465,19 @@ async def run_transition(
     finally:
         _resume_presenter(outgoing)
         _resume_presenter(incoming)
+        # Meta-transition hook 2: tell a `random` / `auto` wrapper the firing
+        # is over so it picks its NEXT child now — ahead of the runner's
+        # one-time `min_frames` / `scale_switch_at` / `duration_override`
+        # reads at the next call. In `finally` so a cancelled or raising
+        # firing still counts once; AFTER both resumes so a raising hook can
+        # never leave a widget paused; swallowed like an overlay hook because
+        # bookkeeping must never escape (or mask) the transition.
+        end_firing = getattr(transition, "end_firing", None)
+        if callable(end_firing):
+            try:
+                end_firing()
+            except Exception:
+                logger.exception("transition end_firing hook failed")
 
     return incoming_canvas if incoming_canvas is not None else canvas
 

@@ -57,10 +57,16 @@ tracking off (it would fight the preset mid-take), mirror off. The
 session-0 ladder ran under auto exposure; lock it before a real take if the
 dip shows in the GIFs.
 
-Shoot with the room lights **off**: the lit-room takes carried a specular
-highlight on the panel face, and with nothing else to meter the camera's
-auto exposure still renders the panel at brightness 40 with distinct dots
-and a clean white slate (verified 2026-11-17 night). Note the idle camera
+Lighting trade-off (both shot 2026-11-17): with the room lights **on** the
+camera's auto exposure has something to meter, so white text keeps its
+dots, but a room light reflects off the panel face right of centre. With
+the lights **off** the reflection is gone but the sensor gains up: more
+grain (the hero web mp4 grows 2.0 → 3.0 MB) and white text and white emoji
+bloom into blobs; colour is unaffected. Best of both: lights off plus an
+exposure lock in the Link Controller app, or lights on with the offending
+lamp moved off the panel's reflection line. Both sets of takes from
+session 0 are kept (`captures/lit-room/`, `docs/site/public/filmed/` = dark).
+Note the idle camera
 reports `absolute_zoom = 100` even while the framing is still applied;
 `film aim` reads back inside an open stream, so trust it, not a bare
 `uvcc export`.

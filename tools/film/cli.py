@@ -101,28 +101,16 @@ def _parser() -> argparse.ArgumentParser:
         "--mp4-only", action="store_true", help="skip the GIFs (YouTube loop)"
     )
     c.add_argument(
-        "--slate-threshold",
-        type=float,
-        default=180.0,
-        help="crop-mean luma a slate must exceed",
-    )
-    c.add_argument(
-        "--change-threshold",
-        type=int,
-        default=60,
-        help="per-pixel max-min marking the panel",
-    )
-    c.add_argument(
         "--bright-threshold",
         type=int,
         default=245,
-        help="per-pixel max a panel pixel must reach (the slate)",
+        help="8-bit luma a saturated (slate) pixel exceeds",
     )
     c.add_argument(
-        "--dark-threshold",
-        type=int,
-        default=80,
-        help="per-pixel min a panel pixel must fall to (unlit content)",
+        "--slate-fraction",
+        type=float,
+        default=0.6,
+        help="share of the panel box that must saturate to count as a slate",
     )
 
     e = sub.add_parser("session", help="deploy, record, restore")
@@ -198,10 +186,8 @@ def _run(args: argparse.Namespace, runner: Runner) -> int:
             settings=ClipSettings(),
             full_frame=args.full_frame,
             gif=not args.mp4_only,
-            slate_threshold=args.slate_threshold,
-            change_threshold=args.change_threshold,
             bright_threshold=args.bright_threshold,
-            dark_threshold=args.dark_threshold,
+            slate_fraction=args.slate_fraction,
         )
         print(f"{len(written)} file(s) written to {args.out_dir}")
     elif args.cmd == "session":

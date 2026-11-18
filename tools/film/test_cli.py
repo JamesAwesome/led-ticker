@@ -180,15 +180,15 @@ def test_cli_clip_full_frame_and_mp4_only_and_thresholds(monkeypatch):
             "--mp4-only",
             "--mp4",
             "youtube",
-            "--slate-threshold",
-            "150",
-            "--change-threshold",
-            "40",
+            "--slate-fraction",
+            "0.5",
+            "--bright-threshold",
+            "240",
         ]
     )
     assert rc == 0
     assert seen["full_frame"] is True and seen["gif"] is False
-    assert seen["slate_threshold"] == 150.0 and seen["change_threshold"] == 40
+    assert seen["slate_fraction"] == 0.5 and seen["bright_threshold"] == 240
 
 
 def test_cli_missing_file_is_exit_1_not_traceback(capsys, monkeypatch):

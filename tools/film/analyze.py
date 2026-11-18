@@ -1,6 +1,7 @@
 """Footage analysis for the clip tool: decode to low-res grayscale, find the
-panel (the only thing in frame that changes), find white slates, and anchor
-segments to one complete loop so clips never zip one slot late."""
+panel (the one region the white slate saturates), time the slates by how
+much of that box saturates, and anchor segments to one complete loop so
+clips never zip one slot late."""
 
 import sys
 from collections.abc import Callable, Sequence
@@ -10,6 +11,9 @@ from pathlib import Path
 from tools.film.runner import Runner
 
 ANCHOR_SECONDS = 1.5  # slates at least this long are loop anchors (2.0 s top slate)
+SATURATED = 245  # 8-bit luma a white-slate LED pixel reaches on camera
+SLATE_FRACTION = 0.6  # of the panel box saturated → this frame is a slate
+_SAMPLE = 200  # frames sampled for per-pixel statistics (pure-Python budget)
 _NO_SLATE_MSG = "no slate found; is the camera aimed at the sign?"
 
 
@@ -124,13 +128,34 @@ def mean_luma(frame: bytes, bbox: BBox | None, width: int) -> float:
     return total / (bbox.w * bbox.h)
 
 
+def _sat_table(bright: int) -> bytes:
+    return bytes(1 if v > bright else 0 for v in range(256))
+
+
+def saturated_fraction(
+    frame: bytes, bbox: BBox, width: int, *, bright: int = SATURATED
+) -> float:
+    """Share of the box's pixels above `bright` — ~1.0 on a white slate, well
+    below 0.5 for any content (even cream text over fireworks), unlike the
+    crop MEAN, which bright-but-not-white content pushes past a luma cut."""
+    table = _sat_table(bright)
+    n = 0
+    for y in range(bbox.y, bbox.y + bbox.h):
+        row = y * width + bbox.x
+        n += frame[row : row + bbox.w].translate(table).count(b"\x01")
+    return n / (bbox.w * bbox.h)
+
+
 def find_slates(
-    luma: Sequence[float],
+    values: Sequence[float],
     fps: float,
     *,
-    threshold: float = 180.0,
+    threshold: float = SLATE_FRACTION,
     min_seconds: float = 0.5,
 ) -> list[Interval]:
+    """Runs of frames whose value exceeds `threshold` for at least
+    `min_seconds`; `values` is the per-frame saturated fraction of the box."""
+    luma = values
     min_len = max(1, round(min_seconds * fps))
     slates: list[Interval] = []
     start: int | None = None
@@ -193,30 +218,61 @@ def find_panel_bbox(
     width: int,
     height: int,
     *,
-    threshold: int = 60,
-    bright: int = 245,
-    dark: int = 80,
+    bright: int = SATURATED,
+    slate_frac: float = SLATE_FRACTION,
     pad_frac: float = 0.04,
     on_ambiguous: Callable[[str], None] = _warn_stderr,
 ) -> BBox:
-    """Box of the panel: pixels that SATURATE at some point (max > bright —
-    the white slate), go nearly BLACK at some point (min < dark — content on
-    an unlit background) and change by more than `threshold`. Over a long
-    recording auto-exposure swings the whole room by 60+ luma, so change
-    alone (or change + "bright > 200") covers the frame; nothing in the room
-    but the panel does both extremes. Small clutter that still qualifies (a
-    flickering candle, a figurine the slate lights up) is dropped by projection:
-    the panel is the densest contiguous band of qualifying rows, then the
-    densest contiguous run of columns within that band, then rows again
-    within those columns."""
-    hi = bytearray(frames[0])
-    lo = bytearray(frames[0])
-    for f in frames[1:]:
-        hi = bytearray(max(a, b) for a, b in zip(hi, f, strict=True))
-        lo = bytearray(min(a, b) for a, b in zip(lo, f, strict=True))
+    """Box of the panel, found from the slate: the frames with the most
+    saturated pixels are the white slates, and the panel is what saturates in
+    them but not in ordinary frames. Pixels saturated in every sampled frame
+    (a window, a lamp) are static and dropped first; nothing else in the room
+    saturates only when the slate is up. This survives auto-exposure drift
+    (a long clip swings the whole room by 60+ luma) and content that never
+    goes dark (bg_color sections), both of which broke change-based masks on
+    real footage. Residual clutter the slate glow lights up is dropped by
+    projection: the panel is the densest contiguous band of qualifying rows,
+    then the densest contiguous run of columns within that band, then rows
+    again within those columns."""
+    table = _sat_table(bright)
+    n = width * height
+    step = max(1, len(frames) // _SAMPLE)
+    sampled = frames[::step]
+    static = int.from_bytes(sampled[0].translate(table), "big")
+    for f in sampled[1:]:
+        static &= int.from_bytes(f.translate(table), "big")
+    live = ~static & ((1 << (8 * n)) - 1)
+    counts = [
+        (int.from_bytes(f.translate(table), "big") & live).bit_count() for f in frames
+    ]
+    peak = max(counts)
+    if peak == 0:
+        raise NoSlateError(_NO_SLATE_MSG)
+    cut = slate_frac * peak
+    cand = [i for i, c in enumerate(counts) if c >= cut]
+    rest = [i for i, c in enumerate(counts) if c < cut]
+    cand = cand[:: max(1, len(cand) // _SAMPLE)]
+    rest = rest[:: max(1, len(rest) // _SAMPLE)]
+
+    def freq(idx: list[int]) -> list[int]:
+        acc = [0] * n
+        for i in idx:
+            m = frames[i].translate(table)
+            for p in range(n):
+                if m[p]:
+                    acc[p] += 1
+        return acc
+
+    in_slate = freq(cand)
+    in_rest = freq(rest)
+    live_bytes = live.to_bytes(n, "big")
     mask = bytes(
-        1 if a > bright and b < dark and a - b > threshold else 0
-        for a, b in zip(hi, lo, strict=True)
+        1
+        if live_bytes[p]
+        and in_slate[p] * 2 >= len(cand)
+        and in_rest[p] * 2 < max(1, len(rest))
+        else 0
+        for p in range(n)
     )
     if not any(mask):
         raise NoSlateError(_NO_SLATE_MSG)
@@ -258,10 +314,8 @@ def analyze_footage(
     *,
     crop: BBox | None = None,
     take: int = 1,
-    slate_threshold: float = 180.0,
-    change_threshold: int = 60,
-    bright_threshold: int = 245,
-    dark_threshold: int = 80,
+    bright_threshold: int = SATURATED,
+    slate_fraction: float = SLATE_FRACTION,
 ) -> Footage:
     if take < 1:
         raise ValueError(f"take must be >= 1, got {take}")
@@ -269,12 +323,15 @@ def analyze_footage(
         frames.frames,
         frames.width,
         frames.height,
-        threshold=change_threshold,
         bright=bright_threshold,
-        dark=dark_threshold,
+        slate_frac=slate_fraction,
     )
+    frac = [
+        saturated_fraction(f, bbox, frames.width, bright=bright_threshold)
+        for f in frames.frames
+    ]
+    slates = find_slates(frac, frames.fps, threshold=slate_fraction)
     luma = [mean_luma(f, bbox, frames.width) for f in frames.frames]
-    slates = find_slates(luma, frames.fps, threshold=slate_threshold)
     min_anchor = round(ANCHOR_SECONDS * frames.fps)
     anchors = [s for s in slates if s.end - s.start >= min_anchor]
     if len(anchors) < take + 1:

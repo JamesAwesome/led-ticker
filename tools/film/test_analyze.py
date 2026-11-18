@@ -13,6 +13,7 @@ from tools.film.analyze import (
     find_panel_bbox,
     find_slates,
     mean_luma,
+    saturated_fraction,
     segments_between,
 )
 from tools.film.runner import FakeRunner, Result
@@ -28,21 +29,30 @@ def rect(frame: bytearray, w: int, box: BBox, value: int) -> None:
 
 
 def test_find_slates_two_slates_min_length():
-    luma = (
-        [10] * 20
-        + [250] * 10
-        + [30] * 40
-        + [250] * 2
-        + [30] * 8
-        + [250] * 10
-        + [20] * 10
+    # per-frame fraction of the panel box that is saturated
+    frac = (
+        [0.05] * 20
+        + [0.97] * 10
+        + [0.1] * 40
+        + [0.97] * 2
+        + [0.1] * 8
+        + [0.95] * 10
+        + [0.0] * 10
     )
-    assert find_slates(luma, fps=10.0) == [Interval(20, 30), Interval(80, 90)]
+    assert find_slates(frac, fps=10.0) == [Interval(20, 30), Interval(80, 90)]
 
 
 def test_find_slates_none_raises():
     with pytest.raises(NoSlateError):
-        find_slates([10] * 50, fps=10.0)
+        find_slates([0.3] * 50, fps=10.0)
+
+
+def test_saturated_fraction_counts_only_inside_the_box():
+    f = gray(10, 10, 0)
+    rect(f, 10, BBox(0, 0, 5, 10), 250)  # left half saturated
+    assert saturated_fraction(bytes(f), BBox(0, 0, 10, 10), 10) == 0.5
+    assert saturated_fraction(bytes(f), BBox(0, 0, 5, 10), 10) == 1.0
+    assert saturated_fraction(bytes(f), BBox(5, 0, 5, 10), 10) == 0.0
 
 
 def test_segments_between_excludes_tail():
@@ -159,11 +169,23 @@ def test_find_panel_bbox_ignores_dim_glow_that_changes():
 
 
 def test_analyze_footage_thresholds_are_tunable(mid_loop_footage):
-    # Slate mean inside the (padded) crop is ~236 and content ~40; a 230 slate threshold
-    # still works, a 300 threshold finds nothing.
-    assert analyze_footage(mid_loop_footage, slate_threshold=230.0).segments
+    # The padded crop is ~93 % panel, so a 0.9 slate fraction still works and
+    # an impossible 1.1 finds nothing.
+    assert analyze_footage(mid_loop_footage, slate_fraction=0.9).segments
     with pytest.raises(NoSlateError):
-        analyze_footage(mid_loop_footage, slate_threshold=300.0)
+        analyze_footage(mid_loop_footage, slate_fraction=1.1)
+
+
+def test_analyze_footage_bright_but_unsaturated_flash_is_not_a_slate():
+    """Hero footage: fireworks + cream text and the splitflap entry pushed the
+    crop MEAN over 180 for ~2 s, but only the real slate saturates the panel."""
+    slate, content = _panel_frames()
+    flash = bytearray(gray(32, 18, 10))
+    rect(flash, 32, BBox(4, 6, 24, 4), 220)
+    seq = [slate] * 20 + [content] * 20 + [bytes(flash)] * 20 + [content] * 20
+    seq = seq * 2 + [slate] * 20
+    f = analyze_footage(GrayFrames(32, 18, 10.0, seq))
+    assert [(s.start, s.end) for s in f.slates] == [(0, 20), (80, 100), (160, 180)]
 
 
 def test_analyze_footage_take_must_be_positive(mid_loop_footage):
@@ -176,14 +198,28 @@ def test_footage_reports_peak_luma(mid_loop_footage):
     assert 230 < f.peak_luma <= 255  # slate mean over the padded crop
 
 
+def test_find_panel_bbox_when_content_never_goes_dark():
+    """YouTube loop: colored bg_color sections keep the panel lit the whole
+    recording; the box must come from where the slate saturates, not from
+    where pixels go black."""
+    room = gray(320, 180, 60)
+    slate = bytearray(room)
+    rect(slate, 320, BBox(100, 80, 100, 10), 255)
+    content = bytearray(room)
+    rect(content, 320, BBox(100, 80, 100, 10), 150)
+    frames = [bytes(slate)] * 3 + [bytes(content)] * 30
+    b = find_panel_bbox(frames, 320, 180)
+    assert (b.x, b.w, b.y, b.h) == (96, 108, 80, 10)
+
+
 def test_find_panel_bbox_ignores_small_flickering_clutter():
     """Real footage (2026-11-17 probe): a flickering candle lamp top-right,
     a figurine left of the panel and a leaf garland below all change AND
     get bright, but each is a small blob; the panel is the one dense band."""
     dark = gray(320, 180, 0)
+    rect(dark, 320, BBox(300, 40, 15, 30), 255)  # candle lamp: saturated always
     lit = bytearray(dark)
     rect(lit, 320, BBox(100, 80, 100, 10), 255)  # the panel
-    rect(lit, 320, BBox(300, 40, 15, 30), 255)  # candle lamp, top-right
     rect(lit, 320, BBox(70, 78, 12, 14), 255)  # figurine, gap of 18 px to panel
     rect(lit, 320, BBox(120, 120, 40, 8), 255)  # garland below
     b = find_panel_bbox([bytes(dark), bytes(lit), bytes(dark), bytes(lit)], 320, 180)

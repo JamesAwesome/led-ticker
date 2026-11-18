@@ -10,8 +10,9 @@ import pytest
 from led_ticker.app.factories import (
     _build_trans_obj,
     _child_transition_cfg,
-    _pool_entry_key,
+    _pool_member_key,
     _resolve_pool,
+    _resolve_pool_members,
 )
 from led_ticker.config import TransitionConfig
 from led_ticker.transitions import (
@@ -151,7 +152,17 @@ def test_pool_refuses_non_list_pool_or_exclude(extra):
         _resolve_pool(_cfg(extra=extra))
 
 
-@pytest.mark.parametrize("entry", [5, {"duration": 1.0}, {"type": 5}, ["wipe_in"]])
+@pytest.mark.parametrize(
+    "entry",
+    [
+        5,
+        {"duration": 1.0},
+        {"type": 5},
+        ["wipe_in"],
+        {"type": ["x"]},
+        {"type": {"a": 1}},
+    ],
+)
 def test_pool_refuses_malformed_entry(entry):
     with pytest.raises(ValueError, match="pool entry"):
         _resolve_pool(_cfg(extra={"pool": [entry, "wipe_out"]}))
@@ -264,7 +275,7 @@ def test_pool_refuses_bad_entry_color(bad):
         )
 
 
-@pytest.mark.parametrize("bad", ["3.0", True, 0, -1, 0.0])
+@pytest.mark.parametrize("bad", ["3.0", True, 0, -1, 0.0, float("inf"), float("nan")])
 def test_pool_refuses_bad_entry_duration(bad):
     with pytest.raises(ValueError, match="duration"):
         _resolve_pool(
@@ -281,9 +292,36 @@ def test_pool_dedupes_identical_entries_below_two():
 
 
 def test_pool_dedupes_string_and_type_only_table():
-    assert _pool_entry_key("wipe_in") == _pool_entry_key({"type": "wipe_in"})
+    parent = _cfg(duration=0.5)
+    a = _child_transition_cfg(parent, "wipe_in")
+    b = _child_transition_cfg(parent, {"type": "wipe_in"})
+    assert _pool_member_key(a, None) == _pool_member_key(b, None)
     with pytest.raises(ValueError, match="1 distinct"):
         _resolve_pool(_cfg(extra={"pool": ["wipe_in", {"type": "wipe_in"}]}))
+
+
+def test_pool_dedupes_behaviour_identical_members():
+    """int vs float duration, and a table duration equal to the parent's,
+    describe the same member — keyed on the resolved child, not the repr."""
+    with pytest.raises(ValueError, match="1 distinct"):
+        _resolve_pool(
+            _cfg(
+                extra={
+                    "pool": [
+                        {"type": "dissolve", "duration": 3},
+                        {"type": "dissolve", "duration": 3.0},
+                    ]
+                }
+            )
+        )
+    members = _resolve_pool_members(
+        _cfg(
+            duration=0.5,
+            extra={"pool": ["dissolve", {"type": "dissolve", "duration": 0.5}]},
+        )
+    )
+    # same type, but the table pins its own duration: a distinct member
+    assert len({k for *_rest, k in members}) == 2
 
 
 def test_pool_keeps_same_type_entries_with_different_knobs():
@@ -403,3 +441,88 @@ def test_cached_trans_obj_rebuilds_meta_on_new_cfg():
     first = _cached_trans_obj(cache, cfg_a)
     assert _cached_trans_obj(cache, cfg_a) is first
     assert _cached_trans_obj(cache, _cfg()) is not first
+
+
+class _BothStub:
+    def __init__(self, color=None, colors=None):
+        self.color = color
+        self.colors = colors
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kw):
+        return canvas
+
+
+def test_entry_transition_color_clears_inherited_colors_on_a_both_child():
+    """A dotted child that declares BOTH color and colors: an entry's own
+    transition_color must beat the parent's inherited list (the dotted path
+    forwards colors first)."""
+    register_transition("testmeta.both")(_BothStub)
+    try:
+        child = _child_transition_cfg(
+            _cfg(color=(1, 2, 3), colors=[(4, 5, 6)]),
+            {"type": "testmeta.both", "transition_color": [9, 9, 9]},
+        )
+        assert child.color == (9, 9, 9) and child.colors is None
+        obj = _build_trans_obj(
+            _cfg(
+                colors=[(4, 5, 6)],
+                extra={
+                    "pool": [
+                        {"type": "testmeta.both", "transition_color": [9, 9, 9]},
+                        "wipe_in",
+                    ]
+                },
+            )
+        )
+        assert obj._children[0].color == (9, 9, 9) and obj._children[0].colors is None
+    finally:
+        _TRANSITION_REGISTRY.pop("testmeta.both", None)
+
+
+async def test_factory_built_auto_pick_ahead_end_to_end(make_widget, no_sleep):
+    """Composition pin: a factory-built `auto` over a sweep and a dissolve,
+    driven through run_transition twice on a cross-scale entry. The runner's
+    one-time reads (min_frames, duration_override, scale_switch_at) must match
+    the child that actually draws: the sweep re-wraps only on its final frame,
+    the dissolve at 0.5 with its own 1.0 s duration."""
+    from unittest import mock
+
+    from led_ticker.backends.headless import HeadlessCanvas
+    from led_ticker.scaled_canvas import ScaledCanvas
+    from led_ticker.transitions import run_transition
+
+    obj = _build_trans_obj(
+        _cfg(
+            "auto",
+            duration=0.5,
+            extra={"pool": ["wipe_left", {"type": "dissolve", "duration": 1.0}]},
+        )
+    )
+    seen: dict[str, list[tuple[float, int, int]]] = {"wipe_left": [], "dissolve": []}
+    for child, name in zip(obj._children, ("wipe_left", "dissolve"), strict=True):
+
+        def _rec(t, canvas, outgoing, incoming, _name=name, **kw):
+            seen[_name].append((t, getattr(canvas, "scale", 1), kw["duration_ms"]))
+            return canvas
+
+        child.frame_at = _rec
+    real = HeadlessCanvas(256, 64)
+    frame = mock.Mock()
+    frame.swap.side_effect = lambda c: HeadlessCanvas(256, 64)
+    for _ in range(2):
+        await run_transition(
+            ScaledCanvas(real, scale=2),
+            frame,
+            make_widget(40),
+            make_widget(40),
+            transition=obj,
+            duration=0.5,
+            scroll_speed=0.05,
+            incoming_scale=4,
+        )
+    wl, dz = seen["wipe_left"], seen["dissolve"]
+    assert len(wl) == 41 and wl[0][2] == 500  # min_frames 40 floors the sweep
+    assert [sc for _t, sc, _d in wl][:-1] == [2] * 40 and wl[-1][1] == 4
+    assert len(dz) == 21 and dz[0][2] == 1000  # the child's own 1.0 s
+    first_scale4 = next(t for t, sc, _d in dz if sc == 4)
+    assert first_scale4 == 0.5

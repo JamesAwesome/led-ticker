@@ -1827,29 +1827,23 @@ def _check_meta_transition_pools(
     ERRORs come from the factory's own resolver (`_resolve_pool`, then a
     build attempt), so validate refuses exactly what the sign would refuse,
     one error per slot, and never raises on a malformed entry. WARNINGs are
-    validate-only and computed only after the resolver succeeded: a
-    registered `exclude` name absent from the pool; a plugin member whose
-    final name token is `random` / `alternating` (looks like a variant
-    picker — a leaf such as a random settle ORDER shares the shape, so a
-    warning, not an error); identical duplicate entries; a plugin member
-    without its own `duration` in a MIXED pool; a parent `transition_colors`
-    when a core member is present (core members take a single colour); and
-    the two `[transitions] default` shapes from the design's decision 3.
+    validate-only and computed only after the resolver succeeded, over the
+    post-`exclude` members: a registered `exclude` name absent from the pool;
+    a plugin member whose final name token is `random` / `alternating`
+    (looks like a variant picker — a leaf such as a random settle ORDER
+    shares the shape, so a warning, not an error); identical duplicate
+    members; rule 21's two duration bounds on an entry's own `duration`; a
+    plugin member without its own `duration` in a MIXED pool; a parent
+    `transition_colors` when a core member is present (core members take a
+    single colour); and, when `transitions.default` resolved cleanly, the two
+    `[transitions] default` shapes from the design's decision 3.
     """
-    from led_ticker.app.factories import (
-        _build_trans_obj,
-        _pool_entry_key,
-        _resolve_pool,
-    )
+    from led_ticker.app.factories import _build_trans_obj, _resolve_pool_members
     from led_ticker.transitions import default_pool_names
 
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
-    rule39_locations = {
-        loc
-        for cfg, loc in _iter_transition_slots(config, include_default=True)
-        if cfg.type != "cut" and cfg.type not in _registered_transition_names()
-    }
+    errored: set[str] = set()
 
     def _warn(location: str, message: str, fix: str) -> None:
         warnings.append(
@@ -1859,12 +1853,13 @@ def _check_meta_transition_pools(
         )
 
     for trans_cfg, location in _iter_transition_slots(config, include_default=True):
-        if trans_cfg.type not in _META_TRANSITION_TYPES or location in rule39_locations:
+        if trans_cfg.type not in _META_TRANSITION_TYPES:
             continue
         try:
-            resolved = _resolve_pool(trans_cfg)
-            _build_trans_obj(trans_cfg)
+            members = _resolve_pool_members(trans_cfg)
+            _build_trans_obj(trans_cfg)  # dedupe + size check + child builds
         except Exception as exc:  # noqa: BLE001 - every refusal is reported, never raised
+            errored.add(location)
             errors.append(
                 ValidationIssue(
                     rule=73,
@@ -1873,18 +1868,17 @@ def _check_meta_transition_pools(
                     message=str(exc),
                     fix=(
                         "Fix the pool entry named in the message; see "
-                        "docs.ledticker.dev/transitions/special/#pools"
+                        "docs.ledticker.dev/transitions/special/#pools-random--auto"
                     ),
                 )
             )
             continue
         raw_pool = trans_cfg.extra.get("pool")
-        entries = list(raw_pool) if raw_pool is not None else []
-        types = [c.type for c, _d, _n in resolved]
+        types = [c.type for c, _d, _n, _k in members]
         dotted = [t for t in types if "." in t]
         core = [t for t in types if "." not in t]
         pool_types = (
-            {(e if isinstance(e, str) else e.get("type")) for e in entries}
+            {(e if isinstance(e, str) else e["type"]) for e in raw_pool}
             if raw_pool is not None
             else set(default_pool_names())
         )
@@ -1905,34 +1899,45 @@ def _check_meta_transition_pools(
                     "List the variants themselves (e.g. `.forward`, `.reverse`) unless "
                     "this member is a single effect that happens to share the name.",
                 )
-        seen: dict[tuple, str] = {}
+        seen: set[tuple] = set()
         dups: list[str] = []
-        for e in entries:
-            key = _pool_entry_key(e)
-            name = e if isinstance(e, str) else str(e.get("type"))
+        for child, _d, _n, key in members:
             if key in seen:
-                dups.append(name)
-            seen[key] = name
+                dups.append(child.type)
+            seen.add(key)
         if dups:
             _warn(
                 location,
                 f"pool has duplicate entries {sorted(set(dups))!r}; each counts once.",
                 "Remove the repeated entries.",
             )
+        for child, entry_duration, _n, _k in members:
+            if entry_duration is None:
+                continue
+            if entry_duration > 5:
+                _warn(
+                    location,
+                    f"pool member {child.type!r} duration = {entry_duration} looks "
+                    "like milliseconds; it is seconds.",
+                    "Use seconds, e.g. duration = 0.8.",
+                )
+            elif entry_duration < 0.05:
+                _warn(
+                    location,
+                    f"pool member {child.type!r} duration = {entry_duration} s is "
+                    "below one frame at 20 fps.",
+                    "Use at least 0.05 s.",
+                )
         if dotted and core:
-            for e in entries:
-                t = e if isinstance(e, str) else e.get("type")
-                if (
-                    isinstance(t, str)
-                    and "." in t
-                    and not (isinstance(e, dict) and "duration" in e)
-                ):
+            for child, entry_duration, _n, _k in members:
+                if "." in child.type and entry_duration is None:
                     _warn(
                         location,
-                        f"plugin member {t!r} has no own duration; it shares the "
-                        f"section's {trans_cfg.duration}s. Plugin effects usually want "
-                        "their own duration.",
-                        f'Write {{ type = "{t}", duration = <seconds> }} in the pool.',
+                        f"plugin member {child.type!r} has no own duration; it shares "
+                        f"the section's {trans_cfg.duration}s. Plugin effects usually "
+                        "want their own duration.",
+                        f'Write {{ type = "{child.type}", duration = <seconds> }} in '
+                        "the pool.",
                     )
         if trans_cfg.colors is not None and core:
             _warn(
@@ -1948,9 +1953,10 @@ def _check_meta_transition_pools(
     # `between_sections` (omitted → same object). (a) a typed between_sections
     # makes default's type dead unless some typeless section table inherits
     # it; (b) a typeless table inheriting random/auto drops default's pool /
-    # exclude unless it writes them itself.
+    # exclude unless it writes them itself. Skipped when default itself
+    # failed to resolve — one actionable error beats a warning on top of it.
     default = config.default_transition
-    if default.type in _META_TRANSITION_TYPES:
+    if default.type in _META_TRANSITION_TYPES and "transitions.default" not in errored:
         bs = config.between_sections
         typeless_section = any(
             sec.transition_specified and not sec.transition.type_specified

@@ -6413,6 +6413,7 @@ _R73_STUBS = {
     "testmeta.alternating": _R73Color,
     "testmeta.random": _R73Color,
     "testmeta.forward": _R73Color,
+    "testmeta.roll_alternating": _R73Color,
 }
 
 
@@ -6907,3 +6908,66 @@ async def test_rule66_still_warns_typeless_pool_table_under_non_random_default(c
     assert [w.location for w in result.warnings if w.rule == 66] == [
         "transitions.between_sections"
     ]
+
+
+async def test_rule73_underscore_token_picker_warns(conf, meta_stubs):
+    """The `_`-separated shape (baseball.roll_alternating) is caught too."""
+    result = await _sec(
+        conf, '{ type = "random", pool = ["wipe_in", "testmeta.roll_alternating"] }'
+    )
+    assert any("variant picker" in w.message for w in _r73(result, "warning"))
+
+
+async def test_rule73_entry_duration_inf_is_error(conf):
+    result = await _sec(
+        conf,
+        '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", duration = inf }] }',
+    )
+    errs = _r73(result, "error")
+    assert len(errs) == 1 and "duration" in errs[0].message
+
+
+async def test_rule73_entry_duration_bounds_warn_like_rule_21(conf):
+    result = await _sec(
+        conf,
+        '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", duration = 3000 }] }',
+    )
+    warns = _r73(result, "warning")
+    assert len(warns) == 1 and "milliseconds" in warns[0].message
+    assert not _r73(result, "error")
+    result = await _sec(
+        conf,
+        '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", duration = 0.01 }] }',
+    )
+    warns = _r73(result, "warning")
+    assert len(warns) == 1 and "below one frame" in warns[0].message
+    result = await _sec(
+        conf,
+        '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", duration = 0.8 }] }',
+    )
+    assert not _r73(result, "warning")
+
+
+async def test_rule73_excluded_entries_draw_no_warnings(conf, meta_stubs):
+    result = await _sec(
+        conf,
+        '{ type = "random", pool = ["wipe_in", "testmeta.color", '
+        '{ type = "testmeta.colors", duration = 1.0 }], exclude = ["testmeta.color"] }',
+    )
+    assert not _r73(result, "warning"), result
+
+
+async def test_rule73_decision3_warnings_skipped_when_default_errored(conf):
+    result = await validate_config(
+        conf(
+            _R73.format(
+                transitions=(
+                    'default = { type = "random", weighting = 1 }\n'
+                    '    between_sections = "wipe_in"'
+                ),
+                section="",
+            )
+        )
+    )
+    assert len(_r73(result, "error")) == 1
+    assert not [w for w in _r73(result, "warning") if "never runs" in w.message]

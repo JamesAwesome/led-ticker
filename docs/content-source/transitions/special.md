@@ -10,10 +10,6 @@ The `special` family is a catch-all for transitions that don't fit the push, wip
 | `random` | Picks a different pool member each firing, never the same one twice in a row (per slot). Default pool: every core transition except `cut`, `scroll` and the four `*_random` / `*_alternating` wrappers | Variety between messages without hand-picking |
 | `auto` | Cycles the pool in order, one member per firing (per slot) | Predictable variety; showcase every effect |
 
-## Pools (`random` / `auto`)
-
-See the Pools section on the special-transitions page for the `pool` / `exclude` syntax, per-member `duration`, which slots run it, and the per-slot scope of "never twice in a row".
-
 ## Tuning
 
 - `transition_duration` (seconds): default 0.5. `cut` ignores it (single frame). `color_flash`, `dissolve`, and `split` look right between 0.4–0.8 s. `scroll` is the exception — duration is implied by content width and the 1 px / frame cadence, not by `transition_duration`.

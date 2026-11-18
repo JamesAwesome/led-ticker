@@ -32,7 +32,7 @@ These apply everywhere unless a section overrides them:
 
 | Field              | Default    | Notes                                                                                                                        |
 | ------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `default`          | `"cut"`    | Fallback inter-widget transition for every section                                                                           |
+| `default`          | `"cut"`    | Base the other slots inherit `duration` / `easing` from; stands in for `between_sections` when that is omitted               |
 | `between_sections` | `"cut"`    | Falls back to `default` (which is `cut` unless you change it) — sets the entry transition when a section doesn't set its own |
 | `duration`         | `0.5`      | Transition duration in seconds. 0.3–1.5 is typical; sprite trails want 1.0–2.0                                               |
 | `easing`           | `"linear"` | `linear` / `ease_out` / `ease_in_out`                                                                                        |
@@ -55,7 +55,7 @@ Each section has three transition slots, all accepting a bare string or inline t
 **Full precedence chains:**
 
 - Entry: `entry_transition` → `transition` (if explicitly set) → `[transitions] between_sections`
-- Inter-widget: `widget_transition` → `transition` (if explicitly set) → `[transitions] default`
+- Inter-widget: `widget_transition` → `transition` (if explicitly set) → `cut`. `[transitions] default` is not consulted for within-section swaps
 
 **Random and auto:** `transition = "random"` picks a different core transition every firing (never the same one twice in a row); `"auto"` cycles them in order. Both accept a table with `pool` / `exclude` and per-member `duration`, which is how plugin effects join with their own timing. They work on `between_sections` and the three section slots. Details and the pool syntax: [special transitions → Pools](/transitions/special/#pools-random--auto).
 

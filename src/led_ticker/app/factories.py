@@ -11,6 +11,7 @@ import difflib
 import inspect
 import itertools
 import logging
+import math
 import os
 import re
 from pathlib import Path
@@ -505,12 +506,18 @@ _DID_YOU_MEAN: dict[str, str] = {
 }
 
 
-def _pool_entry_key(entry: str | dict[str, Any]) -> tuple:
-    """Dedupe key for a pool entry: a bare name normalises to a type-only
-    table, so `"wipe_in"` and `{ type = "wipe_in" }` collide while two entries
-    of the same type with different knobs stay distinct."""
-    table = {"type": entry} if isinstance(entry, str) else entry
-    return tuple(sorted((k, repr(v)) for k, v in table.items()))
+def _pool_member_key(child: TransitionConfig, entry_duration: float | None) -> tuple:
+    """Dedupe key for a RESOLVED pool member: type, the entry's own duration,
+    colours and plugin kwargs. `"wipe_in"`, `{ type = "wipe_in" }` and
+    `{ type = "wipe_in", duration = <the parent's> }` collide; two entries of
+    the same type with different knobs stay distinct."""
+    return (
+        child.type,
+        entry_duration,
+        child.color,
+        tuple(child.colors) if child.colors is not None else None,
+        tuple(sorted((k, repr(v)) for k, v in child.extra.items())),
+    )
 
 
 def _child_transition_cfg(
@@ -580,7 +587,12 @@ def _child_transition_cfg(
     child = dataclasses.replace(parent, type=ttype, extra=extra, type_specified=True)
     if "duration" in table:
         d = table["duration"]
-        if isinstance(d, bool) or not isinstance(d, (int, float)) or d <= 0:
+        if (
+            isinstance(d, bool)
+            or not isinstance(d, (int, float))
+            or not math.isfinite(d)
+            or d <= 0
+        ):
             raise ValueError(
                 f"random/auto pool entry {ttype!r}: duration must be a positive "
                 f"number of seconds; got {d!r}"
@@ -617,12 +629,13 @@ def _child_transition_cfg(
     return child
 
 
-def _resolve_pool(
+def _resolve_pool_members(
     trans_cfg: TransitionConfig,
-) -> list[tuple[TransitionConfig, float | None, str]]:
-    """Resolve a `random` / `auto` slot into `(child_cfg, entry_duration, name)`
-    triples: explicit `pool` (or the default pool), minus `exclude`, deduped on
-    the normalised entry, at least two distinct members. Raises ValueError."""
+) -> list[tuple[TransitionConfig, float | None, str, tuple]]:
+    """Every pool member of a `random` / `auto` slot, in order, NOT deduped:
+    `(child_cfg, entry_duration, name, key)`. Shape checks run first (so a
+    malformed entry is a clean ValueError before `exclude` touches it), then
+    `exclude` by type, then the clone-and-overlay. Raises ValueError."""
     stray = sorted(set(trans_cfg.extra) - {"pool", "exclude"})
     if stray:
         raise ValueError(
@@ -636,40 +649,33 @@ def _resolve_pool(
         raise ValueError(
             f"{trans_cfg.type}: exclude must be a list; got {exclude_raw!r}"
         )
+    registered = _registered_transition_names()
     for name in exclude_raw:
         if not isinstance(name, str):
             raise ValueError(
                 f"{trans_cfg.type}: exclude names must be strings; got {name!r}"
             )
-        if name not in _registered_transition_names():
+        if name not in registered:
             message, _fix = explain_unknown_transition(name)
             raise ValueError(f"{trans_cfg.type}: exclude: {message}")
     entries: list[str | dict[str, Any]] = (
         list(pool_raw) if pool_raw is not None else list(default_pool_names())
     )
     for e in entries:
-        if not isinstance(e, (str, dict)):
+        ok = isinstance(e, str) or (
+            isinstance(e, dict) and isinstance(e.get("type"), str)
+        )
+        if not ok:
             raise ValueError(
                 f"random/auto pool entry {e!r} must be a transition name or a "
-                "table with a `type` key"
+                "table whose `type` is a transition name"
             )
     excluded = set(exclude_raw)
-    entries = [
-        e
-        for e in entries
-        if (e if isinstance(e, str) else e.get("type")) not in excluded
-    ]
-    seen: set[tuple] = set()
-    resolved: list[tuple[TransitionConfig, float | None, str]] = []
+    members: list[tuple[TransitionConfig, float | None, str, tuple]] = []
     for e in entries:
-        key = _pool_entry_key(e)
-        if key in seen:
+        if (e if isinstance(e, str) else e["type"]) in excluded:
             continue
-        seen.add(key)
         child = _child_transition_cfg(trans_cfg, e)
-        if child.type not in _registered_transition_names():
-            message, _fix = explain_unknown_transition(child.type)
-            raise ValueError(f"random/auto pool: {message}")
         entry_duration = (
             child.duration if isinstance(e, dict) and "duration" in e else None
         )
@@ -678,10 +684,29 @@ def _resolve_pool(
             if entry_duration is None
             else f"{child.type} @{entry_duration:g}s"
         )
+        members.append(
+            (child, entry_duration, name, _pool_member_key(child, entry_duration))
+        )
+    return members
+
+
+def _resolve_pool(
+    trans_cfg: TransitionConfig,
+) -> list[tuple[TransitionConfig, float | None, str]]:
+    """Resolve a `random` / `auto` slot into `(child_cfg, entry_duration, name)`
+    triples: `_resolve_pool_members` deduped on the member key (first
+    occurrence wins), at least two distinct members. Raises ValueError."""
+    seen: set[tuple] = set()
+    resolved: list[tuple[TransitionConfig, float | None, str]] = []
+    for child, entry_duration, name, key in _resolve_pool_members(trans_cfg):
+        if key in seen:
+            continue
+        seen.add(key)
         resolved.append((child, entry_duration, name))
     if len(resolved) < 2:
         raise ValueError(
             f"{trans_cfg.type} pool has {len(resolved)} distinct member(s); "
+            "need at least 2"
             "need at least 2"
         )
     return resolved

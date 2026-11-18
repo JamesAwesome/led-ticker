@@ -92,6 +92,8 @@ class TestTransitionRegistry:
             "wipe_out",
             "wipe_in_vertical",
             "wipe_out_vertical",
+            "random",
+            "auto",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY, f"{name!r} not in registry"
@@ -101,7 +103,7 @@ class TestTransitionRegistry:
             assert arcade_name not in _TRANSITION_REGISTRY, (
                 f"{arcade_name!r} is still in core — should be in led-ticker-arcade"
             )
-        assert len(_TRANSITION_REGISTRY) == 21
+        assert len(_TRANSITION_REGISTRY) == 23
 
     def test_get_unknown_raises(self):
         # get_transition_class now delegates to explain_unknown_transition,

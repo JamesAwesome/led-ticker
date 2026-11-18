@@ -550,6 +550,12 @@ from led_ticker.transitions.effects import (  # noqa: F401
     Scroll,
     SplitHorizontal,
 )
+from led_ticker.transitions.meta import (  # noqa: F401
+    HARD_EXCLUDED,
+    AutoTransition,
+    RandomTransition,
+    default_pool_names,
+)
 from led_ticker.transitions.push import (  # noqa: F401
     PushAlternating,
     PushDown,

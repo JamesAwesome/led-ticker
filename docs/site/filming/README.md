@@ -116,6 +116,24 @@ rival column run came close to the pick; if the box is wrong pass
 Docs media goes to `docs/site/public/filmed/`; YouTube output stays in
 `captures/` (gitignored).
 
+## Filming at zoom 100 (refilm, 2026-11-18)
+
+The Link's zoom is digital, so the session-0 footage at `ZOOM=350` was a
+~1100 px sensor crop stretched 3.5× — that is where the softness came from.
+Film at `ZOOM=100` (or move the camera closer) and crop in post. Two things
+change at that framing:
+
+- Detection grabs the daylight window instead of the panel. Pass the panel
+  box explicitly: read it off a rainbow or slate frame with a 100 px grid
+  (`drawgrid`) and divide by 12 for analysis pixels — on 2026-11-18 that was
+  `CROP=122:79:74:8` (source 1464:948:888:96).
+- The camera's auto-exposure dims the white slate within half a second, so
+  the saturated share of the box drops; `SLATE_FRACTION=0.3` holds for the
+  full 2 s slate while content never passes 0.05.
+
+`<name>.web.mp4` now scales _down_ to 1280 wide only — a 888 px panel crop
+stays 888 px rather than being blown up.
+
 ## Placement shots (wide, with the room in frame)
 
 The docs also carry two "placement" videos that show the shelf and the

@@ -142,7 +142,9 @@ def web_mp4_argv(
     """Docs-sized h264: the hero loop is a video on the docs site, not a GIF."""
     ss, t = _window(seg, fps_src, 1)
     crop = _crop_filter(bbox, analysis_width, src_width)
-    vf = f"{crop},{DENOISE},scale={WEB_WIDTH}:-2"
+    crop_w = int(crop.split("=")[1].split(":")[0])
+    width = min(WEB_WIDTH, crop_w)  # scale down to the docs width, never up
+    vf = f"{crop},{DENOISE},scale={width}:-2"
     return [
         "ffmpeg",
         "-v",

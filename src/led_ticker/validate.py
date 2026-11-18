@@ -1816,6 +1816,178 @@ def _check_transition_color_shape(
     return errors, warnings
 
 
+_META_TRANSITION_TYPES: frozenset[str] = frozenset({"random", "auto"})
+
+
+def _check_meta_transition_pools(
+    config: AppConfig,
+) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
+    """Rule 73: `random` / `auto` pools.
+
+    ERRORs come from the factory's own resolver (`_resolve_pool`, then a
+    build attempt), so validate refuses exactly what the sign would refuse,
+    one error per slot, and never raises on a malformed entry. WARNINGs are
+    validate-only and computed only after the resolver succeeded: a
+    registered `exclude` name absent from the pool; a plugin member whose
+    final name token is `random` / `alternating` (looks like a variant
+    picker — a leaf such as a random settle ORDER shares the shape, so a
+    warning, not an error); identical duplicate entries; a plugin member
+    without its own `duration` in a MIXED pool; a parent `transition_colors`
+    when a core member is present (core members take a single colour); and
+    the two `[transitions] default` shapes from the design's decision 3.
+    """
+    from led_ticker.app.factories import (
+        _build_trans_obj,
+        _pool_entry_key,
+        _resolve_pool,
+    )
+    from led_ticker.transitions import default_pool_names
+
+    errors: list[ValidationIssue] = []
+    warnings: list[ValidationIssue] = []
+    rule39_locations = {
+        loc
+        for cfg, loc in _iter_transition_slots(config, include_default=True)
+        if cfg.type != "cut" and cfg.type not in _registered_transition_names()
+    }
+
+    def _warn(location: str, message: str, fix: str) -> None:
+        warnings.append(
+            ValidationIssue(
+                rule=73, location=location, severity="warning", message=message, fix=fix
+            )
+        )
+
+    for trans_cfg, location in _iter_transition_slots(config, include_default=True):
+        if trans_cfg.type not in _META_TRANSITION_TYPES or location in rule39_locations:
+            continue
+        try:
+            resolved = _resolve_pool(trans_cfg)
+            _build_trans_obj(trans_cfg)
+        except Exception as exc:  # noqa: BLE001 - every refusal is reported, never raised
+            errors.append(
+                ValidationIssue(
+                    rule=73,
+                    location=location,
+                    severity="error",
+                    message=str(exc),
+                    fix=(
+                        "Fix the pool entry named in the message; see "
+                        "docs.ledticker.dev/transitions/special/#pools"
+                    ),
+                )
+            )
+            continue
+        raw_pool = trans_cfg.extra.get("pool")
+        entries = list(raw_pool) if raw_pool is not None else []
+        types = [c.type for c, _d, _n in resolved]
+        dotted = [t for t in types if "." in t]
+        core = [t for t in types if "." not in t]
+        pool_types = (
+            {(e if isinstance(e, str) else e.get("type")) for e in entries}
+            if raw_pool is not None
+            else set(default_pool_names())
+        )
+        for name in trans_cfg.extra.get("exclude", []):
+            if name not in pool_types:
+                _warn(
+                    location,
+                    f"exclude: {name!r} is not in the pool; it excludes nothing.",
+                    "Remove it from exclude, or check the pool entry's spelling.",
+                )
+        for t in dotted:
+            token = t.rsplit(".", 1)[-1].rsplit("_", 1)[-1]
+            if token in ("random", "alternating"):
+                _warn(
+                    location,
+                    f"pool member {t!r} looks like a variant picker; the pool already "
+                    "provides variety.",
+                    "List the variants themselves (e.g. `.forward`, `.reverse`) unless "
+                    "this member is a single effect that happens to share the name.",
+                )
+        seen: dict[tuple, str] = {}
+        dups: list[str] = []
+        for e in entries:
+            key = _pool_entry_key(e)
+            name = e if isinstance(e, str) else str(e.get("type"))
+            if key in seen:
+                dups.append(name)
+            seen[key] = name
+        if dups:
+            _warn(
+                location,
+                f"pool has duplicate entries {sorted(set(dups))!r}; each counts once.",
+                "Remove the repeated entries.",
+            )
+        if dotted and core:
+            for e in entries:
+                t = e if isinstance(e, str) else e.get("type")
+                if (
+                    isinstance(t, str)
+                    and "." in t
+                    and not (isinstance(e, dict) and "duration" in e)
+                ):
+                    _warn(
+                        location,
+                        f"plugin member {t!r} has no own duration; it shares the "
+                        f"section's {trans_cfg.duration}s. Plugin effects usually want "
+                        "their own duration.",
+                        f'Write {{ type = "{t}", duration = <seconds> }} in the pool.',
+                    )
+        if trans_cfg.colors is not None and core:
+            _warn(
+                location,
+                "transition_colors under random/auto: core members ignore it and take "
+                "transition_color; only plugin members that declare `colors` receive "
+                "the list.",
+                "Use transition_color = [r, g, b] here, or set transition_colors "
+                "on the plugin entries that take it.",
+            )
+
+    # Decision 3 of the design: `default` is live for ENTRIES only through
+    # `between_sections` (omitted → same object). (a) a typed between_sections
+    # makes default's type dead unless some typeless section table inherits
+    # it; (b) a typeless table inheriting random/auto drops default's pool /
+    # exclude unless it writes them itself.
+    default = config.default_transition
+    if default.type in _META_TRANSITION_TYPES:
+        bs = config.between_sections
+        typeless_section = any(
+            sec.transition_specified and not sec.transition.type_specified
+            for sec in config.sections
+        )
+        if (
+            config.between_sections_specified
+            and bs.type_specified
+            and not typeless_section
+        ):
+            _warn(
+                "transitions.default",
+                f"default = {default.type!r} never runs: between_sections overrides "
+                "the entry transition and within-section swaps never use default.",
+                "Put random/auto on between_sections or on a section's transition.",
+            )
+        if default.extra:
+            carried = set(default.extra)
+            candidates: list[tuple[TransitionConfig, str]] = []
+            if config.between_sections_specified and not bs.type_specified:
+                candidates.append((bs, "transitions.between_sections"))
+            for i, sec in enumerate(config.sections):
+                if sec.transition_specified and not sec.transition.type_specified:
+                    candidates.append((sec.transition, f"section[{i}].transition"))
+            for cfg, loc in candidates:
+                if cfg.type in _META_TRANSITION_TYPES and (carried - set(cfg.extra)):
+                    missing = sorted(carried - set(cfg.extra))
+                    _warn(
+                        loc,
+                        f"this table inherits {default.type!r} from [transitions] "
+                        f"default but default's {missing} are not inherited; it runs "
+                        "the DEFAULT pool.",
+                        f"Repeat {missing} here, or give this table its own type.",
+                    )
+    return errors, warnings
+
+
 def _registered_transition_names() -> set[str]:
     from led_ticker.transitions import list_transition_names
 
@@ -1887,6 +2059,13 @@ def _check_typeless_transition_table(config: AppConfig) -> list[ValidationIssue]
 
     def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
         if trans_cfg is None or trans_cfg.type_specified or not trans_cfg.extra:
+            return
+        # A typeless table under a `random` / `auto` default that writes only
+        # pool / exclude WORKS (type inherited, pool honoured) — rule 73 owns it.
+        if trans_cfg.type in _META_TRANSITION_TYPES and set(trans_cfg.extra) <= {
+            "pool",
+            "exclude",
+        }:
             return
         keys = sorted(trans_cfg.extra)
         style_hint = (
@@ -4266,6 +4445,12 @@ def _validate_static_prebuild(
     _color_errors, _color_warnings = _check_transition_color_shape(config)
     errors.extend(_color_errors)
     warnings.extend(_color_warnings)
+
+    # Phase 1b (cont.): Rule 73 — random/auto pools (resolver-backed errors,
+    # validate-only warnings).
+    _pool_errors, _pool_warnings = _check_meta_transition_pools(config)
+    errors.extend(_pool_errors)
+    warnings.extend(_pool_warnings)
 
     # Phase 1b (cont.): Rule 57 — separator / separator_color / separator_font
     # fields on non-scroll transitions; also resolve separator_font on scroll

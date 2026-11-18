@@ -6356,6 +6356,159 @@ async def test_rule74_dead_default_slot_is_warning_when_between_sections_set(con
                     'default = { type = "wipe_in", transition_color = "red" }\n'
                     '    between_sections = "cut"'
                 ),
+# ---------------------------------------------------------------------------
+# Rule 73: `random` / `auto` pools. ERRORs mirror the factory resolver
+# one-for-one (validate calls it); WARNINGs are validate-only and computed
+# only after the resolver succeeded.
+# ---------------------------------------------------------------------------
+
+_R73 = """\
+    [display]
+    rows = 16
+    cols = 32
+    chain_length = 5
+    default_scale = 1
+
+    [transitions]
+    {transitions}
+
+    [[playlist.section]]
+    mode = "slideshow"
+    {section}
+
+    [[playlist.section.widget]]
+    type = "message"
+    text = "hi"
+    """
+
+
+class _R73Colors:
+    def __init__(self, colors=None, knob=1):
+        self.colors = colors
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kw):
+        return canvas
+
+
+class _R73Color:
+    def __init__(self, color=None):
+        self.color = color
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kw):
+        return canvas
+
+
+class _R73Needs:
+    def __init__(self, needed):
+        self.needed = needed
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kw):
+        return canvas
+
+
+_R73_STUBS = {
+    "testmeta.colors": _R73Colors,
+    "testmeta.color": _R73Color,
+    "testmeta.needs": _R73Needs,
+    "testmeta.alternating": _R73Color,
+    "testmeta.random": _R73Color,
+    "testmeta.forward": _R73Color,
+}
+
+
+@pytest.fixture
+def meta_stubs():
+    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
+
+    for name, cls in _R73_STUBS.items():
+        register_transition(name)(cls)
+    yield
+    for name in _R73_STUBS:
+        _TRANSITION_REGISTRY.pop(name, None)
+
+
+def _r73(result, severity):
+    pool = result.errors if severity == "error" else result.warnings
+    return [i for i in pool if i.rule == 73]
+
+
+async def _sec(conf, transition_table, transitions=""):
+    return await validate_config(
+        conf(
+            _R73.format(
+                transitions=transitions, section=f"transition = {transition_table}"
+            )
+        )
+    )
+
+
+async def test_rule73_valid_pool_has_no_issues(conf):
+    result = await _sec(conf, '{ type = "random", pool = ["wipe_in", "wipe_out"] }')
+    assert not _r73(result, "error") and not _r73(result, "warning"), result
+    result = await _sec(conf, '"auto"')
+    assert not _r73(result, "error") and not _r73(result, "warning"), result
+
+
+@pytest.mark.parametrize(
+    "table,needle",
+    [
+        ('{ type = "random", weighting = 1 }', "pool and exclude only"),
+        ('{ type = "random", pool = ["wipe_in", "no_such"] }', "unknown transition"),
+        (
+            '{ type = "random", pool = ["wipe_in", "wipe_random"] }',
+            "cannot be a pool member",
+        ),
+        ('{ type = "random", pool = ["wipe_in", "auto"] }', "cannot nest"),
+        ('{ type = "random", pool = ["wipe_in"] }', "1 distinct"),
+        ('{ type = "random", exclude = ["disolve"] }', "disolve"),
+        (
+            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", duration = "3.0" }] }',  # noqa: E501
+            "duration",
+        ),
+        (
+            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", transition_color = "red" }] }',  # noqa: E501
+            "0-255",
+        ),
+        (
+            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", easing = "ease_out" }] }',  # noqa: E501
+            "easing",
+        ),
+        (
+            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", color = [1, 2, 3] }] }',  # noqa: E501
+            "did you mean",
+        ),
+    ],
+)
+async def test_rule73_resolver_refusals_are_errors(conf, table, needle):
+    result = await _sec(conf, table)
+    errs = _r73(result, "error")
+    assert len(errs) == 1 and errs[0].location == "section[0].transition", result
+    assert needle in errs[0].message
+
+
+@pytest.mark.parametrize(
+    "table",
+    ['{ type = "random", pool = 5 }', '{ type = "random", pool = [5, "wipe_in"] }'],
+)
+async def test_rule73_malformed_pool_one_error_no_raise(conf, table):
+    result = await _sec(conf, table)
+    assert len(_r73(result, "error")) == 1 and not _r73(result, "warning")
+
+
+async def test_rule73_failing_plugin_child_reported_under_73_not_53(conf, meta_stubs):
+    result = await _sec(
+        conf, '{ type = "random", pool = ["wipe_in", "testmeta.needs"] }'
+    )
+    errs = _r73(result, "error")
+    assert len(errs) == 1 and "needed" in errs[0].message
+    assert not [e for e in result.errors if e.rule == 53]
+
+
+async def test_rule73_runs_on_between_sections_and_default(conf):
+    result = await validate_config(
+        conf(
+            _R73.format(
+                transitions='between_sections = { type = "random", pool = ["wipe_in"] }',  # noqa: E501
                 section="",
             )
         )
@@ -6604,3 +6757,153 @@ async def test_rule74_plugin_table_color_key_wins_over_transition_color(conf):
     assert not _r74(result, "error")
     warns = _r74(result, "warning")
     assert len(warns) == 1 and "own `color` key" in warns[0].message
+    assert [e.location for e in _r73(result, "error")] == [
+        "transitions.between_sections"
+    ]
+    result = await validate_config(
+        conf(
+            _R73.format(
+                transitions='default = { type = "auto", pool = ["wipe_in"] }',
+                section="",
+            )
+        )
+    )
+    assert [e.location for e in _r73(result, "error")] == ["transitions.default"]
+
+
+# warnings
+
+
+async def test_rule73_exclude_name_absent_from_pool_warns(conf):
+    result = await _sec(
+        conf,
+        '{ type = "random", pool = ["wipe_in", "wipe_out"], exclude = ["dissolve"] }',
+    )
+    warns = _r73(result, "warning")
+    assert (
+        len(warns) == 1
+        and "dissolve" in warns[0].message
+        and "not in the pool" in warns[0].message
+    )
+
+
+async def test_rule73_variant_picker_token_warns(conf, meta_stubs):
+    for member in ("testmeta.alternating", "testmeta.random"):
+        result = await _sec(
+            conf, f'{{ type = "random", pool = ["wipe_in", "{member}"] }}'
+        )
+        warns = _r73(result, "warning")
+        assert any("variant picker" in w.message for w in warns), (member, result)
+    result = await _sec(
+        conf, '{ type = "random", pool = ["wipe_in", "testmeta.forward"] }'
+    )
+    assert not any("variant picker" in w.message for w in _r73(result, "warning"))
+
+
+async def test_rule73_duplicate_entries_warn(conf):
+    result = await _sec(
+        conf, '{ type = "random", pool = ["wipe_in", "wipe_out", "wipe_in"] }'
+    )
+    warns = _r73(result, "warning")
+    assert (
+        len(warns) == 1
+        and "duplicate" in warns[0].message
+        and "wipe_in" in warns[0].message
+    )
+
+
+async def test_rule73_dotted_without_duration_warns_only_in_mixed_pool(
+    conf, meta_stubs
+):
+    result = await _sec(
+        conf, '{ type = "random", pool = ["wipe_in", "testmeta.color"] }'
+    )
+    warns = [w for w in _r73(result, "warning") if "own duration" in w.message]
+    assert len(warns) == 1 and "testmeta.color" in warns[0].message
+    result = await _sec(
+        conf, '{ type = "random", pool = ["testmeta.colors", "testmeta.color"] }'
+    )
+    assert not [w for w in _r73(result, "warning") if "own duration" in w.message]
+    result = await _sec(
+        conf,
+        '{ type = "random", pool = ["wipe_in", { type = "testmeta.color", duration = 2.0 }] }',  # noqa: E501
+    )
+    assert not [w for w in _r73(result, "warning") if "own duration" in w.message]
+
+
+async def test_rule73_parent_transition_colors_warns_with_a_core_member(
+    conf, meta_stubs
+):
+    result = await _sec(
+        conf,
+        '{ type = "random", pool = ["wipe_in", "testmeta.colors"], transition_colors = [[1, 2, 3]] }',  # noqa: E501
+    )
+    warns = [w for w in _r73(result, "warning") if "transition_colors" in w.message]
+    assert len(warns) == 1 and not [w for w in result.warnings if w.rule == 74]
+    result = await _sec(
+        conf,
+        '{ type = "random", pool = ["testmeta.color", "testmeta.colors"], transition_colors = [[1, 2, 3]] }',  # noqa: E501
+    )
+    assert not [w for w in _r73(result, "warning") if "transition_colors" in w.message]
+
+
+async def test_rule73_default_random_dead_when_between_sections_typed(conf):
+    base = 'default = "random"\n    between_sections = "wipe_in"'
+    result = await validate_config(conf(_R73.format(transitions=base, section="")))
+    warns = [w for w in _r73(result, "warning") if "never runs" in w.message]
+    assert len(warns) == 1 and warns[0].location == "transitions.default"
+    # omitted between_sections: default IS the entry transition → no warning
+    result = await validate_config(
+        conf(_R73.format(transitions='default = "random"', section=""))
+    )
+    assert not [w for w in _r73(result, "warning") if "never runs" in w.message]
+    # a typeless section table inherits random from default → it does run
+    result = await validate_config(
+        conf(_R73.format(transitions=base, section="transition = { duration = 0.8 }"))
+    )
+    assert not [w for w in _r73(result, "warning") if "never runs" in w.message]
+
+
+async def test_rule73_typeless_table_drops_default_pool_warns(conf):
+    d = 'default = { type = "random", pool = ["wipe_in", "wipe_out"] }'
+    result = await validate_config(
+        conf(
+            _R73.format(
+                transitions=d + "\n    between_sections = { duration = 1.0 }",
+                section="",
+            )
+        )
+    )
+    warns = [w for w in _r73(result, "warning") if "not inherited" in w.message]
+    assert [w.location for w in warns] == ["transitions.between_sections"]
+    result = await validate_config(
+        conf(_R73.format(transitions=d, section="transition = { duration = 0.8 }"))
+    )
+    warns = [w for w in _r73(result, "warning") if "not inherited" in w.message]
+    assert [w.location for w in warns] == ["section[0].transition"]
+    # the typeless table writes pool itself → fine, and rule 66 stays quiet
+    result = await validate_config(
+        conf(
+            _R73.format(
+                transitions=d
+                + '\n    between_sections = { pool = ["dissolve", "split"] }',
+                section="",
+            )
+        )
+    )
+    assert not [w for w in _r73(result, "warning") if "not inherited" in w.message]
+    assert not [w for w in result.warnings if w.rule == 66], result
+
+
+async def test_rule66_still_warns_typeless_pool_table_under_non_random_default(conf):
+    result = await validate_config(
+        conf(
+            _R73.format(
+                transitions='default = "wipe_in"\n    between_sections = { pool = ["dissolve", "split"] }',  # noqa: E501
+                section="",
+            )
+        )
+    )
+    assert [w.location for w in result.warnings if w.rule == 66] == [
+        "transitions.between_sections"
+    ]

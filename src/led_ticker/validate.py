@@ -1527,6 +1527,95 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+# Non-dotted transition types that consume a `transition_colors` LIST. Every
+# other core type takes a single `color` and swallows `colors` in **kwargs
+# (`_build_trans_obj` forwards `colors` in preference), so the list — and the
+# user's intent — is silently dropped. `random` / `auto` own that warning
+# under rule 73 (their pool members take the single colour).
+_TRANSITION_COLORS_CONSUMERS: frozenset[str] = frozenset(
+    {"wipe_random", "wipe_alternating", "random", "auto"}
+)
+
+
+def _check_transition_color_shape(
+    config: AppConfig,
+) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
+    """Rule 74: `transition_color` / `transition_colors` shape on every slot.
+
+    `_parse_transition` only does `tuple(value)` at load, so `"red"` becomes
+    `('r', 'e', 'd')` and `[255, 0]` becomes `(255, 0)`; both pass startup and
+    raise inside `SetPixel` on the first firing (the panel freezes). The shape
+    predicate is `coercion.rgb_shape_error`, shared with the transition
+    factory and rule 73 so the three can't drift. A non-iterable value
+    (`transition_color = 255`, or a flat `transition_colors = [255, 0, 0]`)
+    already fails inside `load_config` and never reaches this rule.
+
+    Also WARNS when `transition_colors` sits on a non-dotted type that only
+    takes a single colour (every core type except the two colour wrappers),
+    because the constructor drops the list.
+
+    Location quirk, named in the message: a section WITHOUT its own
+    `transition` that writes `transition_color` mutates the shared
+    `default_transition` object (`load_config`'s per-section overrides), so
+    the error is reported at `transitions.default`.
+    """
+    from led_ticker.app.coercion import rgb_list_shape_error, rgb_shape_error
+
+    errors: list[ValidationIssue] = []
+    warnings: list[ValidationIssue] = []
+    for trans_cfg, location in _iter_transition_slots(config, include_default=True):
+        suffix = (
+            " (also written by a section's transition_color on a section"
+            " without its own transition)"
+            if location == "transitions.default"
+            else ""
+        )
+        if trans_cfg.color is not None:
+            msg = rgb_shape_error(trans_cfg.color)
+            if msg is not None:
+                errors.append(
+                    ValidationIssue(
+                        rule=74,
+                        location=location,
+                        severity="error",
+                        message=f"transition_color: {msg}{suffix}",
+                        fix="Write transition_color = [r, g, b] with three ints 0-255.",
+                    )
+                )
+        if trans_cfg.colors is not None:
+            msg = rgb_list_shape_error(trans_cfg.colors)
+            if msg is not None:
+                errors.append(
+                    ValidationIssue(
+                        rule=74,
+                        location=location,
+                        severity="error",
+                        message=f"transition_colors: {msg}{suffix}",
+                        fix=("Write transition_colors = [[r, g, b], ...], ints 0-255."),
+                    )
+                )
+            elif (
+                "." not in trans_cfg.type
+                and trans_cfg.type not in _TRANSITION_COLORS_CONSUMERS
+            ):
+                warnings.append(
+                    ValidationIssue(
+                        rule=74,
+                        location=location,
+                        severity="warning",
+                        message=(
+                            f"transition_colors is ignored by type={trans_cfg.type!r};"
+                            " it takes a single colour."
+                        ),
+                        fix=(
+                            "Use transition_color = [r, g, b] here, or switch to"
+                            " wipe_random / wipe_alternating for a colour pool."
+                        ),
+                    )
+                )
+    return errors, warnings
+
+
 def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue]:
     """Rule 57: separator / separator_color / separator_font fields are only
     honored by the scroll transition.
@@ -3972,6 +4061,11 @@ def _validate_static_prebuild(
     # Always runs (not just --strict): a typo in a transition name always
     # fails at startup and has no deploy-target excuse.
     errors.extend(_check_transition_names(config))
+
+    # Phase 1b (cont.): Rule 74 — transition colour shape on every slot.
+    _color_errors, _color_warnings = _check_transition_color_shape(config)
+    errors.extend(_color_errors)
+    warnings.extend(_color_warnings)
 
     # Phase 1b (cont.): Rule 57 — separator / separator_color / separator_font
     # fields on non-scroll transitions; also resolve separator_font on scroll

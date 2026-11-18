@@ -16,6 +16,9 @@
 /demos-pinned/*
   Cache-Control: public, max-age=86400
 
+/filmed/*
+  Cache-Control: public, max-age=86400
+
 /emoji/*
   Cache-Control: public, max-age=86400
 

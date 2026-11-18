@@ -1,0 +1,41 @@
+---
+/**
+ * A family of real-hardware clips in one block: two columns on desktop, one
+ * on phones. Each item is a `DemoGif` with `filmed` set, so the camera
+ * footage keeps its smoothing instead of the pixel-art scaling the rendered
+ * catalog GIFs use.
+ */
+import DemoGif from "./DemoGif.astro";
+
+interface Item {
+  src: string;
+  caption: string;
+}
+interface Props {
+  items: Item[];
+}
+const { items } = Astro.props;
+---
+
+<div class="filmed-grid">
+  {items.map((item) => (
+    <DemoGif filmed src={item.src} caption={item.caption} />
+  ))}
+</div>
+
+<style>
+  .filmed-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 1rem;
+    margin: 1rem 0 1.5rem;
+  }
+  .filmed-grid :global(.demo-gif) {
+    margin: 0.5rem 0;
+  }
+  @media (max-width: 640px) {
+    .filmed-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

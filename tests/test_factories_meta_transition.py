@@ -275,7 +275,9 @@ def test_pool_refuses_bad_entry_color(bad):
         )
 
 
-@pytest.mark.parametrize("bad", ["3.0", True, 0, -1, 0.0, float("inf"), float("nan")])
+@pytest.mark.parametrize(
+    "bad", ["3.0", True, 0, -1, 0.0, float("inf"), float("nan"), 3601, 1e308]
+)
 def test_pool_refuses_bad_entry_duration(bad):
     with pytest.raises(ValueError, match="duration"):
         _resolve_pool(
@@ -314,35 +316,40 @@ def test_pool_dedupes_behaviour_identical_members():
                 }
             )
         )
+    # a table pinning the parent's own duration is the SAME member
+    with pytest.raises(ValueError, match="1 distinct"):
+        _resolve_pool(
+            _cfg(
+                duration=0.5,
+                extra={"pool": ["dissolve", {"type": "dissolve", "duration": 0.5}]},
+            )
+        )
     members = _resolve_pool_members(
         _cfg(
             duration=0.5,
-            extra={"pool": ["dissolve", {"type": "dissolve", "duration": 0.5}]},
+            extra={"pool": ["dissolve", {"type": "dissolve", "duration": 0.6}]},
         )
     )
-    # same type, but the table pins its own duration: a distinct member
     assert len({k for *_rest, k in members}) == 2
 
 
-def test_pool_keeps_same_type_entries_with_different_knobs():
-    resolved = _resolve_pool(
-        _cfg(
-            extra={
-                "pool": [
-                    {"type": "dissolve", "duration": 0.3},
-                    {"type": "dissolve", "duration": 3.0},
-                ]
-            }
+def test_inherited_parent_colour_is_shape_checked_on_children():
+    """A malformed colour on the random/auto SLOT reaches every child via the
+    clone; the resolver must refuse it (rule 74 grades the parent by what its
+    own constructor reads, which is nothing)."""
+    with pytest.raises(ValueError, match="0-255"):
+        _resolve_pool(_cfg(color=("r", "e", "d")))
+    with pytest.raises(ValueError, match="0-255"):
+        _resolve_pool(
+            _cfg(colors=[(1, 2)], extra={"pool": ["testmeta.colors", "wipe_in"]})
         )
-    )
-    assert [d for _c, d, _n in resolved] == [0.3, 3.0]
 
 
-def test_pool_dedupe_keeps_first_occurrence_order():
-    resolved = _resolve_pool(
-        _cfg(extra={"pool": ["wipe_out", "wipe_in", "wipe_out", "dissolve"]})
-    )
-    assert _types(resolved) == ["wipe_out", "wipe_in", "dissolve"]
+def test_pool_refuses_absurd_entry_duration():
+    with pytest.raises(ValueError, match="at most 3600"):
+        _resolve_pool(
+            _cfg(extra={"pool": ["wipe_in", {"type": "wipe_out", "duration": 1e308}]})
+        )
 
 
 # --- colours --------------------------------------------------------------

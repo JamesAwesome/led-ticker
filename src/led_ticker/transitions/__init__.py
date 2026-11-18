@@ -552,6 +552,7 @@ from led_ticker.transitions.effects import (  # noqa: F401
 )
 from led_ticker.transitions.meta import (  # noqa: F401
     HARD_EXCLUDED,
+    META_TYPES,
     AutoTransition,
     RandomTransition,
     default_pool_names,

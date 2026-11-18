@@ -34,6 +34,10 @@ from led_ticker.transitions import (
 
 logger = logging.getLogger(__name__)
 
+# The two meta-transition type names; the factory and validate import this
+# rather than spelling the pair three ways.
+META_TYPES: frozenset[str] = frozenset({"random", "auto"})
+
 # Never pool members: `cut` (no-op), `scroll` (type-dispatched to
 # `_scroll_between`, bypasses the runner), the two meta types (no nesting) and
 # the four core variant wrappers (they pick inside `frame_at` on the older

@@ -1816,9 +1816,6 @@ def _check_transition_color_shape(
     return errors, warnings
 
 
-_META_TRANSITION_TYPES: frozenset[str] = frozenset({"random", "auto"})
-
-
 def _check_meta_transition_pools(
     config: AppConfig,
 ) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
@@ -1839,7 +1836,7 @@ def _check_meta_transition_pools(
     `[transitions] default` shapes from the design's decision 3.
     """
     from led_ticker.app.factories import _build_trans_obj, _resolve_pool_members
-    from led_ticker.transitions import default_pool_names
+    from led_ticker.transitions import META_TYPES, default_pool_names
 
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
@@ -1853,7 +1850,7 @@ def _check_meta_transition_pools(
         )
 
     for trans_cfg, location in _iter_transition_slots(config, include_default=True):
-        if trans_cfg.type not in _META_TRANSITION_TYPES:
+        if trans_cfg.type not in META_TYPES:
             continue
         try:
             members = _resolve_pool_members(trans_cfg)
@@ -1956,7 +1953,7 @@ def _check_meta_transition_pools(
     # exclude unless it writes them itself. Skipped when default itself
     # failed to resolve — one actionable error beats a warning on top of it.
     default = config.default_transition
-    if default.type in _META_TRANSITION_TYPES and "transitions.default" not in errored:
+    if default.type in META_TYPES and "transitions.default" not in errored:
         bs = config.between_sections
         typeless_section = any(
             sec.transition_specified and not sec.transition.type_specified
@@ -1982,7 +1979,7 @@ def _check_meta_transition_pools(
                 if sec.transition_specified and not sec.transition.type_specified:
                     candidates.append((sec.transition, f"section[{i}].transition"))
             for cfg, loc in candidates:
-                if cfg.type in _META_TRANSITION_TYPES and (carried - set(cfg.extra)):
+                if cfg.type in META_TYPES and (carried - set(cfg.extra)):
                     missing = sorted(carried - set(cfg.extra))
                     _warn(
                         loc,
@@ -1992,12 +1989,6 @@ def _check_meta_transition_pools(
                         f"Repeat {missing} here, or give this table its own type.",
                     )
     return errors, warnings
-
-
-def _registered_transition_names() -> set[str]:
-    from led_ticker.transitions import list_transition_names
-
-    return set(list_transition_names())
 
 
 def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue]:
@@ -2068,7 +2059,9 @@ def _check_typeless_transition_table(config: AppConfig) -> list[ValidationIssue]
             return
         # A typeless table under a `random` / `auto` default that writes only
         # pool / exclude WORKS (type inherited, pool honoured) — rule 73 owns it.
-        if trans_cfg.type in _META_TRANSITION_TYPES and set(trans_cfg.extra) <= {
+        from led_ticker.transitions import META_TYPES
+
+        if trans_cfg.type in META_TYPES and set(trans_cfg.extra) <= {
             "pool",
             "exclude",
         }:

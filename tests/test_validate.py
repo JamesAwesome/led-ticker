@@ -6971,3 +6971,9 @@ async def test_rule73_decision3_warnings_skipped_when_default_errored(conf):
     )
     assert len(_r73(result, "error")) == 1
     assert not [w for w in _r73(result, "warning") if "never runs" in w.message]
+
+
+async def test_rule73_inherited_slot_colour_is_checked_on_children(conf):
+    result = await _sec(conf, '{ type = "random", transition_color = "red" }')
+    errs = _r73(result, "error")
+    assert len(errs) == 1 and "0-255" in errs[0].message

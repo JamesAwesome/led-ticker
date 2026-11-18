@@ -62,6 +62,7 @@ from led_ticker.sources import (
 )
 from led_ticker.transitions import (
     HARD_EXCLUDED,
+    META_TYPES,
     AutoTransition,
     RandomTransition,
     Transition,
@@ -428,7 +429,7 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
     """
     if trans_cfg.type == "cut":
         return None
-    if trans_cfg.type in _META_TYPES:
+    if trans_cfg.type in META_TYPES:
         return _build_meta_transition(trans_cfg)
     cls = get_transition_class(trans_cfg.type)
     # Plugin transitions (namespaced, dotted type) declare their own config
@@ -485,7 +486,6 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
 # every refusal below is a ValueError whose message a user can act on.
 # ---------------------------------------------------------------------------
 
-_META_TYPES: tuple[str, ...] = ("random", "auto")
 # Section-level knobs the runner reads from the PARENT slot; a pool entry
 # cannot change them per firing. Separator knobs are scroll-only and `scroll`
 # is a hard exclusion.
@@ -500,6 +500,7 @@ _ENTRY_REFUSED_KEYS: frozenset[str] = frozenset(
         "separator_size",
     }
 )
+_MAX_ENTRY_DURATION_S = 3600  # an hour; above it int(duration / fps) overflows
 _DID_YOU_MEAN: dict[str, str] = {
     "color": "transition_color",
     "colors": "transition_colors",
@@ -507,13 +508,15 @@ _DID_YOU_MEAN: dict[str, str] = {
 
 
 def _pool_member_key(child: TransitionConfig, entry_duration: float | None) -> tuple:
-    """Dedupe key for a RESOLVED pool member: type, the entry's own duration,
-    colours and plugin kwargs. `"wipe_in"`, `{ type = "wipe_in" }` and
-    `{ type = "wipe_in", duration = <the parent's> }` collide; two entries of
-    the same type with different knobs stay distinct."""
+    """Dedupe key for a RESOLVED pool member: type, the duration the runner
+    will use (the entry's own or the inherited slot duration), colours and
+    plugin kwargs. `"wipe_in"`, `{ type = "wipe_in" }` and `{ type =
+    "wipe_in", duration = <the parent's> }` collide; two entries of the same
+    type with different knobs stay distinct."""
+    del entry_duration  # the RESOLVED duration is what the runner sees
     return (
         child.type,
-        entry_duration,
+        child.duration,
         child.color,
         tuple(child.colors) if child.colors is not None else None,
         tuple(sorted((k, repr(v)) for k, v in child.extra.items())),
@@ -548,7 +551,7 @@ def _child_transition_cfg(
         raise ValueError(
             f"random/auto pool entry `type` must be a string; got {ttype!r}"
         )
-    if ttype in _META_TYPES:
+    if ttype in META_TYPES:
         raise ValueError(f"random/auto pool cannot nest {ttype!r}")
     if ttype in HARD_EXCLUDED:
         raise ValueError(
@@ -592,10 +595,11 @@ def _child_transition_cfg(
             or not isinstance(d, (int, float))
             or not math.isfinite(d)
             or d <= 0
+            or d > _MAX_ENTRY_DURATION_S
         ):
             raise ValueError(
                 f"random/auto pool entry {ttype!r}: duration must be a positive "
-                f"number of seconds; got {d!r}"
+                f"number of seconds (at most {_MAX_ENTRY_DURATION_S}); got {d!r}"
             )
         child.duration = d
     if "transition_color" in table:
@@ -626,6 +630,22 @@ def _child_transition_cfg(
                 "transition_colors"
             )
         child.colors = None  # inherited list; the parent's color reaches it
+    # Whatever the child ends up carrying — its own or the PARENT's inherited
+    # colour — must be a SetPixel-safe shape: a malformed slot colour on a
+    # random/auto parent would otherwise reach a child's frame_at (rule 74
+    # grades the parent slot by what ITS constructor reads, which is nothing).
+    if child.color is not None:
+        msg = rgb_shape_error(child.color)
+        if msg is not None:
+            raise ValueError(
+                f"random/auto pool entry {ttype!r}: transition_color: {msg}"
+            )
+    if child.colors is not None:
+        msg = rgb_list_shape_error(child.colors)
+        if msg is not None:
+            raise ValueError(
+                f"random/auto pool entry {ttype!r}: transition_colors: {msg}"
+            )
     return child
 
 
@@ -706,7 +726,6 @@ def _resolve_pool(
     if len(resolved) < 2:
         raise ValueError(
             f"{trans_cfg.type} pool has {len(resolved)} distinct member(s); "
-            "need at least 2"
             "need at least 2"
         )
     return resolved

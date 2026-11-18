@@ -2462,3 +2462,36 @@ class TestScrollBetweenSeparatorColor:
         )
         colors = {c.args[2:5] for c in canvas.SetPixel.call_args_list}
         assert (10, 20, 30) in colors
+
+
+class TestRunSwapNoneTransitionFn:
+    """A widget-slot transition that FAILED to build leaves `transition_fn`
+    None while `transition_config` is still set (run.py's widget precedence
+    block). `_run_swap` must treat that as a cut, not call
+    `run_transition(transition=None)` and crash the display task."""
+
+    async def test_none_transition_fn_cuts_instead_of_raising(
+        self, canvas, mock_frame, make_widget, no_sleep
+    ):
+        from led_ticker import ticker as ticker_mod
+
+        q = asyncio.Queue()
+        w1 = make_widget(40)
+        w2 = make_widget(40)
+        await q.put(w1)
+        await q.put(w2)
+        trans = mock.Mock()
+        trans.duration = 0.5
+        trans.easing = "linear"
+        trans.transition_fps = None
+        ticker = Ticker(
+            monitors=[],
+            frame=mock_frame,
+            notif_queue=q,
+            transition_config=trans,
+            transition_fn=None,
+        )
+        with mock.patch.object(ticker_mod, "run_transition", create=True) as run_tr:
+            await ticker._run_swap(canvas)
+        assert w1.draw.called and w2.draw.called
+        assert not run_tr.called

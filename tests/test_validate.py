@@ -5845,3 +5845,77 @@ text = "W"
 
         assert at("section[0].title"), result
         assert at("section[0].title") == at("section[0].widget[0]")
+
+
+# ---------------------------------------------------------------------------
+# _iter_transition_slots: the per-slot rule loops share one gated iterator.
+# Rules 39/53/66 include `[transitions] default`; 57 and the scroll-separator
+# font check skip it. These pin the inclusion/exclusion per moved rule.
+# ---------------------------------------------------------------------------
+
+_SLOTS_BASE = """\
+    [display]
+    rows = 16
+    cols = 32
+    chain_length = 5
+    default_scale = 1
+
+    [transitions]
+    {transitions}
+
+    [[playlist.section]]
+    mode = "slideshow"
+
+    [[playlist.section.widget]]
+    type = "message"
+    text = "hi"
+    """
+
+
+async def test_iter_slots_rule39_includes_default(conf):
+    result = await validate_config(
+        conf(_SLOTS_BASE.format(transitions='default = "no_such_transition"'))
+    )
+    assert [e.location for e in result.errors if e.rule == 39] == [
+        "transitions.default"
+    ]
+
+
+async def test_iter_slots_rule57_excludes_default(conf):
+    result = await validate_config(
+        conf(
+            _SLOTS_BASE.format(
+                transitions='default = { type = "dissolve", separator = "x" }'
+            )
+        )
+    )
+    assert not [e for e in result.errors if e.rule == 57]
+
+
+async def test_iter_slots_rule57_includes_between_sections(conf):
+    result = await validate_config(
+        conf(
+            _SLOTS_BASE.format(
+                transitions='between_sections = { type = "dissolve", separator = "x" }'
+            )
+        )
+    )
+    assert [e.location for e in result.errors if e.rule == 57] == [
+        "transitions.between_sections"
+    ]
+
+
+async def test_iter_slots_rule66_order_default_first(conf):
+    result = await validate_config(
+        conf(
+            _SLOTS_BASE.format(
+                transitions=(
+                    'default = { style = "a" }\n    between_sections = { style = "b" }'
+                )
+            )
+        )
+    )
+    assert [w.location for w in result.warnings if w.rule == 66] == [
+        "transitions.default",
+        "transitions.between_sections",
+    ]

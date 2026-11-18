@@ -17,7 +17,12 @@ from typing import TYPE_CHECKING, Any, Literal
 import tomli_w
 
 if TYPE_CHECKING:
-    from led_ticker.config import AppConfig, DisplayConfig, SectionConfig
+    from led_ticker.config import (
+        AppConfig,
+        DisplayConfig,
+        SectionConfig,
+        TransitionConfig,
+    )
 
 
 @dataclass
@@ -1461,13 +1466,40 @@ def _check_static(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
+def _iter_transition_slots(
+    config: AppConfig, *, include_default: bool
+) -> Iterator[tuple[TransitionConfig, str]]:
+    """Yield ``(trans_cfg, location)`` for every transition slot a per-slot rule
+    should see, with the rule-39 gating: ``[transitions] default`` only when
+    ``include_default`` (rules 39/53/66 check it; 57 and the scroll-separator
+    font check never did); ``between_sections`` when the user wrote it;
+    ``section.transition`` when ``transition_specified``; ``entry_transition``
+    / ``widget_transition`` when set. An unspecified ``section.transition`` IS
+    the shared ``default_transition`` object, so ungated iteration would report
+    a default's issue once per section — never iterate without the gate.
+
+    Rule 50 (``transition_fps``, ungated over every ``section.transition``) and
+    rule 60 (inline per-section ``separator_size``) keep their own loops.
+    """
+    if include_default:
+        yield config.default_transition, "transitions.default"
+    if config.between_sections_specified:
+        yield config.between_sections, "transitions.between_sections"
+    for i, section in enumerate(config.sections):
+        if section.transition_specified:
+            yield section.transition, f"section[{i}].transition"
+        if section.entry_transition is not None:
+            yield section.entry_transition, f"section[{i}].entry_transition"
+        if section.widget_transition is not None:
+            yield section.widget_transition, f"section[{i}].widget_transition"
+
+
 def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     """Rule 39: Named transitions must exist in the transition registry.
 
     Runs in normal mode — a typo in a transition name always fails at startup
     and has no deploy-target excuse. The "cut" sentinel is always valid.
     """
-    from led_ticker.config import TransitionConfig
     from led_ticker.transitions import explain_unknown_transition, list_transition_names
 
     valid_set = set(list_transition_names())
@@ -1489,16 +1521,8 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
             )
         )
 
-    _check(config.default_transition, "transitions.default")
-    if config.between_sections_specified:
-        _check(config.between_sections, "transitions.between_sections")
-    for i, section in enumerate(config.sections):
-        if section.transition_specified:
-            _check(section.transition, f"section[{i}].transition")
-        if section.entry_transition is not None:
-            _check(section.entry_transition, f"section[{i}].entry_transition")
-        if section.widget_transition is not None:
-            _check(section.widget_transition, f"section[{i}].widget_transition")
+    for trans_cfg, location in _iter_transition_slots(config, include_default=True):
+        _check(trans_cfg, location)
 
     return issues
 
@@ -1512,7 +1536,6 @@ def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue
     the separator_* fields but whose type is not 'scroll' will silently ignore
     them at runtime.  Reject it early so the misconfiguration surfaces.
     """
-    from led_ticker.config import TransitionConfig
 
     issues: list[ValidationIssue] = []
 
@@ -1546,15 +1569,8 @@ def _check_separator_color_transition(config: AppConfig) -> list[ValidationIssue
             )
         )
 
-    if config.between_sections_specified:
-        _check(config.between_sections, "transitions.between_sections")
-    for i, section in enumerate(config.sections):
-        if section.transition_specified:
-            _check(section.transition, f"section[{i}].transition")
-        if section.entry_transition is not None:
-            _check(section.entry_transition, f"section[{i}].entry_transition")
-        if section.widget_transition is not None:
-            _check(section.widget_transition, f"section[{i}].widget_transition")
+    for trans_cfg, location in _iter_transition_slots(config, include_default=False):
+        _check(trans_cfg, location)
 
     return issues
 
@@ -1571,7 +1587,6 @@ def _check_typeless_transition_table(config: AppConfig) -> list[ValidationIssue]
     built-in default is `type_specified=True` and skipped, and an unknown
     transition NAME is a separate (error-level) check.
     """
-    from led_ticker.config import TransitionConfig
 
     issues: list[ValidationIssue] = []
 
@@ -1601,19 +1616,10 @@ def _check_typeless_transition_table(config: AppConfig) -> list[ValidationIssue]
             )
         )
 
-    if config.between_sections_specified:
-        _check(config.between_sections, "transitions.between_sections")
-    # The global `default` too — `_check`'s guard (`not type_specified
-    # and extra`) fires only for a typeless TABLE, so a bare-string /
-    # omitted default is skipped without a separate `default_specified` flag.
-    _check(config.default_transition, "transitions.default")
-    for i, section in enumerate(config.sections):
-        if section.transition_specified:
-            _check(section.transition, f"section[{i}].transition")
-        if section.entry_transition is not None:
-            _check(section.entry_transition, f"section[{i}].entry_transition")
-        if section.widget_transition is not None:
-            _check(section.widget_transition, f"section[{i}].widget_transition")
+    # `default` too — `_check`'s guard (`not type_specified and extra`) fires
+    # only for a typeless TABLE, so a bare-string / omitted default is skipped.
+    for trans_cfg, location in _iter_transition_slots(config, include_default=True):
+        _check(trans_cfg, location)
 
     return issues
 
@@ -1897,7 +1903,6 @@ def _check_scroll_separator_font(
     Only fires for type='scroll' transitions; non-scroll homes are already
     rejected by rule 57 (``_check_separator_color_transition``).
     """
-    from led_ticker.config import TransitionConfig
     from led_ticker.fonts import UnknownFontError, resolve_font
     from led_ticker.fonts.hires_loader import HiresFont
 
@@ -2013,15 +2018,8 @@ def _check_scroll_separator_font(
                 )
             )
 
-    if config.between_sections_specified:
-        _check(config.between_sections, "transitions.between_sections")
-    for i, section in enumerate(config.sections):
-        if section.transition_specified:
-            _check(section.transition, f"section[{i}].transition")
-        if section.entry_transition is not None:
-            _check(section.entry_transition, f"section[{i}].entry_transition")
-        if section.widget_transition is not None:
-            _check(section.widget_transition, f"section[{i}].widget_transition")
+    for trans_cfg, location in _iter_transition_slots(config, include_default=False):
+        _check(trans_cfg, location)
 
     return errors, warnings
 
@@ -2039,7 +2037,6 @@ def _check_separator_size_positive(config: AppConfig) -> list[ValidationIssue]:
     (transition scope) — it fires for any non-positive value regardless of
     whether the location is in-scope for those rules.
     """
-    from led_ticker.config import TransitionConfig
 
     issues: list[ValidationIssue] = []
 
@@ -2096,7 +2093,6 @@ def _check_plugin_transition_kwargs(config: AppConfig) -> list[ValidationIssue]:
     have no `extra` and are handled by the existing special-cased path.
     """
     from led_ticker.app.factories import _build_trans_obj
-    from led_ticker.config import TransitionConfig
 
     issues: list[ValidationIssue] = []
 
@@ -2121,16 +2117,8 @@ def _check_plugin_transition_kwargs(config: AppConfig) -> list[ValidationIssue]:
                 )
             )
 
-    _check(config.default_transition, "transitions.default")
-    if config.between_sections_specified:
-        _check(config.between_sections, "transitions.between_sections")
-    for i, section in enumerate(config.sections):
-        if section.transition_specified:
-            _check(section.transition, f"section[{i}].transition")
-        if section.entry_transition is not None:
-            _check(section.entry_transition, f"section[{i}].entry_transition")
-        if section.widget_transition is not None:
-            _check(section.widget_transition, f"section[{i}].widget_transition")
+    for trans_cfg, location in _iter_transition_slots(config, include_default=True):
+        _check(trans_cfg, location)
 
     return issues
 

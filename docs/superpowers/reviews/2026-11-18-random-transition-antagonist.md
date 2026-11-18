@@ -19,3 +19,23 @@ Reviewer: fresh fable subagent. VERDICT: 1 HIGH, 4 MEDIUM, 6 LOW, 3 DOCS.
 - DOCS ×3 FOLDED: fact-pack Pools pointer removed (OptionsTable renders the whole body); "one runner knob"; index.mdx inter-widget chain ends at `cut` and the `default` row describes what it is.
 
 ## Cycle 2
+
+Reviewer: fresh fable subagent. VERDICT: 0 HIGH, 2 MEDIUM, 4 LOW, 1 DOCS.
+
+- MEDIUM inherited parent colour never shape-checked on pool children; after the rebase the precursor's rule 74 grades the random/auto slot by its own constructor (reads nothing) → WARNING while the sign would crash at the first child firing. FOLDED: the resolver shape-checks whatever each child ends up carrying (own or inherited) → ValueError → rule 73 ERROR, rebase-proof; pins at both layers.
+- MEDIUM dead `_registered_transition_names` in the feature's validate.py would collide with the precursor's live copy on rebase. FOLDED: removed.
+- LOW ×4 FOLDED: garbled "need at least 2need at least 2" literal; dedupe keyed on the RESOLVED duration (a table pinning the parent's duration collapses with the bare name; docstring and test agree); entry duration above 3600 s refused (`int(1e308 / 0.05)` overflowed before the runner's `try`); one `META_TYPES` exported from `transitions.meta` replaces three spellings (the precursor's `_META_TRANSITION_TYPES_R74` unifies at rebase).
+- DOCS FOLDED: "lock-step" → "start aligned on the first pass, then drift apart as widget counts differ".
+
+## Cycle 3
+
+Reviewer: fresh fable subagent. VERDICT: 0 HIGH, 0 MEDIUM, 5 LOW, 4 DOCS → loop exits.
+
+- LOW ×5 FOLDED: inherited-colour refusal names the slot, not a phantom entry (rule 74 on the slot is skipped for meta types at rebase so it does not double-report); inherited slot `duration` validated on children and `_pool_member_key` loses its dead parameter; `_MAX_ENTRY_DURATION_S` comment corrected; one-call lazy-import wrapper inlined; decision-3(b) warning states the real effect.
+- DOCS ×4 FOLDED: design spec gains an "Amendments from the PR antagonist loops" section; special.mdx "slot's `transition_color`" and the two example forms marked as alternatives; index.mdx `default` row names which slots inherit.
+- Out of scope, pre-existing (noted for follow-up): rule 21 tracebacks on a string/list slot `duration` for any type.
+
+## Exit
+
+Severity trend: 1H/4M → 0H/2M → 0H/0M. Next: rebase onto the precursor's final
+head, full suite, hardware check (ask first), draft PR stacked on PR A.

@@ -69,6 +69,7 @@ from led_ticker.transitions import (
     default_pool_names,
     explain_unknown_transition,
     get_transition_class,
+    list_transition_names,
 )
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
@@ -500,20 +501,21 @@ _ENTRY_REFUSED_KEYS: frozenset[str] = frozenset(
         "separator_size",
     }
 )
-_MAX_ENTRY_DURATION_S = 3600  # an hour; above it int(duration / fps) overflows
+# Sanity cap on a pool entry's own duration: 1e308 / scroll_speed is inf and
+# int(inf) raised before the runner's try (the panel died). An hour is plenty.
+_MAX_ENTRY_DURATION_S = 3600
 _DID_YOU_MEAN: dict[str, str] = {
     "color": "transition_color",
     "colors": "transition_colors",
 }
 
 
-def _pool_member_key(child: TransitionConfig, entry_duration: float | None) -> tuple:
+def _pool_member_key(child: TransitionConfig) -> tuple:
     """Dedupe key for a RESOLVED pool member: type, the duration the runner
     will use (the entry's own or the inherited slot duration), colours and
     plugin kwargs. `"wipe_in"`, `{ type = "wipe_in" }` and `{ type =
     "wipe_in", duration = <the parent's> }` collide; two entries of the same
     type with different knobs stay distinct."""
-    del entry_duration  # the RESOLVED duration is what the runner sees
     return (
         child.type,
         child.duration,
@@ -637,15 +639,36 @@ def _child_transition_cfg(
     if child.color is not None:
         msg = rgb_shape_error(child.color)
         if msg is not None:
-            raise ValueError(
-                f"random/auto pool entry {ttype!r}: transition_color: {msg}"
+            where = (
+                f"pool entry {ttype!r}: transition_color"
+                if "transition_color" in table
+                else f"transition_color inherited by pool member {ttype!r}"
             )
+            raise ValueError(f"random/auto {where}: {msg}")
     if child.colors is not None:
         msg = rgb_list_shape_error(child.colors)
         if msg is not None:
-            raise ValueError(
-                f"random/auto pool entry {ttype!r}: transition_colors: {msg}"
+            where = (
+                f"pool entry {ttype!r}: transition_colors"
+                if "transition_colors" in table
+                else f"transition_colors inherited by pool member {ttype!r}"
             )
+            raise ValueError(f"random/auto {where}: {msg}")
+    # The same "whatever the child carries" rule for duration: an inherited
+    # slot duration that is not a finite positive number would make the dedupe
+    # key unhashable or the runner's int(duration / scroll_speed) raise.
+    d = child.duration
+    if (
+        isinstance(d, bool)
+        or not isinstance(d, (int, float))
+        or not math.isfinite(d)
+        or d <= 0
+        or d > _MAX_ENTRY_DURATION_S
+    ):
+        raise ValueError(
+            f"random/auto duration inherited by pool member {ttype!r} must be a "
+            f"positive number of seconds (at most {_MAX_ENTRY_DURATION_S}); got {d!r}"
+        )
     return child
 
 
@@ -669,7 +692,7 @@ def _resolve_pool_members(
         raise ValueError(
             f"{trans_cfg.type}: exclude must be a list; got {exclude_raw!r}"
         )
-    registered = _registered_transition_names()
+    registered = set(list_transition_names())
     for name in exclude_raw:
         if not isinstance(name, str):
             raise ValueError(
@@ -704,9 +727,7 @@ def _resolve_pool_members(
             if entry_duration is None
             else f"{child.type} @{entry_duration:g}s"
         )
-        members.append(
-            (child, entry_duration, name, _pool_member_key(child, entry_duration))
-        )
+        members.append((child, entry_duration, name, _pool_member_key(child)))
     return members
 
 
@@ -729,12 +750,6 @@ def _resolve_pool(
             "need at least 2"
         )
     return resolved
-
-
-def _registered_transition_names() -> set[str]:
-    from led_ticker.transitions import list_transition_names
-
-    return set(list_transition_names())
 
 
 def _build_meta_transition(trans_cfg: TransitionConfig) -> Transition:

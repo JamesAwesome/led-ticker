@@ -1981,11 +1981,15 @@ def _check_meta_transition_pools(
             for cfg, loc in candidates:
                 if cfg.type in META_TYPES and (carried - set(cfg.extra)):
                     missing = sorted(carried - set(cfg.extra))
+                    effect = (
+                        "its own pool runs without default's exclude"
+                        if "pool" in cfg.extra
+                        else "it runs the DEFAULT pool"
+                    )
                     _warn(
                         loc,
                         f"this table inherits {default.type!r} from [transitions] "
-                        f"default but default's {missing} are not inherited; it runs "
-                        "the DEFAULT pool.",
+                        f"default but default's {missing} are not inherited; {effect}.",
                         f"Repeat {missing} here, or give this table its own type.",
                     )
     return errors, warnings

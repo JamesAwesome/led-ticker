@@ -6977,3 +6977,21 @@ async def test_rule73_inherited_slot_colour_is_checked_on_children(conf):
     result = await _sec(conf, '{ type = "random", transition_color = "red" }')
     errs = _r73(result, "error")
     assert len(errs) == 1 and "0-255" in errs[0].message
+
+
+async def test_rule73_decision3b_names_the_effect(conf):
+    d = 'default = { type = "random", pool = ["wipe_in", "wipe_out", "dissolve"], exclude = ["dissolve"] }'  # noqa: E501
+    result = await validate_config(
+        conf(
+            _R73.format(
+                transitions=d
+                + '\n    between_sections = { pool = ["push_up", "push_down"] }',  # noqa: E501
+                section="",
+            )
+        )
+    )
+    warns = [w for w in _r73(result, "warning") if "not inherited" in w.message]
+    assert (
+        len(warns) == 1
+        and "own pool runs without default's exclude" in warns[0].message
+    )  # noqa: E501

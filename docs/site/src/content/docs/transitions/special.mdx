@@ -48,6 +48,7 @@ Bare `transition = "random"` (or `"auto"`) uses the default pool and the section
 
 ```toml
 transition = { type = "random", exclude = ["color_flash", "dissolve"] }
+# or, picking the members yourself:
 transition = { type = "random", pool = [
   "wipe_in", "push_up",
   { type = "flair.splitflap.forward", duration = 3.0 },
@@ -57,7 +58,7 @@ transition = { type = "random", pool = [
 
 - `pool`: a list of transition names or tables (`type` plus `duration`, `transition_color`, and a plugin's own knobs). `exclude`: names to drop. A pool needs at least two distinct members; `cut`, `scroll`, the four core wrappers, and `random` / `auto` themselves cannot be members. Plugin transitions join only through an explicit `pool`.
 - `duration` is the one _runner_ knob a member can override per firing — plugin effects usually want their own (a 3 s split-flap under a 0.5 s section is a blur). `easing` and `transition_fps` stay section-level.
-- Members inherit the section's `transition_color`; `transition_colors` reaches only plugin members that take a colour list (core members take a single colour).
+- Members inherit the slot's `transition_color` (what the `transition` / `entry_transition` / `widget_transition` table itself carries); `transition_colors` reaches only plugin members that take a colour list (core members take a single colour).
 - Slots that run it: `between_sections` (or `[transitions] default` standing in for it when `between_sections` is omitted), and a section's `transition`, `entry_transition`, `widget_transition`. Within-section swaps never read `default`.
 - "Never twice in a row" is per slot: a section's entry and widget slots keep separate pickers, so the same effect can appear on an entry and the next widget swap. Several sections each writing `transition = "auto"` start aligned on the first pass, then drift apart as their widget counts differ; for one cycle across sections use `between_sections = "auto"`.
 - `led-ticker validate` checks pools (rule 73): unknown or excluded members, bad durations and colours, pools that shrink below two, and a `default = "random"` that a typed `between_sections` makes dead.

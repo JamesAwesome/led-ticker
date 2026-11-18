@@ -297,7 +297,7 @@ def test_pool_dedupes_string_and_type_only_table():
     parent = _cfg(duration=0.5)
     a = _child_transition_cfg(parent, "wipe_in")
     b = _child_transition_cfg(parent, {"type": "wipe_in"})
-    assert _pool_member_key(a, None) == _pool_member_key(b, None)
+    assert _pool_member_key(a) == _pool_member_key(b)
     with pytest.raises(ValueError, match="1 distinct"):
         _resolve_pool(_cfg(extra={"pool": ["wipe_in", {"type": "wipe_in"}]}))
 
@@ -533,3 +533,22 @@ async def test_factory_built_auto_pick_ahead_end_to_end(make_widget, no_sleep):
     assert len(dz) == 21 and dz[0][2] == 1000  # the child's own 1.0 s
     first_scale4 = next(t for t, sc, _d in dz if sc == 4)
     assert first_scale4 == 0.5
+
+
+def test_inherited_slot_duration_is_checked_on_children():
+    for bad in ([1], "0.5", float("inf"), 0):
+        with pytest.raises(ValueError, match="duration inherited"):
+            _resolve_pool(_cfg(duration=bad))
+
+
+def test_inherited_colour_message_does_not_blame_a_phantom_entry():
+    with pytest.raises(ValueError, match="inherited by pool member"):
+        _resolve_pool(_cfg(color=("r", "e", "d")))
+    with pytest.raises(ValueError, match="pool entry 'wipe_out': transition_color"):
+        _resolve_pool(
+            _cfg(
+                extra={
+                    "pool": ["wipe_in", {"type": "wipe_out", "transition_color": "red"}]
+                }
+            )
+        )  # noqa: E501

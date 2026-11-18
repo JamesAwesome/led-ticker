@@ -602,17 +602,18 @@ def _child_transition_cfg(
             )
         child.colors = [tuple(c) for c in table["transition_colors"]]
         child.color = None
-    if not dotted:
-        child.colors = None
-    else:
-        cls = get_transition_class(ttype)  # raises the rule-39 message if unknown
-        if child.colors is not None and "colors" not in _allowed_init_kwargs(cls):
-            if "transition_colors" in table:
-                raise ValueError(
-                    f"random/auto pool entry {ttype!r} takes transition_color, not "
-                    "transition_colors"
-                )
-            child.colors = None  # inherited list; the parent's color reaches it
+    # `colors` reaches a child only when its constructor declares it. Core pool
+    # members never do (`wipe_random` / `wipe_alternating` are hard-excluded),
+    # so an inherited list is dropped and the parent's `color` reaches them;
+    # an entry that WROTE `transition_colors` for such a class is refused.
+    cls = get_transition_class(ttype)  # raises the rule-39 message if unknown
+    if child.colors is not None and "colors" not in _allowed_init_kwargs(cls):
+        if "transition_colors" in table:
+            raise ValueError(
+                f"random/auto pool entry {ttype!r} takes transition_color, not "
+                "transition_colors"
+            )
+        child.colors = None  # inherited list; the parent's color reaches it
     return child
 
 

@@ -6356,160 +6356,6 @@ async def test_rule74_dead_default_slot_is_warning_when_between_sections_set(con
                     'default = { type = "wipe_in", transition_color = "red" }\n'
                     '    between_sections = "cut"'
                 ),
-# ---------------------------------------------------------------------------
-# Rule 73: `random` / `auto` pools. ERRORs mirror the factory resolver
-# one-for-one (validate calls it); WARNINGs are validate-only and computed
-# only after the resolver succeeded.
-# ---------------------------------------------------------------------------
-
-_R73 = """\
-    [display]
-    rows = 16
-    cols = 32
-    chain_length = 5
-    default_scale = 1
-
-    [transitions]
-    {transitions}
-
-    [[playlist.section]]
-    mode = "slideshow"
-    {section}
-
-    [[playlist.section.widget]]
-    type = "message"
-    text = "hi"
-    """
-
-
-class _R73Colors:
-    def __init__(self, colors=None, knob=1):
-        self.colors = colors
-
-    def frame_at(self, t, canvas, outgoing, incoming, **kw):
-        return canvas
-
-
-class _R73Color:
-    def __init__(self, color=None):
-        self.color = color
-
-    def frame_at(self, t, canvas, outgoing, incoming, **kw):
-        return canvas
-
-
-class _R73Needs:
-    def __init__(self, needed):
-        self.needed = needed
-
-    def frame_at(self, t, canvas, outgoing, incoming, **kw):
-        return canvas
-
-
-_R73_STUBS = {
-    "testmeta.colors": _R73Colors,
-    "testmeta.color": _R73Color,
-    "testmeta.needs": _R73Needs,
-    "testmeta.alternating": _R73Color,
-    "testmeta.random": _R73Color,
-    "testmeta.forward": _R73Color,
-    "testmeta.roll_alternating": _R73Color,
-}
-
-
-@pytest.fixture
-def meta_stubs():
-    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
-
-    for name, cls in _R73_STUBS.items():
-        register_transition(name)(cls)
-    yield
-    for name in _R73_STUBS:
-        _TRANSITION_REGISTRY.pop(name, None)
-
-
-def _r73(result, severity):
-    pool = result.errors if severity == "error" else result.warnings
-    return [i for i in pool if i.rule == 73]
-
-
-async def _sec(conf, transition_table, transitions=""):
-    return await validate_config(
-        conf(
-            _R73.format(
-                transitions=transitions, section=f"transition = {transition_table}"
-            )
-        )
-    )
-
-
-async def test_rule73_valid_pool_has_no_issues(conf):
-    result = await _sec(conf, '{ type = "random", pool = ["wipe_in", "wipe_out"] }')
-    assert not _r73(result, "error") and not _r73(result, "warning"), result
-    result = await _sec(conf, '"auto"')
-    assert not _r73(result, "error") and not _r73(result, "warning"), result
-
-
-@pytest.mark.parametrize(
-    "table,needle",
-    [
-        ('{ type = "random", weighting = 1 }', "pool and exclude only"),
-        ('{ type = "random", pool = ["wipe_in", "no_such"] }', "unknown transition"),
-        (
-            '{ type = "random", pool = ["wipe_in", "wipe_random"] }',
-            "cannot be a pool member",
-        ),
-        ('{ type = "random", pool = ["wipe_in", "auto"] }', "cannot nest"),
-        ('{ type = "random", pool = ["wipe_in"] }', "1 distinct"),
-        ('{ type = "random", exclude = ["disolve"] }', "disolve"),
-        (
-            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", duration = "3.0" }] }',  # noqa: E501
-            "duration",
-        ),
-        (
-            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", transition_color = "red" }] }',  # noqa: E501
-            "0-255",
-        ),
-        (
-            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", easing = "ease_out" }] }',  # noqa: E501
-            "easing",
-        ),
-        (
-            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", color = [1, 2, 3] }] }',  # noqa: E501
-            "did you mean",
-        ),
-    ],
-)
-async def test_rule73_resolver_refusals_are_errors(conf, table, needle):
-    result = await _sec(conf, table)
-    errs = _r73(result, "error")
-    assert len(errs) == 1 and errs[0].location == "section[0].transition", result
-    assert needle in errs[0].message
-
-
-@pytest.mark.parametrize(
-    "table",
-    ['{ type = "random", pool = 5 }', '{ type = "random", pool = [5, "wipe_in"] }'],
-)
-async def test_rule73_malformed_pool_one_error_no_raise(conf, table):
-    result = await _sec(conf, table)
-    assert len(_r73(result, "error")) == 1 and not _r73(result, "warning")
-
-
-async def test_rule73_failing_plugin_child_reported_under_73_not_53(conf, meta_stubs):
-    result = await _sec(
-        conf, '{ type = "random", pool = ["wipe_in", "testmeta.needs"] }'
-    )
-    errs = _r73(result, "error")
-    assert len(errs) == 1 and "needed" in errs[0].message
-    assert not [e for e in result.errors if e.rule == 53]
-
-
-async def test_rule73_runs_on_between_sections_and_default(conf):
-    result = await validate_config(
-        conf(
-            _R73.format(
-                transitions='between_sections = { type = "random", pool = ["wipe_in"] }',  # noqa: E501
                 section="",
             )
         )
@@ -6544,31 +6390,28 @@ async def test_rule74_registered_plugin_type_is_classified_by_its_constructor(co
     assert not _r74(result, "error") and len(_r74(result, "warning")) == 1
 
 
-async def test_rule74_skips_colours_warning_on_registered_meta_type(conf):
-    """`random` / `auto` arrive in the stacked PR and own this warning under
-    rule 73; register a throwaway `random` to pin the skip now."""
-    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
-
-    class _Meta:
-        def __init__(self, **kwargs):
-            pass
-
-        def frame_at(self, t, canvas, outgoing, incoming, **kw):
-            return canvas
-
-    register_transition("random")(_Meta)
-    try:
-        result = await validate_config(
-            conf(
-                _R74.format(
-                    transitions="",
-                    section='transition = { type = "random", transition_colors = [[1, 2, 3]] }',  # noqa: E501
-                )
+async def test_rule74_skips_meta_slots_entirely(conf):
+    """A random/auto slot's colours reach its pool members; rule 73 owns them
+    (an inherited malformed colour is a rule-73 error, not a rule-74 one)."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "random", transition_colors = [[1, 2, 3]] }',  # noqa: E501
             )
         )
-    finally:
-        _TRANSITION_REGISTRY.pop("random", None)
+    )
     assert not _r74(result, "warning") and not _r74(result, "error")
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "random", transition_color = "red" }',
+            )
+        )
+    )
+    assert not _r74(result, "error") and not _r74(result, "warning")
+    assert [e.rule for e in result.errors] == [73]
 
 
 async def test_rule74_empty_colors_on_wipe_alternating_is_warning(conf):
@@ -6758,6 +6601,166 @@ async def test_rule74_plugin_table_color_key_wins_over_transition_color(conf):
     assert not _r74(result, "error")
     warns = _r74(result, "warning")
     assert len(warns) == 1 and "own `color` key" in warns[0].message
+
+
+# ---------------------------------------------------------------------------
+# Rule 73: `random` / `auto` pools. ERRORs mirror the factory resolver
+# one-for-one (validate calls it); WARNINGs are validate-only and computed
+# only after the resolver succeeded.
+# ---------------------------------------------------------------------------
+
+_R73 = """\
+    [display]
+    rows = 16
+    cols = 32
+    chain_length = 5
+    default_scale = 1
+
+    [transitions]
+    {transitions}
+
+    [[playlist.section]]
+    mode = "slideshow"
+    {section}
+
+    [[playlist.section.widget]]
+    type = "message"
+    text = "hi"
+    """
+
+
+class _R73Colors:
+    def __init__(self, colors=None, knob=1):
+        self.colors = colors
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kw):
+        return canvas
+
+
+class _R73Color:
+    def __init__(self, color=None):
+        self.color = color
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kw):
+        return canvas
+
+
+class _R73Needs:
+    def __init__(self, needed):
+        self.needed = needed
+
+    def frame_at(self, t, canvas, outgoing, incoming, **kw):
+        return canvas
+
+
+_R73_STUBS = {
+    "testmeta.colors": _R73Colors,
+    "testmeta.color": _R73Color,
+    "testmeta.needs": _R73Needs,
+    "testmeta.alternating": _R73Color,
+    "testmeta.random": _R73Color,
+    "testmeta.forward": _R73Color,
+    "testmeta.roll_alternating": _R73Color,
+}
+
+
+@pytest.fixture
+def meta_stubs():
+    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
+
+    for name, cls in _R73_STUBS.items():
+        register_transition(name)(cls)
+    yield
+    for name in _R73_STUBS:
+        _TRANSITION_REGISTRY.pop(name, None)
+
+
+def _r73(result, severity):
+    pool = result.errors if severity == "error" else result.warnings
+    return [i for i in pool if i.rule == 73]
+
+
+async def _sec(conf, transition_table, transitions=""):
+    return await validate_config(
+        conf(
+            _R73.format(
+                transitions=transitions, section=f"transition = {transition_table}"
+            )
+        )
+    )
+
+
+async def test_rule73_valid_pool_has_no_issues(conf):
+    result = await _sec(conf, '{ type = "random", pool = ["wipe_in", "wipe_out"] }')
+    assert not _r73(result, "error") and not _r73(result, "warning"), result
+    result = await _sec(conf, '"auto"')
+    assert not _r73(result, "error") and not _r73(result, "warning"), result
+
+
+@pytest.mark.parametrize(
+    "table,needle",
+    [
+        ('{ type = "random", weighting = 1 }', "pool and exclude only"),
+        ('{ type = "random", pool = ["wipe_in", "no_such"] }', "unknown transition"),
+        (
+            '{ type = "random", pool = ["wipe_in", "wipe_random"] }',
+            "cannot be a pool member",
+        ),
+        ('{ type = "random", pool = ["wipe_in", "auto"] }', "cannot nest"),
+        ('{ type = "random", pool = ["wipe_in"] }', "1 distinct"),
+        ('{ type = "random", exclude = ["disolve"] }', "disolve"),
+        (
+            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", duration = "3.0" }] }',  # noqa: E501
+            "duration",
+        ),
+        (
+            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", transition_color = "red" }] }',  # noqa: E501
+            "0-255",
+        ),
+        (
+            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", easing = "ease_out" }] }',  # noqa: E501
+            "easing",
+        ),
+        (
+            '{ type = "auto", pool = ["wipe_in", { type = "wipe_out", color = [1, 2, 3] }] }',  # noqa: E501
+            "did you mean",
+        ),
+    ],
+)
+async def test_rule73_resolver_refusals_are_errors(conf, table, needle):
+    result = await _sec(conf, table)
+    errs = _r73(result, "error")
+    assert len(errs) == 1 and errs[0].location == "section[0].transition", result
+    assert needle in errs[0].message
+
+
+@pytest.mark.parametrize(
+    "table",
+    ['{ type = "random", pool = 5 }', '{ type = "random", pool = [5, "wipe_in"] }'],
+)
+async def test_rule73_malformed_pool_one_error_no_raise(conf, table):
+    result = await _sec(conf, table)
+    assert len(_r73(result, "error")) == 1 and not _r73(result, "warning")
+
+
+async def test_rule73_failing_plugin_child_reported_under_73_not_53(conf, meta_stubs):
+    result = await _sec(
+        conf, '{ type = "random", pool = ["wipe_in", "testmeta.needs"] }'
+    )
+    errs = _r73(result, "error")
+    assert len(errs) == 1 and "needed" in errs[0].message
+    assert not [e for e in result.errors if e.rule == 53]
+
+
+async def test_rule73_runs_on_between_sections_and_default(conf):
+    result = await validate_config(
+        conf(
+            _R73.format(
+                transitions='between_sections = { type = "random", pool = ["wipe_in"] }',  # noqa: E501
+                section="",
+            )
+        )
+    )
     assert [e.location for e in _r73(result, "error")] == [
         "transitions.between_sections"
     ]

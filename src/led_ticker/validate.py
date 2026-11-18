@@ -1527,9 +1527,6 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
-# `random` / `auto` (stacked follow-up PR) own the transition_colors warning
-# under rule 73; rule 74 only checks their shapes.
-_META_TRANSITION_TYPES_R74: frozenset[str] = frozenset({"random", "auto"})
 _WIPE_ALTERNATING_COLORS = 4  # WipeAlternating needs one colour per direction
 
 
@@ -1590,7 +1587,7 @@ def _check_transition_color_shape(
         rgb_list_shape_error,
         rgb_shape_error,
     )
-    from led_ticker.transitions import get_transition_class
+    from led_ticker.transitions import META_TYPES, get_transition_class
 
     registered = _registered_transition_names()
     errors: list[ValidationIssue] = []
@@ -1625,6 +1622,10 @@ def _check_transition_color_shape(
 
     for trans_cfg, location in _iter_transition_slots(config, include_default=True):
         if trans_cfg.color is None and trans_cfg.colors is None:
+            continue
+        if trans_cfg.type in META_TYPES:
+            # A random/auto slot's colours are cloned onto its pool members;
+            # rule 73 checks them there (the wrapper itself reads none).
             continue
         suffix = (
             " (also written by a section's transition_color(s) on a section"
@@ -1743,8 +1744,8 @@ def _check_transition_color_shape(
                     "Remove it, or fix the shape where a type reads a colour pool.",
                 )
             continue
-        if not known or ttype in _META_TRANSITION_TYPES_R74:
-            continue  # rule 39 owns unknown names; rule 73 owns random/auto
+        if not known:
+            continue  # rule 39 owns unknown names
         if color_reported and takes_single and not colors_effective:
             continue  # the colour warning above already explained the interplay
         if colors_effective:
@@ -1814,6 +1815,12 @@ def _check_transition_color_shape(
                 " wipe_alternating for a colour pool.",
             )
     return errors, warnings
+
+
+def _registered_transition_names() -> set[str]:
+    from led_ticker.transitions import list_transition_names
+
+    return set(list_transition_names())
 
 
 def _check_meta_transition_pools(

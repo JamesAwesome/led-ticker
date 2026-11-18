@@ -38,12 +38,13 @@ delay = 5
 # lines; `pokeball.alternating` is the section divider — a fun cue that
 # something new is starting.
 [transitions]
-default = "wipe_alternating"
+# Brand-tinted wipe color pool: flame, amber, dusk, cream. The palette lives
+# on the transition TABLE — a bare `transition_colors` key under
+# [transitions] is not read.
+default = { type = "wipe_alternating", transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]] }
 duration = 0.8
 easing = "ease_in_out"
 between_sections = "pokeball.alternating"
-# Brand-tinted wipe color pool: flame, amber, dusk, cream
-transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]]
 
 # ---------------------------------------------------------------------------
 # Brand color palette (Firebird Yoga — phoenix-warm)

@@ -123,12 +123,12 @@ decorations around the sign, so a reader can picture where theirs would go.
 They are not slate-cut: both are hand-trimmed from full-frame recordings,
 cropped to drop the bottom strip of the camera frame (the shelf below the
 sign), denoised and scaled to 960 wide so each stays under the 4 MB mp4
-budget (2026-11-18 cuts: lit 3.0 MB / 79 s, dark 2.0 MB / 31 s).
+budget (2026-11-18 cuts: lit 3.0 MB / 78 s, dark 2.0 MB / 31 s).
 
 ```sh
-# Lights on — the Firebird section of the YouTube loop (44.5 s → 123.5 s),
+# Lights on — the Firebird section of the YouTube loop (45.2 s → 123.5 s),
 # from the lit YouTube recording kept on the Desktop.
-ffmpeg -ss 44.5 -t 79 -i youtube-lit.mp4 \
+ffmpeg -ss 45.2 -t 78.3 -i youtube-lit.mp4 \
   -vf "crop=iw:ih*0.78:0:0,hqdn3d=4:3:6:4.5,scale=960:-2" \
   -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p -movflags +faststart -an \
   docs/site/public/filmed/placement-lit.mp4

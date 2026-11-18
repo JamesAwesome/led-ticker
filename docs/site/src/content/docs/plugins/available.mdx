@@ -4,6 +4,7 @@ description: First-party and community led-ticker plugins, and the repositories 
 ---
 
 import PluginCatalog from "../../../components/PluginCatalog.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 The first-party plugins live in the **[led-ticker-plugins](https://github.com/JamesAwesome/led-ticker-plugins)** monorepo — one package per plugin. To use one, add its install line to `config/requirements-plugins.txt` and run `docker compose restart` — a PyPI name like `led-ticker-pool` for the published data plugins, or a `git+https` line for the homage sprite-trail transitions (not on PyPI). See [Plugins](/plugins/) for the install flow; each plugin's own README documents its options, layouts, and setup.
 
@@ -102,6 +103,29 @@ led-ticker-flair
 - **pacman** — Pac-Man chasing three scared ghosts (`pacman.forward` / `.reverse` / `.alternating`).
 - **sailor_moon** — Moon Stick wand with sparkle trail (`sailor_moon.forward` / `.reverse` / `.alternating`).
 
+On the smallsign:
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/transition-nyancat.gif",
+      caption: "nyancat.alternating — the cat crossing with its rainbow trail",
+    },
+    {
+      src: "/filmed/transition-pokeball.gif",
+      caption: "pokeball.alternating — the ball rolling across the panel",
+    },
+    {
+      src: "/filmed/transition-pacman.gif",
+      caption: "pacman.alternating — Pac-Man and the ghosts crossing the panel",
+    },
+    {
+      src: "/filmed/transition-sailor-moon.gif",
+      caption: "sailor_moon.alternating — the sprite sweeping the panel",
+    },
+  ]}
+/>
+
 <PluginCatalog name="nyancat" />
 <PluginCatalog name="pokeball" />
 <PluginCatalog name="pacman" />
@@ -114,6 +138,29 @@ The flair pack also ships text animations, background effects, and a family of t
 - **Animations** (`animation = "flair.<name>"`) — `flair.propeller` (text spins in on entry), `flair.fisheye` (scrolling text passes through a squeeze-and-bulge lens), `flair.twinkle`, and `flair.blink`. See [Animations](/concepts/animations/).
 - **Backgrounds** (`background = "flair.<name>"`) — `flair.fireworks`, `flair.twinkle`, and `flair.snow`, painted behind a widget's content. See [Backgrounds](/concepts/backgrounds/).
 - **Transitions** (`transition = "flair.<name>"`) — `flair.spinout`, `flair.fireworks`, `flair.stickers`, `flair.poker`, `flair.lightning`, `flair.snow`, and `flair.sand`, plus the multi-variant families `flair.fairy.*`, `flair.laser.*`, `flair.accordion.*`, `flair.interlock.*`, `flair.blinds.*`, and `flair.splitflap.*`. See [Sprite transitions](/transitions/sprite/).
+
+On the smallsign — one of each kind:
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/animation-propeller.gif",
+      caption: "animation — flair.propeller spinning the text in place",
+    },
+    {
+      src: "/filmed/background-fireworks.gif",
+      caption: "background — flair.fireworks bursting behind the held tagline",
+    },
+    {
+      src: "/filmed/transition-spinout.gif",
+      caption: "transition — flair.spinout, letters spinning away",
+    },
+    {
+      src: "/filmed/transition-splitflap.gif",
+      caption: "transition — flair.splitflap, departure-board flaps turning",
+    },
+  ]}
+/>
 
 ---
 

@@ -21,18 +21,18 @@ Animations may also emit a per-frame `pixel_gain` — a brightness multiplier pe
   caption="`message` with animation = typewriter and font_color = rainbow"
 />
 
-<DemoGif
-  filmed
-  src="/filmed/animation-typewriter.gif"
-  caption="Filmed on the smallsign: FIREBIRD YOGA typed out a character at a time"
-/>
-
 <TomlExample
   title="Minimal"
   code={`[[playlist.section.widget]]
 type = "message"
 text = "Hello, world!"
 animation = "typewriter"`}
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-typewriter.gif"
+  caption="On the smallsign: FIREBIRD YOGA typed out a character at a time"
 />
 
 ## Tuning `frames_per_char`
@@ -111,7 +111,7 @@ On top of the widget-type check above, typewriter on `gif` / `image` rejects thr
 <DemoGif
   filmed
   src="/filmed/animation-propeller.gif"
-  caption="Filmed on the smallsign: flair.propeller spinning the text in place"
+  caption="On the smallsign: flair.propeller spinning the text in place"
 />
 
 ### Install
@@ -218,7 +218,7 @@ font_color = [255, 100, 255]`}
 <DemoGif
   filmed
   src="/filmed/animation-fisheye.gif"
-  caption="Filmed on the smallsign: the flair.fisheye lens bulge rolling along BEGINNER SERIES"
+  caption="On the smallsign: the flair.fisheye lens bulge rolling along BEGINNER SERIES"
 />
 
 ### Install
@@ -392,12 +392,6 @@ Same rule as `message`: on a scaled sign (bigsign) a hi-res font warps along wit
   caption="`message` with `animation = flair.twinkle` — individual pixels of each letter dim and brighten on their own phase"
 />
 
-<DemoGif
-  filmed
-  src="/filmed/animation-twinkle.gif"
-  caption="Filmed on the smallsign: flair.twinkle flickering single pixels of the text"
-/>
-
 <TomlExample
   title="Twinkling text (the demo above)"
   code={`[[playlist.section.widget]]
@@ -406,6 +400,12 @@ text = "CANDLELIGHT FLOW"
 center = true
 font_color = [255, 183, 3]
 animation = "flair.twinkle"`}
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-twinkle.gif"
+  caption="On the smallsign: flair.twinkle flickering single pixels of the text"
 />
 
 ### Install
@@ -454,12 +454,6 @@ The sparkle pattern is fixed to the panel, not to the letters. On text that hold
   caption="`message` with `animation = flair.blink` at the defaults — on for 750 ms, off for 250 ms, once a second"
 />
 
-<DemoGif
-  filmed
-  src="/filmed/animation-blink.gif"
-  caption="Filmed on the smallsign: flair.blink blinking the whole line"
-/>
-
 <TomlExample
   title="Blinking text (the demo above)"
   code={`[[playlist.section.widget]]
@@ -468,6 +462,12 @@ text = "DROP-INS WELCOME"
 center = true
 font_color = [255, 92, 38]
 animation = "flair.blink"`}
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-blink.gif"
+  caption="On the smallsign: flair.blink blinking the whole line"
 />
 
 <Aside type="caution" title="Blink rates are capped for photosensitive viewers">

@@ -46,7 +46,7 @@ font_color = [255, 200, 0]`}
 <DemoGif
   filmed
   src="/filmed/color-rainbow.gif"
-  caption="Filmed on the smallsign: Breathe. Move. Rise. with a hue per character"
+  caption="On the smallsign: Breathe. Move. Rise. with a hue per character"
 />
 
 Per-character hue offset that advances each frame. The first character starts at a different hue than the second, and every character's hue sweeps forward 8° per tick (default). `rainbow` is a continuous-phase provider — the sweep does not reset between `loop_count` repetitions, so the color keeps flowing rather than snapping back to the start on each pass.
@@ -74,7 +74,7 @@ font_color = {style = "rainbow", speed = 4, char_offset = 20}`}
 <DemoGif
   filmed
   src="/filmed/color-cycle.gif"
-  caption="Filmed on the smallsign: the whole line stepping through hues"
+  caption="On the smallsign: the whole line stepping through hues"
 />
 
 Whole-string hue rotation — every character shares one color, and that color cycles through the spectrum over time. Subtler than rainbow; useful when you want motion without the striped look. Also continuous-phase — the cycle does not reset between loops.
@@ -122,7 +122,7 @@ font_color = {style = "color_cycle", from = [225, 48, 108], to = [120, 230, 255]
 <DemoGif
   filmed
   src="/filmed/color-gradient.gif"
-  caption="Filmed on the smallsign: flame to amber across the line"
+  caption="On the smallsign: flame to amber across the line"
 />
 
 A frozen left-to-right interpolation between two colors. `char_index` drives the interpolation; the frame counter is ignored — so the colors never shift, but each character gets its own tint. Unlike rainbow and color_cycle, gradient does not require the per-tick render loop; the engine can take a paint-once-and-sleep fast path for otherwise-static content.
@@ -141,7 +141,7 @@ font_color = {style = "gradient", from = [255, 80, 80], to = [80, 80, 255]}`}
 <DemoGif
   filmed
   src="/filmed/color-shimmer.gif"
-  caption="Filmed on the smallsign: a bright spot sweeping along cream text"
+  caption="On the smallsign: a bright spot sweeping along cream text"
 />
 
 A bright spot glides left-to-right across the text — one `shimmer_color` highlight sweeping over a `base_color` rest state — then pauses, then repeats. The spot fades in and out with a cosine curve so it blends smoothly rather than clipping abruptly.
@@ -212,7 +212,7 @@ When a section transition fires while a shimmer sweep is mid-glide, the engine w
 <DemoGif
   filmed
   src="/filmed/color-random.gif"
-  caption="Filmed on the smallsign: a fresh color each time the widget comes round"
+  caption="On the smallsign: a fresh color each time the widget comes round"
 />
 
 Picks a single random color at widget construction and holds it for the duration of the visit. The color does not change frame-to-frame or character-to-character; it just picks something different each time the section plays. Useful for adding variety to long-running displays without any visible animation.

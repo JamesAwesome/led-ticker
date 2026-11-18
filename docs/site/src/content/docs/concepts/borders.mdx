@@ -26,6 +26,12 @@ A border paints a decorative outline around the entire panel perimeter. All styl
 
 ### Rainbow chase
 
+<DemoGif
+  filmed
+  src="/filmed/border-rainbow.gif"
+  caption="On the smallsign: the rainbow hue chase around the panel edge"
+/>
+
 The rainbow chase indexes each perimeter pixel by its clockwise position around the edge, then advances the entire pattern by `speed` degrees per engine tick (50 ms). The result is a smooth hue gradient that rotates continuously. `char_offset` controls how tightly the hue cycles around the perimeter: a higher value tiles more full rainbows along the edge.
 
 The simplest way to enable it is the string shorthand:
@@ -61,12 +67,6 @@ Add `from` and `to` RGB colors to confine the chase to a specific hue arc — th
 <DemoGif
   src="/demos-pinned/border-rainbow-range.gif"
   caption="red → amber arc at `speed = 3`, `thickness = 2` — chase tiles only within the warm fire band, never entering green or blue"
-/>
-
-<DemoGif
-  filmed
-  src="/filmed/border-rainbow.gif"
-  caption="Filmed on the smallsign: the rainbow hue chase around the panel edge"
 />
 
 <TomlExample
@@ -114,7 +114,7 @@ A color_cycle border paints every perimeter pixel the same color per frame, and 
 <DemoGif
   filmed
   src="/filmed/border-color-cycle.gif"
-  caption="Filmed on the smallsign: color_cycle stepping one hue at a time"
+  caption="On the smallsign: color_cycle stepping one hue at a time"
 />
 
 String shorthand uses the full 360° wheel at the default speed:
@@ -188,7 +188,7 @@ A constant border is a solid-color ring with no animation. Because it never chan
 <DemoGif
   filmed
   src="/filmed/border-constant.gif"
-  caption="Filmed on the smallsign: a steady flame-colored constant ring"
+  caption="On the smallsign: a steady flame-colored constant ring"
 />
 
 Use an RGB list as a shorthand:
@@ -223,7 +223,7 @@ Discrete solid-color bands marching around the perimeter — the geometry of the
 <DemoGif
   filmed
   src="/filmed/border-bands.gif"
-  caption="Filmed on the smallsign: stacked bands stripes around a countdown"
+  caption="On the smallsign: stacked bands stripes around a countdown"
 />
 
 `colors` is required (no bare-string shorthand): supply a named palette or a list of two or more RGB colors.
@@ -350,7 +350,7 @@ Defaults: `mode = "chase"`, `bulb_size = 3` on big panels (auto-falls back to `1
 <DemoGif
   filmed
   src="/filmed/border-lightbulbs-chase.gif"
-  caption="Filmed on the smallsign: the lightbulb marquee chasing clockwise"
+  caption="On the smallsign: the lightbulb marquee chasing clockwise"
 />
 
 - **`alternate`** — even/odd bulbs flip on each phase. Half the bulbs lit at any time, switching every `speed_frames` ticks. Looks like a shimmer or twinkle without directional motion.
@@ -363,7 +363,7 @@ Defaults: `mode = "chase"`, `bulb_size = 3` on big panels (auto-falls back to `1
 <DemoGif
   filmed
   src="/filmed/border-lightbulbs-alternate.gif"
-  caption="Filmed on the smallsign: every other bulb blinking in alternate mode"
+  caption="On the smallsign: every other bulb blinking in alternate mode"
 />
 
 - **`unison`** — all bulbs share state. All lit, then all unlit, alternating every `speed_frames` ticks. Loud attention-grabber.

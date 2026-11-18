@@ -6044,7 +6044,7 @@ async def test_rule74_transition_colors_on_single_wipe_warns(conf):
     )
     warns = _r74(result, "warning")
     assert [w.location for w in warns] == ["section[0].transition"]
-    assert "transition_color" in warns[0].message and not _r74(result, "error")
+    assert "takes a single colour" in warns[0].message and not _r74(result, "error")
 
 
 @pytest.mark.parametrize(
@@ -6210,3 +6210,90 @@ async def test_iter_slots_rule53_includes_default(conf):
     assert [e.location for e in result.errors if e.rule == 53] == [
         "transitions.default"
     ]  # noqa: E501
+
+
+async def test_rule74_wipe_alternating_with_more_than_four_colours_warns(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", transition_colors = '
+                    "[[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4], [5, 5, 5]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "extras are dropped" in warns[0].message
+
+
+async def test_rule74_single_colour_beside_list_on_consumer_warns(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_random", transition_color = [9, 9, 9], '  # noqa: E501
+                    "transition_colors = [[1, 2, 3], [4, 5, 6]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "transition_color is ignored" in warns[0].message
+
+
+async def test_rule74_bad_colour_on_colourless_type_is_warning_not_error(conf):
+    """push_left swallows `color`; a malformed value runs today, so refusing
+    it would block hot-reload for nothing — warn instead."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "push_left", transition_color = [255, 0, 0, 0] }',  # noqa: E501
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "ignores colour" in warns[0].message
+
+
+async def test_rule74_empty_transition_color_has_no_quoted_string_hint(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "wipe_in", transition_color = [] }',  # noqa: E501
+            )
+        )
+    )
+    errs = _r74(result, "error")
+    assert len(errs) == 1 and "quoted string" not in errs[0].message
+
+
+async def test_rule74_quoted_string_in_transition_colors_gets_the_hint(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "wipe_random", transition_colors = ["red"] }',  # noqa: E501
+            )
+        )
+    )
+    errs = _r74(result, "error")
+    assert len(errs) == 1 and "quoted string" in errs[0].message
+
+
+async def test_rule74_bad_colour_on_plugin_or_unknown_type_stays_error(conf):
+    for ttype in ("flair.x", "wipe_lef"):
+        result = await validate_config(
+            conf(
+                _R74.format(
+                    transitions="",
+                    section=f'transition = {{ type = "{ttype}", transition_color = "red" }}',  # noqa: E501
+                )
+            )
+        )
+        assert len(_r74(result, "error")) == 1, ttype

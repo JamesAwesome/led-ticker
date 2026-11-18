@@ -1500,9 +1500,9 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     Runs in normal mode — a typo in a transition name always fails at startup
     and has no deploy-target excuse. The "cut" sentinel is always valid.
     """
-    from led_ticker.transitions import explain_unknown_transition, list_transition_names
+    from led_ticker.transitions import explain_unknown_transition
 
-    valid_set = set(list_transition_names())
+    valid_set = _registered_transition_names()
     issues: list[ValidationIssue] = []
 
     def _check(trans_cfg: TransitionConfig | None, location: str) -> None:
@@ -1527,29 +1527,19 @@ def _check_transition_names(config: AppConfig) -> list[ValidationIssue]:
     return issues
 
 
-# Non-dotted transition types that consume a `transition_colors` LIST. Every
-# other core type takes a single `color` (or none) and swallows `colors` in
-# **kwargs — and `_build_trans_obj` forwards `colors` IN PREFERENCE to `color`,
-# so the list shadows a `transition_color` written beside it. `random` / `auto`
-# (stacked follow-up PR) own that warning under rule 73.
-_TRANSITION_COLORS_CONSUMERS: frozenset[str] = frozenset(
-    {"wipe_random", "wipe_alternating", "random", "auto"}
-)
-# Core types that honour a single `transition_color` (the rest ignore colour).
-_SINGLE_COLOR_TYPES: frozenset[str] = frozenset(
-    {
-        "wipe_left",
-        "wipe_right",
-        "wipe_up",
-        "wipe_down",
-        "wipe_in",
-        "wipe_out",
-        "wipe_in_vertical",
-        "wipe_out_vertical",
-        "color_flash",
-    }
-)
+# `random` / `auto` (stacked follow-up PR) own the transition_colors warning
+# under rule 73; rule 74 only checks their shapes.
+_META_TRANSITION_TYPES_R74: frozenset[str] = frozenset({"random", "auto"})
 _WIPE_ALTERNATING_COLORS = 4  # WipeAlternating needs one colour per direction
+
+
+def _looks_like_tupled_string(value: Any) -> bool:
+    """`tuple("red")` — what `_parse_transition` makes of a quoted colour."""
+    return (
+        isinstance(value, tuple)
+        and bool(value)
+        and all(isinstance(c, str) and len(c) == 1 for c in value)
+    )
 
 
 def _check_transition_color_shape(
@@ -1569,24 +1559,40 @@ def _check_transition_color_shape(
     already fails inside `load_config` as a rule-less error and never reaches
     this rule.
 
+    What a type does with colour is read off its constructor
+    (`_allowed_init_kwargs`: `color` = takes a single colour, `colors` = takes
+    the list), not a hand-kept set, so a new core type is classified the day
+    it registers. A malformed colour on a type that reads NEITHER is a
+    WARNING (the constructor swallows it; refusing would block hot-reload for
+    a config that runs today); on a type that reads it, or on a plugin /
+    unknown type (can't tell), an ERROR.
+
     Also WARNS when `transition_colors` sits on a type that does not consume
     the list: the constructor drops it, and because the factory forwards
     `colors` in preference to `color`, a `transition_color` written beside it
-    is dropped too. `wipe_alternating` with fewer than four colours falls back
-    to its default palette the same way.
+    is dropped too (and on a list consumer the single colour is the one
+    ignored). `wipe_alternating` needs exactly four colours (one per
+    direction): fewer fall back to its default palette, extras are dropped.
 
     Location quirk, named in the message: a section WITHOUT its own
     `transition` that writes `transition_color` mutates the shared
     `default_transition` object (`load_config`'s per-section overrides), so
     the issue is reported at `transitions.default`.
     """
-    from led_ticker.app.coercion import rgb_list_shape_error, rgb_shape_error
+    from led_ticker.app.coercion import (
+        _allowed_init_kwargs,
+        rgb_list_shape_error,
+        rgb_shape_error,
+    )
+    from led_ticker.transitions import get_transition_class
 
     registered = _registered_transition_names()
     errors: list[ValidationIssue] = []
     warnings: list[ValidationIssue] = []
 
-    def _issue(severity: str, location: str, message: str, fix: str) -> None:
+    def _issue(
+        severity: Literal["error", "warning"], location: str, message: str, fix: str
+    ) -> None:
         (errors if severity == "error" else warnings).append(
             ValidationIssue(
                 rule=74, location=location, severity=severity, message=message, fix=fix
@@ -1594,66 +1600,107 @@ def _check_transition_color_shape(
         )
 
     for trans_cfg, location in _iter_transition_slots(config, include_default=True):
+        if trans_cfg.color is None and trans_cfg.colors is None:
+            continue
         suffix = (
             " (also written by a section's transition_color(s) on a section"
             " without its own transition)"
             if location == "transitions.default"
             else ""
         )
+        ttype = trans_cfg.type
+        known_core = ttype in registered and "." not in ttype
+        if known_core:
+            allowed = _allowed_init_kwargs(get_transition_class(ttype))
+            takes_single, takes_list = "color" in allowed, "colors" in allowed
+        else:
+            # plugin or unknown: can't tell what it reads — stay conservative
+            takes_single = takes_list = True
+        reads_colour = takes_single or takes_list
+
         if trans_cfg.color is not None:
             msg = rgb_shape_error(trans_cfg.color)
             if msg is not None:
-                if isinstance(trans_cfg.color, tuple) and all(
-                    isinstance(c, str) for c in trans_cfg.color
-                ):
+                if _looks_like_tupled_string(trans_cfg.color):
                     msg += " (a quoted string is split into characters at load)"
-                _issue(
-                    "error",
-                    location,
-                    f"transition_color: {msg}{suffix}",
-                    "Write transition_color = [r, g, b] with three ints 0-255.",
-                )
+                if reads_colour:
+                    _issue(
+                        "error",
+                        location,
+                        f"transition_color: {msg}{suffix}",
+                        "Write transition_color = [r, g, b] with three ints 0-255.",
+                    )
+                else:
+                    _issue(
+                        "warning",
+                        location,
+                        f"transition_color: {msg}; type={ttype!r} ignores colour "
+                        f"anyway{suffix}",
+                        "Remove it, or write [r, g, b] on a type that takes a colour.",
+                    )
         if trans_cfg.colors is None:
             continue
         msg = rgb_list_shape_error(trans_cfg.colors)
         if msg is not None:
-            _issue(
-                "error",
-                location,
-                f"transition_colors: {msg}{suffix}",
-                "Write transition_colors = [[r, g, b], ...], ints 0-255.",
-            )
+            if isinstance(trans_cfg.colors, (list, tuple)) and any(
+                _looks_like_tupled_string(c) for c in trans_cfg.colors
+            ):
+                msg += " (a quoted string is split into characters at load)"
+            if reads_colour:
+                _issue(
+                    "error",
+                    location,
+                    f"transition_colors: {msg}{suffix}",
+                    "Write transition_colors = [[r, g, b], ...], ints 0-255.",
+                )
+            else:
+                _issue(
+                    "warning",
+                    location,
+                    f"transition_colors: {msg}; type={ttype!r} ignores colour "
+                    f"anyway{suffix}",
+                    "Remove it, or fix the shape on a type that takes a colour pool.",
+                )
             continue
-        if "." in trans_cfg.type or trans_cfg.type not in registered:
-            continue  # plugins declare their own; rule 39 owns unknown names
-        if trans_cfg.type == "wipe_alternating":
-            if len(trans_cfg.colors) < _WIPE_ALTERNATING_COLORS:
+        if not known_core or ttype in _META_TRANSITION_TYPES_R74:
+            continue  # plugins declare their own; rule 39 / rule 73 own the rest
+        if takes_list:
+            if trans_cfg.color is not None:
+                _issue(
+                    "warning",
+                    location,
+                    f"transition_color is ignored when transition_colors is set on "
+                    f"type={ttype!r}; the list is forwarded instead{suffix}",
+                    "Remove transition_color here, or fold it into transition_colors.",
+                )
+            if (
+                ttype == "wipe_alternating"
+                and len(trans_cfg.colors) != _WIPE_ALTERNATING_COLORS
+            ):
                 _issue(
                     "warning",
                     location,
                     f"transition_colors has {len(trans_cfg.colors)} colour(s); "
-                    "wipe_alternating needs four (one per direction) and falls back "
-                    f"to its default palette otherwise{suffix}",
-                    "Supply four colours, or use wipe_random for a smaller pool.",
+                    "wipe_alternating uses exactly four (one per direction): fewer "
+                    f"fall back to its default palette, extras are dropped{suffix}",
+                    "Supply four colours, or use wipe_random for any pool size.",
                 )
-            continue
-        if trans_cfg.type in _TRANSITION_COLORS_CONSUMERS:
             continue
         if trans_cfg.color is not None:
             _issue(
                 "warning",
                 location,
-                f"transition_colors shadows transition_color on type="
-                f"{trans_cfg.type!r}: the list is forwarded instead of the single "
-                f"colour and then ignored, so NEITHER applies{suffix}",
+                f"transition_colors shadows transition_color on type={ttype!r}: "
+                "the list is forwarded instead of the single colour and then "
+                f"ignored, so NEITHER applies{suffix}",
                 "Remove transition_colors here.",
             )
-        elif trans_cfg.type in _SINGLE_COLOR_TYPES:
+        elif takes_single:
             _issue(
                 "warning",
                 location,
-                f"transition_colors is ignored by type={trans_cfg.type!r}; it takes "
-                f"a single colour{suffix}",
+                f"transition_colors is ignored by type={ttype!r}; it takes a single "
+                f"colour{suffix}",
                 "Use transition_color = [r, g, b] here, or switch to wipe_random /"
                 " wipe_alternating for a colour pool.",
             )
@@ -1661,7 +1708,7 @@ def _check_transition_color_shape(
             _issue(
                 "warning",
                 location,
-                f"transition_colors is ignored by type={trans_cfg.type!r}{suffix}",
+                f"transition_colors is ignored by type={ttype!r}{suffix}",
                 "Remove transition_colors here, or switch to wipe_random /"
                 " wipe_alternating for a colour pool.",
             )

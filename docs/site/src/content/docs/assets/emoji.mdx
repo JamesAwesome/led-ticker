@@ -7,10 +7,23 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 Drop `:slug:` into any message text to render a pixel-art icon inline:
 
 <DemoGif src="/demos/assets-emoji.gif" caption=":taco: :star: :flower: :sun:" />
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/emoji-sampler.gif",
+      caption:
+        "A strip of 8×8 pixel-art emoji as the LEDs show them — the same sprites the renderer draws",
+    },
+  ]}
+/>
 
 <TomlExample
   title="Example"

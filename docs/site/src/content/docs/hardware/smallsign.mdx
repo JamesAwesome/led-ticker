@@ -5,6 +5,8 @@ description: led-ticker's reference build for short single-line displays — Pi 
 
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
+import DemoGif from "../../../components/DemoGif.astro";
 
 The **smallsign** is led-ticker's reference build for short single-line
 displays: a Raspberry Pi 4 driving five chained 32x16 RGB matrix panels
@@ -23,6 +25,36 @@ and tested against.
 - ~20 fps (50ms per frame)
 - `default_scale = 1` — drawing logic and panel pixels are 1:1
 - Same Docker image as the bigsign reference build; the rgbmatrix library detects the SoC at runtime
+
+## What it looks like
+
+<DemoGif
+  video="/filmed/hero.mp4"
+  filmed
+  caption="The reference build on a shelf: a 30-second Firebird Yoga loop at `brightness = 40`, filmed through a webcam about two metres away."
+/>
+
+The camera's auto-exposure is the big variable, not the panel. Lights on,
+the LEDs keep their dot definition but a room light reflects off the panel
+face; lights off, the reflection is gone and colours deepen but white text
+blooms. Same clips, both ways:
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/lit/emoji-sampler.gif",
+      caption: "Lights on: 8×8 pixel-art emoji keep their shapes",
+    },
+    { src: "/filmed/emoji-sampler.gif", caption: "Lights off: the white sprites bloom together" },
+    { src: "/filmed/lit/color-rainbow.gif", caption: "Lights on: rainbow per-character text" },
+    { src: "/filmed/color-rainbow.gif", caption: "Lights off: deeper colour, more grain" },
+    {
+      src: "/filmed/lit/border-lightbulbs-chase.gif",
+      caption: "Lights on: lightbulb marquee border",
+    },
+    { src: "/filmed/border-lightbulbs-chase.gif", caption: "Lights off: the bulbs flare" },
+  ]}
+/>
 
 ## Bill of materials
 

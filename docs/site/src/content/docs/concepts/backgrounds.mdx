@@ -6,6 +6,7 @@ description: Full-panel background effects painted behind a widget's text, under
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 A **background** is a full-panel effect painted _behind_ a widget's content, every render tick, for as long as the widget is on screen. It is the sibling of a [border](/concepts/borders/): same config shape, same animation plumbing, different layer. The paint order on every host widget is
 
@@ -14,6 +15,19 @@ A **background** is a full-panel effect painted _behind_ a widget's content, eve
 so a background shows through an image's transparent (skipped-black) regions, sits under the border ring, and never covers the text. Because `background` and `border` are separate fields, you can run both on one widget — fireworks behind a rainbow ring, for example.
 
 Core ships no built-in background styles; they come from plugins. The [flair pack](/plugins/available/#flair-effects-flair-pack) ships three: `flair.fireworks`, [`flair.twinkle`](#flairtwinkle-starfield) (a twinkling starfield) and [`flair.snow`](#flairsnow-falling-snow) (falling snow).
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/background-fireworks.gif",
+      caption: "flair.fireworks bursting behind the held tagline",
+    },
+    { src: "/filmed/background-snow.gif", caption: "flair.snow drifting behind the text" },
+    { src: "/filmed/background-twinkle.gif", caption: "flair.twinkle starfield under the text" },
+  ]}
+/>
 
 ## Config
 

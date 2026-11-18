@@ -6,12 +6,32 @@ description: Rainbow chase, color_cycle, constant-color, color bands, or lightbu
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 A border paints a decorative outline around the entire panel perimeter. All styles paint at physical panel resolution — a pixel-ring border is always exactly one LED wide regardless of scale, even on a big / scaled sign (`default_scale > 1`) where most content is drawn in logical pixels and expanded to fill the panel (see [Display](/concepts/display/)). _For developers:_ borders bypass the block-expansion path and write directly to the real underlying canvas (`SetPixel`). The five styles and their shorthands are listed in the table below. `rainbow` and `color_cycle` also accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum.
 
 <DemoGif
   src="/demos/concepts-borders.gif"
   caption="Rainbow chase border at default speed and thickness"
+/>
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    { src: "/filmed/border-rainbow.gif", caption: "rainbow — hue chase around the panel edge" },
+    { src: "/filmed/border-color-cycle.gif", caption: "color_cycle — one hue at a time, stepping" },
+    { src: "/filmed/border-constant.gif", caption: "constant — a steady flame ring" },
+    { src: "/filmed/border-bands.gif", caption: "bands — stacked color stripes" },
+    {
+      src: "/filmed/border-lightbulbs-chase.gif",
+      caption: "lightbulbs chase — a marquee of bulbs running clockwise",
+    },
+    {
+      src: "/filmed/border-lightbulbs-alternate.gif",
+      caption: "lightbulbs alternate — every other bulb blinking",
+    },
+  ]}
 />
 
 ## Border styles

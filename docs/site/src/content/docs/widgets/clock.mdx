@@ -8,6 +8,7 @@ import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 import { Aside } from "@astrojs/starlight/components";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 The `clock` widget displays the current time. Every draw tick the engine calls `draw()` again, so the display stays current at the 50 ms cadence of the held-widget loop — no special mechanism needed.
 
@@ -16,6 +17,17 @@ It reuses the same text-render surface as `message` and `countdown`, so [`font_c
 <DemoGif
   src="/demos/widget-clock.gif"
   caption={`clock with format = "%H:%M:%S" and font_color = "rainbow" — the seconds advance because the time is recomputed each draw`}
+/>
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/widget-clock.gif",
+      caption: "A world-time card — NEW YORK and the local time, an emoji on each side",
+    },
+  ]}
 />
 
 <TomlExample

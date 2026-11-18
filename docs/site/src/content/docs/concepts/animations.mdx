@@ -7,6 +7,7 @@ import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 led-ticker has one animation right now: **typewriter** — a character-by-character reveal. Set `animation = "typewriter"` on a supported widget and the text types out one character at a time the moment the widget appears. The characters land in their final positions (no shifting), so the message assembles itself in place rather than scrolling in. An inline emoji — a `:slug:` like `:jack_o_lantern:` or a Unicode emoji — types in as a single character: the sprite drops in whole, in one step.
 
@@ -19,6 +20,30 @@ Animations may also emit a per-frame `pixel_gain` — a brightness multiplier pe
 <DemoGif
   src="/demos/concepts-animations.gif"
   caption="`message` with animation = typewriter and font_color = rainbow"
+/>
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/animation-typewriter.gif",
+      caption: "typewriter — FIREBIRD YOGA typed out a character at a time",
+    },
+    { src: "/filmed/animation-blink.gif", caption: "flair.blink — the whole line blinking" },
+    {
+      src: "/filmed/animation-twinkle.gif",
+      caption: "flair.twinkle — single pixels of the text flickering",
+    },
+    {
+      src: "/filmed/animation-propeller.gif",
+      caption: "flair.propeller — the text spinning in place",
+    },
+    {
+      src: "/filmed/animation-fisheye.gif",
+      caption: "flair.fisheye — a lens bulge rolling along BEGINNER SERIES",
+    },
+  ]}
 />
 
 <TomlExample

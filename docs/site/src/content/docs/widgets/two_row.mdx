@@ -7,6 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 The `two_row` widget renders two independent text strings on the same canvas: a **held top row** for a stable identifier (handle, headline, brand tag) and a **scrolling bottom row** for promotional copy that can be longer than the canvas width. When the bottom row fits, it stays fixed using `bottom_align`; when it overflows, it scrolls left automatically.
 
@@ -15,6 +16,17 @@ Designed for the bigsign in `slideshow` mode at `scale = 2`, where the logical c
 <DemoGif
   src="/demos-long/widget-two_row.gif"
   caption="two_row at scale=1 — top: @example (IG magenta), bottom: scrolling promo (cream); rendered locally so the marquee completes one full pass"
+/>
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/widget-two-row.gif",
+      caption: "FIREBIRD YOGA held on top while the class list scrolls underneath",
+    },
+  ]}
 />
 
 <TomlExample

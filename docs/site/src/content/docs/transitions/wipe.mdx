@@ -6,12 +6,24 @@ description: Stationary outgoing + a colored sweep line that erases the panel.
 import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 The wipe family runs a colored sweep line across the panel that erases the outgoing widget direction-by-direction, then reveals the incoming widget. Snappier than push — only one widget moves — and the colored sweep line gives it a slightly more dramatic feel.
 
 <DemoGif
   src="/demos/transitions-wipe.gif"
   caption="wipe family — left, right, up, down, and random; the center variants (wipe_in, wipe_out and their vertical twins) share the same look"
+/>
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/transition-wipe-alternating.gif",
+      caption: "wipe_alternating — the colored sweep line changing direction each time",
+    },
+  ]}
 />
 
 ## Variants

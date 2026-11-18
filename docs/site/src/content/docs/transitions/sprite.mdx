@@ -7,12 +7,36 @@ import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 import TomlExample from "../../../components/TomlExample.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 The flair pack (`led-ticker-flair`) ships two categories of transition: **homage sprite-trails** — pixel-art characters that cross the panel — and **text-effect transitions** that manipulate the outgoing content itself. Both are referenced by their namespaced slug, e.g. `transition = "pokeball.forward"` or `transition = "flair.spinout"`.
 
 ## Homage transitions (flair pack)
 
 The four homage families — **nyancat**, **pokeball**, **pacman**, and **sailor_moon** — ship together in the `led-ticker-flair` package (one install, four entry points, each with `.forward`, `.reverse`, and `.alternating` variants).
+
+On real hardware:
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/transition-nyancat.gif",
+      caption: "nyancat.alternating — the cat crossing with its rainbow trail",
+    },
+    {
+      src: "/filmed/transition-pokeball.gif",
+      caption: "pokeball.alternating — the ball rolling across the panel",
+    },
+    {
+      src: "/filmed/transition-pacman.gif",
+      caption: "pacman.alternating — Pac-Man and the ghosts crossing the panel",
+    },
+    {
+      src: "/filmed/transition-sailor-moon.gif",
+      caption: "sailor_moon.alternating — the sprite sweeping the panel",
+    },
+  ]}
+/>
 
 ### Install
 
@@ -115,6 +139,56 @@ The rolling-**baseball** family (`baseball.roll`, `baseball.roll_reverse`, `base
 ---
 
 ## Text-effect transitions (flair pack)
+
+On real hardware:
+
+<FilmedGrid
+  items={[
+    { src: "/filmed/transition-spinout.gif", caption: "flair.spinout — letters spinning away" },
+    {
+      src: "/filmed/transition-fireworks.gif",
+      caption: "flair.fireworks — bursts between widgets",
+    },
+    {
+      src: "/filmed/transition-stickers.gif",
+      caption: "flair.stickers — emoji stickers slapped over the old text",
+    },
+    {
+      src: "/filmed/transition-poker.gif",
+      caption: "flair.poker — the old text dealt away card by card",
+    },
+    {
+      src: "/filmed/transition-lightning.gif",
+      caption: "flair.lightning — bolts striking across the text",
+    },
+    { src: "/filmed/transition-fairy.gif", caption: "flair.fairy — sparkle dust sweeping through" },
+    {
+      src: "/filmed/transition-laser.gif",
+      caption: "flair.laser — a beam writing the new text in",
+    },
+    {
+      src: "/filmed/transition-accordion.gif",
+      caption: "flair.accordion — the text folding and unfolding",
+    },
+    {
+      src: "/filmed/transition-interlock.gif",
+      caption: "flair.interlock — strips meshing from both sides",
+    },
+    {
+      src: "/filmed/transition-blinds.gif",
+      caption: "flair.blinds — venetian strips flipping over",
+    },
+    { src: "/filmed/transition-sand.gif", caption: "flair.sand — the text pouring away as grains" },
+    {
+      src: "/filmed/transition-snow.gif",
+      caption: "flair.snow — the new text settling in as snowfall",
+    },
+    {
+      src: "/filmed/transition-splitflap.gif",
+      caption: "flair.splitflap — departure-board flaps turning",
+    },
+  ]}
+/>
 
 ### `flair.spinout` (flair >= 0.3.0, core >= 4.6)
 

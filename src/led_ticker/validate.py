@@ -1609,21 +1609,39 @@ def _check_transition_color_shape(
             else ""
         )
         ttype = trans_cfg.type
-        known_core = ttype in registered and "." not in ttype
-        if known_core:
+        known = ttype in registered
+        if known:
+            # Registered (core OR plugin): the factory forwards `color` /
+            # `colors` only to a constructor that declares it, so read that.
             allowed = _allowed_init_kwargs(get_transition_class(ttype))
             takes_single, takes_list = "color" in allowed, "colors" in allowed
         else:
-            # plugin or unknown: can't tell what it reads — stay conservative
+            # unknown name: can't tell what it reads — stay conservative
             takes_single = takes_list = True
-        reads_colour = takes_single or takes_list
+        # Per FIELD, the way `_build_trans_obj` forwards: `colors` wins when
+        # set, `color` only reaches a single-colour constructor when no list
+        # is beside it. A malformed value nothing reads is a warning.
+        colors_effective = takes_list
+        color_effective = takes_single and trans_cfg.colors is None
+        # A `default` slot is only BUILT when it stands in for an omitted
+        # between_sections; otherwise a malformed colour there runs today.
+        default_is_live = location != "transitions.default" or (
+            not config.between_sections_specified
+        )
+        dead_default = (
+            ""
+            if default_is_live
+            else ("; this default is never built because between_sections is set")
+        )
 
+        color_reported = False
         if trans_cfg.color is not None:
             msg = rgb_shape_error(trans_cfg.color)
             if msg is not None:
+                color_reported = True
                 if _looks_like_tupled_string(trans_cfg.color):
                     msg += " (a quoted string is split into characters at load)"
-                if reads_colour:
+                if color_effective and default_is_live:
                     _issue(
                         "error",
                         location,
@@ -1631,12 +1649,20 @@ def _check_transition_color_shape(
                         "Write transition_color = [r, g, b] with three ints 0-255.",
                     )
                 else:
+                    why = (
+                        dead_default
+                        if not default_is_live
+                        else (
+                            "; transition_colors beside it is what gets forwarded"
+                            if trans_cfg.colors is not None and takes_single
+                            else f"; type={ttype!r} ignores it anyway"
+                        )
+                    )
                     _issue(
                         "warning",
                         location,
-                        f"transition_color: {msg}; type={ttype!r} ignores colour "
-                        f"anyway{suffix}",
-                        "Remove it, or write [r, g, b] on a type that takes a colour.",
+                        f"transition_color: {msg}{why}{suffix}",
+                        "Remove it, or write [r, g, b] where a type reads it.",
                     )
         if trans_cfg.colors is None:
             continue
@@ -1646,7 +1672,7 @@ def _check_transition_color_shape(
                 _looks_like_tupled_string(c) for c in trans_cfg.colors
             ):
                 msg += " (a quoted string is split into characters at load)"
-            if reads_colour:
+            if colors_effective and default_is_live:
                 _issue(
                     "error",
                     location,
@@ -1654,18 +1680,22 @@ def _check_transition_color_shape(
                     "Write transition_colors = [[r, g, b], ...], ints 0-255.",
                 )
             else:
+                why = (
+                    dead_default
+                    if not default_is_live
+                    else f"; type={ttype!r} ignores it anyway"
+                )
                 _issue(
                     "warning",
                     location,
-                    f"transition_colors: {msg}; type={ttype!r} ignores colour "
-                    f"anyway{suffix}",
-                    "Remove it, or fix the shape on a type that takes a colour pool.",
+                    f"transition_colors: {msg}{why}{suffix}",
+                    "Remove it, or fix the shape where a type reads a colour pool.",
                 )
             continue
-        if not known_core or ttype in _META_TRANSITION_TYPES_R74:
+        if not known or "." in ttype or ttype in _META_TRANSITION_TYPES_R74:
             continue  # plugins declare their own; rule 39 / rule 73 own the rest
         if takes_list:
-            if trans_cfg.color is not None:
+            if trans_cfg.color is not None and not color_reported:
                 _issue(
                     "warning",
                     location,

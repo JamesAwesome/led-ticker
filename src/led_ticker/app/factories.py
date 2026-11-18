@@ -501,7 +501,7 @@ _ENTRY_REFUSED_KEYS: frozenset[str] = frozenset(
         "separator_size",
     }
 )
-# Sanity cap on a pool entry's own duration: 1e308 / scroll_speed is inf and
+# Upper bound on a pool entry's own duration: 1e308 / scroll_speed is inf and
 # int(inf) raised before the runner's try (the panel died). An hour is plenty.
 _MAX_ENTRY_DURATION_S = 3600
 _DID_YOU_MEAN: dict[str, str] = {

@@ -28,10 +28,24 @@ and tested against.
 
 ## What it looks like
 
+A 160×16 panel is about 65 cm wide and 7 cm tall, so it sits naturally on
+a shelf, a mantel or above a doorway. This is the reference build on a
+living-room shelf, lights off, running a 30-second Firebird Yoga loop at
+`brightness = 40`:
+
+<DemoGif
+  video="/filmed/placement-dark.mp4"
+  filmed
+  caption="The smallsign on a shelf at night: FIREBIRD YOGA typed out under a lightbulb marquee, a Spring Sessions countdown, the tagline over fireworks, world time, and a two-row closing card — filmed through a webcam about two metres away."
+/>
+
+The same loop cropped to the panel, which is how every clip below is
+framed:
+
 <DemoGif
   video="/filmed/hero.mp4"
   filmed
-  caption="The reference build on a shelf: a 30-second Firebird Yoga loop at `brightness = 40`, filmed through a webcam about two metres away."
+  caption="The 30-second loop cropped to the panel: typewriter title, countdown, fireworks, world clocks and the closing card."
 />
 
 The camera's auto-exposure is the big variable, not the panel. Lights on,
@@ -53,6 +67,217 @@ blooms. Same clips, both ways:
       caption: "Lights on: lightbulb marquee border",
     },
     { src: "/filmed/border-lightbulbs-chase.gif", caption: "Lights off: the bulbs flare" },
+  ]}
+/>
+
+## Every effect, filmed
+
+Every clip led-ticker's docs show "on real hardware" was shot on this
+build in one session (lights off, `brightness = 40`), cropped to the
+panel. Each family links to the page that explains it.
+
+### [Color providers](/concepts/color-providers/)
+
+<FilmedGrid
+  items={[
+    { src: "/filmed/color-rainbow.gif", caption: "rainbow — a hue per character" },
+    { src: "/filmed/color-gradient.gif", caption: "gradient — flame to amber across the line" },
+    {
+      src: "/filmed/color-cycle.gif",
+      caption: "color_cycle — the whole line stepping through hues",
+    },
+    {
+      src: "/filmed/color-shimmer.gif",
+      caption: "shimmer — a bright spot sweeping along cream text",
+    },
+    {
+      src: "/filmed/color-random.gif",
+      caption: "random — a fresh color each time the widget comes round",
+    },
+  ]}
+/>
+
+### [Borders](/concepts/borders/)
+
+<FilmedGrid
+  items={[
+    { src: "/filmed/border-rainbow.gif", caption: "rainbow — hue chase around the panel edge" },
+    { src: "/filmed/border-color-cycle.gif", caption: "color_cycle — one hue at a time, stepping" },
+    { src: "/filmed/border-constant.gif", caption: "constant — a steady flame ring" },
+    { src: "/filmed/border-bands.gif", caption: "bands — stacked color stripes" },
+    {
+      src: "/filmed/border-lightbulbs-chase.gif",
+      caption: "lightbulbs chase — a marquee of bulbs running clockwise",
+    },
+    {
+      src: "/filmed/border-lightbulbs-alternate.gif",
+      caption: "lightbulbs alternate — every other bulb blinking",
+    },
+  ]}
+/>
+
+### [Backgrounds](/concepts/backgrounds/)
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/background-fireworks.gif",
+      caption: "flair.fireworks bursting behind the held tagline",
+    },
+    { src: "/filmed/background-snow.gif", caption: "flair.snow drifting behind the text" },
+    { src: "/filmed/background-twinkle.gif", caption: "flair.twinkle starfield under the text" },
+  ]}
+/>
+
+### [Animations](/concepts/animations/)
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/animation-typewriter.gif",
+      caption: "typewriter — FIREBIRD YOGA typed out a character at a time",
+    },
+    { src: "/filmed/animation-blink.gif", caption: "flair.blink — the whole line blinking" },
+    {
+      src: "/filmed/animation-twinkle.gif",
+      caption: "flair.twinkle — single pixels of the text flickering",
+    },
+    {
+      src: "/filmed/animation-propeller.gif",
+      caption: "flair.propeller — the text spinning in place",
+    },
+    {
+      src: "/filmed/animation-fisheye.gif",
+      caption: "flair.fisheye — a lens bulge rolling along BEGINNER SERIES",
+    },
+  ]}
+/>
+
+### [Built-in transitions](/transitions/)
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/transition-push-left.gif",
+      caption: "push_left — outgoing and incoming slide together",
+    },
+    {
+      src: "/filmed/transition-wipe-alternating.gif",
+      caption: "wipe_alternating — a colored sweep line erasing the old text",
+    },
+    {
+      src: "/filmed/transition-dissolve.gif",
+      caption: "dissolve — pixel scatter between two messages",
+    },
+    {
+      src: "/filmed/transition-split.gif",
+      caption: "split — a black band opening from the center",
+    },
+    {
+      src: "/filmed/transition-color-flash.gif",
+      caption: "color_flash — a white flash between widgets",
+    },
+    {
+      src: "/filmed/transition-scroll.gif",
+      caption: "scroll — continuous crawl with the bullet separator",
+    },
+  ]}
+/>
+
+### [Homage sprite transitions](/transitions/sprite/#homage-transitions-flair-pack)
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/transition-nyancat.gif",
+      caption: "nyancat.alternating — the cat crossing with its rainbow trail",
+    },
+    {
+      src: "/filmed/transition-pokeball.gif",
+      caption: "pokeball.alternating — the ball rolling across the panel",
+    },
+    {
+      src: "/filmed/transition-pacman.gif",
+      caption: "pacman.alternating — Pac-Man and the ghosts crossing the panel",
+    },
+    {
+      src: "/filmed/transition-sailor-moon.gif",
+      caption: "sailor_moon.alternating — the sprite sweeping the panel",
+    },
+  ]}
+/>
+
+### [Flair text-effect transitions](/transitions/sprite/#text-effect-transitions-flair-pack)
+
+<FilmedGrid
+  items={[
+    { src: "/filmed/transition-spinout.gif", caption: "flair.spinout — letters spinning away" },
+    {
+      src: "/filmed/transition-fireworks.gif",
+      caption: "flair.fireworks — bursts between widgets",
+    },
+    {
+      src: "/filmed/transition-stickers.gif",
+      caption: "flair.stickers — emoji stickers slapped over the old text",
+    },
+    {
+      src: "/filmed/transition-poker.gif",
+      caption: "flair.poker — the old text dealt away card by card",
+    },
+    {
+      src: "/filmed/transition-lightning.gif",
+      caption: "flair.lightning — bolts striking across the text",
+    },
+    { src: "/filmed/transition-fairy.gif", caption: "flair.fairy — sparkle dust sweeping through" },
+    {
+      src: "/filmed/transition-laser.gif",
+      caption: "flair.laser — a beam writing the new text in",
+    },
+    {
+      src: "/filmed/transition-accordion.gif",
+      caption: "flair.accordion — the text folding and unfolding",
+    },
+    {
+      src: "/filmed/transition-interlock.gif",
+      caption: "flair.interlock — strips meshing from both sides",
+    },
+    {
+      src: "/filmed/transition-blinds.gif",
+      caption: "flair.blinds — venetian strips flipping over",
+    },
+    { src: "/filmed/transition-sand.gif", caption: "flair.sand — the text pouring away as grains" },
+    {
+      src: "/filmed/transition-snow.gif",
+      caption: "flair.snow — the new text settling in as snowfall",
+    },
+    {
+      src: "/filmed/transition-splitflap.gif",
+      caption: "flair.splitflap — departure-board flaps turning",
+    },
+  ]}
+/>
+
+### [Widgets](/widgets/) and [emoji](/assets/emoji/)
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/widget-clock.gif",
+      caption:
+        "`clock` — a world-time card, NEW YORK and the local time with an emoji on each side",
+    },
+    {
+      src: "/filmed/widget-countdown.gif",
+      caption: "`countdown` — Spring Sessions and the day count, inside a bands border",
+    },
+    {
+      src: "/filmed/widget-two-row.gif",
+      caption: "`two_row` — a held top line over a scrolling bottom row",
+    },
+    {
+      src: "/filmed/emoji-sampler.gif",
+      caption: "8×8 pixel-art emoji inline in a scrolling message",
+    },
   ]}
 />
 

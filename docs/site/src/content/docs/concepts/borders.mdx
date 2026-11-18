@@ -6,32 +6,12 @@ description: Rainbow chase, color_cycle, constant-color, color bands, or lightbu
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
-import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 A border paints a decorative outline around the entire panel perimeter. All styles paint at physical panel resolution — a pixel-ring border is always exactly one LED wide regardless of scale, even on a big / scaled sign (`default_scale > 1`) where most content is drawn in logical pixels and expanded to fill the panel (see [Display](/concepts/display/)). _For developers:_ borders bypass the block-expansion path and write directly to the real underlying canvas (`SetPixel`). The five styles and their shorthands are listed in the table below. `rainbow` and `color_cycle` also accept optional `from` / `to` RGB colors to confine the animation to a specific hue arc instead of sweeping the full spectrum.
 
 <DemoGif
   src="/demos/concepts-borders.gif"
   caption="Rainbow chase border at default speed and thickness"
-/>
-
-## On real hardware
-
-<FilmedGrid
-  items={[
-    { src: "/filmed/border-rainbow.gif", caption: "rainbow — hue chase around the panel edge" },
-    { src: "/filmed/border-color-cycle.gif", caption: "color_cycle — one hue at a time, stepping" },
-    { src: "/filmed/border-constant.gif", caption: "constant — a steady flame ring" },
-    { src: "/filmed/border-bands.gif", caption: "bands — stacked color stripes" },
-    {
-      src: "/filmed/border-lightbulbs-chase.gif",
-      caption: "lightbulbs chase — a marquee of bulbs running clockwise",
-    },
-    {
-      src: "/filmed/border-lightbulbs-alternate.gif",
-      caption: "lightbulbs alternate — every other bulb blinking",
-    },
-  ]}
 />
 
 ## Border styles
@@ -83,6 +63,12 @@ Add `from` and `to` RGB colors to confine the chase to a specific hue arc — th
   caption="red → amber arc at `speed = 3`, `thickness = 2` — chase tiles only within the warm fire band, never entering green or blue"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/border-rainbow.gif"
+  caption="Filmed on the smallsign: the rainbow hue chase around the panel edge"
+/>
+
 <TomlExample
   code={`# Warm fire arc — red to amber, 2-ring border
 border = {style = "rainbow", from = [220, 30, 0], to = [255, 180, 0], speed = 3, thickness = 2}`}
@@ -123,6 +109,12 @@ A color_cycle border paints every perimeter pixel the same color per frame, and 
 <DemoGif
   src="/demos-pinned/border-color_cycle.gif"
   caption="`color_cycle` border at `speed = 5`, `thickness = 2` — entire perimeter pulses as one hue with no per-pixel chase"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/border-color-cycle.gif"
+  caption="Filmed on the smallsign: color_cycle stepping one hue at a time"
 />
 
 String shorthand uses the full 360° wheel at the default speed:
@@ -193,6 +185,12 @@ A constant border is a solid-color ring with no animation. Because it never chan
   caption="constant magenta ring around the panel perimeter, text inside"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/border-constant.gif"
+  caption="Filmed on the smallsign: a steady flame-colored constant ring"
+/>
+
 Use an RGB list as a shorthand:
 
 <TomlExample
@@ -220,6 +218,12 @@ Discrete solid-color bands marching around the perimeter — the geometry of the
 <DemoGif
   src="/demos-pinned/border-bands-candy-cane.gif"
   caption="candy_cane palette — red/white bands marching clockwise"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/border-bands.gif"
+  caption="Filmed on the smallsign: stacked bands stripes around a countdown"
 />
 
 `colors` is required (no bare-string shorthand): supply a named palette or a list of two or more RGB colors.
@@ -343,11 +347,23 @@ Defaults: `mode = "chase"`, `bulb_size = 3` on big panels (auto-falls back to `1
   caption="`chase` — warm-white marquee, the lit window travels clockwise"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/border-lightbulbs-chase.gif"
+  caption="Filmed on the smallsign: the lightbulb marquee chasing clockwise"
+/>
+
 - **`alternate`** — even/odd bulbs flip on each phase. Half the bulbs lit at any time, switching every `speed_frames` ticks. Looks like a shimmer or twinkle without directional motion.
 
 <DemoGif
   src="/demos-pinned/border-lightbulbs-alternate.gif"
   caption="`alternate` — even/odd bulbs flip in place, a directionless twinkle"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/border-lightbulbs-alternate.gif"
+  caption="Filmed on the smallsign: every other bulb blinking in alternate mode"
 />
 
 - **`unison`** — all bulbs share state. All lit, then all unlit, alternating every `speed_frames` ticks. Loud attention-grabber.

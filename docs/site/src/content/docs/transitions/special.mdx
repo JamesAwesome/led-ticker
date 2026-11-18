@@ -6,7 +6,6 @@ description: "Catch-all for transitions that aren't push, wipe, or sprite — cu
 import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
-import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 The special family covers transitions that don't fit the push / wipe / sprite shapes. Most are full-canvas effects (`color_flash`, `dissolve`, `split`) or single-frame cuts; `scroll` is the odd one out — a continuous-scroll bridge that connects two widgets with a bullet separator instead of pausing for a transition.
 
@@ -15,27 +14,10 @@ The special family covers transitions that don't fit the push / wipe / sprite sh
   caption="dissolve — random pixel scatter (TV-static effect)"
 />
 
-## On real hardware
-
-<FilmedGrid
-  items={[
-    {
-      src: "/filmed/transition-dissolve.gif",
-      caption: "dissolve — pixel scatter between two messages",
-    },
-    {
-      src: "/filmed/transition-split.gif",
-      caption: "split — a black band opening from the center",
-    },
-    {
-      src: "/filmed/transition-color-flash.gif",
-      caption: "color_flash — a white flash between widgets",
-    },
-    {
-      src: "/filmed/transition-scroll.gif",
-      caption: "scroll — continuous crawl with the bullet separator",
-    },
-  ]}
+<DemoGif
+  filmed
+  src="/filmed/transition-dissolve.gif"
+  caption="Filmed on the smallsign: dissolve pixel-scattering between two messages"
 />
 
 <DemoGif
@@ -44,13 +26,31 @@ The special family covers transitions that don't fit the push / wipe / sprite sh
 />
 
 <DemoGif
+  filmed
+  src="/filmed/transition-split.gif"
+  caption="Filmed on the smallsign: split opening a black band from the center"
+/>
+
+<DemoGif
   src="/demos/transitions-color_flash.gif"
   caption="color_flash — full-canvas flash, white / cyan / magenta via transition_color"
 />
 
 <DemoGif
+  filmed
+  src="/filmed/transition-color-flash.gif"
+  caption="Filmed on the smallsign: the color_flash white flash between widgets"
+/>
+
+<DemoGif
   src="/demos/transitions-scroll.gif"
   caption="scroll — seamless continuous scroll with a bullet separator"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-scroll.gif"
+  caption="Filmed on the smallsign: scroll's continuous crawl with the bullet separator"
 />
 
 The scroll separator is a small white dot by default. Recolor it (e.g. to tone

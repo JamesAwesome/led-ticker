@@ -7,7 +7,6 @@ import { Aside } from "@astrojs/starlight/components";
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
-import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 led-ticker has one animation right now: **typewriter** — a character-by-character reveal. Set `animation = "typewriter"` on a supported widget and the text types out one character at a time the moment the widget appears. The characters land in their final positions (no shifting), so the message assembles itself in place rather than scrolling in. An inline emoji — a `:slug:` like `:jack_o_lantern:` or a Unicode emoji — types in as a single character: the sprite drops in whole, in one step.
 
@@ -22,28 +21,10 @@ Animations may also emit a per-frame `pixel_gain` — a brightness multiplier pe
   caption="`message` with animation = typewriter and font_color = rainbow"
 />
 
-## On real hardware
-
-<FilmedGrid
-  items={[
-    {
-      src: "/filmed/animation-typewriter.gif",
-      caption: "typewriter — FIREBIRD YOGA typed out a character at a time",
-    },
-    { src: "/filmed/animation-blink.gif", caption: "flair.blink — the whole line blinking" },
-    {
-      src: "/filmed/animation-twinkle.gif",
-      caption: "flair.twinkle — single pixels of the text flickering",
-    },
-    {
-      src: "/filmed/animation-propeller.gif",
-      caption: "flair.propeller — the text spinning in place",
-    },
-    {
-      src: "/filmed/animation-fisheye.gif",
-      caption: "flair.fisheye — a lens bulge rolling along BEGINNER SERIES",
-    },
-  ]}
+<DemoGif
+  filmed
+  src="/filmed/animation-typewriter.gif"
+  caption="Filmed on the smallsign: FIREBIRD YOGA typed out a character at a time"
 />
 
 <TomlExample
@@ -125,6 +106,12 @@ On top of the widget-type check above, typewriter on `gif` / `image` rejects thr
 <DemoGif
   src="/demos-pinned/animation-flair-propeller.gif"
   caption="`message` with `animation = flair.propeller` — text spins in and settles flat"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-propeller.gif"
+  caption="Filmed on the smallsign: flair.propeller spinning the text in place"
 />
 
 ### Install
@@ -226,6 +213,12 @@ font_color = [255, 100, 255]`}
 <DemoGif
   src="/demos-pinned/animation-flair-fisheye.gif"
   caption="`message` with `animation = flair.fisheye` — text scrolls through a stationary squeeze-and-bulge lens"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-fisheye.gif"
+  caption="Filmed on the smallsign: the flair.fisheye lens bulge rolling along BEGINNER SERIES"
 />
 
 ### Install
@@ -399,6 +392,12 @@ Same rule as `message`: on a scaled sign (bigsign) a hi-res font warps along wit
   caption="`message` with `animation = flair.twinkle` — individual pixels of each letter dim and brighten on their own phase"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/animation-twinkle.gif"
+  caption="Filmed on the smallsign: flair.twinkle flickering single pixels of the text"
+/>
+
 <TomlExample
   title="Twinkling text (the demo above)"
   code={`[[playlist.section.widget]]
@@ -453,6 +452,12 @@ The sparkle pattern is fixed to the panel, not to the letters. On text that hold
 <DemoGif
   src="/demos-pinned/animation-flair-blink.gif"
   caption="`message` with `animation = flair.blink` at the defaults — on for 750 ms, off for 250 ms, once a second"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-blink.gif"
+  caption="Filmed on the smallsign: flair.blink blinking the whole line"
 />
 
 <TomlExample

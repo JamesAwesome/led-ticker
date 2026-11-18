@@ -6,7 +6,6 @@ description: Full-panel background effects painted behind a widget's text, under
 import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
-import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 A **background** is a full-panel effect painted _behind_ a widget's content, every render tick, for as long as the widget is on screen. It is the sibling of a [border](/concepts/borders/): same config shape, same animation plumbing, different layer. The paint order on every host widget is
 
@@ -16,20 +15,13 @@ so a background shows through an image's transparent (skipped-black) regions, si
 
 Core ships no built-in background styles; they come from plugins. The [flair pack](/plugins/available/#flair-effects-flair-pack) ships three: `flair.fireworks`, [`flair.twinkle`](#flairtwinkle-starfield) (a twinkling starfield) and [`flair.snow`](#flairsnow-falling-snow) (falling snow).
 
-## On real hardware
-
-<FilmedGrid
-  items={[
-    {
-      src: "/filmed/background-fireworks.gif",
-      caption: "flair.fireworks bursting behind the held tagline",
-    },
-    { src: "/filmed/background-snow.gif", caption: "flair.snow drifting behind the text" },
-    { src: "/filmed/background-twinkle.gif", caption: "flair.twinkle starfield under the text" },
-  ]}
-/>
-
 ## Config
+
+<DemoGif
+  filmed
+  src="/filmed/background-fireworks.gif"
+  caption="Filmed on the smallsign: flair.fireworks bursting behind the held tagline"
+/>
 
 Shorthand (defaults):
 
@@ -55,6 +47,12 @@ Inline table with the plugin's knobs (`style` is the registered name; every othe
 <DemoGif
   src="/demos-pinned/background-flair-twinkle.gif"
   caption="`message` on a bigsign with `background = flair.twinkle` — single-LED stars brighten and fade behind the text"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/background-twinkle.gif"
+  caption="Filmed on the smallsign: the flair.twinkle starfield under the text"
 />
 
 <TomlExample
@@ -90,6 +88,12 @@ The field keeps twinkling across `loop_count` repeats instead of restarting each
 <DemoGif
   src="/demos-pinned/background-flair-snow.gif"
   caption="`message` on a bigsign with `background = { style = flair.snow, flake = flake, density = 1.0, wind = 0.1 }` — 5×5 snowflakes drift down behind the text"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/background-snow.gif"
+  caption="Filmed on the smallsign: flair.snow drifting behind the text"
 />
 
 <TomlExample

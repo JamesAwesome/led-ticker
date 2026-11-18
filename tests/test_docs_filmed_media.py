@@ -76,6 +76,26 @@ def test_demo_gif_component_supports_video_and_filmed():
     assert "<video" in src and 'type="video/mp4"' in src
 
 
-def test_homepage_hero_is_the_filmed_video():
+def test_homepage_keeps_rendered_hero_and_adds_filmed_placement():
+    """Filmed footage sits alongside the rendered demos, never in place of them
+    (James, 2026-11-18): the rendered rainbow hero stays, the wide lit
+    placement shot follows it."""
     index = (CONTENT / "index.mdx").read_text()
-    assert 'video="/filmed/hero.mp4"' in index
+    assert 'src="/demos/message-rainbow.gif"' in index
+    assert 'video="/filmed/placement-lit.mp4"' in index
+    assert index.index('src="/demos/message-rainbow.gif"') < index.index(
+        'video="/filmed/placement-lit.mp4"'
+    )
+
+
+def test_smallsign_page_carries_every_filmed_gif():
+    """Most of the footage lives on the smallsign reference page; every filmed
+    GIF (dark takes) appears there, not only on its feature page."""
+    page = (
+        SITE / "src" / "content" / "docs" / "hardware" / "smallsign.mdx"
+    ).read_text()
+    gifs = sorted(
+        f for f in _files() if f.endswith(".gif") and not f.startswith("lit/")
+    )
+    missing = [g for g in gifs if f"/filmed/{g}" not in page]
+    assert not missing, f"smallsign.mdx lacks filmed clips: {missing}"

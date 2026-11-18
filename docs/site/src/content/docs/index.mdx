@@ -25,12 +25,18 @@ hero:
 ---
 
 import DemoGif from "../../components/DemoGif.astro";
+import FilmedGrid from "../../components/FilmedGrid.astro";
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
 <DemoGif
-  video="/filmed/hero.mp4"
+  src="/demos/message-rainbow.gif"
+  caption="A `message` widget with rainbow per-character coloring — one of the built-in widgets."
+/>
+
+<DemoGif
+  video="/filmed/placement-lit.mp4"
   filmed
-  caption="The smallsign (Pi 4, five 32×16 panels) running a 30-second Firebird Yoga loop: typewriter title under a lightbulb marquee, a class countdown, flair transitions, and a closing card — filmed, not rendered."
+  caption="The same engine on real hardware: the smallsign reference build (a Pi 4 and five 32×16 panels) sitting on a shelf, filmed in daylight — the studio name, a tagline, an enrolment crawl, a two-row class list and a promo over fireworks."
 />
 
 ## Two ways in
@@ -105,6 +111,25 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 </CardGrid>
 
 [Browse all widgets →](/widgets/)
+
+Everything above is rendered by the docs tooling. This is what the same
+features look like filmed on the smallsign — the full set is on the
+[smallsign page](/hardware/smallsign/#every-effect-filmed):
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/widget-countdown.gif",
+      caption: "A `countdown` to Spring Sessions inside a bands border",
+    },
+    { src: "/filmed/emoji-sampler.gif", caption: "Inline pixel-art emoji in a scrolling message" },
+    {
+      src: "/filmed/transition-nyancat.gif",
+      caption: "The `nyancat` transition crossing the panel",
+    },
+    { src: "/filmed/border-rainbow.gif", caption: "A rainbow border chasing around the edge" },
+  ]}
+/>
 
 ## Writing a plugin
 

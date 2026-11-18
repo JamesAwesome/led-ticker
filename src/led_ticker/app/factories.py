@@ -6,6 +6,7 @@ functions are called.
 """
 
 import collections
+import dataclasses
 import difflib
 import inspect
 import itertools
@@ -27,6 +28,8 @@ from led_ticker.app.coercion import (
     _coerce_widget_cfg,
     _coerce_widget_colors,
     _is_hires_font_name,
+    rgb_list_shape_error,
+    rgb_shape_error,
 )
 from led_ticker.colors import (
     BLUE,
@@ -39,7 +42,12 @@ from led_ticker.colors import (
     RGB_WHITE,
     YELLOW,
 )
-from led_ticker.config import SectionConfig, SourceConfig, TransitionConfig
+from led_ticker.config import (
+    _BUILTIN_TRANSITION_KEYS,
+    SectionConfig,
+    SourceConfig,
+    TransitionConfig,
+)
 from led_ticker.frame import LedFrame
 from led_ticker.schedule import bind_schedule, parse_visibility_schedule
 from led_ticker.sources import (
@@ -51,7 +59,15 @@ from led_ticker.sources import (
     PolledDataSource,
     StaticSource,
 )
-from led_ticker.transitions import Transition, get_transition_class
+from led_ticker.transitions import (
+    HARD_EXCLUDED,
+    AutoTransition,
+    RandomTransition,
+    Transition,
+    default_pool_names,
+    explain_unknown_transition,
+    get_transition_class,
+)
 from led_ticker.widgets import get_widget_class
 from led_ticker.widgets.message import TickerMessage
 
@@ -411,6 +427,8 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
     """
     if trans_cfg.type == "cut":
         return None
+    if trans_cfg.type in _META_TYPES:
+        return _build_meta_transition(trans_cfg)
     cls = get_transition_class(trans_cfg.type)
     # Plugin transitions (namespaced, dotted type) declare their own config
     # fields and are built through the generic plugin-style path, which gives a
@@ -457,6 +475,233 @@ def _build_trans_obj(trans_cfg: TransitionConfig) -> Transition | None:
             default_kind="dot",
         )
     return cls(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# `random` / `auto` meta-transitions: pool resolution + child configs.
+# Design: docs/superpowers/specs/2026-11-17-random-transition-design.md.
+# `_resolve_pool` is the runtime authority; validate rule 73 calls it too, so
+# every refusal below is a ValueError whose message a user can act on.
+# ---------------------------------------------------------------------------
+
+_META_TYPES: tuple[str, ...] = ("random", "auto")
+# Section-level knobs the runner reads from the PARENT slot; a pool entry
+# cannot change them per firing. Separator knobs are scroll-only and `scroll`
+# is a hard exclusion.
+_ENTRY_REFUSED_KEYS: frozenset[str] = frozenset(
+    {
+        "easing",
+        "transition_fps",
+        "separator",
+        "separator_color",
+        "separator_font",
+        "separator_font_size",
+        "separator_size",
+    }
+)
+_DID_YOU_MEAN: dict[str, str] = {
+    "color": "transition_color",
+    "colors": "transition_colors",
+}
+
+
+def _pool_entry_key(entry: str | dict[str, Any]) -> tuple:
+    """Dedupe key for a pool entry: a bare name normalises to a type-only
+    table, so `"wipe_in"` and `{ type = "wipe_in" }` collide while two entries
+    of the same type with different knobs stay distinct."""
+    table = {"type": entry} if isinstance(entry, str) else entry
+    return tuple(sorted((k, repr(v)) for k, v in table.items()))
+
+
+def _child_transition_cfg(
+    parent: TransitionConfig, entry: str | dict[str, Any]
+) -> TransitionConfig:
+    """Clone the parent slot's config and overlay one pool entry.
+
+    Inherits the parent's `duration` / `color` (decision 2 of the design);
+    the parent's `easing`, `transition_fps` and separator knobs are cloned but
+    never honoured (the runner reads them from the parent slot). Colour rules:
+    an entry `transition_color` clears the inherited `colors` and vice versa;
+    a NON-dotted child never carries `colors` (no core pool member takes it);
+    a dotted child keeps `colors` only when its constructor declares it, and
+    an entry that WRITES `transition_colors` for a `color`-only constructor is
+    refused outright. Every refusal is a ValueError.
+    """
+    if isinstance(entry, str):
+        table: dict[str, Any] = {"type": entry}
+    elif isinstance(entry, dict) and "type" in entry:
+        table = entry
+    else:
+        raise ValueError(
+            f"random/auto pool entry {entry!r} must be a transition name or a "
+            "table with a `type` key"
+        )
+    ttype = table["type"]
+    if not isinstance(ttype, str):
+        raise ValueError(
+            f"random/auto pool entry `type` must be a string; got {ttype!r}"
+        )
+    if ttype in _META_TYPES:
+        raise ValueError(f"random/auto pool cannot nest {ttype!r}")
+    if ttype in HARD_EXCLUDED:
+        raise ValueError(
+            f"{ttype!r} cannot be a pool member (cut, scroll and the *_random / "
+            "*_alternating wrappers are excluded; the pool already provides variety)"
+        )
+    refused = sorted(_ENTRY_REFUSED_KEYS & set(table))
+    if refused:
+        why = (
+            "scroll-only"
+            if refused[0].startswith("separator")
+            else "section-level only"
+        )
+        raise ValueError(
+            f"random/auto pool entry {ttype!r}: {refused} cannot be set per "
+            f"member ({why})"
+        )
+    dotted = "." in ttype
+    if not dotted and "transition_colors" in table:
+        raise ValueError(
+            f"random/auto pool entry {ttype!r}: core members take a single "
+            "transition_color, not transition_colors"
+        )
+    extra = {k: v for k, v in table.items() if k not in _BUILTIN_TRANSITION_KEYS}
+    if not dotted and extra:
+        hints = [
+            f"did you mean {_DID_YOU_MEAN[k]}?"
+            for k in sorted(extra)
+            if k in _DID_YOU_MEAN
+        ]
+        hint = " " + " ".join(hints) if hints else ""
+        raise ValueError(
+            f"random/auto pool entry {ttype!r} got unknown keys "
+            f"{sorted(extra)!r}.{hint}"
+        )
+    child = dataclasses.replace(parent, type=ttype, extra=extra, type_specified=True)
+    if "duration" in table:
+        d = table["duration"]
+        if isinstance(d, bool) or not isinstance(d, (int, float)) or d <= 0:
+            raise ValueError(
+                f"random/auto pool entry {ttype!r}: duration must be a positive "
+                f"number of seconds; got {d!r}"
+            )
+        child.duration = d
+    if "transition_color" in table:
+        msg = rgb_shape_error(table["transition_color"])
+        if msg is not None:
+            raise ValueError(
+                f"random/auto pool entry {ttype!r}: transition_color: {msg}"
+            )
+        child.color = tuple(table["transition_color"])
+        child.colors = None
+    if "transition_colors" in table:
+        msg = rgb_list_shape_error(table["transition_colors"])
+        if msg is not None:
+            raise ValueError(
+                f"random/auto pool entry {ttype!r}: transition_colors: {msg}"
+            )
+        child.colors = [tuple(c) for c in table["transition_colors"]]
+        child.color = None
+    if not dotted:
+        child.colors = None
+    else:
+        cls = get_transition_class(ttype)  # raises the rule-39 message if unknown
+        if child.colors is not None and "colors" not in _allowed_init_kwargs(cls):
+            if "transition_colors" in table:
+                raise ValueError(
+                    f"random/auto pool entry {ttype!r} takes transition_color, not "
+                    "transition_colors"
+                )
+            child.colors = None  # inherited list; the parent's color reaches it
+    return child
+
+
+def _resolve_pool(
+    trans_cfg: TransitionConfig,
+) -> list[tuple[TransitionConfig, float | None, str]]:
+    """Resolve a `random` / `auto` slot into `(child_cfg, entry_duration, name)`
+    triples: explicit `pool` (or the default pool), minus `exclude`, deduped on
+    the normalised entry, at least two distinct members. Raises ValueError."""
+    stray = sorted(set(trans_cfg.extra) - {"pool", "exclude"})
+    if stray:
+        raise ValueError(
+            f"{trans_cfg.type} accepts pool and exclude only; got {stray!r}"
+        )
+    pool_raw = trans_cfg.extra.get("pool")
+    exclude_raw = trans_cfg.extra.get("exclude", [])
+    if pool_raw is not None and not isinstance(pool_raw, list):
+        raise ValueError(f"{trans_cfg.type}: pool must be a list; got {pool_raw!r}")
+    if not isinstance(exclude_raw, list):
+        raise ValueError(
+            f"{trans_cfg.type}: exclude must be a list; got {exclude_raw!r}"
+        )
+    for name in exclude_raw:
+        if not isinstance(name, str):
+            raise ValueError(
+                f"{trans_cfg.type}: exclude names must be strings; got {name!r}"
+            )
+        if name not in _registered_transition_names():
+            message, _fix = explain_unknown_transition(name)
+            raise ValueError(f"{trans_cfg.type}: exclude: {message}")
+    entries: list[str | dict[str, Any]] = (
+        list(pool_raw) if pool_raw is not None else list(default_pool_names())
+    )
+    for e in entries:
+        if not isinstance(e, (str, dict)):
+            raise ValueError(
+                f"random/auto pool entry {e!r} must be a transition name or a "
+                "table with a `type` key"
+            )
+    excluded = set(exclude_raw)
+    entries = [
+        e
+        for e in entries
+        if (e if isinstance(e, str) else e.get("type")) not in excluded
+    ]
+    seen: set[tuple] = set()
+    resolved: list[tuple[TransitionConfig, float | None, str]] = []
+    for e in entries:
+        key = _pool_entry_key(e)
+        if key in seen:
+            continue
+        seen.add(key)
+        child = _child_transition_cfg(trans_cfg, e)
+        if child.type not in _registered_transition_names():
+            message, _fix = explain_unknown_transition(child.type)
+            raise ValueError(f"random/auto pool: {message}")
+        entry_duration = (
+            child.duration if isinstance(e, dict) and "duration" in e else None
+        )
+        name = (
+            child.type
+            if entry_duration is None
+            else f"{child.type} @{entry_duration:g}s"
+        )
+        resolved.append((child, entry_duration, name))
+    if len(resolved) < 2:
+        raise ValueError(
+            f"{trans_cfg.type} pool has {len(resolved)} distinct member(s); "
+            "need at least 2"
+        )
+    return resolved
+
+
+def _registered_transition_names() -> set[str]:
+    from led_ticker.transitions import list_transition_names
+
+    return set(list_transition_names())
+
+
+def _build_meta_transition(trans_cfg: TransitionConfig) -> Transition:
+    """Build a `random` / `auto` wrapper: resolve the pool ONCE, build every
+    child ONCE, hand them to the wrapper. A child that fails to build fails the
+    wrapper (the guarded caller logs and falls back to cut)."""
+    resolved = _resolve_pool(trans_cfg)
+    children = [_build_trans_obj(cfg) for cfg, _d, _n in resolved]
+    durations = [d for _c, d, _n in resolved]
+    names = [n for _c, _d, n in resolved]
+    cls = RandomTransition if trans_cfg.type == "random" else AutoTransition
+    return cls(children, durations, names)  # type: ignore[return-value]
 
 
 def _resolve_fonts(

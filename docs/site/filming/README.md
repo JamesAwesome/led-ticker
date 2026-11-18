@@ -34,15 +34,15 @@ powered, so run it once at the start of a session (or pass `AIM=1` to
 Measured 2026-11-17 with the camera on the desk and the sign on the top
 shelf (the preset `camera.SMALLSIGN_SHELF`):
 
-| setting                                   | value                                                                   |
-| ----------------------------------------- | ----------------------------------------------------------------------- |
-| pan / tilt (arc-seconds)                  | `-27720` / `36000`                                                      |
-| zoom                                      | `350` (3.5×, digital); panel ≈ 77 % of frame width, ≈ 18 px per LED     |
-| white balance                             | locked `5000` K (auto WB drifts with the panel's colors)                |
-| focus                                     | auto (sharp on the panel; `FOCUS=n` locks it if it hunts)               |
-| exposure                                  | auto — not exposed over UVC; dips content ≈ 20 % for ~1 s after a slate |
-| panel brightness (`[display] brightness`) | `40` (ladder 40/50/60: auto-exposure equalizes them; 40 blooms least)   |
-| panel-crop threshold (`find_panel_bbox`)  | defaults (change 60 / bright 200); detected box ≈ 7 % bezel top/bottom  |
+| setting                                   | value                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| pan / tilt (arc-seconds)                  | `-27720` / `36000`                                                                                            |
+| zoom                                      | `350` (3.5×, digital); panel ≈ 77 % of frame width, ≈ 18 px per LED                                           |
+| white balance                             | locked `5000` K (auto WB drifts with the panel's colors)                                                      |
+| focus                                     | auto (sharp on the panel; `FOCUS=n` locks it if it hunts)                                                     |
+| exposure                                  | auto — not exposed over UVC; dips content ≈ 20 % for ~1 s after a slate                                       |
+| panel brightness (`[display] brightness`) | `40` (ladder 40/50/60: auto-exposure equalizes them; 40 blooms least)                                         |
+| panel-crop thresholds (`find_panel_bbox`) | bright 245 / dark 80 / change 60: a panel pixel saturates in the slate AND goes black in content; ≈ 7 % bezel |
 
 Zoom is digital, so the real detail is what the sensor sees at 1×: about
 6 px per LED from the desk. That is enough for 800 px GIFs (5 px per LED)
@@ -94,7 +94,7 @@ the docs-site hero is this video, not the GIF; real footage never fits a
 peak slate luma and the anchor count before writing anything, and warns if a
 rival column run came close to the pick; if the box is wrong pass
 `CROP=x:y:w:h` in analysis (320-wide) pixels, if slates are missed lower
-`SLATE_THRESHOLD`, if the box bleeds into the room raise `CHANGE_THRESHOLD`.
+`SLATE_THRESHOLD`, if the box bleeds into the room raise `BRIGHT_THRESHOLD` or lower `DARK_THRESHOLD`.
 Docs media goes to `docs/site/public/filmed/`; YouTube output stays in
 `captures/` (gitignored).
 

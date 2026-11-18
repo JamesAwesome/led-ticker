@@ -112,6 +112,18 @@ def _parser() -> argparse.ArgumentParser:
         default=60,
         help="per-pixel max-min marking the panel",
     )
+    c.add_argument(
+        "--bright-threshold",
+        type=int,
+        default=245,
+        help="per-pixel max a panel pixel must reach (the slate)",
+    )
+    c.add_argument(
+        "--dark-threshold",
+        type=int,
+        default=80,
+        help="per-pixel min a panel pixel must fall to (unlit content)",
+    )
 
     e = sub.add_parser("session", help="deploy, record, restore")
     e.add_argument("config", type=Path)
@@ -188,6 +200,8 @@ def _run(args: argparse.Namespace, runner: Runner) -> int:
             gif=not args.mp4_only,
             slate_threshold=args.slate_threshold,
             change_threshold=args.change_threshold,
+            bright_threshold=args.bright_threshold,
+            dark_threshold=args.dark_threshold,
         )
         print(f"{len(written)} file(s) written to {args.out_dir}")
     elif args.cmd == "session":

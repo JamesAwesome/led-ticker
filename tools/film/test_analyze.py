@@ -93,7 +93,7 @@ def _panel_frames():
     slate = bytearray(dark)
     rect(slate, 32, BBox(4, 6, 24, 4), 255)
     content = bytearray(dark)
-    rect(content, 32, BBox(4, 6, 24, 4), 90)
+    rect(content, 32, BBox(4, 6, 24, 4), 40)  # dim content: the panel must go dark
     return bytes(slate), bytes(content)
 
 
@@ -159,7 +159,7 @@ def test_find_panel_bbox_ignores_dim_glow_that_changes():
 
 
 def test_analyze_footage_thresholds_are_tunable(mid_loop_footage):
-    # Slate mean inside the (padded) crop is ~236 and content ~85; a 230 slate threshold
+    # Slate mean inside the (padded) crop is ~236 and content ~40; a 230 slate threshold
     # still works, a 300 threshold finds nothing.
     assert analyze_footage(mid_loop_footage, slate_threshold=230.0).segments
     with pytest.raises(NoSlateError):
@@ -206,3 +206,21 @@ def test_find_panel_bbox_warns_when_a_rival_run_is_close(capsys):
     warned: list[str] = []
     find_panel_bbox([bytes(dark), bytes(lit)], 320, 180, on_ambiguous=warned.append)
     assert warned and "CROP" in warned[0]
+
+
+def test_find_panel_bbox_ignores_auto_exposure_drift_of_the_room():
+    """13-minute real recording (2026-11-17): auto-exposure swung the whole
+    room between ~90 and ~210, so every pixel changed by > 60 and got
+    'bright' > 200 — the old mask covered the frame. The panel is the only
+    thing that both SATURATES (slate) and goes nearly BLACK (content)."""
+    dim = gray(320, 180, 90)
+    bright_room = gray(320, 180, 210)
+    slate = bytearray(dim)
+    rect(slate, 320, BBox(100, 80, 100, 10), 255)
+    content = bytearray(bright_room)
+    rect(content, 320, BBox(100, 80, 100, 10), 10)
+    b = find_panel_bbox(
+        [bytes(dim), bytes(slate), bytes(content), bytes(bright_room)], 320, 180
+    )
+    assert (b.x, b.w) == (96, 108)
+    assert (b.y, b.h) == (80, 10)

@@ -194,15 +194,18 @@ def find_panel_bbox(
     height: int,
     *,
     threshold: int = 60,
-    bright: int = 200,
+    bright: int = 245,
+    dark: int = 80,
     pad_frac: float = 0.04,
     on_ambiguous: Callable[[str], None] = _warn_stderr,
 ) -> BBox:
-    """Box of the panel: pixels that both CHANGE (max-min > threshold) and get
-    BRIGHT at some point (max > bright). Changing-only would include the
-    slate's glow on the shelf and any transient (a hand); bright-only would
-    include the window. Small clutter that is both (a flickering candle, a
-    figurine the slate glow lights up, a garland) is dropped by projection:
+    """Box of the panel: pixels that SATURATE at some point (max > bright —
+    the white slate), go nearly BLACK at some point (min < dark — content on
+    an unlit background) and change by more than `threshold`. Over a long
+    recording auto-exposure swings the whole room by 60+ luma, so change
+    alone (or change + "bright > 200") covers the frame; nothing in the room
+    but the panel does both extremes. Small clutter that still qualifies (a
+    flickering candle, a figurine the slate lights up) is dropped by projection:
     the panel is the densest contiguous band of qualifying rows, then the
     densest contiguous run of columns within that band, then rows again
     within those columns."""
@@ -212,7 +215,7 @@ def find_panel_bbox(
         hi = bytearray(max(a, b) for a, b in zip(hi, f, strict=True))
         lo = bytearray(min(a, b) for a, b in zip(lo, f, strict=True))
     mask = bytes(
-        1 if a > bright and a - b > threshold else 0
+        1 if a > bright and b < dark and a - b > threshold else 0
         for a, b in zip(hi, lo, strict=True)
     )
     if not any(mask):
@@ -257,11 +260,18 @@ def analyze_footage(
     take: int = 1,
     slate_threshold: float = 180.0,
     change_threshold: int = 60,
+    bright_threshold: int = 245,
+    dark_threshold: int = 80,
 ) -> Footage:
     if take < 1:
         raise ValueError(f"take must be >= 1, got {take}")
     bbox = crop or find_panel_bbox(
-        frames.frames, frames.width, frames.height, threshold=change_threshold
+        frames.frames,
+        frames.width,
+        frames.height,
+        threshold=change_threshold,
+        bright=bright_threshold,
+        dark=dark_threshold,
     )
     luma = [mean_luma(f, bbox, frames.width) for f in frames.frames]
     slates = find_slates(luma, frames.fps, threshold=slate_threshold)

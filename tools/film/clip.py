@@ -296,6 +296,8 @@ def clip_footage(
     gif: bool = True,
     slate_threshold: float = 180.0,
     change_threshold: int = 60,
+    bright_threshold: int = 245,
+    dark_threshold: int = 80,
     size_of: Callable[[Path], int] = lambda p: p.stat().st_size,
 ) -> list[Path]:
     frames = decode_gray(src, runner)
@@ -305,6 +307,8 @@ def clip_footage(
         take=take,
         slate_threshold=slate_threshold,
         change_threshold=change_threshold,
+        bright_threshold=bright_threshold,
+        dark_threshold=dark_threshold,
     )
     names = film_names(manifest.read_text())
     plan = plan_clips(footage, names)

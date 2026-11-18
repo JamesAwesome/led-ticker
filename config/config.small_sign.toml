@@ -261,7 +261,7 @@ loop_count = 1
 
 [playlist.section.title]
 type = "message"
-text = "Anime News Network"
+text = ":cherry_blossom: Anime News Network :steaming_bowl:"
 font_color = "random"
 
 [[playlist.section.widget]]

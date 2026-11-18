@@ -45,8 +45,10 @@ def test_validation_context_is_public_and_frozen():
     assert raised
 
 
-def test_api_version_bumped_to_1_1():
-    assert plugin.API_VERSION == (1, 1)
+def test_api_version_is_at_least_1_1():
+    # (1, 1) added validate_config_warnings; (1, 2) added the background
+    # scale-carrying-canvas guarantee (#535). Both are additive.
+    assert plugin.API_VERSION >= (1, 1)
 
 
 # ---------------------------------------------------------------------------

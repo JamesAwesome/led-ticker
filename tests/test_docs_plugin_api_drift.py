@@ -137,3 +137,23 @@ def test_animation_surface_documented() -> None:
         f"AnimationFrame fields / animation markers undocumented in "
         f"api-reference.mdx: {missing}"
     )
+
+
+def test_api_version_literal_in_docs_matches() -> None:
+    """Both pages that quote the current `API_VERSION` must track the code:
+    the api-reference intro and the scaffold tutorial's version aside.
+    (Found two minors stale on the scaffold page in the #540 review.)"""
+    pages = [
+        PAGE_PATH,
+        PAGE_PATH.parent / "authoring" / "01-scaffold.mdx",
+    ]
+    expected = f"({plugin.API_VERSION[0]}, {plugin.API_VERSION[1]})"
+    for page in pages:
+        text = page.read_text(encoding="utf-8")
+        found = re.findall(r"currently `\(?([0-9]+(?:[.,] ?[0-9]+)?)\)?`", text)
+        assert found, f"{page.name}: no 'currently `(major, minor)`' literal"
+        for literal in found:
+            assert f"({literal})" == expected, (
+                f"{page.name} says API_VERSION is currently ({literal}); "
+                f"led_ticker.plugin.API_VERSION is {expected}"
+            )

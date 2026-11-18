@@ -188,7 +188,13 @@ __all__ = [
 ]
 # Public plugin surface: registry contributions + lifecycle hooks.
 
-API_VERSION: tuple[int, int] = (1, 1)
+# Minor bumps are ADDITIVE guarantees a plugin can gate on with
+# ``API_VERSION >= (1, n)``:
+#   (1, 1) — ``validate_config_warnings`` hook + ``ValidationContext``.
+#   (1, 2) — a background's ``paint`` receives a canvas carrying the section's
+#            logical scale on EVERY host (image hosts re-wrap the real canvas
+#            at the widget's ``_logical_scale``; led-ticker#535).
+API_VERSION: tuple[int, int] = (1, 2)
 
 # Lifecycle-hook callable shapes (collected by the loader, run by app/run.py).
 # A startup hook may be sync or async; a shutdown hook takes no args.

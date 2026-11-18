@@ -1,6 +1,6 @@
-Use `:slug:` inside any text-bearing widget to render a pixel-art icon inline. Each is an 8×8 sprite in its native colors; the surrounding text uses your `font_color`. On a `default_scale > 1` panel (bigsign), every slug with a Hires column below auto-upgrades to a 32×32 hires sprite — same horizontal footprint, 16× more detail. The fall & Halloween slugs further down upgrade to the standard-emoji pack's Noto glyph instead, except the three curated-only ones, which block-expand from 8×8.
+Use `:slug:` inside any text-bearing widget to render a pixel-art icon inline. Each is an 8×8 sprite in its native colors; the surrounding text uses your `font_color`. On a `default_scale > 1` panel (bigsign), every slug with a Hires column below auto-upgrades to a 32×32 hires sprite — same horizontal footprint, 16× more detail. The fall & Halloween and cute & anime slugs further down upgrade to the standard-emoji pack's Noto glyph instead, except the three curated-only fall ones, which block-expand from 8×8.
 
-The slug list rots fast as new icons are added. The source of truth is the registry itself — `uv run python -c 'from led_ticker.pixel_emoji import emoji_slugs; print(sorted(emoji_slugs()))'` lists every built-in slug (sprites live in `src/led_ticker/pixel_emoji.py` and `src/led_ticker/fall_emoji.py`). Re-run `uv run python tools/render_emoji_previews.py` after adding a sprite to refresh the previews on this page.
+The slug list rots fast as new icons are added. The source of truth is the registry itself — `uv run python -c 'from led_ticker.pixel_emoji import emoji_slugs; print(sorted(emoji_slugs()))'` lists every built-in slug (sprites live in `src/led_ticker/pixel_emoji.py`, `src/led_ticker/fall_emoji.py`, and `src/led_ticker/kawaii_emoji.py`). Re-run `uv run python tools/render_emoji_previews.py` after adding a sprite to refresh the previews on this page.
 
 > **Plugin emoji.** Some icons ship with external plugins (install the plugin to use them; the slugs in the table below are all built in):
 >
@@ -54,6 +54,15 @@ The standard-emoji pack below already covers the season at hires, but pack sprit
 | `:owl:` | 🦉 | <img src="/emoji/owl-low.png" width="64" alt="owl lowres"> | Tufted brown owl, tan belly |
 | `:spider_web:` | 🕸️ | <img src="/emoji/spider_web-low.png" width="64" alt="spider_web lowres"> | Corner web |
 | `:leafless_tree:` | 🪾 | <img src="/emoji/leafless_tree-low.png" width="64" alt="leafless_tree lowres"> | Bare branches |
+
+## Cute & anime (smallsign 8×8)
+
+Same deal as the fall set: both slugs are standard-pack emoji at hires, hand-drawn at **8×8 lowres** here so they render on the smallsign too — same slug (or the unicode emoji) on both signs. Slug names follow the pack's CLDR short names, so 🍜 is `:steaming_bowl:`, not `:ramen:`.
+
+| Slug | Unicode | Lowres (8×8) | Description |
+|------|---------|--------------|-------------|
+| `:cherry_blossom:` | 🌸 | <img src="/emoji/cherry_blossom-low.png" width="64" alt="cherry_blossom lowres"> | Five pink petals, yellow center |
+| `:steaming_bowl:` | 🍜 | <img src="/emoji/steaming_bowl-low.png" width="64" alt="steaming_bowl lowres"> | Ramen: white bowl, red rim, noodles on chopsticks, steam |
 
 ## Color variants
 

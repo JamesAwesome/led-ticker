@@ -465,3 +465,294 @@ class TestPaintOrderImageWidgets:
             await gif._play_no_text(mock_frame.swap.return_value, mock_frame, 1)
         names = [c[0] for c in manager.mock_calls]
         assert names[:2] == ["background", "image"]
+
+
+# ---------------------------------------------------------------------------
+# Logical scale on image hosts (#535)
+# ---------------------------------------------------------------------------
+
+
+class _ScaleHost:
+    """Minimal image-host stand-in: declares `_logical_scale` the way
+    `_BaseImageWidget` does, and a `background` slot."""
+
+    def __init__(self, scale: int, background: Any) -> None:
+        self._logical_scale = scale
+        self.background = background
+
+    def frame_for(self, attr_name: str) -> int:
+        return 7
+
+
+class _TextHost:
+    """Text-host stand-in: no `_logical_scale` field at all."""
+
+    def __init__(self, background: Any) -> None:
+        self.background = background
+
+    def frame_for(self, attr_name: str) -> int:
+        return 7
+
+
+class TestLogicalScaleOnImageHosts:
+    """Image hosts hand `paint_background` the UNWRAPPED real canvas (image
+    pixels map 1:1 to LEDs). The helper must re-wrap it at the widget's
+    `_logical_scale` so a background plugin sees `canvas.scale` on every
+    core host — the same signal text hosts already provide via `_maybe_wrap`."""
+
+    def test_guarantee_is_signalled_by_api_version_1_2(self) -> None:
+        """The scale-carrying-canvas guarantee is additive and invisible on
+        the public surface (no new export), so plugins detect it through
+        the API minor: `API_VERSION >= (1, 2)`. flair's import seam probes
+        exactly this to refuse an older core loudly instead of rendering
+        6 px color cells on a bigsign gif."""
+        from led_ticker.plugin import API_VERSION
+
+        assert API_VERSION >= (1, 2)
+
+    def test_wraps_real_canvas_at_widget_logical_scale(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.scaled_canvas import is_scaled, unwrap_to_real
+        from led_ticker.widgets._effects import paint_background
+
+        real = HeadlessCanvas(256, 64)
+        bg = _Recorder()
+        paint_background(_ScaleHost(4, bg), real)
+
+        ((seen, frame),) = bg.calls
+        assert is_scaled(seen)
+        assert seen.scale == 4
+        assert unwrap_to_real(seen) is real
+        assert frame == 7
+
+    @pytest.mark.parametrize(
+        ("scale", "logical_w", "logical_h"),
+        [
+            (4, 64, 16),
+            # 64 // 2 = 32 != the legacy 16-row CONTENT_HEIGHT default: a
+            # wrapper built with `content_height=16` would report height
+            # 16 and y_offset_real 16 here, so this row pins "full panel".
+            (2, 128, 32),
+        ],
+    )
+    def test_wrapper_covers_the_full_panel(
+        self, scale: int, logical_w: int, logical_h: int
+    ) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.widgets._effects import paint_background
+
+        real = HeadlessCanvas(256, 64)
+        bg = _Recorder()
+        paint_background(_ScaleHost(scale, bg), real)
+
+        ((seen, _),) = bg.calls
+        assert (seen.width, seen.height) == (logical_w, logical_h)
+        assert seen.y_offset_real == 0
+        # The recorder's SetPixel(0, 0) through the wrapper lands as a
+        # scale×scale block at the panel's top-left.
+        assert real.get_pixel(scale - 1, scale - 1) == (1, 2, 3)
+        assert real.get_pixel(scale, scale) == (0, 0, 0)
+
+    def test_scale_one_passes_the_raw_canvas_through(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.widgets._effects import paint_background
+
+        real = HeadlessCanvas(160, 16)
+        bg = _Recorder()
+        paint_background(_ScaleHost(1, bg), real)
+
+        ((seen, _),) = bg.calls
+        assert seen is real
+
+    def test_already_scaled_canvas_is_not_rewrapped(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.scaled_canvas import ScaledCanvas
+        from led_ticker.widgets._effects import paint_background
+
+        wrapper = ScaledCanvas(HeadlessCanvas(256, 64), scale=2, content_height=32)
+        bg = _Recorder()
+        # Stale `_logical_scale` must not win over a canvas that already
+        # carries its scale.
+        paint_background(_ScaleHost(4, bg), wrapper)
+
+        ((seen, _),) = bg.calls
+        assert seen is wrapper
+
+    def test_host_without_logical_scale_passes_the_canvas_through(self) -> None:
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.widgets._effects import paint_background
+
+        real = HeadlessCanvas(256, 64)
+        bg = _Recorder()
+        paint_background(_TextHost(bg), real)
+
+        ((seen, _),) = bg.calls
+        assert seen is real
+
+    async def test_still_play_no_text_hands_background_a_scaled_canvas(
+        self, tmp_path
+    ) -> None:
+        """End-to-end on a real image host: the engine stashes the section
+        scale via `Ticker._set_logical_scale` before `play()`, and the
+        background painted from `_play_no_text` sees it."""
+        from PIL import Image
+
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.scaled_canvas import is_scaled
+        from led_ticker.ticker import Ticker
+        from led_ticker.widgets.still import StillImage
+
+        p = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (200, 0, 0)).save(p)
+        still = StillImage(path=p, hold_time=0.1)
+        bg = _StaticRecorder()
+        still.background = bg
+        Ticker._set_logical_scale(still, 4)
+
+        real = HeadlessCanvas(256, 64)
+        frame = mock.Mock()
+        frame.swap.return_value = real
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await still._play_no_text(real, frame)
+
+        assert bg.calls, "background was not painted"
+        seen = bg.calls[0][0]
+        assert is_scaled(seen)
+        assert seen.scale == 4
+
+    def test_no_host_module_paints_a_background_directly(self) -> None:
+        """The scale guarantee holds ONLY because every host routes through
+        `paint_background`. A host that copies the adjacent
+        `self.border.paint(real_canvas, ...)` idiom for `background`, or
+        inlines `bg.paint(...)`, silently drops the wrap (6 px twinkle
+        cells on a bigsign gif) with the suite otherwise green. AST-scan
+        every widget module for a direct `.background.paint(...)` /
+        `bg.paint(...)` call."""
+        import ast
+        from pathlib import Path
+
+        import led_ticker.widgets as widgets_pkg
+
+        offenders: list[str] = []
+        for path in sorted(Path(widgets_pkg.__file__).parent.glob("*.py")):
+            if path.name == "_effects.py":
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not (
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                ):
+                    continue
+                if node.func.attr != "paint":
+                    continue
+                recv = node.func.value
+                if (isinstance(recv, ast.Attribute) and recv.attr == "background") or (
+                    isinstance(recv, ast.Name) and recv.id in {"bg", "background"}
+                ):
+                    offenders.append(f"{path.name}:{node.lineno}")
+        assert not offenders, (
+            "direct background.paint() calls bypass the _logical_scale wrap in "
+            f"paint_background: {offenders}"
+        )
+
+    @pytest.fixture
+    def img_path(self, tmp_path):
+        from PIL import Image
+
+        p = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (200, 0, 0)).save(p)
+        return p
+
+    @pytest.fixture
+    def gif_path(self, tmp_path):
+        from PIL import Image
+
+        p = tmp_path / "a.gif"
+        frames = [Image.new("RGB", (4, 4), c) for c in [(255, 0, 0), (0, 255, 0)]]
+        frames[0].save(p, save_all=True, append_images=frames[1:], duration=100, loop=0)
+        return p
+
+    @pytest.mark.parametrize(
+        "path_name",
+        [
+            "still_no_text",
+            "still_single_row_text",
+            "still_single_row_wrap",
+            "still_two_row_text",
+            "still_two_row_wrap",
+            "gif_no_text",
+            "gif_single_row_text",
+            "gif_single_row_wrap",
+            "gif_two_row_text",
+            "gif_two_row_wrap",
+        ],
+    )
+    async def test_every_image_paint_path_hands_background_a_scaled_canvas(
+        self, path_name: str, img_path, gif_path
+    ) -> None:
+        """All seven image-host `paint_background` call sites — still
+        `_play_no_text` (slow path), gif `_play_no_text`, and the four
+        `_image_base` tick renderers (`_render_tick`, `_render_wrap_tick`,
+        `_render_two_row_tick`, `_render_two_row_wrap_tick`) — hand the
+        effect a scale-4 wrapper over the real buffer. Pins the contract per
+        site: substituting a raw `bg.paint` at any ONE site fails its rows.
+
+        The frame double-buffers for real (two canvases, `swap` returns the
+        other), and each paint must land on the buffer that is swapped
+        NEXT — a wrapper cached per widget would paint the displayed buffer
+        every other tick (constraint #10 flicker) and fails here."""
+        from led_ticker.backends.headless import HeadlessCanvas
+        from led_ticker.fonts import FONT_SMALL
+        from led_ticker.scaled_canvas import is_scaled, unwrap_to_real
+        from led_ticker.ticker import Ticker
+        from led_ticker.widgets.gif import GifPlayer
+        from led_ticker.widgets.still import StillImage
+
+        long = "long text " * 3  # overflows the 64-logical-px canvas
+        text_kw = {
+            "no_text": {},
+            "single_row_text": {"text": "HI", "text_align": "left"},
+            "single_row_wrap": {
+                "text": long,
+                "text_align": "scroll_over",
+                "text_wrap": True,
+            },
+            # two-row bands are 8 rows each on the 16-tall logical canvas;
+            # the default 6x12 font doesn't fit, 5x8 does.
+            "two_row_text": {
+                "top_text": "HI",
+                "bottom_text": "there",
+                "font": FONT_SMALL,
+            },
+            "two_row_wrap": {
+                "top_text": "HI",
+                "bottom_text": long,
+                "font": FONT_SMALL,
+                "bottom_text_wrap": True,
+            },
+        }[path_name.split("_", 1)[1]]
+        if path_name.startswith("still"):
+            widget = StillImage(path=img_path, hold_time=0.1, **text_kw)
+        else:
+            widget = GifPlayer(path=gif_path, play_count=1, **text_kw)
+        bg = _Recorder()  # frame_invariant=False → forces the per-tick loops
+        widget.background = bg
+        Ticker._set_logical_scale(widget, 4)
+
+        buf_a, buf_b = HeadlessCanvas(256, 64), HeadlessCanvas(256, 64)
+        swapped: list[Any] = []
+
+        def _swap(c: Any) -> Any:
+            swapped.append(c)
+            return buf_b if c is buf_a else buf_a
+
+        frame = mock.Mock()
+        frame.swap.side_effect = _swap
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await widget.play(buf_a, frame, loop_count=1, hold_time=0.1)
+
+        assert bg.calls, f"{path_name}: background never painted"
+        assert len(bg.calls) == len(swapped), path_name
+        for (seen, _), target in zip(bg.calls, swapped, strict=True):
+            assert is_scaled(seen) and seen.scale == 4, path_name
+            assert unwrap_to_real(seen) is target, path_name

@@ -1559,20 +1559,26 @@ def _check_transition_color_shape(
     already fails inside `load_config` as a rule-less error and never reaches
     this rule.
 
-    What a type does with colour is read off its constructor
-    (`_allowed_init_kwargs`: `color` = takes a single colour, `colors` = takes
-    the list), not a hand-kept set, so a new core type is classified the day
-    it registers. A malformed colour on a type that reads NEITHER is a
-    WARNING (the constructor swallows it; refusing would block hot-reload for
-    a config that runs today); on a type that reads it, or on a plugin /
-    unknown type (can't tell), an ERROR.
+    Severity follows what `_build_trans_obj` actually forwards and whether the
+    slot is ever built. Per FIELD: `colors` reaches a constructor that
+    declares `colors` (and, for a plugin, has no `colors` key of its own in
+    the table — `extra` wins); `color` reaches a constructor that declares
+    `color` only when no `colors` is set beside it. Per SLOT: `transitions.
+    default` is built only when it stands in for an omitted
+    `between_sections`; a `section.transition` is built only when
+    `entry_transition` and `widget_transition` don't both override it. A
+    malformed value that reaches a constructor on a live slot is an ERROR;
+    anything else is a WARNING that says why nothing crashes (an EMPTY value
+    on a core constructor falls back to its default colour / palette, except
+    `wipe_random`, which chooses from an empty pool and raises). Plugin and
+    unknown types are classified by their registered constructor when known
+    and conservatively otherwise.
 
-    Also WARNS when `transition_colors` sits on a type that does not consume
-    the list: the constructor drops it, and because the factory forwards
-    `colors` in preference to `color`, a `transition_color` written beside it
-    is dropped too (and on a list consumer the single colour is the one
-    ignored). `wipe_alternating` needs exactly four colours (one per
-    direction): fewer fall back to its default palette, extras are dropped.
+    Also WARNS, on well-formed values, when `transition_colors` sits on a type
+    that does not consume the list (the single colour beside it is dropped
+    too, because the list is forwarded first), when a single colour sits
+    beside a list on a list consumer, and when `wipe_alternating` has other
+    than four colours (one per direction).
 
     Location quirk, named in the message: a section WITHOUT its own
     `transition` that writes `transition_color` mutates the shared
@@ -1599,6 +1605,24 @@ def _check_transition_color_shape(
             )
         )
 
+    # Slots that are never built (see docstring): a malformed colour there
+    # runs today, so refusing it would only block hot-reload.
+    dead: dict[str, str] = {}
+    if config.between_sections_specified:
+        dead["transitions.default"] = (
+            "; this default is never built because between_sections is set"
+        )
+    for i, sec in enumerate(config.sections):
+        if (
+            sec.transition_specified
+            and sec.entry_transition is not None
+            and sec.widget_transition is not None
+        ):
+            dead[f"section[{i}].transition"] = (
+                "; this transition is never built because entry_transition and "
+                "widget_transition both override it"
+            )
+
     for trans_cfg, location in _iter_transition_slots(config, include_default=True):
         if trans_cfg.color is None and trans_cfg.colors is None:
             continue
@@ -1610,29 +1634,18 @@ def _check_transition_color_shape(
         )
         ttype = trans_cfg.type
         known = ttype in registered
+        dotted = "." in ttype
         if known:
-            # Registered (core OR plugin): the factory forwards `color` /
-            # `colors` only to a constructor that declares it, so read that.
             allowed = _allowed_init_kwargs(get_transition_class(ttype))
             takes_single, takes_list = "color" in allowed, "colors" in allowed
         else:
-            # unknown name: can't tell what it reads — stay conservative
-            takes_single = takes_list = True
-        # Per FIELD, the way `_build_trans_obj` forwards: `colors` wins when
-        # set, `color` only reaches a single-colour constructor when no list
-        # is beside it. A malformed value nothing reads is a warning.
-        colors_effective = takes_list
-        color_effective = takes_single and trans_cfg.colors is None
-        # A `default` slot is only BUILT when it stands in for an omitted
-        # between_sections; otherwise a malformed colour there runs today.
-        default_is_live = location != "transitions.default" or (
-            not config.between_sections_specified
-        )
-        dead_default = (
-            ""
-            if default_is_live
-            else ("; this default is never built because between_sections is set")
-        )
+            takes_single = takes_list = True  # unknown name: stay conservative
+        extra_colors = dotted and "colors" in trans_cfg.extra
+        extra_color = dotted and "color" in trans_cfg.extra
+        colors_effective = takes_list and not extra_colors
+        color_effective = takes_single and trans_cfg.colors is None and not extra_color
+        dead_why = dead.get(location)
+        core_defaults_on_empty = known and not dotted
 
         color_reported = False
         if trans_cfg.color is not None:
@@ -1641,7 +1654,27 @@ def _check_transition_color_shape(
                 color_reported = True
                 if _looks_like_tupled_string(trans_cfg.color):
                     msg += " (a quoted string is split into characters at load)"
-                if color_effective and default_is_live:
+                empty = (
+                    isinstance(trans_cfg.color, (list, tuple)) and not trans_cfg.color
+                )
+                if dead_why is not None:
+                    why = dead_why
+                elif empty and core_defaults_on_empty:
+                    why = f"; empty, so type={ttype!r} falls back to its default colour"
+                elif color_effective:
+                    why = None
+                elif trans_cfg.colors is not None and takes_single:
+                    why = (
+                        "; transition_colors beside it is what gets forwarded"
+                        if colors_effective
+                        else (
+                            "; transition_colors beside it is forwarded instead and "
+                            f"then ignored by type={ttype!r}, so neither applies"
+                        )
+                    )
+                else:
+                    why = f"; type={ttype!r} ignores it anyway"
+                if why is None:
                     _issue(
                         "error",
                         location,
@@ -1649,15 +1682,6 @@ def _check_transition_color_shape(
                         "Write transition_color = [r, g, b] with three ints 0-255.",
                     )
                 else:
-                    why = (
-                        dead_default
-                        if not default_is_live
-                        else (
-                            "; transition_colors beside it is what gets forwarded"
-                            if trans_cfg.colors is not None and takes_single
-                            else f"; type={ttype!r} ignores it anyway"
-                        )
-                    )
                     _issue(
                         "warning",
                         location,
@@ -1672,7 +1696,18 @@ def _check_transition_color_shape(
                 _looks_like_tupled_string(c) for c in trans_cfg.colors
             ):
                 msg += " (a quoted string is split into characters at load)"
-            if colors_effective and default_is_live:
+            empty = isinstance(trans_cfg.colors, (list, tuple)) and not trans_cfg.colors
+            if dead_why is not None:
+                why = dead_why
+            elif empty and core_defaults_on_empty and ttype != "wipe_random":
+                why = f"; empty, so type={ttype!r} falls back to its default palette"
+            elif colors_effective:
+                why = None
+            elif extra_colors:
+                why = "; the table's own `colors` key is forwarded instead"
+            else:
+                why = f"; type={ttype!r} ignores it anyway"
+            if why is None:
                 _issue(
                     "error",
                     location,
@@ -1680,11 +1715,6 @@ def _check_transition_color_shape(
                     "Write transition_colors = [[r, g, b], ...], ints 0-255.",
                 )
             else:
-                why = (
-                    dead_default
-                    if not default_is_live
-                    else f"; type={ttype!r} ignores it anyway"
-                )
                 _issue(
                     "warning",
                     location,
@@ -1692,9 +1722,11 @@ def _check_transition_color_shape(
                     "Remove it, or fix the shape where a type reads a colour pool.",
                 )
             continue
-        if not known or "." in ttype or ttype in _META_TRANSITION_TYPES_R74:
-            continue  # plugins declare their own; rule 39 / rule 73 own the rest
-        if takes_list:
+        if not known or ttype in _META_TRANSITION_TYPES_R74:
+            continue  # rule 39 owns unknown names; rule 73 owns random/auto
+        if color_reported and not colors_effective:
+            continue  # the colour warning above already explained the interplay
+        if colors_effective:
             if trans_cfg.color is not None and not color_reported:
                 _issue(
                     "warning",
@@ -1716,15 +1748,33 @@ def _check_transition_color_shape(
                     "Supply four colours, or use wipe_random for any pool size.",
                 )
             continue
-        if trans_cfg.color is not None:
+        # The list does NOT reach the constructor.
+        if extra_colors:
             _issue(
                 "warning",
                 location,
-                f"transition_colors shadows transition_color on type={ttype!r}: "
-                "the list is forwarded instead of the single colour and then "
-                f"ignored, so NEITHER applies{suffix}",
-                "Remove transition_colors here.",
+                f"transition_colors is ignored by type={ttype!r}: the table's own "
+                f"`colors` key is forwarded instead{suffix}",
+                "Keep one of transition_colors / colors.",
             )
+        elif trans_cfg.color is not None and not color_reported:
+            if takes_single:
+                _issue(
+                    "warning",
+                    location,
+                    f"transition_colors shadows transition_color on type={ttype!r}: "
+                    "the list is forwarded instead of the single colour and then "
+                    f"ignored, so NEITHER applies{suffix}",
+                    "Remove transition_colors here.",
+                )
+            else:
+                _issue(
+                    "warning",
+                    location,
+                    f"transition_color and transition_colors are both ignored by "
+                    f"type={ttype!r}{suffix}",
+                    "Remove both.",
+                )
         elif takes_single:
             _issue(
                 "warning",

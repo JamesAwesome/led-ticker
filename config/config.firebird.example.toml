@@ -38,10 +38,11 @@ delay = 5
 # lines; `pokeball.alternating` is the section divider — a fun cue that
 # something new is starting.
 [transitions]
-# `default` only lends duration / easing here: between_sections is set, so
-# the default's TYPE never runs, and within-section swaps fall to cut unless
-# a section sets one. The brand-tinted wipe pool (flame, amber, dusk, cream)
-# therefore sits on `widget_transition` of the sections that want it.
+# `duration` / `easing` here seed the sections' string `transition = "..."`
+# forms. Within-section swaps fall to cut unless a section sets one; the one
+# multi-widget section without its own transition (the class list) carries
+# the brand-tinted wipe pool (flame, amber, dusk, cream) on `widget_transition`
+# — a single-widget section has no within-section swap to wipe.
 duration = 0.8
 easing = "ease_in_out"
 between_sections = "pokeball.alternating"
@@ -114,7 +115,6 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 
 [[playlist.section]]
 mode = "slideshow"
-widget_transition = { type = "wipe_alternating", transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]] }
 loop_count = 1
 hold_time = 0.5
 
@@ -204,7 +204,7 @@ font_color = [255, 244, 214]   # cream — high contrast on the video
 
 [[playlist.section]]
 mode = "slideshow"
-widget_transition = { type = "wipe_alternating", transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]] }
+widget_transition = { type = "wipe_alternating", transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]], duration = 0.8, easing = "ease_in_out" }
 loop_count = 1
 hold_time = 2.5
 
@@ -371,7 +371,6 @@ bottom_font_threshold = 128
 
 [[playlist.section]]
 mode = "slideshow"
-widget_transition = { type = "wipe_alternating", transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]] }
 loop_count = 1
 hold_time = 0.5
 

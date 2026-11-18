@@ -7,6 +7,12 @@ The `special` family is a catch-all for transitions that don't fit the push, wip
 | `dissolve` | Random pixel scatter (seeded RNG) creates a TV-static effect that resolves to the incoming widget | Dramatic between unrelated sections |
 | `split` | Center-outward expanding black band with magenta edge lines | Geometric / theatrical |
 | `scroll` | Seamless continuous scroll with a 2×2 bullet-dot separator (6 px symmetric gaps), 1 px / frame for constant speed | Marquee feel — no pause, no flash |
+| `random` | Picks a different pool member each firing, never the same one twice in a row (per slot). Default pool: every core transition except `cut`, `scroll` and the four `*_random` / `*_alternating` wrappers | Variety between messages without hand-picking |
+| `auto` | Cycles the pool in order, one member per firing (per slot) | Predictable variety; showcase every effect |
+
+## Pools (`random` / `auto`)
+
+See the Pools section on the special-transitions page for the `pool` / `exclude` syntax, per-member `duration`, which slots run it, and the per-slot scope of "never twice in a row".
 
 ## Tuning
 

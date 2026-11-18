@@ -57,6 +57,8 @@ Each section has three transition slots, all accepting a bare string or inline t
 - Entry: `entry_transition` → `transition` (if explicitly set) → `[transitions] between_sections`
 - Inter-widget: `widget_transition` → `transition` (if explicitly set) → `[transitions] default`
 
+**Random and auto:** `transition = "random"` picks a different core transition every firing (never the same one twice in a row); `"auto"` cycles them in order. Both accept a table with `pool` / `exclude` and per-member `duration`, which is how plugin effects join with their own timing. They work on `between_sections` and the three section slots. Details and the pool syntax: [special transitions → Pools](/transitions/special/#pools-random--auto).
+
 Additional per-section knobs (apply on top of `transition`):
 
 - `transition_duration`: override the duration (seconds)

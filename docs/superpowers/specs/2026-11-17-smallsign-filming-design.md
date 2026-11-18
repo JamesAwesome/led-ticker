@@ -28,7 +28,12 @@ an mp4 for the hero), and put the sign back the way it was.
 > Controller app; exposure is not exposed over UVC and stays app-only. Real
 > detail from the desk is ≈ 6 camera px per LED (below the ≥ 8 target; fine
 > for 800 px GIFs, not for a 4K hero). Real-footage GIFs are 4–6× larger
-> than renders: the hero ships as a web mp4, GIFs are denoised.
+> than renders: the hero ships as a web mp4, GIFs are denoised. Panel and
+> slate detection are slate-driven (the frames with the most saturated
+> pixels are the slates; the panel is what saturates in them; a slate is a
+> frame where ≥ 60 % of the box saturates) — change-based masks and the
+> crop-mean slate test both failed on real footage. Measured loops: hero
+> 33 s, features ≈ 330 s, YouTube 323 s.
 
 ## Why now
 

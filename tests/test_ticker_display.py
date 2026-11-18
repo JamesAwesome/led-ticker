@@ -2473,7 +2473,7 @@ class TestRunSwapNoneTransitionFn:
     async def test_none_transition_fn_cuts_instead_of_raising(
         self, canvas, mock_frame, make_widget, no_sleep
     ):
-        from led_ticker import ticker as ticker_mod
+        import led_ticker.transitions as transitions_mod
 
         q = asyncio.Queue()
         w1 = make_widget(40)
@@ -2491,7 +2491,8 @@ class TestRunSwapNoneTransitionFn:
             transition_config=trans,
             transition_fn=None,
         )
-        with mock.patch.object(ticker_mod, "run_transition", create=True) as run_tr:
+        # `_run_swap` imports run_transition locally, so patch the source module.
+        with mock.patch.object(transitions_mod, "run_transition") as run_tr:
             await ticker._run_swap(canvas)
         assert w1.draw.called and w2.draw.called
         assert not run_tr.called

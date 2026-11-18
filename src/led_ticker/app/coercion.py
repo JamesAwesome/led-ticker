@@ -865,9 +865,9 @@ def rgb_shape_error(value: Any) -> str | None:
     ``int`` (``bool`` excluded) each in 0..255 — the ONE shape ``SetPixel``
     accepts — else a one-line message naming the offending value.
 
-    Shared by the transition factory (pool entries), validate rule 73 (pool
-    entries) and rule 74 (transition slots) so the three can't drift. Pure:
-    never raises, whatever ``value`` is.
+    Shared by validate rule 74 (transition slots) and, in the stacked
+    random/auto follow-up, the transition factory and rule 73 (pool entries),
+    so the three can't drift. Pure: never raises, whatever ``value`` is.
     """
     expected = "expected [r, g, b] with three ints 0-255"
     if not isinstance(value, (list, tuple)) or len(value) != 3:
@@ -883,9 +883,11 @@ def rgb_list_shape_error(value: Any) -> str | None:
     element passes :func:`rgb_shape_error`; else a message (the first bad
     element's, or the container's)."""
     if not isinstance(value, (list, tuple)) or not value:
-        return f"expected a list of [r, g, b] colours; got {value!r}"
+        return f"expected a non-empty list of [r, g, b] colours; got {value!r}"
     for item in value:
-        msg = rgb_shape_error(item)
-        if msg is not None:
-            return f"expected a list of [r, g, b] colours; {msg}"
+        if rgb_shape_error(item) is not None:
+            return (
+                "expected a list of [r, g, b] colours, each three ints 0-255; "
+                f"element {item!r} is not one"
+            )
     return None

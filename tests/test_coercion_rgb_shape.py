@@ -1,7 +1,8 @@
 """`rgb_shape_error` / `rgb_list_shape_error`: the ONE colour-shape predicate
-shared by the transition factory (pool entries), validate rule 73 (pool
-entries) and rule 74 (transition slots). A shape that passes here is safe to
-hand to `SetPixel`; anything else is a message, never an exception."""
+shared by validate rule 74 (transition slots) and, in the stacked random/auto
+follow-up, the transition factory and rule 73 (pool entries). A shape that
+passes here is safe to hand to `SetPixel`; anything else is a message, never
+an exception."""
 
 import pytest
 

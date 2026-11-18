@@ -1663,6 +1663,8 @@ def _check_transition_color_shape(
                     why = f"; empty, so type={ttype!r} falls back to its default colour"
                 elif color_effective:
                     why = None
+                elif extra_color:
+                    why = "; the table's own `color` key is forwarded instead"
                 elif trans_cfg.colors is not None and takes_single:
                     why = (
                         "; transition_colors beside it is what gets forwarded"
@@ -1690,7 +1692,26 @@ def _check_transition_color_shape(
                     )
         if trans_cfg.colors is None:
             continue
-        msg = rgb_list_shape_error(trans_cfg.colors)
+        # WipeAlternating consumes at most four colours and ignores a list
+        # shorter than four entirely (default palette), so only those four can
+        # reach SetPixel; the count warning below covers the rest.
+        if ttype == "wipe_alternating" and isinstance(trans_cfg.colors, (list, tuple)):
+            consumed = list(trans_cfg.colors[:_WIPE_ALTERNATING_COLORS])
+            short = len(trans_cfg.colors) < _WIPE_ALTERNATING_COLORS
+            msg = rgb_list_shape_error(consumed) if consumed else None
+            if msg is not None and short:
+                msg = None
+                _issue(
+                    "warning",
+                    location,
+                    f"transition_colors: {rgb_list_shape_error(consumed)}; fewer than "
+                    "four colours, so wipe_alternating ignores the list and uses its "
+                    f"default palette{suffix}",
+                    "Supply four well-formed colours.",
+                )
+                continue
+        else:
+            msg = rgb_list_shape_error(trans_cfg.colors)
         if msg is not None:
             if isinstance(trans_cfg.colors, (list, tuple)) and any(
                 _looks_like_tupled_string(c) for c in trans_cfg.colors
@@ -1724,7 +1745,7 @@ def _check_transition_color_shape(
             continue
         if not known or ttype in _META_TRANSITION_TYPES_R74:
             continue  # rule 39 owns unknown names; rule 73 owns random/auto
-        if color_reported and not colors_effective:
+        if color_reported and takes_single and not colors_effective:
             continue  # the colour warning above already explained the interplay
         if colors_effective:
             if trans_cfg.color is not None and not color_reported:

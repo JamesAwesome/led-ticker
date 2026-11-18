@@ -6508,3 +6508,99 @@ async def test_rule74_plugin_table_colors_key_wins_over_transition_colors(conf):
     assert not _r74(result, "error")
     warns = _r74(result, "warning")
     assert len(warns) == 1 and "own `colors` key" in warns[0].message
+
+
+async def test_rule74_wipe_alternating_short_list_with_bad_element_is_warning(conf):
+    """Fewer than four colours: the constructor ignores the list entirely, so
+    a malformed element cannot reach SetPixel."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", '
+                    "transition_colors = [[255, 0], [1, 2]] }"
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    assert any("fewer than four" in w.message for w in _r74(result, "warning"))
+
+
+async def test_rule74_wipe_alternating_bad_fifth_colour_is_not_an_error(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", transition_colors = '
+                    "[[1, 2, 3], [4, 5, 6], [7, 8, 9], [1, 1, 1], [255, 0]] }"
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    assert any("extras are dropped" in w.message for w in _r74(result, "warning"))
+
+
+async def test_rule74_wipe_alternating_bad_colour_in_first_four_is_error(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", transition_colors = '
+                    "[[1, 2, 3], [255, 0], [7, 8, 9], [1, 1, 1]] }"
+                ),
+            )
+        )
+    )
+    assert len(_r74(result, "error")) == 1
+
+
+async def test_rule74_bad_colour_on_colourless_type_still_reports_dead_list(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "push_left", transition_color = [255.0, 0, 0], '  # noqa: E501
+                    "transition_colors = [[1, 2, 3]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 2
+    assert any("transition_colors is ignored" in w.message for w in warns)
+
+
+async def test_rule74_plugin_table_color_key_wins_over_transition_color(conf):
+    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
+
+    class _Single:
+        def __init__(self, color=None, **kwargs):
+            self.color = color
+
+        def frame_at(self, t, canvas, outgoing, incoming, **kw):
+            return canvas
+
+    register_transition("r74plug.single")(_Single)
+    try:
+        result = await validate_config(
+            conf(
+                _R74.format(
+                    transitions="",
+                    section=(
+                        'transition = { type = "r74plug.single", color = [1, 2, 3], '
+                        'transition_color = "red" }'
+                    ),
+                )
+            )
+        )
+    finally:
+        _TRANSITION_REGISTRY.pop("r74plug.single", None)
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "own `color` key" in warns[0].message

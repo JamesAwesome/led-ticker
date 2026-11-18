@@ -64,8 +64,13 @@ the lights **off** the reflection is gone but the sensor gains up: more
 grain (the hero web mp4 grows 2.0 → 3.0 MB) and white text and white emoji
 bloom into blobs; colour is unaffected. Best of both: lights off plus an
 exposure lock in the Link Controller app, or lights on with the offending
-lamp moved off the panel's reflection line. Both sets of takes from
-session 0 are kept (`captures/lit-room/`, `docs/site/public/filmed/` = dark).
+lamp moved off the panel's reflection line. James's call (2026-11-17): the **dark** takes are the docs set
+(`docs/site/public/filmed/`); six lit takes sit beside them in
+`docs/site/public/filmed/lit/` as comparisons (rainbow, lightbulbs, emoji
+sampler, two-row, splitflap, typewriter), the full lit set stays in
+`captures/lit-room/filmed/`, and the YouTube loop exists in both
+(`captures/youtube-out/youtube-{dark,lit}.mp4`). The lit hero was
+overwritten by the dark session; re-shoot it if a lit hero is ever wanted.
 Note the idle camera
 reports `absolute_zoom = 100` even while the framing is still applied;
 `film aim` reads back inside an open stream, so trust it, not a bare

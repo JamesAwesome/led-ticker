@@ -39,3 +39,14 @@ Reviewer: fresh fable subagent. VERDICT: 0 HIGH, 0 MEDIUM, 5 LOW, 4 DOCS → loo
 
 Severity trend: 1H/4M → 0H/2M → 0H/0M. Next: rebase onto the precursor's final
 head, full suite, hardware check (ask first), draft PR stacked on PR A.
+
+## Hardware check (bigsign, 2026-11-18)
+
+Feature branch at `e4336ab4` deployed to the bigsign via `make update`, test config with `random` (default pool, within-section swaps and entry), a `between_sections` pool `["wipe_in", "push_up", "dissolve", {flair.sand, duration 2.0}]`, a scale-2 section entered through that pool, and two `auto` sections on `["push_left", "wipe_right", "dissolve"]`. 130 s of preview-mirror frames captured in-container plus DEBUG pick lines. Live config validated clean against the branch first (flair 0.22 installed).
+
+- `random`: 36 firings across the two default-pool instances, zero consecutive index repeats, all 15 members picked. Between-sections instance: 9 firings, zero repeats; `flair.sand @2s` ran 2.0 s where `wipe_in`/`push_up` ran the 3.0 s section duration (`duration_override` honoured by the runner).
+- `auto`: two sections, four instances (entry + widget each), every one cycled 0→1→2→0 in pool order over 9 cycles, independently.
+- Cross-scale entry (scale 4 → 2): pushes/wipes snap at the end, dissolve switches mid-way — each child's own `scale_switch_at`, forwarded through the wrapper; no mid-sweep jolt.
+- Validate's rule-73 build attempt logs one construction pick per meta slot at startup (four extra one-line tags); harmless, DEBUG only.
+- `wipe_left`/`wipe_right` fire for 2.0 s at `duration = 0.5` in every slot: the pre-existing `min_frames = 40` floor on `main`, not a regression.
+- No tracebacks. Sign restored to `main` with its original config afterwards.

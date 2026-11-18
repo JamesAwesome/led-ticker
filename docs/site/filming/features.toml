@@ -1,0 +1,1184 @@
+# Smallsign filming config — FEATURE CLIPS, one slate-delimited segment per effect.
+# Deploy:  make film-deploy CONFIG=docs/site/filming/features.toml
+# Record:  make film-record OUT=captures/features.mp4 SECONDS=<see README; two loops + anchors>
+# Clip:    make film-clip IN=captures/features.mp4 MANIFEST=docs/site/filming/features.toml OUT=docs/site/public/filmed/
+# Copy/palette: docs/DOCS-STYLE.md §6 (Firebird Yoga, phoenix palette). Only core + led-ticker-flair >= 0.24.
+# The first slate is the 2.0 s loop anchor; every other slate is 1.0 s. Each
+# `[[playlist.section]]  # film: <name>` line names the GIF cut from that section.
+
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 40
+gpio_slowdown = 2
+hardware_mapping = "adafruit-hat"
+hot_reload = true
+
+[busy_light]
+enabled = false
+
+# The status board must be on: `film deploy` waits on status.json to know the display is up.
+[web]
+
+[title]
+delay = 0
+
+[transitions]
+default = "cut"
+duration = 0.5
+easing = "ease_out"
+between_sections = "cut"
+transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]]
+
+[[source]]
+id = "clock.et"
+type = "clock"
+format = "%-I:%M %p"
+timezone = "America/New_York"
+color = [255, 183, 3]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 2.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: color-rainbow
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+font_color = "rainbow"
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: color-gradient
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+font_color = {style = "gradient", from = [255, 183, 3], to = [99, 60, 138]}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: color-shimmer
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+font_color = {style = "shimmer", base = [255, 92, 38], shimmer = [255, 244, 214]}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: color-cycle
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+font_color = {style = "color_cycle", from = [255, 92, 38], to = [99, 60, 138], speed = 3}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: color-random
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+font_color = "random"
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: border-lightbulbs-chase
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 244, 214]
+border = {style = "lightbulbs", mode = "chase", lit_color = [255, 183, 3], unlit_color = [40, 15, 0], chase_density = 3}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: border-lightbulbs-alternate
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 244, 214]
+border = {style = "lightbulbs", mode = "alternate", lit_color = [255, 183, 3], unlit_color = [40, 15, 0]}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: border-bands
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 244, 214]
+border = {style = "bands", colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [214, 40, 57]], band_width = 8}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: border-rainbow
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 244, 214]
+border = "rainbow"
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: border-color-cycle
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 244, 214]
+border = "color_cycle"
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: border-constant
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 244, 214]
+border = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: background-twinkle
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+font_color = [255, 183, 3]
+background = {style = "flair.twinkle", density = 0.05, color = [255, 215, 120]}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: background-fireworks
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+font_color = [255, 244, 214]
+background = {style = "flair.fireworks", bursts = 3, colors = [[255, 183, 3], [214, 40, 57], [255, 244, 214]]}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: background-snow
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+font_color = [255, 183, 3]
+background = "flair.snow"
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: animation-typewriter
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 183, 3]
+animation = {style = "typewriter", frames_per_char = 3}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: animation-twinkle
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 183, 3]
+animation = {style = "flair.twinkle", density = 0.7, min_brightness = 0.25}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: animation-fisheye
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "BEGINNER SERIES :star: NOW ENROLLING :star: ALL LEVELS WELCOME"
+font_color = {style = "gradient", from = [255, 183, 3], to = [214, 40, 57]}
+animation = "flair.fisheye"
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: animation-propeller
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 183, 3]
+animation = "flair.propeller"
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: animation-blink
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = "FIREBIRD YOGA"
+font_color = [255, 183, 3]
+animation = "flair.blink"
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: widget-countdown
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Spring Sessions"
+countdown_date = 2027-03-20
+font_color = [255, 244, 214]
+border = {style = "bands", colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [214, 40, 57]], band_width = 8}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: widget-two-row
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "FIREBIRD YOGA"
+bottom_text = "Vinyasa Flow · Yin · Hot Power · Restorative"
+top_color = [255, 183, 3]
+bottom_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: widget-clock
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = ":sun: NEW YORK :clock.et:"
+font_color = {style = "gradient", from = [255, 244, 214], to = [255, 92, 38]}
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: emoji-sampler
+mode = "slideshow"
+hold_time = 5
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = ":fire: :heart: :star: :sun: :moon: :cloud: :rain: :snow: :red_apple: :taco: :owl: :mushroom:"
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-push-left
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "push_left"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-wipe-alternating
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "wipe_alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-dissolve
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "dissolve"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-split
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "split"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-color-flash
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "color_flash"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-scroll
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "scroll"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-nyancat
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "nyancat.alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-pokeball
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "pokeball.alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-pacman
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "pacman.alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-sailor-moon
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "sailor_moon.alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-splitflap
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.splitflap.forward"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-sand
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.sand"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-laser
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = {type = "flair.laser.alternating", write_from = "opposite"}
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-interlock
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.interlock.alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-blinds
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.blinds.alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-accordion
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.accordion.sweep.alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-fairy
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.fairy.alternating"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-stickers
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = {type = "flair.stickers", backing = "shadow", emoji = ["fire", "star", "heart", "sun"]}
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-fireworks
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = {type = "flair.fireworks", bursts = 4, colors = [[255, 92, 38], [255, 183, 3], [214, 40, 57]]}
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-lightning
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = {type = "flair.lightning", color = [255, 183, 3]}
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-spinout
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.spinout"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-poker
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.poker"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 1.0
+transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+[[playlist.section]]  # film: transition-snow
+mode = "slideshow"
+hold_time = 2
+loop_count = 1
+widget_transition = "flair.snow"
+transition_duration = 2.5
+
+[[playlist.section.widget]]
+type = "message"
+text = "BREATHE"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "RISE"
+font_color = [255, 92, 38]

@@ -1,0 +1,296 @@
+# Smallsign filming config — YOUTUBE loop (3-5 min, the live sign's shape with public copy).
+# Deploy:  make film-deploy CONFIG=docs/site/filming/youtube.toml
+# Record:  make film-record OUT=captures/youtube.mp4 SECONDS=<two loops; see README>
+# Clip:    make film-clip IN=captures/youtube.mp4 MANIFEST=docs/site/filming/youtube.toml OUT=captures/youtube-out/ MP4=youtube MP4_ONLY=1 FULL_FRAME=1
+# Needs led-ticker-flair, led-ticker-weather (WEATHERAPI_KEY in .env), led-ticker-rss on the sign.
+# Live data (weather, RSS) is fine here: this footage is a one-off upload, not re-filmable docs media.
+# Sports section deliberately omitted (spec open question 4). One slate at the top only (loop anchor).
+# Fall palette: harvest orange [255,110,0] · gold [255,190,40] · cranberry [200,30,70] · rust [190,75,15].
+
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+brightness = 40
+gpio_slowdown = 2
+hardware_mapping = "adafruit-hat"
+hot_reload = true
+
+[busy_light]
+enabled = false
+
+# The status board must be on: `film deploy` waits on status.json to know the display is up.
+[web]
+
+[title]
+delay = 5
+
+[transitions]
+default = "push_left"
+duration = 0.5
+easing = "ease_out"
+between_sections = {type = "nyancat.alternating", duration = 4.0}
+transition_colors = [[255, 110, 0], [255, 190, 40], [200, 30, 70]]
+
+[[source]]
+id = "clock.et"
+type = "clock"
+format = "%-I:%M %p"
+timezone = "America/New_York"
+color = [255, 183, 3]
+
+[[source]]
+id = "clock.ct"
+type = "clock"
+format = "%-I:%M %p"
+timezone = "America/Chicago"
+color = [255, 92, 38]
+
+[[source]]
+id = "clock.mt"
+type = "clock"
+format = "%-I:%M %p"
+timezone = "America/Denver"
+color = [140, 220, 255]
+
+[[source]]
+id = "clock.pt"
+type = "clock"
+format = "%-I:%M %p"
+timezone = "America/Los_Angeles"
+color = [255, 120, 200]
+
+[[source]]
+id = "clock.utc"
+type = "clock"
+format = "%H:%M"
+timezone = "UTC"
+color = [0, 255, 70]
+
+# --- slate (loop anchor) ---
+[[playlist.section]]
+mode = "slideshow"
+bg_color = [255, 255, 255]
+hold_time = 2.0
+transition = "cut"
+entry_transition = "cut"
+
+[[playlist.section.widget]]
+type = "message"
+text = "."
+font_color = [255, 255, 255]
+
+# --- Fall greeting ---
+[[playlist.section]]  # film: youtube
+mode = "slideshow"
+transition = "wipe_alternating"
+entry_transition = {type = "flair.stickers", duration = 2.5, backing = "shadow", emoji = ["maple_leaf", "fallen_leaf", "acorn", "pumpkin", "turkey", "ear_of_corn", "red_apple", "mushroom"]}
+hold_time = 6
+loop_count = 1
+
+[[playlist.section.widget]]
+type = "message"
+text = ":maple_leaf: HAPPY FALL :acorn:"
+font_color = {style = "color_cycle", from = [255, 190, 40], to = [200, 30, 70], speed = 3}
+animation = {style = "typewriter", frames_per_char = 3}
+border = {style = "lightbulbs", mode = "chase", lit_color = [255, 190, 40], unlit_color = [40, 15, 0], chase_density = 3}
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Thanksgiving"
+countdown_date = 2026-11-26
+font_color = [255, 110, 0]
+border = {style = "bands", colors = [[255, 110, 0], [255, 190, 40], [200, 30, 70], [190, 75, 15]], band_width = 8}
+
+[[playlist.section.widget]]
+type = "message"
+text = ":maple_leaf: HAPPY FALL Y'ALL :fallen_leaf: GOBBLE GOBBLE :turkey: PUMPKIN SPICE LATTE :hot_beverage: SWEATER WEATHER :pumpkin:"
+font_color = {style = "gradient", from = [255, 190, 40], to = [200, 30, 70]}
+border = {style = "bands", colors = [[255, 110, 0], [255, 190, 40], [200, 30, 70], [190, 75, 15]], band_width = 8}
+
+# --- Firebird Yoga studio (DOCS-STYLE §6 copy) ---
+[[playlist.section]]
+mode = "slideshow"
+transition = "pacman.alternating"
+transition_duration = 3.0
+entry_transition = {type = "flair.fireworks", bursts = 4, colors = [[255, 92, 38], [255, 183, 3], [214, 40, 57]]}
+widget_transition = {type = "flair.lightning", color = [255, 183, 3]}
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":fire: FIREBIRD YOGA :fire:"
+font_color = {style = "gradient", from = [255, 183, 3], to = [214, 40, 57]}
+border = {style = "lightbulbs", mode = "chase", lit_color = [255, 183, 3], unlit_color = [40, 15, 0], chase_density = 3}
+
+[[playlist.section.widget]]
+type = "message"
+text = "Breathe. Move. Rise."
+center = true
+font_color = {style = "color_cycle", from = [255, 92, 38], to = [255, 183, 3], speed = 3}
+animation = {style = "typewriter", frames_per_char = 2}
+border = {style = "lightbulbs", mode = "alternate", lit_color = [255, 183, 3], unlit_color = [40, 15, 0]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "BEGINNER SERIES :star: NOW ENROLLING :star: ALL LEVELS WELCOME"
+font_color = {style = "gradient", from = [255, 183, 3], to = [214, 40, 57]}
+border = {style = "bands", colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [214, 40, 57]], band_width = 8}
+
+[[playlist.section.widget]]
+type = "two_row"
+top_text = "FIREBIRD YOGA"
+bottom_text = "Vinyasa Flow · Yin · Hot Power · Restorative · Slow Flow"
+top_color = [255, 183, 3]
+bottom_color = [255, 244, 214]
+
+[[playlist.section.widget]]
+type = "message"
+text = "Now booking spring sessions — your first class is free. :heart:"
+font_color = {style = "shimmer", base = [255, 92, 38], shimmer = [255, 244, 214], speed = 14, width = 8, pause = 0.5}
+background = {style = "flair.fireworks", bursts = 3, colors = [[255, 183, 3], [214, 40, 57], [255, 244, 214]]}
+
+# --- Weather ---
+[[playlist.section]]
+mode = "slideshow"
+transition = "flair.splitflap.forward"
+transition_duration = 3.0
+hold_time = 6
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":maple_leaf: Weather :fallen_leaf:"
+font_color = {style = "gradient", from = [255, 190, 40], to = [200, 30, 70]}
+
+[[playlist.section.widget]]
+type = "weather.current"
+text = "New York"
+location = "New York"
+units = "imperial"
+font_color = [255, 110, 0]
+font_color_temp = [255, 190, 40]
+
+[[playlist.section.widget]]
+type = "weather.current"
+text = "Philadelphia"
+location = "Philadelphia"
+units = "imperial"
+font_color = [190, 75, 15]
+font_color_temp = [200, 30, 70]
+
+[[playlist.section.widget]]
+type = "weather.current"
+text = "Chicago"
+location = "Chicago"
+units = "imperial"
+font_color = [255, 190, 40]
+font_color_temp = [255, 110, 0]
+
+[[playlist.section.widget]]
+type = "weather.current"
+text = "Denver"
+location = "Denver"
+units = "imperial"
+font_color = [200, 30, 70]
+font_color_temp = [190, 75, 15]
+
+[[playlist.section.widget]]
+type = "weather.current"
+text = "Los Angeles"
+location = "Los Angeles"
+units = "imperial"
+font_color = [255, 110, 0]
+font_color_temp = [255, 190, 40]
+
+# --- World time ---
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 4
+transition = {type = "flair.laser.alternating", write_from = "opposite"}
+transition_duration = 2.6
+
+[playlist.section.title]
+type = "message"
+text = ":star_yellow: WORLD TIME :star_yellow:"
+font_color = "rainbow"
+
+[[playlist.section.widget]]
+type = "message"
+text = ":red_apple: EASTERN :clock.et: :sun:"
+font_color = {style = "gradient", from = [255, 244, 214], to = [80, 160, 255]}
+
+[[playlist.section.widget]]
+type = "message"
+text = ":star: CENTRAL :clock.ct: :star_yellow:"
+font_color = {style = "gradient", from = [255, 210, 80], to = [214, 40, 57]}
+
+[[playlist.section.widget]]
+type = "message"
+text = ":cloud: MOUNTAIN :clock.mt: :snow:"
+font_color = {style = "gradient", from = [120, 255, 160], to = [60, 140, 255]}
+
+[[playlist.section.widget]]
+type = "message"
+text = ":sun: PACIFIC :clock.pt: :moon:"
+font_color = {style = "gradient", from = [255, 183, 3], to = [225, 48, 160]}
+
+[[playlist.section.widget]]
+type = "message"
+text = ":moon: UTC :clock.utc: :star:"
+font_color = {style = "gradient", from = [0, 140, 40], to = [170, 255, 190]}
+
+# --- Countdowns ---
+[[playlist.section]]
+mode = "slideshow"
+transition = "flair.interlock.alternating"
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":fallen_leaf: Count Downs"
+font_color = {style = "gradient", from = [255, 190, 40], to = [200, 30, 70]}
+animation = {style = "flair.twinkle", density = 0.7, min_brightness = 0.25}
+background = {style = "flair.twinkle", density = 0.04, color = [255, 200, 120]}
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Solstice"
+font_color = {style = "shimmer", base = [90, 120, 255], shimmer = [220, 235, 255]}
+background = {style = "flair.twinkle", density = 0.05, color = [170, 200, 255]}
+countdown_date = 2026-12-21
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "Christmas"
+font_color = {style = "shimmer", base = [220, 20, 40], shimmer = [255, 240, 230]}
+border = {style = "bands", colors = [[220, 20, 40], [30, 200, 70]], band_width = 8}
+background = {style = "flair.twinkle", density = 0.05, color = [255, 215, 120], speed = 1.3}
+countdown_date = 2026-12-25
+
+[[playlist.section.widget]]
+type = "countdown"
+text = "New Years"
+font_color = "rainbow"
+background = {style = "flair.twinkle", density = 0.06, color = [255, 220, 140], speed = 1.6}
+countdown_date = 2027-01-01
+
+# --- News (public feed) ---
+[[playlist.section]]
+mode = "slideshow"
+transition = "pokeball.alternating"
+transition_duration = 2.0
+continuous_scroll = true
+loop_count = 1
+
+[playlist.section.title]
+type = "message"
+text = ":star: NASA News :moon:"
+font_color = {style = "gradient", from = [255, 190, 40], to = [200, 30, 70]}
+
+[[playlist.section.widget]]
+type = "rss.feed"
+feed_url = "https://www.nasa.gov/news-release/feed/"
+update_interval = 3000
+font_color = {style = "gradient", from = [255, 190, 40], to = [200, 30, 70]}

@@ -78,13 +78,13 @@ def test_demo_gif_component_supports_video_and_filmed():
 
 def test_homepage_keeps_rendered_hero_and_adds_filmed_placement():
     """Filmed footage sits alongside the rendered demos, never in place of them
-    (James, 2026-11-18): the rendered rainbow hero stays, the wide lit
+    (James, 2026-11-18): the rendered rainbow hero stays, the wide night-time
     placement shot follows it."""
     index = (CONTENT / "index.mdx").read_text()
     assert 'src="/demos/message-rainbow.gif"' in index
-    assert 'video="/filmed/placement-lit.mp4"' in index
+    assert 'video="/filmed/placement-dark.mp4"' in index
     assert index.index('src="/demos/message-rainbow.gif"') < index.index(
-        'video="/filmed/placement-lit.mp4"'
+        'video="/filmed/placement-dark.mp4"'
     )
 
 

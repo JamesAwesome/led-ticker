@@ -116,6 +116,53 @@ rival column run came close to the pick; if the box is wrong pass
 Docs media goes to `docs/site/public/filmed/`; YouTube output stays in
 `captures/` (gitignored).
 
+## Filming at zoom 100 (refilm, 2026-11-18)
+
+The Link's zoom is digital, so the session-0 footage at `ZOOM=350` was a
+~1100 px sensor crop stretched 3.5× — that is where the softness came from.
+Film at `ZOOM=100` (or move the camera closer) and crop in post. Two things
+change at that framing:
+
+- Detection grabs the daylight window instead of the panel. Pass the panel
+  box explicitly: read it off a rainbow or slate frame with a 100 px grid
+  (`drawgrid`) and divide by 12 for analysis pixels — on 2026-11-18 that was
+  `CROP=122:79:74:8` (source 1464:948:888:96).
+- The camera's auto-exposure dims the white slate within half a second, so
+  the saturated share of the box drops; `SLATE_FRACTION=0.3` holds for the
+  full 2 s slate while content never passes 0.05.
+
+`<name>.web.mp4` now scales _down_ to 1280 wide only — a 888 px panel crop
+stays 888 px rather than being blown up.
+
+## Placement shots (wide, with the room in frame)
+
+The docs also carry two "placement" videos that show the shelf and the
+decorations around the sign, so a reader can picture where theirs would go.
+They are not slate-cut: both are hand-trimmed from full-frame recordings,
+cropped to drop the bottom strip of the camera frame (the shelf below the
+sign), denoised and scaled to 960 wide so each stays under the 4 MB mp4
+budget (2026-11-18 cuts: lit 3.0 MB / 78 s, dark 2.0 MB / 31 s).
+
+```sh
+# Lights on — the Firebird section of the YouTube loop (45.2 s → 123.5 s),
+# from the lit YouTube recording kept on the Desktop.
+ffmpeg -ss 45.2 -t 78.3 -i youtube-lit.mp4 \
+  -vf "crop=iw:ih*0.78:0:0,hqdn3d=4:3:6:4.5,scale=960:-2" \
+  -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p -movflags +faststart -an \
+  docs/site/public/filmed/placement-lit.mp4
+
+# Lights off — the hero loop, cut full-frame by `film clip` first:
+#   make film-clip IN=raw/hero.mp4 MANIFEST=docs/site/filming/hero.toml OUT=/tmp/wide/ MP4=hero MP4_ONLY=1 FULL_FRAME=1
+# then the same crop/scale with a heavier denoise (night grain is expensive).
+ffmpeg -i /tmp/wide/hero.mp4 \
+  -vf "crop=iw:ih*0.78:0:0,hqdn3d=8:6:12:9,scale=960:-2" \
+  -c:v libx264 -crf 28 -preset slow -pix_fmt yuv420p -movflags +faststart -an \
+  docs/site/public/filmed/placement-dark.mp4
+```
+
+Full-frame 1280-wide encodes at crf 24 came out at 14 MB for both takes;
+the grain, not the content, is what costs bits.
+
 ## If something goes wrong
 
 - Sign left on a filming config: `make film-restore` (add `FORCE=1` if it

@@ -25,11 +25,18 @@ hero:
 ---
 
 import DemoGif from "../../components/DemoGif.astro";
+import FilmedGrid from "../../components/FilmedGrid.astro";
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
 <DemoGif
   src="/demos/message-rainbow.gif"
   caption="A `message` widget with rainbow per-character coloring — one of the built-in widgets."
+/>
+
+<DemoGif
+  video="/filmed/placement-dark.mp4"
+  filmed
+  caption="The smallsign on a shelf at night — a Pi 4 and five 32×16 panels running a yoga studio's loop."
 />
 
 ## Two ways in
@@ -104,6 +111,25 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 </CardGrid>
 
 [Browse all widgets →](/widgets/)
+
+The demos above are rendered. Here's what a few of the same things look
+like on the actual sign — the full set is on the
+[smallsign page](/hardware/smallsign/#every-effect-filmed):
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/widget-countdown.gif",
+      caption: "A `countdown` to Spring Sessions inside a bands border",
+    },
+    { src: "/filmed/emoji-sampler.gif", caption: "Inline pixel-art emoji in a scrolling message" },
+    {
+      src: "/filmed/transition-nyancat.gif",
+      caption: "The `nyancat` transition crossing the panel",
+    },
+    { src: "/filmed/border-rainbow.gif", caption: "A rainbow border chasing around the edge" },
+  ]}
+/>
 
 ## Writing a plugin
 

@@ -29,6 +29,12 @@ text = "Hello, world!"
 animation = "typewriter"`}
 />
 
+<DemoGif
+  filmed
+  src="/filmed/animation-typewriter.gif"
+  caption="On the smallsign: FIREBIRD YOGA typed out a character at a time"
+/>
+
 ## Tuning `frames_per_char`
 
 The cadence is `frames_per_char × 50 ms` per character — the engine ticks at 50 ms and advances the typewriter counter once per tick. The default of `3` gives about 150 ms per character, which feels snappy but still readable at roughly 7 characters per second. A value of `5` or `6` reads as deliberate and is a good choice when you want the audience to register each character dropping in. Values above `10` read as comically slow. There is no separate animation clock — everything runs on the same 50 ms engine tick.
@@ -100,6 +106,12 @@ On top of the widget-type check above, typewriter on `gif` / `image` rejects thr
 <DemoGif
   src="/demos-pinned/animation-flair-propeller.gif"
   caption="`message` with `animation = flair.propeller` — text spins in and settles flat"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-propeller.gif"
+  caption="On the smallsign: flair.propeller spinning the text in place"
 />
 
 ### Install
@@ -201,6 +213,12 @@ font_color = [255, 100, 255]`}
 <DemoGif
   src="/demos-pinned/animation-flair-fisheye.gif"
   caption="`message` with `animation = flair.fisheye` — text scrolls through a stationary squeeze-and-bulge lens"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-fisheye.gif"
+  caption="On the smallsign: the flair.fisheye lens bulge rolling along BEGINNER SERIES"
 />
 
 ### Install
@@ -384,6 +402,12 @@ font_color = [255, 183, 3]
 animation = "flair.twinkle"`}
 />
 
+<DemoGif
+  filmed
+  src="/filmed/animation-twinkle.gif"
+  caption="On the smallsign: flair.twinkle flickering single pixels of the text"
+/>
+
 ### Install
 
 Add one line to `config/requirements-plugins.txt`:
@@ -438,6 +462,12 @@ text = "DROP-INS WELCOME"
 center = true
 font_color = [255, 92, 38]
 animation = "flair.blink"`}
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/animation-blink.gif"
+  caption="On the smallsign: flair.blink blinking the whole line"
 />
 
 <Aside type="caution" title="Blink rates are capped for photosensitive viewers">

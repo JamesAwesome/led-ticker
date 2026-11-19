@@ -2,17 +2,32 @@
 import { inlineCodeSegments, stripInlineCode } from "../utils/inline-code.mjs";
 
 interface Props {
-  src: string;
+  /** GIF (or still) to show; the fallback when `video` is set. */
+  src?: string;
+  /** mp4 to play instead of a GIF — autoplay, muted, looped, no controls. */
+  video?: string;
+  /** Real-hardware footage: keep the camera's smoothing, no pixel-art scaling. */
+  filmed?: boolean;
   caption?: string;
   alt?: string;
 }
-const { src, caption, alt } = Astro.props;
+const { src, video, filmed = false, caption, alt } = Astro.props;
+if (!src && !video) {
+  throw new Error("DemoGif needs a `src` (gif) or a `video` (mp4)");
+}
 const altText = alt ?? (caption ? stripInlineCode(caption) : "led-ticker demo");
 const segments = caption ? inlineCodeSegments(caption) : [];
 ---
 
-<figure class="demo-gif">
-  <img src={src} alt={altText} loading="lazy" />
+<figure class:list={["demo-gif", { filmed }]}>
+  {video ? (
+    <video autoplay muted loop playsinline preload="metadata" aria-label={altText}>
+      <source src={video} type="video/mp4" />
+      {src && <img src={src} alt={altText} loading="lazy" />}
+    </video>
+  ) : (
+    <img src={src} alt={altText} loading="lazy" />
+  )}
   {caption && (
     <figcaption>{segments.map((s) => (s.code ? <code>{s.text}</code> : s.text))}</figcaption>
   )}
@@ -23,13 +38,19 @@ const segments = caption ? inlineCodeSegments(caption) : [];
     margin: 1.5rem 0;
     text-align: center;
   }
-  .demo-gif img {
+  .demo-gif img,
+  .demo-gif video {
     max-width: 100%;
     height: auto;
     image-rendering: pixelated;
     border: 1px solid var(--sl-color-gray-5);
     border-radius: 4px;
     background: black;
+  }
+  .demo-gif.filmed img,
+  .demo-gif.filmed video {
+    image-rendering: auto;
+    background: transparent;
   }
   .demo-gif figcaption {
     margin-top: 0.5rem;

@@ -4,6 +4,7 @@ description: Real led-ticker signs running out in the world.
 ---
 
 import RelatedPages from "../../components/RelatedPages.astro";
+import DemoGif from "../../components/DemoGif.astro";
 
 Realistic sign configurations running led-ticker. Submit your own via the
 link at the bottom of this page.
@@ -42,6 +43,25 @@ behind the storefront, configured from a single `config.toml` and
 brought back up automatically by Docker (`restart: unless-stopped`) if
 the process exits. The same image runs in dev on a Pi 4 + smallsign for
 layout iteration before promoting changes to the storefront.
+
+## Firebird Yoga — smallsign
+
+<DemoGif
+  video="/filmed/placement-lit.mp4"
+  filmed
+  caption="Firebird Yoga's loop on the smallsign, on a shelf with the fall decorations out. Studio name, tagline, the beginner-series crawl, a two-row class list, and the spring promo with fireworks behind it."
+/>
+
+|                     |                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Sign type**       | smallsign                                                                                                         |
+| **Location**        | a shelf at home, filmed in daylight through a webcam                                                              |
+| **Hardware**        | Pi 4 + 5× 32×16                                                                                                   |
+| **Notable widgets** | `message` + typewriter, `two_row`, lightbulb and bands borders, `flair.fireworks` + `flair.lightning` transitions |
+
+The clip is the Firebird section of `docs/site/filming/youtube.toml` in
+the repo, deployed with `make film-session` and recorded full-frame — the
+same tooling behind every "on real hardware" clip on this site.
 
 ## Submit your sign
 

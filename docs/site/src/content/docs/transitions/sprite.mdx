@@ -45,6 +45,12 @@ Nyan Cat flies across the panel with a rainbow trail. Auto-activates a hi-res we
   caption="nyancat.forward — Nyan Cat flies left-to-right with rainbow trail"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/transition-nyancat.gif"
+  caption="On the smallsign: nyancat.alternating, the cat crossing with its rainbow trail"
+/>
+
 ### Pokéball (`pokeball`)
 
 A Pokéball rolls across with a run-cycle sprite chasing. `show_pikachu` / `show_pokeball` toggle the sprite elements. Auto-activates a hi-res sprite on scaled signs (see [Hires](#hires) below). Also ships the `:pokeball.ball:` emoji.
@@ -58,6 +64,12 @@ A Pokéball rolls across with a run-cycle sprite chasing. `show_pikachu` / `show
 <DemoGif
   src="/demos-long/transitions-pokeball.gif"
   caption="pokeball.forward — Pokéball rolls left-to-right with run-cycle sprite chasing (default)"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-pokeball.gif"
+  caption="On the smallsign: pokeball.alternating rolling across the panel"
 />
 
 <DemoGif
@@ -80,6 +92,12 @@ Pac-Man chases three scared ghosts with a chomping animation. Keeps its 8-bit lo
   caption="pacman.forward — Pac-Man chases 3 scared ghosts with chomping animation"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/transition-pacman.gif"
+  caption="On the smallsign: pacman.alternating, Pac-Man and the ghosts crossing the panel"
+/>
+
 ### Sailor Moon (`sailor_moon`)
 
 The Moon Stick wand sweeps across with a sparkle trail. Keeps its 8-bit look at all scales.
@@ -93,6 +111,12 @@ The Moon Stick wand sweeps across with a sparkle trail. Keeps its 8-bit look at 
 <DemoGif
   src="/demos-long/transitions-sailor_moon.gif"
   caption="sailor_moon.forward — Moon Stick wand sweeps across with sparkle trail"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-sailor-moon.gif"
+  caption="On the smallsign: sailor_moon.alternating sweeping the panel"
 />
 
 ## Reference
@@ -123,6 +147,12 @@ The rolling-**baseball** family (`baseball.roll`, `baseball.roll_reverse`, `base
 <DemoGif
   src="/demos-pinned/transition-flair-spinout.gif"
   caption="`flair.spinout` — outgoing text accelerates and spins out before the incoming widget appears"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-spinout.gif"
+  caption="On the smallsign: flair.spinout, letters spinning away"
 />
 
 #### Install
@@ -195,6 +225,12 @@ duration = 1.0
   caption="`flair.fireworks` — staggered bursts open over the outgoing widget, then bloom to reveal the incoming widget"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/transition-fireworks.gif"
+  caption="On the smallsign: flair.fireworks bursting between widgets"
+/>
+
 #### Install
 
 `flair.fireworks` is part of the same `led-ticker-flair` package as the homage sprite-trails and `flair.spinout`:
@@ -242,6 +278,12 @@ transition = {type = "flair.fireworks", bursts = 3, colors = [[255, 60, 60], [0,
 <DemoGif
   src="/demos-pinned/transition-flair-stickers.gif"
   caption="`flair.stickers` — a wall of taco cards buries the outgoing widget, then peels away to reveal the incoming one"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-stickers.gif"
+  caption="On the smallsign: flair.stickers slapping emoji over the old text"
 />
 
 #### Install
@@ -293,6 +335,12 @@ font_color = [255, 190, 0]`}
   caption="`flair.poker` — rainbow suit glyphs emit suit-shaped ripples that wash in the incoming widget"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/transition-poker.gif"
+  caption="On the smallsign: flair.poker dealing the old text away card by card"
+/>
+
 #### Install
 
 `flair.poker` ships in the same `led-ticker-flair` package:
@@ -338,6 +386,12 @@ font_color = [255, 255, 255]`}
 <DemoGif
   src="/demos-pinned/transition-flair-lightning.gif"
   caption="`flair.lightning` — a zigzag bolt strikes across, then the crack opens to reveal the incoming widget"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-lightning.gif"
+  caption="On the smallsign: flair.lightning bolts striking across the text"
 />
 
 #### Install
@@ -395,6 +449,12 @@ font_color = [120, 190, 255]`}
 <DemoGif
   src="/demos-pinned/transition-flair-fairy.gif"
   caption="`flair.fairy` — a fairy trails pixie dust across the panel, then the line opens to reveal the incoming widget"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-fairy.gif"
+  caption="On the smallsign: flair.fairy sparkle dust sweeping through"
 />
 
 #### Install
@@ -455,6 +515,12 @@ Direction is **not** a knob — pick the variant (`.forward` / `.reverse` / `.al
 <DemoGif
   src="/demos-pinned/transition-flair-laser.gif"
   caption="`flair.laser.alternating` — three beams erase the old message from one edge, then write the new one"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-laser.gif"
+  caption="On the smallsign: flair.laser writing the new text in with a beam"
 />
 
 #### Install
@@ -538,6 +604,12 @@ Each has an `.alternating` variant (flair >= 0.18.0) that flips sides every time
 <DemoGif
   src="/demos-pinned/transition-flair-accordion.gif"
   caption="`flair.accordion.sweep` — the old message bunches into a deck and slides off left, the new one slides in and fans out"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-accordion.gif"
+  caption="On the smallsign: flair.accordion folding and unfolding the text"
 />
 
 #### Install
@@ -631,6 +703,12 @@ Recommended: `duration = 2.0` with `easing = "ease_in_out"`.
   caption="`flair.interlock.alternating` — the old message splits into row strands that slide off both edges, then the new one meshes in; the next firing uses column strands"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/transition-interlock.gif"
+  caption="On the smallsign: flair.interlock meshing strips from both sides"
+/>
+
 #### Install
 
 `flair.interlock` ships in the same `led-ticker-flair` package:
@@ -715,6 +793,12 @@ transition = {type = "flair.interlock.horizontal", strand = 2}`}
   caption="`flair.blinds.alternating` with four slats — horizontal slats open downward onto the new message, then vertical slats open to the right"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/transition-blinds.gif"
+  caption="On the smallsign: flair.blinds flipping venetian strips"
+/>
+
 #### Install
 
 `flair.blinds` ships in the same `led-ticker-flair` package:
@@ -790,6 +874,12 @@ Horizontal slats split the 16 logical rows of a standard section, on the smallsi
 <DemoGif
   src="/demos-pinned/transition-flair-snow.gif"
   caption="`flair.snow` with the built-in snowflake — a snow front falls down the panel, leaving the new message above it"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-snow.gif"
+  caption="On the smallsign: flair.snow settling the new text in as snowfall"
 />
 
 #### Install
@@ -877,6 +967,12 @@ The shortest transition is 24 frames (1.2 s at the default 20 fps); the demo use
   caption="`flair.splitflap.forward` — VINYASA flips character by character, left to right, through in-between letters to YIN YOGA"
 />
 
+<DemoGif
+  filmed
+  src="/filmed/transition-splitflap.gif"
+  caption="On the smallsign: flair.splitflap turning departure-board flaps"
+/>
+
 #### Install
 
 `flair.splitflap` ships in the same `led-ticker-flair` package:
@@ -957,6 +1053,12 @@ It's meant to be watched: give it about `duration = 3.0`. The shortest transitio
 <DemoGif
   src="/demos-pinned/transition-flair-sand.gif"
   caption="`flair.sand` — FIREBIRD crumbles into falling grains, then YOGA pours in from the top and stacks into place"
+/>
+
+<DemoGif
+  filmed
+  src="/filmed/transition-sand.gif"
+  caption="On the smallsign: flair.sand pouring the text away as grains"
 />
 
 #### Install

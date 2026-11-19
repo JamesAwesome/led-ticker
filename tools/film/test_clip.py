@@ -127,14 +127,33 @@ def test_web_mp4_argv_is_small_denoised_and_cropped():
         Path("o.web.mp4"),
         Interval(10, 50),
         10.0,
-        BBox(10, 20, 100, 10),
+        BBox(10, 20, 120, 10),  # 1440 source px wide: wider than the docs width
         320,
         3840,
     )
     vf = argv[argv.index("-vf") + 1]
-    assert "crop=1200:120:120:240" in vf and "hqdn3d" in vf and "scale=1280:-2" in vf
+    assert "crop=1440:120:120:240" in vf and "hqdn3d" in vf and "scale=1280:-2" in vf
     assert argv[argv.index("-crf") + 1] == "24" and "+faststart" in argv
     assert "-an" in argv and argv[-1] == "o.web.mp4"
+
+
+def test_web_mp4_argv_never_upscales_a_narrow_crop():
+    """At zoom 100 the panel is ~900 source px wide; stretching that to 1280
+    only blurs it. The web mp4 scales down to WEB_WIDTH, never up."""
+    from tools.film.clip import web_mp4_argv
+
+    argv = web_mp4_argv(
+        Path("in.mp4"),
+        Path("o.web.mp4"),
+        Interval(10, 50),
+        10.0,
+        BBox(122, 79, 74, 8),  # 888 source px wide
+        320,
+        3840,
+    )
+    vf = argv[argv.index("-vf") + 1]
+    assert "crop=888:96:1464:948" in vf
+    assert "scale=888:-2" in vf and "scale=1280" not in vf
 
 
 def test_emit_gif_failed_ffmpeg_raises():

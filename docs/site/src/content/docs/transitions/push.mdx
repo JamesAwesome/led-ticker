@@ -6,12 +6,24 @@ description: Outgoing and incoming widgets scroll together — old slides off on
 import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 The push family scrolls the outgoing and incoming widgets together. Both are visible simultaneously during the transition.
 
 <DemoGif
   src="/demos/transitions-push.gif"
   caption="push family — left, right, up, down, and random"
+/>
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/transition-push-left.gif",
+      caption: "push_left on the panel — outgoing slides off, incoming follows",
+    },
+  ]}
 />
 
 ## Variants

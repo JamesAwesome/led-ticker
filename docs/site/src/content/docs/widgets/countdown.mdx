@@ -7,6 +7,7 @@ import DemoGif from "../../../components/DemoGif.astro";
 import TomlExample from "../../../components/TomlExample.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
+import FilmedGrid from "../../../components/FilmedGrid.astro";
 
 The `countdown` widget is a `message` with date arithmetic baked in. Every draw it
 renders `<text>: <N>` where N is the number of days from today to `countdown_date`.
@@ -17,6 +18,17 @@ Once `countdown_date` has passed, the widget drops out of the rotation. To count
 up from a past date instead, see [countup](/widgets/countup/).
 
 <DemoGif src="/demos/widget-countdown.gif" caption="countdown to 2026-06-21 with rainbow font" />
+
+## On real hardware
+
+<FilmedGrid
+  items={[
+    {
+      src: "/filmed/widget-countdown.gif",
+      caption: "Spring Sessions and the day count, inside a bands border",
+    },
+  ]}
+/>
 
 <TomlExample
   title="Minimal example"

@@ -432,6 +432,25 @@ inline-table example (should be `transition_color`), the firebird example's
 unread `[transitions] transition_colors`, rule 21's missing type guard, and
 the `_parse_transition(None, default)` aliasing hazard (decision 3).
 
+## Amendments from the PR antagonist loops (2026-11-18)
+
+- Factory step 2: dedupe keys on the RESOLVED member (`type`, the duration
+  the runner will use — the entry's own or the inherited slot duration —
+  colours, plugin kwargs), not the normalised entry; so a table pinning the
+  parent's duration collapses with the bare name, and `3` vs `3.0` collide.
+- Factory step 2/4: an entry `duration` must be finite and at most 3600 s
+  (`int(1e308 / scroll_speed)` raised before the runner's `try`); the same
+  predicate, and the colour shape predicate, run on whatever a child ENDS UP
+  carrying, inherited values included.
+- Validate: rule 73 draws its ERRORs from the resolver (one per slot) and
+  computes warnings only after it succeeded, over post-`exclude` members;
+  rule 21's two bounds apply to entry durations as rule-73 warnings; the
+  decision-3 shapes are skipped when `default` itself errored.
+- Runner: `end_firing` runs after both resumes and is swallowed; a widget-
+  slot `transition_fn` of `None` cuts (`ticker._run_swap`).
+- Rule 74 (precursor PR) grades severity per field and per live slot; the
+  two meta types are skipped there and owned by rule 73.
+
 ## Builder-check decisions (2026-11-17)
 
 Amended 2026-11-18 by the design antagonist loop (cycle 1): see

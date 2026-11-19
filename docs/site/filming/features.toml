@@ -29,7 +29,6 @@ default = "cut"
 duration = 0.5
 easing = "ease_out"
 between_sections = "cut"
-transition_colors = [[255, 92, 38], [255, 183, 3], [99, 60, 138], [255, 244, 214]]
 
 [[source]]
 id = "clock.et"

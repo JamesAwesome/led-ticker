@@ -5845,3 +5845,762 @@ text = "W"
 
         assert at("section[0].title"), result
         assert at("section[0].title") == at("section[0].widget[0]")
+
+
+# ---------------------------------------------------------------------------
+# _iter_transition_slots: the per-slot rule loops share one gated iterator.
+# Rules 39/53/66 include `[transitions] default`; 57 and the scroll-separator
+# font check skip it. These pin the inclusion/exclusion per moved rule.
+# ---------------------------------------------------------------------------
+
+_SLOTS_BASE = """\
+    [display]
+    rows = 16
+    cols = 32
+    chain_length = 5
+    default_scale = 1
+
+    [transitions]
+    {transitions}
+
+    [[playlist.section]]
+    mode = "slideshow"
+
+    [[playlist.section.widget]]
+    type = "message"
+    text = "hi"
+    """
+
+
+async def test_iter_slots_rule39_includes_default(conf):
+    result = await validate_config(
+        conf(_SLOTS_BASE.format(transitions='default = "no_such_transition"'))
+    )
+    assert [e.location for e in result.errors if e.rule == 39] == [
+        "transitions.default"
+    ]
+
+
+async def test_iter_slots_rule57_excludes_default(conf):
+    result = await validate_config(
+        conf(
+            _SLOTS_BASE.format(
+                transitions='default = { type = "dissolve", separator = "x" }'
+            )
+        )
+    )
+    assert not [e for e in result.errors if e.rule == 57]
+
+
+async def test_iter_slots_rule57_includes_between_sections(conf):
+    result = await validate_config(
+        conf(
+            _SLOTS_BASE.format(
+                transitions='between_sections = { type = "dissolve", separator = "x" }'
+            )
+        )
+    )
+    assert [e.location for e in result.errors if e.rule == 57] == [
+        "transitions.between_sections"
+    ]
+
+
+async def test_iter_slots_rule66_order_default_first(conf):
+    result = await validate_config(
+        conf(
+            _SLOTS_BASE.format(
+                transitions=(
+                    'default = { style = "a" }\n    between_sections = { style = "b" }'
+                )
+            )
+        )
+    )
+    assert [w.location for w in result.warnings if w.rule == 66] == [
+        "transitions.default",
+        "transitions.between_sections",
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Rule 74: transition colour shape (campsite from the center-wipes item).
+# A string or short list passes load (`tuple("red")`) and reaches SetPixel on
+# hardware, which raises. `transition_colors` on a type that only takes a
+# single colour is silently dropped.
+# ---------------------------------------------------------------------------
+
+_R74 = """\
+    [display]
+    rows = 16
+    cols = 32
+    chain_length = 5
+    default_scale = 1
+
+    [transitions]
+    {transitions}
+
+    [[playlist.section]]
+    mode = "slideshow"
+    {section}
+
+    [[playlist.section.widget]]
+    type = "message"
+    text = "hi"
+    """
+
+
+def _r74(result, severity):
+    pool = result.errors if severity == "error" else result.warnings
+    return [i for i in pool if i.rule == 74]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        '"red"',
+        "[255, 0]",
+        "[255, 0, 0, 0]",
+        "[255.0, 0, 0]",
+        "[true, true, true]",
+        "[256, 0, 0]",
+    ],
+)
+async def test_rule74_bad_transition_color_on_section_slot_is_error(conf, value):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    f'transition = {{ type = "wipe_in", transition_color = {value} }}'
+                ),
+            )
+        )
+    )
+    errs = _r74(result, "error")
+    assert [e.location for e in errs] == ["section[0].transition"], result
+    assert "0-255" in errs[0].message
+
+
+async def test_rule74_bad_transition_colors_element_is_error(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions=(
+                    'between_sections = { type = "wipe_random", '
+                    'transition_colors = [[255, 0, 0], "red"] }'
+                ),
+                section="",
+            )
+        )
+    )
+    assert [e.location for e in _r74(result, "error")] == [
+        "transitions.between_sections"
+    ]
+
+
+async def test_rule74_valid_colours_pass(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions=(
+                    'between_sections = { type = "wipe_random", '
+                    "transition_colors = [[255, 0, 0], [0, 255, 0]] }"
+                ),
+                section=(
+                    'transition = { type = "wipe_in", transition_color = [0, 0, 255] }'
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "error") and not _r74(result, "warning"), result
+
+
+async def test_rule74_section_level_color_on_shared_default(conf):
+    """A section WITHOUT its own `transition` that writes `transition_color`
+    mutates the shared default object; the error lands at transitions.default
+    and the message says why."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions='default = "wipe_in"', section='transition_color = "red"'
+            )
+        )
+    )
+    errs = _r74(result, "error")
+    assert [e.location for e in errs] == ["transitions.default"]
+    assert "section" in errs[0].message
+
+
+async def test_rule74_transition_colors_on_single_wipe_warns(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_in", '
+                    "transition_colors = [[1, 2, 3], [4, 5, 6]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert [w.location for w in warns] == ["section[0].transition"]
+    assert "takes a single colour" in warns[0].message and not _r74(result, "error")
+
+
+@pytest.mark.parametrize(
+    "ttype",
+    ["wipe_random", "wipe_alternating", "random", "auto", "flair.x", "wipe_lef"],  # noqa: E501
+)
+async def test_rule74_transition_colors_on_list_consumers_does_not_warn(conf, ttype):
+    """`random` / `auto` land in the stacked follow-up PR (today they fail rule
+    39); `flair.x` is a plugin (declares its own); `wipe_lef` is unknown
+    (rule 39 owns it) — none may draw a rule-74 warning."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    f'transition = {{ type = "{ttype}", transition_colors = '
+                    "[[1, 2, 3], [4, 5, 6], [7, 8, 9], [1, 1, 1]] }"
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "warning"), result
+
+
+async def test_rule74_wipe_alternating_with_fewer_than_four_colours_warns(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", '
+                    "transition_colors = [[1, 2, 3], [4, 5, 6]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "four" in warns[0].message
+
+
+async def test_rule74_colors_beside_color_warns_about_shadowing(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_in", transition_color = [9, 9, 9], '
+                    "transition_colors = [[1, 2, 3]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "shadows" in warns[0].message
+    assert "Remove transition_colors" in warns[0].fix
+
+
+async def test_rule74_colors_on_colourless_type_says_ignored_without_hint(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "dissolve", transition_colors = [[1, 2, 3]] }',  # noqa: E501
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "ignored by type='dissolve'" in warns[0].message
+    assert "single colour" not in warns[0].message
+
+
+async def test_rule74_empty_transition_colors_is_error(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions='between_sections = { type = "wipe_random", transition_colors = [] }',  # noqa: E501
+                section="",
+            )
+        )
+    )
+    assert [e.location for e in _r74(result, "error")] == [
+        "transitions.between_sections"
+    ]  # noqa: E501
+
+
+@pytest.mark.parametrize("slot", ["entry_transition", "widget_transition"])
+async def test_rule74_runs_on_entry_and_widget_slots(conf, slot):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=f'{slot} = {{ type = "wipe_in", transition_color = "red" }}',
+            )
+        )
+    )
+    errs = _r74(result, "error")
+    assert [e.location for e in errs] == [f"section[0].{slot}"]
+    assert "split into characters" in errs[0].message
+
+
+async def test_rule74_runs_on_table_default(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions='default = { type = "wipe_in", transition_color = [255, 0] }',  # noqa: E501
+                section="",
+            )
+        )
+    )
+    assert [e.location for e in _r74(result, "error")] == ["transitions.default"]
+
+
+async def test_rule74_section_level_colors_warning_carries_default_suffix(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions='default = "push_left"',
+                section="transition_colors = [[1, 2, 3]]",
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and warns[0].location == "transitions.default"
+    assert "section" in warns[0].message
+
+
+@pytest.mark.parametrize(
+    "line", ["transition_color = 255", "transition_colors = [255, 0, 0]"]
+)
+async def test_rule74_non_iterable_colour_fails_at_load_not_rule74(conf, line):
+    """`tuple(255)` raises inside load_config: a rule-less config error, not a
+    rule-74 issue (documented carve-out)."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="", section=f'transition = {{ type = "wipe_in", {line} }}'
+            )
+        )  # noqa: E501
+    )
+    assert not _r74(result, "error")
+    assert any(e.rule is None and "iterable" in e.message for e in result.errors), (
+        result
+    )  # noqa: E501
+
+
+async def test_iter_slots_rule53_includes_default(conf):
+    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
+
+    class _Needs:
+        def __init__(self, needed):
+            self.needed = needed
+
+        def frame_at(self, t, canvas, outgoing, incoming, **kw):
+            return canvas
+
+    register_transition("slots53.needs")(_Needs)
+    try:
+        result = await validate_config(
+            conf(_SLOTS_BASE.format(transitions='default = "slots53.needs"'))
+        )
+    finally:
+        _TRANSITION_REGISTRY.pop("slots53.needs", None)
+    assert [e.location for e in result.errors if e.rule == 53] == [
+        "transitions.default"
+    ]  # noqa: E501
+
+
+async def test_rule74_wipe_alternating_with_more_than_four_colours_warns(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", transition_colors = '
+                    "[[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4], [5, 5, 5]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "extras are dropped" in warns[0].message
+
+
+async def test_rule74_single_colour_beside_list_on_consumer_warns(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_random", transition_color = [9, 9, 9], '  # noqa: E501
+                    "transition_colors = [[1, 2, 3], [4, 5, 6]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "transition_color is ignored" in warns[0].message
+
+
+async def test_rule74_bad_colour_on_colourless_type_is_warning_not_error(conf):
+    """push_left swallows `color`; a malformed value runs today, so refusing
+    it would block hot-reload for nothing — warn instead."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "push_left", transition_color = [255, 0, 0, 0] }',  # noqa: E501
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "ignores it anyway" in warns[0].message
+
+
+async def test_rule74_empty_transition_color_has_no_quoted_string_hint(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "wipe_in", transition_color = [] }',  # noqa: E501
+            )
+        )
+    )
+    # an EMPTY colour on a core constructor falls back to its default → warning
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "quoted string" not in warns[0].message
+    assert "falls back to its default colour" in warns[0].message
+
+
+async def test_rule74_quoted_string_in_transition_colors_gets_the_hint(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "wipe_random", transition_colors = ["red"] }',  # noqa: E501
+            )
+        )
+    )
+    errs = _r74(result, "error")
+    assert len(errs) == 1 and "quoted string" in errs[0].message
+
+
+async def test_rule74_bad_colour_on_plugin_or_unknown_type_stays_error(conf):
+    for ttype in ("flair.x", "wipe_lef"):
+        result = await validate_config(
+            conf(
+                _R74.format(
+                    transitions="",
+                    section=f'transition = {{ type = "{ttype}", transition_color = "red" }}',  # noqa: E501
+                )
+            )
+        )
+        assert len(_r74(result, "error")) == 1, ttype
+
+
+async def test_rule74_bad_transition_colors_on_colourless_type_is_warning(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "push_left", transition_colors = [[1, 2]] }',  # noqa: E501
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "ignores it anyway" in warns[0].message
+
+
+async def test_rule74_malformed_list_on_single_colour_type_is_warning(conf):
+    """wipe_in swallows `colors`; a malformed list there runs today."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "wipe_in", transition_colors = [[1, 2]] }',  # noqa: E501
+            )
+        )
+    )
+    assert not _r74(result, "error") and len(_r74(result, "warning")) == 1
+
+
+async def test_rule74_bad_single_colour_beside_list_on_consumer_is_one_warning(conf):
+    """wipe_random forwards the list; the malformed single colour never
+    reaches it — one warning naming why, not an error plus an 'ignored'."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_random", transition_color = "red", '
+                    "transition_colors = [[1, 2, 3], [4, 5, 6]] }"
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "what gets forwarded" in warns[0].message
+
+
+async def test_rule74_dead_default_slot_is_warning_when_between_sections_set(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions=(
+                    'default = { type = "wipe_in", transition_color = "red" }\n'
+                    '    between_sections = "cut"'
+                ),
+                section="",
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "never built" in warns[0].message
+
+
+async def test_rule74_registered_plugin_type_is_classified_by_its_constructor(conf):
+    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
+
+    class _NoColour:
+        def __init__(self, **kwargs):
+            pass
+
+        def frame_at(self, t, canvas, outgoing, incoming, **kw):
+            return canvas
+
+    register_transition("r74plug.plain")(_NoColour)
+    try:
+        result = await validate_config(
+            conf(
+                _R74.format(
+                    transitions="",
+                    section='transition = { type = "r74plug.plain", transition_color = "red" }',  # noqa: E501
+                )
+            )
+        )
+    finally:
+        _TRANSITION_REGISTRY.pop("r74plug.plain", None)
+    assert not _r74(result, "error") and len(_r74(result, "warning")) == 1
+
+
+async def test_rule74_skips_colours_warning_on_registered_meta_type(conf):
+    """`random` / `auto` arrive in the stacked PR and own this warning under
+    rule 73; register a throwaway `random` to pin the skip now."""
+    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
+
+    class _Meta:
+        def __init__(self, **kwargs):
+            pass
+
+        def frame_at(self, t, canvas, outgoing, incoming, **kw):
+            return canvas
+
+    register_transition("random")(_Meta)
+    try:
+        result = await validate_config(
+            conf(
+                _R74.format(
+                    transitions="",
+                    section='transition = { type = "random", transition_colors = [[1, 2, 3]] }',  # noqa: E501
+                )
+            )
+        )
+    finally:
+        _TRANSITION_REGISTRY.pop("random", None)
+    assert not _r74(result, "warning") and not _r74(result, "error")
+
+
+async def test_rule74_empty_colors_on_wipe_alternating_is_warning(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "wipe_alternating", transition_colors = [] }',  # noqa: E501
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    assert any("default palette" in w.message for w in _r74(result, "warning"))
+
+
+async def test_rule74_shadowed_section_transition_is_warning(conf):
+    """entry_transition + widget_transition both set: `transition` is never built."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_in", transition_color = "red" }\n'
+                    '    entry_transition = "dissolve"\n    widget_transition = "cut"'
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "never built" in warns[0].message
+
+
+async def test_rule74_both_fields_on_colourless_type_says_remove_both(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "push_left", transition_color = [1, 2, 3], '
+                    "transition_colors = [[4, 5, 6]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and warns[0].fix == "Remove both."
+
+
+async def test_rule74_malformed_colour_beside_list_on_single_type_is_one_warning(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_in", transition_color = "red", '
+                    "transition_colors = [[1, 2, 3]] }"
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    assert len(_r74(result, "warning")) == 1
+
+
+async def test_rule74_plugin_table_colors_key_wins_over_transition_colors(conf):
+    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
+
+    class _Pool:
+        def __init__(self, colors=None, **kwargs):
+            self.colors = colors
+
+        def frame_at(self, t, canvas, outgoing, incoming, **kw):
+            return canvas
+
+    register_transition("r74plug.pool")(_Pool)
+    try:
+        result = await validate_config(
+            conf(
+                _R74.format(
+                    transitions="",
+                    section=(
+                        'transition = { type = "r74plug.pool", colors = [[1, 2, 3]], '
+                        "transition_colors = [[1, 2]] }"
+                    ),
+                )
+            )
+        )
+    finally:
+        _TRANSITION_REGISTRY.pop("r74plug.pool", None)
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "own `colors` key" in warns[0].message
+
+
+async def test_rule74_wipe_alternating_short_list_with_bad_element_is_warning(conf):
+    """Fewer than four colours: the constructor ignores the list entirely, so
+    a malformed element cannot reach SetPixel."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", '
+                    "transition_colors = [[255, 0], [1, 2]] }"
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    assert any("fewer than four" in w.message for w in _r74(result, "warning"))
+
+
+async def test_rule74_wipe_alternating_bad_fifth_colour_is_not_an_error(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", transition_colors = '
+                    "[[1, 2, 3], [4, 5, 6], [7, 8, 9], [1, 1, 1], [255, 0]] }"
+                ),
+            )
+        )
+    )
+    assert not _r74(result, "error")
+    assert any("extras are dropped" in w.message for w in _r74(result, "warning"))
+
+
+async def test_rule74_wipe_alternating_bad_colour_in_first_four_is_error(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "wipe_alternating", transition_colors = '
+                    "[[1, 2, 3], [255, 0], [7, 8, 9], [1, 1, 1]] }"
+                ),
+            )
+        )
+    )
+    assert len(_r74(result, "error")) == 1
+
+
+async def test_rule74_bad_colour_on_colourless_type_still_reports_dead_list(conf):
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section=(
+                    'transition = { type = "push_left", transition_color = [255.0, 0, 0], '  # noqa: E501
+                    "transition_colors = [[1, 2, 3]] }"
+                ),
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 2
+    assert any("transition_colors is ignored" in w.message for w in warns)
+
+
+async def test_rule74_plugin_table_color_key_wins_over_transition_color(conf):
+    from led_ticker.transitions import _TRANSITION_REGISTRY, register_transition
+
+    class _Single:
+        def __init__(self, color=None, **kwargs):
+            self.color = color
+
+        def frame_at(self, t, canvas, outgoing, incoming, **kw):
+            return canvas
+
+    register_transition("r74plug.single")(_Single)
+    try:
+        result = await validate_config(
+            conf(
+                _R74.format(
+                    transitions="",
+                    section=(
+                        'transition = { type = "r74plug.single", color = [1, 2, 3], '
+                        'transition_color = "red" }'
+                    ),
+                )
+            )
+        )
+    finally:
+        _TRANSITION_REGISTRY.pop("r74plug.single", None)
+    assert not _r74(result, "error")
+    warns = _r74(result, "warning")
+    assert len(warns) == 1 and "own `color` key" in warns[0].message

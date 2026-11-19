@@ -30,7 +30,6 @@ default = "push_left"
 duration = 0.5
 easing = "ease_out"
 between_sections = {type = "nyancat.alternating", duration = 4.0}
-transition_colors = [[255, 110, 0], [255, 190, 40], [200, 30, 70]]
 
 [[source]]
 id = "clock.et"

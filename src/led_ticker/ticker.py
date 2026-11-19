@@ -854,7 +854,9 @@ class Ticker:
                     skip_initial_draw=True,
                     continuous=continuous_scroll,
                 )
-            elif self.transition_config is not None:
+            elif self.transition_config is not None and self.transition_fn is not None:
+                # A widget-slot transition that FAILED to build (run.py's guarded
+                # builder returned None) must cut, not reach run_transition.
                 _fps = self.transition_config.transition_fps
                 canvas = await run_transition(
                     canvas,

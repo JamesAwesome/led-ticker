@@ -6998,3 +6998,81 @@ async def test_rule73_decision3b_names_the_effect(conf):
         len(warns) == 1
         and "own pool runs without default's exclude" in warns[0].message
     )  # noqa: E501
+
+
+# --- plugin fonts with declared thresholds (API 1.3) -----------------------
+
+
+@pytest.fixture
+def plugin_font_brand():
+    """Register `acme.Brand` (a copy of a bundled hi-res font) with a
+    plugin-declared default threshold of 45, the way the loader's commit
+    would, and clean up afterwards."""
+    from led_ticker import _plugin_loader as L
+    from led_ticker.fonts import hires_loader
+    from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR
+
+    hits = sorted(BUNDLED_HIRES_DIR.glob("*.otf")) + sorted(
+        BUNDLED_HIRES_DIR.glob("*.ttf")
+    )
+    if not hits:
+        pytest.skip("no bundled hi-res font available")
+    hires_loader._PLUGIN_FONTS["acme.Brand"] = hits[0]
+    hires_loader._PLUGIN_THRESHOLDS["acme.Brand"] = 45
+    hires_loader.load_hires_font.cache_clear()
+    try:
+        yield "acme.Brand"
+    finally:
+        L.reset_plugins()
+
+
+def _two_plugin_font_widgets(
+    first_threshold_line: str, second_threshold_line: str
+) -> str:
+    return GOOD_CONFIG + textwrap.dedent(f"""\
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "one"
+        font = "acme.Brand"
+        font_size = 24
+        {first_threshold_line}
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "two"
+        font = "acme.Brand"
+        font_size = 24
+        {second_threshold_line}
+        """)
+
+
+async def test_rule2_quiet_when_plugin_font_widgets_sit_on_plugin_default(
+    conf, plugin_font_brand
+):
+    """One widget spells out the plugin's default (45), the other leaves it
+    unset: both are "on default", so rule 2 must stay quiet."""
+    result = await validate_config(
+        conf(_two_plugin_font_widgets("font_threshold = 45", ""))
+    )
+    assert all(w.rule != 2 for w in result.warnings), [
+        w.message for w in result.warnings if w.rule == 2
+    ]
+
+
+async def test_rule2_warns_when_one_plugin_font_widget_overrides(
+    conf, plugin_font_brand
+):
+    result = await validate_config(
+        conf(_two_plugin_font_widgets("font_threshold = 100", ""))
+    )
+    assert any(w.rule == 2 for w in result.warnings), result.warnings
+
+
+async def test_rule71_fires_for_plugin_hires_font_in_two_row_mode(
+    conf, plugin_font_brand
+):
+    result = await validate_config(conf(_two_row_image("image", 'font = "acme.Brand"')))
+    issues = [e for e in result.errors if e.rule == 71]
+    assert issues, result.errors
+    assert "acme.Brand" in issues[0].message

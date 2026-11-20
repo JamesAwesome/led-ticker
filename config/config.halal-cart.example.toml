@@ -8,9 +8,17 @@
 #  HALAL CART — bigsign (Pi 5, 256×64)
 # ===========================================================================
 # An imitation NYC halal-cart LED sign. The whole point is FLASHING: saturated
-# red + turmeric-gold + rainbow, glowing marquee bulbs, fireworks between every
-# section, a fisheye banner, and a lottery-ball menu draw. Runs the way a
-# Midtown cart sign does at 2am — loud, bright, never still.
+# red + turmeric-gold + rainbow, glowing marquee bulbs, a fisheye banner, a
+# lottery-ball menu draw, and a different flair transition every time the
+# playlist crosses into a section that doesn't name its own — [transitions]
+# between_sections is a `random` POOL (fireworks, laser beams, split-flap
+# clatter, interlocking strands, venetian blinds, accordion decks, sand, plus
+# core's wipe_in / wipe_out_vertical), never the same one twice running.
+# Twinkling starfields sit BEHIND the greeting and the hero
+# cards (`background` is its own slot, so it stacks under a real `border`),
+# OPEN 24 HOURS runs over continuous fireworks, and the greeting deals in on
+# a Solari split-flap board. Runs the way a Midtown cart sign does at 2am —
+# loud, bright, never still.
 #
 # TWO MENUS ON ONE CART (visibility scheduling): like the real carts, mornings
 # are a coffee cart — bacon egg and cheese, coffee, bagels, donuts — and from
@@ -38,14 +46,20 @@
 # OPEN 24 HOURS stay up every day. Tuesday sections (except the draw, which
 # keeps its fireworks) enter under flair.stickers with backing = "shadow" —
 # a swarm of haloed tacos piles over the panel (the menu stays visible
-# through the gaps), then peels away. The greeting deals in on flair.poker
-# (card-suit ripples). Needs led-ticker-flair >= 0.10.0.
+# through the gaps), then peels away — except the PM crawl, whose
+# "EVERYTHING MUST GO, FOR NOTHING REMAINS" pitch crumbles in as SAND, and
+# the Tuesday sale card ($2 TACOS), which strikes in on flair.lightning and
+# then BLINKS like a real sale sign (flair.blink, 1 Hz — the plugin refuses
+# anything over 3 Hz without allow_fast). Needs led-ticker-flair >= 0.24.0
+# and a led-ticker core newer than 4.34.1 (`random` transition pools and
+# wipe_in / wipe_out landed on main after that tag).
 # Schedules evaluate on [display] timezone — set it, or a UTC Docker container
 # flips your menus at the wrong hours (validate prints the resolved clock).
 #
 # Palette:  halal-red [230,40,30] · turmeric-gold [255,190,0] · cream [255,244,214]
 #           taco-green [80,200,60] (Tuesday accent)
-# Theme:    flashing, animation, rainbows, flair, scheduling, value tokens.
+# Theme:    flashing, animation, rainbows, flair, backgrounds, transition
+#           pools, scheduling, value tokens.
 # ===========================================================================
 
 # --- Display + RP1 tuning (matches config.bigsign.example.toml) --------------
@@ -70,13 +84,36 @@ timezone = "America/New_York"
 # start_hold can still override this for any section that wants a beat.
 delay = 0
 
-# Fireworks burst between every section (the big flashy reveal); a white
-# color-flash punches between widgets inside a section.
+# A DIFFERENT flair effect between every section: `random` picks from the
+# pool, never the same member twice in a row. Each member carries its own
+# duration — a 3 s split-flap or sand pour under the section's 0.6 s would be
+# a blur, and laser's floor is 2.4 s. Sections that write their own
+# `transition` / `entry_transition` (the Tuesday sticker-bomb, the lottery
+# draws' fireworks, the split-flap greeting) skip the pool on purpose — the
+# pool is the between-sections default, not an override. Members are the
+# concrete variants (laser.top / .left, splitflap.forward, …) rather than a
+# family's `.random` / `.alternating` picker — the pool already supplies the
+# variety, and validate (rule 73) says so. One known trade: a widget with a
+# `background` has no gaps for accordion to fan, so when the pool lands
+# accordion on a twinkle-backed hero card the deck slides in as one piece
+# (still clean, just not fanned). The glitter is worth it.
+# `default` is deliberately absent: within-section swaps never read it, and
+# with `between_sections` set it would be dead config.
 [transitions]
-default = "color_flash"
 duration = 0.6
 easing = "ease_in_out"
-between_sections = "flair.fireworks"
+between_sections = {type = "random", pool = [
+  {type = "flair.fireworks", duration = 2.0},
+  {type = "flair.laser.top", write_from = "opposite", duration = 2.5},
+  {type = "flair.laser.left", write_from = "opposite", duration = 2.5},
+  {type = "flair.splitflap.forward", duration = 3.0},
+  {type = "flair.interlock.horizontal", duration = 1.5},
+  {type = "flair.blinds.down", duration = 1.0},
+  {type = "flair.accordion.sweep", duration = 2.0},
+  {type = "flair.sand", duration = 3.0},
+  {type = "wipe_in", duration = 1.0, transition_color = [255, 190, 0]},
+  {type = "wipe_out_vertical", duration = 1.0, transition_color = [230, 40, 30]},
+]}
 
 # --- Value tokens for the greeting: live clock + temperature -----------------
 # Referenced as :clock.now: / :wx.cart: inside widget text. The clock follows
@@ -186,14 +223,17 @@ border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
 #  2 · THE GREETING — good morning / afternoon / night, live clock + temp
 #      One always-on section; each widget carries its OWN schedule window so
 #      exactly one greeting shows at any hour (windows cover the full day).
-#      Deals in on flair.poker: rainbow card suits ripple the greeting onto
-#      the panel (the cart's a gambler — it already runs a lottery draw).
+#      Clatters in on a Solari split-flap board (flair.splitflap — a clock
+#      line deserves a departure board) over a twinkling starfield that
+#      follows the time of day: gold at dawn, rainbow at noon, blue at night.
+#      `background` is its own slot, so the stars sit UNDER the rainbow ring.
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
 hold_time = 8
-# Card-suit ripples wash the greeting in (needs led-ticker-flair >= 0.10.0).
-entry_transition = "flair.poker"
+# Every character flips through a few in-between glyphs before landing; the
+# ripple runs left to right. Needs ~3 s to be watched, hence the override.
+entry_transition = {type = "flair.splitflap.forward", duration = 3.0}
 
 [[playlist.section.widget]]
 type = "message"
@@ -203,6 +243,7 @@ font_color = {style = "shimmer", base = "gold", shimmer = "white", speed = 18.0,
 font = "Inter-Bold"
 font_size = 44
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+background = {style = "flair.twinkle", color = [255, 190, 0], density = 0.04, brightness = 0.5}
 
 [[playlist.section.widget]]
 type = "message"
@@ -212,6 +253,8 @@ font_color = "color_cycle"
 font = "Inter-Bold"
 font_size = 44
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+# Stars take a color PROVIDER too: a rainbow sweeps across the field.
+background = {style = "flair.twinkle", color = "rainbow", density = 0.04, brightness = 0.5}
 
 [[playlist.section.widget]]
 type = "message"
@@ -221,6 +264,7 @@ font_color = {style = "shimmer", base = "blue", shimmer = "white", speed = 18.0,
 font = "Inter-Bold"
 font_size = 44
 border = {style = "rainbow", thickness = 2, speed = 4, char_offset = 6}
+background = {style = "flair.twinkle", color = [180, 200, 255], density = 0.04, brightness = 0.5}
 
 # ===========================================================================
 #  3 · THE DRAW — lottery balls roll in spelling the menu, fireworks reveal
@@ -293,6 +337,8 @@ border = "rainbow"
 
 # ===========================================================================
 #  4 · CHICKEN OVER RICE — gold shimmer held over a rainbow scroll (PM)
+#      A dim gold starfield twinkles behind both rows (flair.twinkle
+#      background — one LED per star, so it reads as glitter, not blocks).
 # ===========================================================================
 [[playlist.section]]
 mode = "slideshow"
@@ -314,6 +360,7 @@ bottom_font = "Inter-Regular"
 bottom_font_size = 18
 bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
+background = {style = "flair.twinkle", color = [255, 190, 0], density = 0.03, brightness = 0.4}
 
 # ===========================================================================
 #  4b · COFFEE — the morning counterpart of section 4 (AM)
@@ -337,6 +384,7 @@ bottom_font = "Inter-Regular"
 bottom_font_size = 18
 bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
+background = {style = "flair.twinkle", color = [255, 190, 0], density = 0.03, brightness = 0.4}
 
 # --- 4t · TUESDAY hero cards: the hard sell ----------------------------------
 [[playlist.section]]
@@ -359,6 +407,7 @@ bottom_font = "Inter-Regular"
 bottom_font_size = 18
 bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
+background = {style = "flair.twinkle", color = [80, 200, 60], density = 0.03, brightness = 0.4}
 
 [[playlist.section]]
 mode = "slideshow"
@@ -380,9 +429,11 @@ bottom_font = "Inter-Regular"
 bottom_font_size = 18
 bottom_font_threshold = 80
 border = {style = "bands", colors = "rainbow", band_width = 10, thickness = 2}
+background = {style = "flair.twinkle", color = [80, 200, 60], density = 0.03, brightness = 0.4}
 
 # ===========================================================================
-#  5 · OPEN 24 HOURS — spins in, marquee bulbs chasing, colors cycling
+#  5 · OPEN 24 HOURS — spins in, marquee bulbs chasing, colors cycling,
+#      fireworks going off BEHIND the text the whole time it's up
 #      (unscheduled on purpose: true around the clock, either menu, every day)
 # ===========================================================================
 [[playlist.section]]
@@ -398,6 +449,50 @@ font = "Inter-Bold"
 font_size = 44
 animation = "flair.propeller"
 border = {style = "lightbulbs", mode = "chase", lit_color = "rainbow", chase_density = 3}
+# flair.fireworks is a BACKGROUND here (same name as the transition, different
+# slot): rockets rise and pop under the letters for as long as the card holds.
+# It never paints black, so it can't eat the lightbulb ring or the text.
+background = {style = "flair.fireworks", bursts = 4, colors = [[230, 40, 30], [255, 190, 0], [255, 244, 214]]}
+
+# --- 5t · TUESDAY SALE CARD — struck by lightning, then it BLINKS ------------
+# The one thing every real cart sign does that this one didn't: flash a price.
+# flair.blink hard-blinks the text at 1 Hz (period 1000 ms, on 75 %); frame 0
+# is always ON and the hold is stretched to end on an ON phase so the exit
+# transition never leaves from a blank panel. Border + background stay lit
+# through the OFF phase — only the letters blink. Short enough to hold still
+# at 44 px (blink is a hold effect). Lightning strikes it in: the eldritch
+# Tuesday deserves a bolt. Both shifts, Tuesday only.
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+entry_transition = {type = "flair.lightning", color = [80, 200, 60], duration = 1.2}
+schedule = {start = "11:00", end = "05:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "$2 TACOS"
+font_color = [80, 200, 60]
+font = "Inter-Bold"
+font_size = 44
+animation = {style = "flair.blink", period_ms = 1000, duty = 0.75}
+border = {style = "lightbulbs", mode = "chase", lit_color = [255, 190, 0], chase_density = 3}
+background = {style = "flair.twinkle", color = [80, 200, 60], density = 0.03, brightness = 0.4}
+
+[[playlist.section]]
+mode = "slideshow"
+hold_time = 8
+entry_transition = {type = "flair.lightning", color = [80, 200, 60], duration = 1.2}
+schedule = {start = "05:00", end = "11:00", days = ["tue"]}
+
+[[playlist.section.widget]]
+type = "message"
+text = "$3 BURRITOS"
+font_color = [80, 200, 60]
+font = "Inter-Bold"
+font_size = 44
+animation = {style = "flair.blink", period_ms = 1000, duty = 0.75}
+border = {style = "lightbulbs", mode = "chase", lit_color = [255, 190, 0], chase_density = 3}
+background = {style = "flair.twinkle", color = [80, 200, 60], density = 0.03, brightness = 0.4}
 
 # ===========================================================================
 #  6 · THE MENU — full rainbow crawl of everything on the cart (PM)
@@ -430,9 +525,12 @@ font_size = 44
 border = {style = "bands", colors = "candy_cane", band_width = 8, thickness = 2}
 
 # --- 6t · TUESDAY crawls: the going-out-of-business pitch, possessed ----------
+# PM: "FOR NOTHING REMAINS" — so the whole panel crumbles to SAND and the
+# pitch pours back in grain by grain (flair.sand; a ticker section has one
+# widget, so `entry_transition` is the only slot that fires here anyway).
 [[playlist.section]]
 mode = "ticker"
-transition = {type = "flair.stickers", emoji = ["taco"], backing = "shadow"}
+entry_transition = {type = "flair.sand", duration = 3.0}
 schedule = {start = "11:00", end = "05:00", days = ["tue"]}
 
 [[playlist.section.widget]]

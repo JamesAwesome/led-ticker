@@ -5,7 +5,12 @@ import pytest
 
 import led_ticker.pixel_emoji as pe
 from led_ticker import _plugin_loader as L
-from led_ticker.fonts import UnknownFontError, hires_loader, resolve_font
+from led_ticker.fonts import (
+    UnknownFontError,
+    hires_loader,
+    list_available_hires_fonts,
+    resolve_font,
+)
 from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR, HiresFont
 
 
@@ -156,3 +161,55 @@ def test_draw_text_renders_via_public_surface():
     w50 = draw_text(canvas, font, "hi", x=50, y=10, color=c)  # == 50 + text width
     assert w0 > 0
     assert w50 == w0 + 50  # absolute end position, not relative advance
+
+
+# --- plugin-declared default thresholds (API 1.3) --------------------------
+
+
+@pytest.mark.parametrize("value", [0, 45, 255])
+def test_default_threshold_prefers_plugin_value(value):
+    hires_loader._PLUGIN_THRESHOLDS["acme.Brand"] = value
+    try:
+        assert hires_loader.default_threshold("acme.Brand") == value
+    finally:
+        hires_loader._PLUGIN_THRESHOLDS.pop("acme.Brand", None)
+
+
+def test_default_threshold_without_plugin_value_keeps_loader_default():
+    assert hires_loader.default_threshold("acme.Unlisted") == hires_loader.THRESHOLD
+    # The core table still wins for core names.
+    assert hires_loader.default_threshold("Inter-Regular") == 80
+
+
+def test_plugin_font_names_appear_in_hires_listing(tmp_path):
+    # Presence in the listing is what makes coercion._is_hires_font_name (and
+    # so the factories' font_size hints and the two-row refusal) see the font.
+    hires_loader._PLUGIN_FONTS["acme.Brand"] = tmp_path / "Brand.ttf"  # need not exist
+    try:
+        assert "acme.Brand" in list_available_hires_fonts()
+        from led_ticker.app.coercion import _is_hires_font_name
+
+        assert _is_hires_font_name("acme.Brand")
+    finally:
+        hires_loader._PLUGIN_FONTS.pop("acme.Brand", None)
+
+
+def test_reset_plugins_clears_plugin_thresholds():
+    hires_loader._PLUGIN_THRESHOLDS["acme.Brand"] = 45
+    L.reset_plugins()
+    assert "acme.Brand" not in hires_loader._PLUGIN_THRESHOLDS
+
+
+def test_registry_map_routes_font_thresholds_and_commit_does_not_count_them():
+    assert L._REGISTRY_MAP["font_thresholds"] is hires_loader._PLUGIN_THRESHOLDS
+    api = L.PluginAPI("acme", root=None)
+    api._buffers["font_thresholds"]["acme.Brand"] = 45
+    info = L.PluginInfo(namespace="acme", source="test")
+    try:
+        L._commit(api, info)
+        assert hires_loader._PLUGIN_THRESHOLDS["acme.Brand"] == 45
+        # The threshold is an attribute of the font, not a contribution.
+        assert "font_thresholds" not in info.counts
+        assert "font_thresholds" not in info.names
+    finally:
+        L.reset_plugins()

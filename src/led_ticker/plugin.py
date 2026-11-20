@@ -464,6 +464,11 @@ class PluginAPI:
         self._buffers["fonts"][qualified] = (self.root / path).resolve()
         if threshold is not None:
             self._buffers["font_thresholds"][qualified] = threshold
+        else:
+            # A re-registration of the same name replaces the path above; it
+            # must replace the threshold too, or an omitted threshold would
+            # silently keep the value an earlier call buffered.
+            self._buffers["font_thresholds"].pop(qualified, None)
 
     def overlay(self, paint: Callable[[Any], None]) -> None:
         """Register an overlay painter run on every frame before the hardware

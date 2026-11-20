@@ -171,3 +171,26 @@ def make_aiohttp_session(json_response=None, text_response=None):
     ctx.__aenter__.return_value = response
     session.get.return_value = ctx
     return session
+
+
+@pytest.fixture
+def plugin_font_brand():
+    """Register `acme.Brand` (a copy of a bundled hi-res font) with a
+    plugin-declared default threshold of 45, the way the loader's commit
+    would, and clean up afterwards."""
+    from led_ticker import _plugin_loader as L
+    from led_ticker.fonts import hires_loader
+    from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR
+
+    hits = sorted(BUNDLED_HIRES_DIR.glob("*.otf")) + sorted(
+        BUNDLED_HIRES_DIR.glob("*.ttf")
+    )
+    if not hits:
+        pytest.skip("no bundled hi-res font available")
+    hires_loader._PLUGIN_FONTS["acme.Brand"] = hits[0]
+    hires_loader._PLUGIN_THRESHOLDS["acme.Brand"] = 45
+    hires_loader.load_hires_font.cache_clear()
+    try:
+        yield "acme.Brand"
+    finally:
+        L.reset_plugins()

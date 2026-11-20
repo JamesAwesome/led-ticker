@@ -7003,29 +7003,6 @@ async def test_rule73_decision3b_names_the_effect(conf):
 # --- plugin fonts with declared thresholds (API 1.3) -----------------------
 
 
-@pytest.fixture
-def plugin_font_brand():
-    """Register `acme.Brand` (a copy of a bundled hi-res font) with a
-    plugin-declared default threshold of 45, the way the loader's commit
-    would, and clean up afterwards."""
-    from led_ticker import _plugin_loader as L
-    from led_ticker.fonts import hires_loader
-    from led_ticker.fonts.hires_loader import BUNDLED_HIRES_DIR
-
-    hits = sorted(BUNDLED_HIRES_DIR.glob("*.otf")) + sorted(
-        BUNDLED_HIRES_DIR.glob("*.ttf")
-    )
-    if not hits:
-        pytest.skip("no bundled hi-res font available")
-    hires_loader._PLUGIN_FONTS["acme.Brand"] = hits[0]
-    hires_loader._PLUGIN_THRESHOLDS["acme.Brand"] = 45
-    hires_loader.load_hires_font.cache_clear()
-    try:
-        yield "acme.Brand"
-    finally:
-        L.reset_plugins()
-
-
 def _two_plugin_font_widgets(
     first_threshold_line: str, second_threshold_line: str
 ) -> str:
@@ -7063,8 +7040,12 @@ async def test_rule2_quiet_when_plugin_font_widgets_sit_on_plugin_default(
 async def test_rule2_warns_when_one_plugin_font_widget_overrides(
     conf, plugin_font_brand
 ):
+    """Spelling out the LOADER default (128) on a plugin font that declared
+    45 is an override, not "on default": the two widgets differ (128 vs 45)
+    and rule 2 must warn. A rule 2 that compared against 128 instead of the
+    plugin's value would stay quiet here."""
     result = await validate_config(
-        conf(_two_plugin_font_widgets("font_threshold = 100", ""))
+        conf(_two_plugin_font_widgets("font_threshold = 128", ""))
     )
     assert any(w.rule == 2 for w in result.warnings), result.warnings
 

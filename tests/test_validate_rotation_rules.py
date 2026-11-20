@@ -67,7 +67,9 @@ class _StubPropeller:
 def stub_propeller_registered():
     _ANIMATION_REGISTRY["teststub.propeller"] = _StubPropeller
     yield
-    del _ANIMATION_REGISTRY["teststub.propeller"]
+    # pop, not del: a plugin-font fixture torn down first calls
+    # reset_plugins(), which already dropped every dotted key.
+    _ANIMATION_REGISTRY.pop("teststub.propeller", None)
 
 
 class _StubFisheye:
@@ -88,7 +90,7 @@ class _StubFisheye:
 def stub_fisheye_registered():
     _ANIMATION_REGISTRY["teststub.fisheye"] = _StubFisheye
     yield
-    del _ANIMATION_REGISTRY["teststub.fisheye"]
+    _ANIMATION_REGISTRY.pop("teststub.fisheye", None)
 
 
 # ---------------------------------------------------------------------------
@@ -782,3 +784,39 @@ async def test_rule65_best_effort_unknown_animation_does_not_crash(
     result = await validate_config(conf(toml))  # must not raise
     issues = [e for e in result.errors if e.rule == 65]
     assert issues == [], f"Rule 65 must not fire for unknown animation: {issues}"
+
+
+# ---------------------------------------------------------------------------
+# Plugin fonts are hi-res too: rules 63/64 must see `ns.Font` the way they
+# see a bundled hi-res name (fixture `plugin_font_brand` in conftest).
+# ---------------------------------------------------------------------------
+
+
+async def test_rule63_fires_for_rotation_animation_on_plugin_font(
+    conf, stub_propeller_registered, plugin_font_brand
+) -> None:
+    toml = _toml(
+        5.0,
+        'animation = {style = "teststub.propeller", spin_seconds = 1.0}',
+        font_line=f'font = "{plugin_font_brand}"',
+        font_size_line="font_size = 12",
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 63]
+    assert len(issues) == 1, f"Expected 1 rule-63 warning, got: {result.warnings}"
+    assert plugin_font_brand in issues[0].message
+
+
+async def test_rule64_fires_for_lens_animation_on_plugin_font(
+    conf, stub_fisheye_registered, plugin_font_brand
+) -> None:
+    toml = _toml(
+        5.0,
+        'animation = {style = "teststub.fisheye"}',
+        font_line=f'font = "{plugin_font_brand}"',
+        font_size_line="font_size = 12",
+    )
+    result = await validate_config(conf(toml))
+    issues = [w for w in result.warnings if w.rule == 64]
+    assert len(issues) == 1, f"Expected 1 rule-64 warning, got: {result.warnings}"
+    assert plugin_font_brand in issues[0].message

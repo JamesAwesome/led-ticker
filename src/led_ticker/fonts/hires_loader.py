@@ -50,7 +50,11 @@ def default_threshold(name: str) -> int:
     """Rasterization threshold `resolve_font` uses for `name` when the
     caller passes none: the plugin-declared value in `_PLUGIN_THRESHOLDS`,
     else the per-font value in `DEFAULT_THRESHOLDS`, else `THRESHOLD`.
-    Membership checks, not truthiness: 0 is a legal threshold."""
+    Membership checks, not truthiness: 0 is a legal threshold.
+
+    Plugin values land at plugin-load commit, AFTER every `register()` has
+    returned: call this at build or draw time, never at import or inside
+    `register()`, where a plugin's own font still reads as `THRESHOLD`."""
     if name in _PLUGIN_THRESHOLDS:
         return _PLUGIN_THRESHOLDS[name]
     return DEFAULT_THRESHOLDS.get(name, THRESHOLD)

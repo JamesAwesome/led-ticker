@@ -83,7 +83,8 @@ def resolve_font(
     target and there is no sensible default.
     `threshold` (0-255) is the rasterization cutoff for hi-res fonts;
     `None` uses the font's own default (`hires_loader.default_threshold`:
-    80 for the bundled Inter-Regular, otherwise 128 = 50%). Lower it
+    80 for the bundled Inter-Regular, a plugin font's declared value,
+    otherwise 128 = 50%). Lower it
     (~80) for thin-stroked fonts whose antialiased edges otherwise get
     clipped. Ignored for BDF.
 

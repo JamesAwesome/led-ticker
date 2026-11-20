@@ -207,6 +207,17 @@ def test_font_without_threshold_leaves_no_threshold_entry(tmp_path):
     assert "acme.Brand" not in api._buffers["font_thresholds"]
 
 
+def test_font_reregistration_without_threshold_drops_stale_entry(tmp_path):
+    """The second api.font call for a name wins for the path; it must also
+    win for the threshold, so omitting it means the loader default, not the
+    value a prior call for the same name buffered."""
+    api = PluginAPI("acme", root=tmp_path)
+    api.font("Brand", "fonts/a.ttf", threshold=45)
+    api.font("Brand", "fonts/b.ttf")
+    assert api._buffers["fonts"]["acme.Brand"].name == "b.ttf"
+    assert "acme.Brand" not in api._buffers["font_thresholds"]
+
+
 @pytest.mark.parametrize("bad", [45.0, True, -1, 256, "45"])
 def test_font_rejects_bad_threshold(tmp_path, bad):
     api = PluginAPI("acme", root=tmp_path)

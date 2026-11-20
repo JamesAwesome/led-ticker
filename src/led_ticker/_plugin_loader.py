@@ -18,7 +18,7 @@ from led_ticker.backgrounds import _BACKGROUND_REGISTRY
 from led_ticker.borders import _BORDER_REGISTRY
 from led_ticker.color_providers import _PROVIDER_REGISTRY
 from led_ticker.config import PluginsConfig, _parse_plugins_block
-from led_ticker.fonts.hires_loader import _PLUGIN_FONTS
+from led_ticker.fonts.hires_loader import _PLUGIN_FONTS, _PLUGIN_THRESHOLDS
 from led_ticker.pixel_emoji import EMOJI_REGISTRY, HIRES_REGISTRY
 from led_ticker.plugin import API_VERSION, PluginAPI
 from led_ticker.sources import _PLUGIN_SOURCE_TYPES
@@ -42,9 +42,14 @@ _REGISTRY_MAP: dict[str, dict[str, Any]] = {
     "emojis": EMOJI_REGISTRY,
     "hires_emojis": HIRES_REGISTRY,
     "fonts": _PLUGIN_FONTS,
+    "font_thresholds": _PLUGIN_THRESHOLDS,
     "backends": _BACKEND_REGISTRY,
     "sources": _PLUGIN_SOURCE_TYPES,
 }
+# Surfaces committed to a registry but NOT reported in PluginInfo.counts /
+# .names: a font's declared threshold is an attribute of that font, not a
+# contribution an operator references in TOML.
+_UNCOUNTED_SURFACES: frozenset[str] = frozenset({"font_thresholds"})
 
 
 @dataclass
@@ -132,7 +137,7 @@ def _commit(api: PluginAPI, info: PluginInfo) -> None:
             continue
         for name, obj in buf.items():
             registry[name] = obj
-        if buf:
+        if buf and surface not in _UNCOUNTED_SURFACES:
             info.counts[surface] = len(buf)
             info.names[surface] = sorted(buf)
 

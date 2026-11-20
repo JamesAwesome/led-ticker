@@ -194,7 +194,10 @@ __all__ = [
 #   (1, 2) — a background's ``paint`` receives a canvas carrying the section's
 #            logical scale on EVERY host (image hosts re-wrap the real canvas
 #            at the widget's ``_logical_scale``; led-ticker#535).
-API_VERSION: tuple[int, int] = (1, 2)
+#   (1, 3) — ``api.font`` accepts ``threshold=``; ``default_threshold`` honours
+#            it; plugin fonts appear in the hi-res listing, so validate and
+#            the factories treat them as hi-res.
+API_VERSION: tuple[int, int] = (1, 3)
 
 # Lifecycle-hook callable shapes (collected by the loader, run by app/run.py).
 # A startup hook may be sync or async; a shutdown hook takes no args.
@@ -278,6 +281,7 @@ class PluginAPI:
             "emojis": {},
             "hires_emojis": {},
             "fonts": {},
+            "font_thresholds": {},
             "backends": {},
             "sources": {},
         }
@@ -424,23 +428,42 @@ class PluginAPI:
         """
         self._buffers["hires_emojis"][self._qualify(slug)] = data
 
-    def font(self, name: str, path: str) -> None:
+    def font(self, name: str, path: str, threshold: int | None = None) -> None:
         """Register a font file under ``namespace.name``.
 
         ``path`` is relative to the plugin's root (its directory for a local
         plugin, its package dir for an installed one). Resolved to an absolute
         path now; the font loader consults it ahead of ``config/fonts/`` and
         the bundled fonts. Direct call — a font is a file, not a class.
+
+        ``threshold`` (API ``(1, 3)``) is the font's default ``font_threshold``
+        — what ``default_threshold`` returns for it and what validate rule 2
+        treats as "on default" — an ``int`` 0-255, not ``bool``. Omit it for
+        the loader default (128). Thin-stroked display fonts (outline, shade)
+        need a low value, around 45, or their hairlines rasterize dashed.
         """
         if self.root is None:
             raise ValueError(
                 f"api.font({name!r}) needs a plugin root, but none could be "
                 "determined for this plugin (zip-imported package?)."
             )
+        # Validate BEFORE touching any buffer so a bad threshold leaves nothing
+        # half-registered (the loader skips the whole plugin on this error).
+        if threshold is not None and (
+            isinstance(threshold, bool)
+            or not isinstance(threshold, int)
+            or not 0 <= threshold <= 255
+        ):
+            raise ValueError(
+                f"api.font({name!r}): threshold must be an int 0-255, got {threshold!r}"
+            )
         # Resolved eagerly to an absolute Path; existence is NOT checked here —
         # a missing path surfaces as UnknownFontError at render time, same as a
         # mis-spelled bundled font name.
-        self._buffers["fonts"][self._qualify(name)] = (self.root / path).resolve()
+        qualified = self._qualify(name)
+        self._buffers["fonts"][qualified] = (self.root / path).resolve()
+        if threshold is not None:
+            self._buffers["font_thresholds"][qualified] = threshold
 
     def overlay(self, paint: Callable[[Any], None]) -> None:
         """Register an overlay painter run on every frame before the hardware

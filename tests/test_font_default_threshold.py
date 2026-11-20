@@ -90,6 +90,12 @@ class TestDefaultThreshold:
 
 
 class TestResolveFontUsesPerFontDefault:
+    def test_plugin_font_thresholds_are_a_1_3_guarantee(self):
+        """A plugin that passes api.font(..., threshold=) gates on this."""
+        from led_ticker import plugin
+
+        assert plugin.API_VERSION >= (1, 3)
+
     def test_regular_without_threshold_resolves_at_80(self):
         assert resolve_font("Inter-Regular", 24) is resolve_font(
             "Inter-Regular", 24, threshold=80

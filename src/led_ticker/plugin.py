@@ -278,6 +278,7 @@ class PluginAPI:
             "emojis": {},
             "hires_emojis": {},
             "fonts": {},
+            "font_thresholds": {},
             "backends": {},
             "sources": {},
         }

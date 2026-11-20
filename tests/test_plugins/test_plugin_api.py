@@ -189,3 +189,29 @@ def test_headless_canvas_on_public_surface():
 
     assert p.HeadlessCanvas is HeadlessCanvas
     assert "HeadlessCanvas" in p.__all__
+
+
+# --- api.font threshold (API 1.3) ------------------------------------------
+
+
+def test_font_threshold_is_buffered_when_given(tmp_path):
+    api = PluginAPI("acme", root=tmp_path)
+    api.font("Brand", "fonts/Brand.ttf", threshold=45)
+    assert api._buffers["font_thresholds"]["acme.Brand"] == 45
+    assert "acme.Brand" in api._buffers["fonts"]
+
+
+def test_font_without_threshold_leaves_no_threshold_entry(tmp_path):
+    api = PluginAPI("acme", root=tmp_path)
+    api.font("Brand", "fonts/Brand.ttf")
+    assert "acme.Brand" not in api._buffers["font_thresholds"]
+
+
+@pytest.mark.parametrize("bad", [45.0, True, -1, 256, "45"])
+def test_font_rejects_bad_threshold(tmp_path, bad):
+    api = PluginAPI("acme", root=tmp_path)
+    with pytest.raises(ValueError, match="threshold"):
+        api.font("Brand", "fonts/Brand.ttf", threshold=bad)
+    # Nothing half-registered: the path is not buffered either.
+    assert "acme.Brand" not in api._buffers["fonts"]
+    assert "acme.Brand" not in api._buffers["font_thresholds"]

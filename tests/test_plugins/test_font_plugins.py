@@ -213,3 +213,56 @@ def test_registry_map_routes_font_thresholds_and_commit_does_not_count_them():
         assert "font_thresholds" not in info.names
     finally:
         L.reset_plugins()
+
+
+def _write_threshold_plugin(tmp_path):
+    """Package-dir local plugin `acme` registering Brand.ttf with threshold 45."""
+    L.reset_plugins()
+    plugin_dir = tmp_path / "plugins"
+    pkg = plugin_dir / "acme"
+    pkg.mkdir(parents=True)
+    (pkg / "Brand.ttf").write_bytes(_a_bundled_font_path().read_bytes())
+    (pkg / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            def register(api):
+                api.font("Brand", "Brand.ttf", threshold=45)
+            """
+        )
+    )
+    result = L.load_plugins(plugin_dir, entry_points_enabled=False)
+    assert not result.failed, result.failed
+    return plugin_dir
+
+
+def test_local_plugin_font_threshold_reaches_resolve_font(tmp_path):
+    _write_threshold_plugin(tmp_path)
+    try:
+        font = resolve_font("acme.Brand", size=24)  # no threshold passed
+        assert isinstance(font, HiresFont)
+        assert font.threshold == 45
+        # An explicit threshold still wins.
+        assert resolve_font("acme.Brand", size=24, threshold=100).threshold == 100
+        assert "acme.Brand" in list_available_hires_fonts()
+    finally:
+        L.reset_plugins()
+
+
+async def test_plugin_hires_font_refused_on_two_row_image(tmp_path):
+    """The factories' two-row image refusal (rule 71's runtime mirror) keys on
+    the hi-res listing; a plugin font must be refused like Inter-Bold."""
+    from led_ticker.app.factories import validate_widget_cfg
+
+    _write_threshold_plugin(tmp_path)
+    try:
+        cfg = {
+            "type": "image",
+            "path": "x.png",
+            "text": "top",
+            "bottom_text": "bottom",
+            "font": "acme.Brand",
+        }
+        with pytest.raises(ValueError, match="hi-res font on a two-row"):
+            await validate_widget_cfg(cfg, None, config_dir=tmp_path)
+    finally:
+        L.reset_plugins()

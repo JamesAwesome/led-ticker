@@ -7,7 +7,7 @@
 # Pinned with == so `make try` always builds a reproducible image.
 
 # RSS/Atom feed headlines — type = "rss.feed" (no API key needed; feed_url is public)
-led-ticker-rss==0.2.1
+led-ticker-rss==0.3.0
 
 # Sprite-trail transitions: nyancat / pokeball / pacman / sailor_moon
 # (transition = "nyancat.forward" etc.)

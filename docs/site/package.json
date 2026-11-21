@@ -21,7 +21,7 @@
     "check:captions": "node scripts/check-captions.mjs"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.7.4",
+    "@astrojs/sitemap": "^3.7.5",
     "@astrojs/starlight": "^0.42.7",
     "astro": "^7.4.2",
     "marked": "^18.1.1",

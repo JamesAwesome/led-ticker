@@ -29,3 +29,23 @@ tests; docs drift). VERDICT: 0 HIGH, 0 MEDIUM, 3 LOW, 1 DOCS.
 - Out of scope, pre-existing (not counted): webui `inventory.py` font picker never lists plugin fonts; CLAUDE.md "Hi-res fonts" scan order omits plugin fonts being consulted first; rule 2 only inspects `font`, not `top_font`/`bottom_font`; `_find_font_path` does not fall through to the user dir for a registered-but-missing plugin path.
 
 Full suite after the fold: 5287 passed, 5 skipped.
+
+## Cycle 2
+
+Reviewer: fresh fable subagent (rotated lenses: loader robustness with the
+uncounted surface, every font-keyed cache after `reset_plugins()`, validate ↔
+factory parity for `font` / `top_font` / `bottom_font` across message, clock,
+countdown, countup, two_row, gif, image, test-order pollution across forward,
+reversed and mixed file orders, list-fields wording consumers). VERDICT: 0 HIGH,
+0 MEDIUM, 0 LOW, 0 DOCS → loop exits.
+
+- Same-qualified-name attack (local `a/` registering `b.Brand` vs `a.b.py` registering `Brand`): second plugin refused whole by `_commit`; `_PLUGIN_THRESHOLDS` stays consistent with `_PLUGIN_FONTS`.
+- Every font-keyed cache (`load_hires_font`, `_dejavu_glyph`, `drawing._TEXT_WIDTH_CACHE`) keys on the EFFECTIVE threshold resolved at call time, so a plugin value changes the key.
+- Rule 5 and rule 71 messages byte-identical between validate and factory for a plugin font and for `Inter-Bold`.
+- Out of scope, pre-existing (not counted): validate maps only "requires font_size" to rule 5, so `top_font`/`bottom_font` size errors surface as `rule=None`; `reset_plugins()` does not clear `drawing._TEXT_WIDTH_CACHE` (test helper only); dotted local-plugin namespaces are accepted without validation.
+
+## Exit
+
+Severity trend: 0H/0M/3L/1D → 0H/0M/0L/0D. Two cycles. Next: push, CI, James
+decides on merge; core release; then the flair PR from the spec's Flair
+section with the released version as floor.

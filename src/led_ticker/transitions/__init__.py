@@ -72,6 +72,17 @@ class Transition(Protocol):
           nyancat) use this at t≥0.95 to Fill() before drawing
           incoming so a bg-colored section doesn't flash black for one
           tick.
+        - ``outgoing_bg_color: tuple[int,int,int] | None`` — the outgoing
+          section's background color (API ``(1, 5)``). A transition that
+          snapshots the outgoing widget paints this under it.
+        - ``incoming_scale: int | None`` — the incoming section's logical
+          scale, ``None`` for a within-section swap (API ``(1, 5)``). A
+          snapshotting transition draws the incoming widget at this
+          geometry; the runner re-wraps the live canvas to it at
+          ``scale_switch_at``.
+        - ``incoming_content_height: int`` — the incoming section's logical
+          height (API ``(1, 5)``); meaningful only with ``incoming_scale``
+          (it arrives as its default 16 within a section).
 
         At t=0: render only outgoing. At t=1.0: render only incoming.
         The runner calls ``canvas.Clear()`` or ``canvas.Fill()`` BEFORE
@@ -455,6 +466,13 @@ async def run_transition(
                 # text on black", visible as a single-tick flash on
                 # bg-colored sections.
                 incoming_bg_color=incoming_bg_color,
+                # Snapshotting transitions (`fade`) draw each widget ONCE into
+                # an owned raster, so they need the geometry the incoming
+                # widget will be displayed at and the outgoing side's bg; the
+                # runner already holds all three (plugin API (1, 5)).
+                incoming_scale=incoming_scale,
+                incoming_content_height=incoming_content_height,
+                outgoing_bg_color=outgoing_bg_color,
             )
             new_canvas = _swap(active, frame)
             if incoming_canvas is not None:

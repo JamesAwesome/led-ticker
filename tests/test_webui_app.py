@@ -823,7 +823,27 @@ def test_inventory_dedups_plugin_emoji_across_surfaces():
     body = html[start : start + 2500]
     assert "pluginEmoji" in body, "loadInventory should collect plugin emoji"
     # The collection must dedup (a Set) so a both-surfaces slug isn't doubled.
-    assert "Set" in body, "plugin emoji collection must dedup across surfaces"
+    assert "seenEmoji" in body and "new Set()" in body, (
+        "plugin emoji collection must dedup across surfaces"
+    )
+
+
+def test_inventory_merges_plugin_fonts_like_emoji():
+    """Plugin font names reach the browser via status `plugins[].names.fonts`
+    but the Inventory only merged the emoji surfaces, so plugin fonts never
+    listed (#560 C1). Guard the browser-side merge in loadInventory()."""
+    from pathlib import Path
+
+    import led_ticker.webui as webui_pkg
+
+    html = (Path(webui_pkg.__file__).parent / "static" / "index.html").read_text()
+    start = html.index("async function loadInventory()")
+    body = html[start : start + 3500]
+    assert '"fonts"' in body or "names.fonts" in body, (
+        "loadInventory should read the plugins' `fonts` surface"
+    )
+    assert "pluginFonts" in body, "loadInventory should collect plugin fonts"
+    assert ">plugin<" in body, "plugin font rows should be tagged as plugin"
 
 
 def test_error_and_warning_are_global_color_utilities():

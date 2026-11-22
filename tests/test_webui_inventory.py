@@ -9,7 +9,10 @@ def test_user_fonts_listed(tmp_path):
     (fonts / "custom.ttf").write_bytes(b"x")
     (fonts / "pixel.bdf").write_bytes(b"x")
     inv = build_inventory(tmp_path)
-    assert inv["fonts"]["user"] == ["custom.ttf", "pixel.bdf"]
+    # TOML names (stems), not file names: `font = "custom"` is what resolves.
+    # A user .bdf never resolves (the hi-res loader scans .otf/.ttf only), so
+    # it is not offered as a name to type.
+    assert inv["fonts"]["user"] == ["custom"]
 
 
 def test_user_fonts_missing_dir_is_empty(tmp_path):
@@ -18,7 +21,7 @@ def test_user_fonts_missing_dir_is_empty(tmp_path):
 
 def test_user_fonts_excludes_non_font_files(tmp_path):
     # A user's config/fonts/ dir often ships non-font files alongside a font —
-    # e.g. a license. Only actual font files (.bdf/.ttf/.otf/.ttc) should list.
+    # e.g. a license. Only resolvable font files (.ttf/.otf) should list.
     fonts = tmp_path / "fonts"
     fonts.mkdir()
     (fonts / "Atkinson.ttf").write_bytes(b"x")
@@ -26,16 +29,17 @@ def test_user_fonts_excludes_non_font_files(tmp_path):
     (fonts / "Inter.otf").write_bytes(b"x")
     (fonts / "FSLA_NonCommercial_License.html").write_text("license")
     (fonts / "README.txt").write_text("notes")
-    assert build_inventory(tmp_path)["fonts"]["user"] == [
-        "Atkinson.ttf",
-        "Inter.otf",
-        "pixel.bdf",
-    ]
+    assert build_inventory(tmp_path)["fonts"]["user"] == ["Atkinson", "Inter"]
 
 
-def test_bundled_fonts_nonempty_and_sorted(tmp_path):
+def test_bundled_fonts_are_toml_names(tmp_path):
+    """The names a user types in TOML: BDF aliases (`5x8`) and hi-res stems
+    (`Inter-Bold`) — no `hires/` prefix, no suffix, no license file (#560 C1)."""
     bundled = build_inventory(tmp_path)["fonts"]["bundled"]
-    assert any(b.endswith(".bdf") for b in bundled)  # 5x8.bdf etc.
+    assert "5x8" in bundled and "6x12" in bundled
+    assert "Inter-Bold" in bundled and "Inter-Regular" in bundled
+    assert not any("/" in b or "." in b for b in bundled), bundled
+    assert not any("LICENSE" in b.upper() for b in bundled), bundled
     assert bundled == sorted(bundled)
 
 

@@ -14,7 +14,7 @@ import attrs
 from led_ticker import status_board
 from led_ticker._types import Canvas
 from led_ticker.colors import RGB_WHITE
-from led_ticker.constants import ENGINE_TICK_MS
+from led_ticker.constants import ENGINE_TICK_MS, MAX_SETTLE_TICKS
 from led_ticker.drawing import get_widget_padding
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
@@ -92,12 +92,9 @@ DEFAULT_BUFFER_MSG: TickerMessage = _CircleBufferMsg(
     text=" \u2022 ", center=False, font_color=RGB_WHITE
 )
 
-# Settle-to-rest bound (#305): at the hold->transition handoff the engine
-# may extend the hold so animated effects (shimmer sweep, typewriter
-# reveal) land at a rest point. All-or-nothing: a remainder above this
-# cap gets NO extension (never pay latency without a clean landing).
-# ~1 s keeps the slip inside the rotation's existing jitter budget.
-MAX_SETTLE_TICKS: int = 1000 // ENGINE_TICK_MS
+# MAX_SETTLE_TICKS (settle-to-rest bound, #305) lives in `constants.py`
+# alongside ENGINE_TICK_MS and is re-exported here for existing
+# `from led_ticker.ticker import MAX_SETTLE_TICKS` call sites.
 
 # Producer/consumer backpressure (#394). The enqueue producer used to run
 # unboundedly ahead of the display consumer (~30k items in 0.5s measured),

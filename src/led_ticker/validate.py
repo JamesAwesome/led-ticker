@@ -4347,9 +4347,11 @@ def _validate_static_prebuild(
     # A broken-TOML or structural [plugins] error here is re-surfaced below by
     # load_config (Phase 1a) as a clean ValidationResult error, so don't let it
     # escape the validator. (Plugin LOAD failures are already isolated inside
-    # load_plugins and recorded in result.failed, not raised.)
+    # load_plugins and recorded in result.failed, not raised.) `config_dir`
+    # anchors the local plugin dir like it anchors fonts/assets: the text
+    # entry point's `path` is a temp file (#560 A1).
     with contextlib.suppress(Exception):
-        load_plugins_for_config(path)
+        load_plugins_for_config(path, config_dir=config_dir)
 
     from led_ticker.app import _configure_user_font_dir
     from led_ticker.config import load_config

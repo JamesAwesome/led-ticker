@@ -136,6 +136,24 @@ _ERROR_PATTERNS: list[tuple[str, int | None, str]] = [
         ),
     ),
     (
+        "requires top_font_size",
+        5,
+        "Add top_font_size = <pixels> next to top_font (e.g. top_font_size = 22)",
+    ),
+    (
+        "requires bottom_font_size",
+        5,
+        (
+            "Add bottom_font_size = <pixels> next to bottom_font "
+            "(e.g. bottom_font_size = 22)"
+        ),
+    ),
+    (
+        "requires small_font_size",
+        5,
+        "Add small_font_size = <pixels> next to small_font",
+    ),
+    (
         "requires font_size",
         5,
         "Add font_size = <pixels> next to font (e.g. font_size = 24 on bigsign)",
@@ -2833,15 +2851,19 @@ def _check_soft(config: AppConfig) -> list[ValidationIssue]:
         # it out or leaves both unset.
         from led_ticker.fonts.hires_loader import default_threshold  # noqa: PLC0415
 
+        # Every (font, threshold) prefix pair `factories._resolve_fonts`
+        # consumes — a two_row's `top_font_threshold` can invert weight
+        # against a message just as `font_threshold` can (#560 B1).
         family_thresholds: dict[str, list[tuple[int, bool]]] = {}
         for widget_cfg in section.widgets:
-            fname = widget_cfg.get("font")
-            if fname is None:
-                continue
-            default = default_threshold(str(fname))
-            thr = int(widget_cfg.get("font_threshold", default))
-            family = _font_family(str(fname))
-            family_thresholds.setdefault(family, []).append((thr, thr == default))
+            for font_key in ("font", "top_font", "bottom_font", "small_font"):
+                fname = widget_cfg.get(font_key)
+                if fname is None:
+                    continue
+                default = default_threshold(str(fname))
+                thr = int(widget_cfg.get(f"{font_key}_threshold", default))
+                family = _font_family(str(fname))
+                family_thresholds.setdefault(family, []).append((thr, thr == default))
 
         for family, entries in family_thresholds.items():
             unique = {thr for thr, _ in entries}

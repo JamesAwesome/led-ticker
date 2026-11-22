@@ -34,6 +34,7 @@ import attrs
 from led_ticker._types import Canvas, Color, Font
 from led_ticker.color_providers import _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
+from led_ticker.constants import MAX_SETTLE_MS
 from led_ticker.drawing import compute_baseline, get_text_width, safe_scale
 from led_ticker.fonts import (
     FONT_DEFAULT,
@@ -925,10 +926,17 @@ class _BaseImageWidget(FrameAwareBase):
         )
 
     def _effect_total_chars(self, attr_name: str) -> int:
-        """``"animation"`` counts the text `_anim_frame` actually reveals —
-        the token-resolved single-row string under the widget's own emoji
-        gate — so the settle window matches the reveal. Other effects keep
-        the FrameAwareBase default."""
+        """Per-effect-kind counts mirroring this widget's draw anchors so the
+        settle window matches what the effect actually animates:
+
+        - ``"animation"``: the text `_anim_frame` reveals — the token-
+          resolved single-row string under the widget's own emoji gate.
+        - ``"font_color"``: the single-row `_draw_text` anchor — the
+          emoji-excluding count when the text renders emoji, else len.
+        - ``"top_color"`` / ``"bottom_color"``: that row's resolved text
+          (the two-row rows anchor per row, like `TwoRowMessage`).
+
+        Other effects keep the FrameAwareBase default."""
         if attr_name == "animation":
             from led_ticker.animations import animation_total_chars  # noqa: PLC0415
 
@@ -940,7 +948,33 @@ class _BaseImageWidget(FrameAwareBase):
                     inline_emoji=self._has_emoji(),
                 ),
             )
-        return super()._effect_total_chars(attr_name)
+        if attr_name == "font_color":
+            text = self._resolved_text_single
+        elif attr_name == "top_color":
+            text = self._resolved_top_text
+        elif attr_name == "bottom_color":
+            text = self._resolved_bottom_text
+        else:
+            return super()._effect_total_chars(attr_name)
+        if self._has_emoji() and has_renderable_emoji(text):
+            from led_ticker.pixel_emoji import count_text_chars  # noqa: PLC0415
+
+            return max(1, count_text_chars(text))
+        return max(1, len(text))
+
+    def _settle_ticks(self, tick_ms: int) -> int:
+        """Extra ticks to append after the natural play duration so the
+        upcoming transition lands on a rest point (#526) — the play()-loop
+        twin of `ticker._swap_and_scroll`'s settle seam (#305).
+
+        All-or-nothing against a ~1 s wall-clock budget expressed in THIS
+        loop's tick units (`MAX_SETTLE_MS // tick_ms`; the loop ticks at
+        `scroll_speed_ms`, not ENGINE_TICK_MS): a remainder above the cap
+        gets NO extension. `frames_to_transition_ready` never raises.
+        """
+        extra = self.frames_to_transition_ready()
+        cap = MAX_SETTLE_MS // max(1, tick_ms)
+        return extra if 0 < extra <= cap else 0
 
     def _measure_text(self, canvas: Canvas) -> int:
         # Use the resolved display string (token-substituted). For non-token
@@ -1816,7 +1850,14 @@ class _BaseImageWidget(FrameAwareBase):
             return canvas
 
         loop = asyncio.get_running_loop()
-        for tick in range(n_ticks):
+        # Settle-to-rest (#526): `extra_ticks` is set ONCE, when `tick`
+        # reaches `n_ticks`, so the same tick body (swap capture, frame
+        # advance, monotonic elapsed) runs the settle ticks too. Held
+        # text only — a marquee has no rest point and extra ticks would
+        # start a partial re-entry before the transition.
+        extra_ticks = 0
+        tick = 0
+        while tick < n_ticks + extra_ticks:
             t0 = loop.time()
             self._pick_frame_for_elapsed(tick * tick_ms)
             # Advance the widget's own frame counter so ColorProviders
@@ -1901,6 +1942,9 @@ class _BaseImageWidget(FrameAwareBase):
             else:
                 text_canvas = canvas
             await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
+            tick += 1
+            if tick == n_ticks and not scrolling:
+                extra_ticks = self._settle_ticks(tick_ms)
 
             if scrolling:
                 scroll_pos += scroll_step
@@ -2141,7 +2185,11 @@ class _BaseImageWidget(FrameAwareBase):
             return canvas
 
         loop = asyncio.get_running_loop()
-        for tick in range(n_ticks):
+        # Settle-to-rest (#526) — see the single-row loop. Held rows only:
+        # a scrolling bottom row has no rest point.
+        extra_ticks = 0
+        tick = 0
+        while tick < n_ticks + extra_ticks:
             t0 = loop.time()
             self._pick_frame_for_elapsed(tick * tick_ms)
             # Advance the per-widget frame counter so ColorProviders
@@ -2212,6 +2260,9 @@ class _BaseImageWidget(FrameAwareBase):
             else:
                 text_canvas = canvas
             await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
+            tick += 1
+            if tick == n_ticks and not (bottom_scrolls or wrap_mode):
+                extra_ticks = self._settle_ticks(tick_ms)
             if wrap_mode:
                 scroll_pos -= 1
                 if cycle_width:

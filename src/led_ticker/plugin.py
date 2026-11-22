@@ -197,7 +197,10 @@ __all__ = [
 #   (1, 3) — ``api.font`` accepts ``threshold=``; ``default_threshold`` honours
 #            it; plugin fonts appear in the hi-res listing, so validate and
 #            the factories treat them as hi-res.
-API_VERSION: tuple[int, int] = (1, 3)
+#   (1, 4) — ``frames_to_rest`` is honoured on the ``gif`` / ``image`` hosts
+#            too: their ``play()`` loops settle (held text only, ~1 s cap)
+#            before the transition, like the message path (led-ticker#526).
+API_VERSION: tuple[int, int] = (1, 4)
 
 # Lifecycle-hook callable shapes (collected by the loader, run by app/run.py).
 # A startup hook may be sync or async; a shutdown hook takes no args.

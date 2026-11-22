@@ -97,3 +97,35 @@ def guard_for_transition(widget: Any, breaker: RenderBreaker | None) -> Any:
     if breaker is None:
         return widget
     return _TransitionDrawGuard(widget, breaker)
+
+
+# --- helpers for transitions that snapshot a widget -----------------------------
+# A snapshotting transition (`fade`) draws each widget ONCE into an owned
+# readable raster, so (1) a widget that painted some pixels and then raised
+# must have its partial snapshot discarded, and (2) a pixel value the real
+# SetPixel would have rejected inside the guard only surfaces at the raster's
+# conversion, outside `_TransitionDrawGuard.draw`. Both helpers act on the
+# INNER widget: `_key` falls back to id() for content-less widgets and guards
+# are rebuilt per firing, so tripping the guard object would disable a key no
+# later draw ever checks.
+
+
+def transition_draw_tripped(obj: Any) -> bool:
+    """True when `obj` is a transition draw guard whose widget is disabled.
+    Anything else (a raw widget, a guard whose widget is healthy) reads False."""
+    if not isinstance(obj, _TransitionDrawGuard):
+        return False
+    widget = object.__getattribute__(obj, "_widget")
+    breaker = object.__getattribute__(obj, "_breaker")
+    return breaker.is_disabled(widget)
+
+
+def trip_transition_draw(obj: Any, exc: BaseException) -> bool:
+    """Trip the widget behind a transition draw guard; returns whether there
+    was a breaker to trip (False for a raw widget, which has none)."""
+    if not isinstance(obj, _TransitionDrawGuard):
+        return False
+    widget = object.__getattribute__(obj, "_widget")
+    breaker = object.__getattribute__(obj, "_breaker")
+    breaker.trip(widget, exc)
+    return True

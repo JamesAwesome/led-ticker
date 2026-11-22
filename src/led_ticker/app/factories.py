@@ -95,7 +95,7 @@ FIELD_HINTS: dict[str, FieldHint] = {
     "font_threshold": FieldHint(
         "int 0–255",
         "bitmask threshold for hi-res font rendering",
-        "128 (80 for Inter-Regular)",
+        "per font: 128; 80 for Inter-Regular; a plugin font's declared value",
     ),
     "font_color": FieldHint(
         'color | "rainbow" | "color_cycle" | "shimmer" | {style=...}',

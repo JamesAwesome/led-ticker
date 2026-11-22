@@ -6998,3 +6998,62 @@ async def test_rule73_decision3b_names_the_effect(conf):
         len(warns) == 1
         and "own pool runs without default's exclude" in warns[0].message
     )  # noqa: E501
+
+
+# --- plugin fonts with declared thresholds (API 1.3) -----------------------
+
+
+def _two_plugin_font_widgets(
+    first_threshold_line: str, second_threshold_line: str
+) -> str:
+    return GOOD_CONFIG + textwrap.dedent(f"""\
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "one"
+        font = "acme.Brand"
+        font_size = 24
+        {first_threshold_line}
+
+        [[playlist.section.widget]]
+        type = "message"
+        text = "two"
+        font = "acme.Brand"
+        font_size = 24
+        {second_threshold_line}
+        """)
+
+
+async def test_rule2_quiet_when_plugin_font_widgets_sit_on_plugin_default(
+    conf, plugin_font_brand
+):
+    """One widget spells out the plugin's default (45), the other leaves it
+    unset: both are "on default", so rule 2 must stay quiet."""
+    result = await validate_config(
+        conf(_two_plugin_font_widgets("font_threshold = 45", ""))
+    )
+    assert all(w.rule != 2 for w in result.warnings), [
+        w.message for w in result.warnings if w.rule == 2
+    ]
+
+
+async def test_rule2_warns_when_one_plugin_font_widget_overrides(
+    conf, plugin_font_brand
+):
+    """Spelling out the LOADER default (128) on a plugin font that declared
+    45 is an override, not "on default": the two widgets differ (128 vs 45)
+    and rule 2 must warn. A rule 2 that compared against 128 instead of the
+    plugin's value would stay quiet here."""
+    result = await validate_config(
+        conf(_two_plugin_font_widgets("font_threshold = 128", ""))
+    )
+    assert any(w.rule == 2 for w in result.warnings), result.warnings
+
+
+async def test_rule71_fires_for_plugin_hires_font_in_two_row_mode(
+    conf, plugin_font_brand
+):
+    result = await validate_config(conf(_two_row_image("image", 'font = "acme.Brand"')))
+    issues = [e for e in result.errors if e.rule == 71]
+    assert issues, result.errors
+    assert "acme.Brand" in issues[0].message

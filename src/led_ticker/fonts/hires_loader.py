@@ -40,14 +40,23 @@ _CONTROL_WHITESPACE: frozenset[str] = frozenset("\t\n\r\x0b\x0c")
 # tests/test_font_default_threshold.py, which also pins that this pairing
 # keeps Regular lighter than Bold at every size — the inversion the
 # `font_threshold` docs warn about does not occur for Inter. Fonts not
-# listed (user, plugin, third-party) are unmeasured and keep THRESHOLD.
+# listed (user, third-party) are unmeasured and keep THRESHOLD; a plugin
+# font keeps THRESHOLD only when its plugin declared no threshold (see
+# `_PLUGIN_THRESHOLDS`).
 DEFAULT_THRESHOLDS: dict[str, int] = {"Inter-Regular": 80}
 
 
 def default_threshold(name: str) -> int:
     """Rasterization threshold `resolve_font` uses for `name` when the
-    caller passes none: the per-font value in `DEFAULT_THRESHOLDS`, else
-    `THRESHOLD`."""
+    caller passes none: the plugin-declared value in `_PLUGIN_THRESHOLDS`,
+    else the per-font value in `DEFAULT_THRESHOLDS`, else `THRESHOLD`.
+    Membership checks, not truthiness: 0 is a legal threshold.
+
+    Plugin values land at plugin-load commit, AFTER every `register()` has
+    returned: call this at build or draw time, never at import or inside
+    `register()`, where a plugin's own font still reads as `THRESHOLD`."""
+    if name in _PLUGIN_THRESHOLDS:
+        return _PLUGIN_THRESHOLDS[name]
     return DEFAULT_THRESHOLDS.get(name, THRESHOLD)
 
 
@@ -264,6 +273,11 @@ class HiresFont:
 # _find_font_path ahead of the user + bundled dirs (wired in C4).
 # Cleared (dotted keys) by reset_plugins().
 _PLUGIN_FONTS: dict[str, Path] = {}
+# Plugin-declared default thresholds: ``namespace.name`` -> int 0-255, set via
+# ``api.font(..., threshold=)`` (API 1.3). Populated by the plugin loader's
+# commit through _REGISTRY_MAP["font_thresholds"]; cleared (dotted keys) by
+# reset_plugins(). Consulted first by `default_threshold`.
+_PLUGIN_THRESHOLDS: dict[str, int] = {}
 
 
 def _find_font_path(name: str) -> Path | None:
@@ -288,8 +302,15 @@ def _find_font_path(name: str) -> Path | None:
 
 
 def list_available_hires_fonts() -> list[str]:
-    """Return sorted list of all hi-res font names across both dirs."""
-    names: set[str] = set()
+    """Return sorted list of all hi-res font names: plugin-registered names
+    plus every TTF/OTF stem in the user and bundled dirs.
+
+    Plugin names are listed whether or not their file exists (the loader
+    never checks); `resolve_font` still raises the clear "file is missing"
+    error for them. Listing them is what makes `coercion._is_hires_font_name`
+    treat plugin fonts as hi-res (font_size hints, two-row refusal, rules
+    63/64)."""
+    names: set[str] = set(_PLUGIN_FONTS)
     for base in (USER_FONT_DIR, BUNDLED_HIRES_DIR):
         if not base.exists():
             continue

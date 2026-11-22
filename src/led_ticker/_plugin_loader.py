@@ -392,6 +392,13 @@ def load_plugins(
                 result.failed.append((ns, str(e)))
                 continue
             _load_one(ns, source, register, requires, loaded_ns, result)
+        # A plugin font name looked up BEFORE its plugin committed is cached
+        # as a miss; the next resolve would then raise a misleading
+        # "registered but its file is missing". Drop the cache once the
+        # registries are final (mirrors reset_plugins; #560 D).
+        from led_ticker.fonts import hires_loader  # noqa: PLC0415
+
+        hires_loader.load_hires_font.cache_clear()
         _LOADED = result
         return result
 

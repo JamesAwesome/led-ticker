@@ -160,6 +160,16 @@ class TestA2ImageBdfFontSizeBelowCell:
             (e.rule, e.message) for e in result.errors
         ]
 
+    async def test_image_without_text_is_not_refused(self, tmp_path):
+        """play() only sizes the font when there is overlay text; an image
+        with no text and a stray `font_size = 3` runs fine today and must
+        keep validating clean."""
+        p = self._conf(tmp_path, "font_size = 3\n")
+        result = await validate_config(p)
+        assert not any(e.rule == 75 for e in result.errors), [
+            (e.rule, e.message) for e in result.errors
+        ]
+
     async def test_two_row_font_size_still_reports_rule_71_first(self, tmp_path):
         p = self._conf(
             tmp_path,

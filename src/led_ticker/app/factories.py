@@ -1235,6 +1235,30 @@ async def validate_widget_cfg(
 
     _resolve_fonts(widget_cfg, cls, panel_h_for_warning)
 
+    # Single-row gif/image WITH overlay text: a BDF `font_size` below the
+    # font's cell height is refused at PLAY time by `block_scale_for_font_size`
+    # (tripping the render breaker and dropping the widget), but validate
+    # never plays the widget — so run the same check here, through the same
+    # function, so the two can't drift (#560 A2). Text-less images never
+    # size a font (play() takes `_play_no_text`), so a stray `font_size`
+    # there stays harmless. The two-row refusal above fires first. NOTE:
+    # this helper is shared with `_build_widget`, so the config now fails
+    # at load instead of dropping one widget at runtime.
+    if (
+        widget_type in ("gif", "image")
+        and widget_cfg.get("text", "")
+        and not widget_cfg.get("bottom_text", "")
+        and widget_cfg.get("font_size") is not None
+    ):
+        from led_ticker.fonts import (  # noqa: PLC0415
+            FONT_DEFAULT,
+            block_scale_for_font_size,
+        )
+
+        block_scale_for_font_size(
+            widget_cfg.get("font", FONT_DEFAULT), int(widget_cfg["font_size"])
+        )
+
     _resolve_asset_paths(widget_cfg, widget_type, config_dir)
 
     # Convert color keys (font_color, top_color, bottom_color) to

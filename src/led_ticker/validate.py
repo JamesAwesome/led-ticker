@@ -127,6 +127,15 @@ _ERROR_PATTERNS: list[tuple[str, int | None, str]] = [
         ),
     ),
     (
+        "below cell height",
+        75,
+        (
+            "Raise font_size to at least the BDF cell height (a multiple of it "
+            "block-scales cleanly), pick a smaller BDF such as '5x8', or use a "
+            "hi-res font"
+        ),
+    ),
+    (
         "requires font_size",
         5,
         "Add font_size = <pixels> next to font (e.g. font_size = 24 on bigsign)",

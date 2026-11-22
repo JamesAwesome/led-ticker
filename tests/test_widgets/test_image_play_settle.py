@@ -103,6 +103,13 @@ class TestConstants:
 
         assert ticker.MAX_SETTLE_TICKS is MAX_SETTLE_TICKS
 
+    def test_api_minor_guarantees_image_host_settle(self):
+        """Plugins gate on this: `flair.blink` may rely on image hosts
+        settling once `API_VERSION >= (1, 4)`."""
+        from led_ticker import plugin
+
+        assert plugin.API_VERSION >= (1, 4)
+
 
 class TestSingleRowSettle:
     async def test_typewriter_finishes_before_return(
@@ -267,3 +274,91 @@ class TestEffectTotalChars:
         w = _two_row(top_text="AB", bottom_text="CDEFG")
         assert w._effect_total_chars("top_color") == 2
         assert w._effect_total_chars("bottom_color") == 5
+
+
+class _Blink:
+    """Core-only stand-in for flair.blink: text is ON for the first
+    `on_frames` of every `period`, blank otherwise. `frames_to_rest`
+    reports the frames until the next ON phase."""
+
+    emits_lens = False
+    locks_resolution = False
+    period = 20
+    on_frames = 15
+
+    def __init__(self, *, settles: bool = True) -> None:
+        self.settles = settles
+
+    def frame_for(self, frame, full_text, canvas_width, text_width):
+        from led_ticker.animations import AnimationFrame
+
+        on = frame % self.period < self.on_frames
+        return AnimationFrame(visible_text=full_text if on else "")
+
+    def frames_to_rest(self, frame: int, total_chars: int) -> int:
+        if not self.settles:
+            return 0
+        t = frame % self.period
+        return 0 if t < self.on_frames else self.period - t
+
+
+def _white_pixels(canvas) -> int:
+    return sum(1 for v in canvas._pixels.values() if v == (255, 255, 255))
+
+
+class TestStillImagePlayEndToEnd:
+    """The issue's repro (#526) through the real `StillImage.play()`:
+    `hold_time=0.8` is 16 ticks at 50 ms, so a 20-frame / 75 %-duty
+    blink ends its hold in the OFF phase. The last swapped frame — the
+    one a transition composites — must carry lit text."""
+
+    def _still(self, tmp_path, **kw):
+        from PIL import Image
+        from rgbmatrix.graphics import Color
+
+        from led_ticker.widgets.still import StillImage
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        return StillImage(
+            path=img_path,
+            text="SALE",
+            text_align="left",
+            font=FONT_DEFAULT,
+            font_color=Color(255, 255, 255),
+            hold_time=0.8,
+            **kw,
+        )
+
+    async def _run(self, widget, mocker):
+        swapped: list = []
+        buffers = [_canvas(), _canvas()]
+
+        def _swap(c):
+            swapped.append(c)
+            return buffers[len(swapped) % 2]
+
+        frame = mocker.MagicMock()
+        frame.swap.side_effect = _swap
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        await widget.play(buffers[0], frame)
+        return swapped
+
+    async def test_last_frame_has_lit_text(self, tmp_path, mocker):
+        widget = self._still(tmp_path, animation=_Blink())
+
+        swapped = await self._run(widget, mocker)
+
+        assert len(swapped) == 16 + 4
+        assert widget.frames_to_transition_ready() == 0
+        assert _white_pixels(swapped[-1]) > 0
+
+    async def test_control_without_rest_report_ends_blank(self, tmp_path, mocker):
+        """Documents the bug shape: an animation that reports no rest
+        gets no settle and the hold ends on the OFF frame."""
+        widget = self._still(tmp_path, animation=_Blink(settles=False))
+
+        swapped = await self._run(widget, mocker)
+
+        assert len(swapped) == 16
+        assert _white_pixels(swapped[-1]) == 0

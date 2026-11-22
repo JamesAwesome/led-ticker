@@ -36,10 +36,17 @@ class PlanError(Exception):
 
 
 def _canvas_w(display: dict, section: dict) -> int:
+    """Logical canvas width: the `Remap:W,H|…` header when present (one
+    parse shared with render-demo's stub and validate), else cols × chain;
+    divided by the section's logical scale."""
+    from led_ticker.pixel_mapper import remap_canvas_size  # noqa: PLC0415
+
     cols = int(display.get("cols", 64))
     chain = int(display.get("chain_length", 1))
     scale = int(section.get("scale") or display.get("default_scale") or 1)
-    return cols * chain // max(1, scale)
+    remapped = remap_canvas_size(str(display.get("pixel_mapper_config", "")))
+    width = remapped[0] if remapped is not None else cols * chain
+    return width // max(1, scale)
 
 
 def _content_w(text: str) -> int:

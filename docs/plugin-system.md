@@ -253,7 +253,7 @@ backend = "mynet.telnet"
 
 ### Constructor convention
 
-The engine constructs every non-rgbmatrix backend with a fixed signature: `YourBackend(width, height, pixel_mapper_config=...)`. Your `__init__` **must** accept all three — `width: int`, `height: int`, and the keyword-only `pixel_mapper_config: str = ""`. Omitting the `pixel_mapper_config` keyword raises `TypeError: __init__() got an unexpected keyword argument 'pixel_mapper_config'` at app startup, with no pointer to the cause. `width`/`height` are the resolved logical canvas size (`cols * chain_length` × `rows * parallel`); honor `pixel_mapper_config` only if your backend re-folds the chain (see `HeadlessBackend`'s `U-mapper` handling), otherwise accept and ignore it.
+The engine constructs every non-rgbmatrix backend with a fixed signature: `YourBackend(width, height, pixel_mapper_config=...)`. Your `__init__` **must** accept all three — `width: int`, `height: int`, and the keyword-only `pixel_mapper_config: str = ""`. Omitting the `pixel_mapper_config` keyword raises `TypeError: __init__() got an unexpected keyword argument 'pixel_mapper_config'` at app startup, with no pointer to the cause. `width`/`height` are the naive canvas size (`cols * chain_length` × `rows * parallel`); honor `pixel_mapper_config` only if your backend re-folds the chain the way the core software backends do (a `Remap:W,H|…` header means a W×H canvas; `U-mapper` folds the chain in half: half the width, twice the height; anything else keeps the naive size — see `HeadlessBackend`), otherwise accept and ignore it.
 
 ### The three methods your class must implement
 

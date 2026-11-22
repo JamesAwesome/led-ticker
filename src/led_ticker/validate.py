@@ -2755,22 +2755,26 @@ def _font_family(name: str) -> str:
 
 
 def _panel_h_real(display: DisplayConfig) -> int:
-    """Best-effort panel height in real pixels."""
-    if display.pixel_mapper_config.startswith("Remap:"):
-        # "Remap:256,64|..." — second number is total canvas height
-        remap = display.pixel_mapper_config[6:]
-        dims = remap.split("|")[0]
-        return int(dims.split(",")[1])
+    """Best-effort panel height in real pixels: the ``Remap:W,H`` header
+    when present (one parse shared with HeadlessBackend and the test stub,
+    `pixel_mapper.remap_canvas_size`), else ``rows * parallel``. A bare
+    ``U-mapper`` is deliberately NOT folded here (pinned in
+    `tests/test_pixel_mapper.py`)."""
+    from led_ticker.pixel_mapper import remap_canvas_size  # noqa: PLC0415
+
+    remapped = remap_canvas_size(display.pixel_mapper_config)
+    if remapped is not None:
+        return remapped[1]
     return display.rows * display.parallel
 
 
 def _panel_w_real(display: DisplayConfig) -> int:
-    """Best-effort panel width in real pixels."""
-    if display.pixel_mapper_config.startswith("Remap:"):
-        # "Remap:256,64|..." — first number is total canvas width
-        remap = display.pixel_mapper_config[6:]
-        dims = remap.split("|")[0]
-        return int(dims.split(",")[0])
+    """Best-effort panel width in real pixels (see `_panel_h_real`)."""
+    from led_ticker.pixel_mapper import remap_canvas_size  # noqa: PLC0415
+
+    remapped = remap_canvas_size(display.pixel_mapper_config)
+    if remapped is not None:
+        return remapped[0]
     return display.cols * display.chain_length
 
 

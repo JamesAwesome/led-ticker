@@ -194,3 +194,63 @@ def test_children_are_not_constructed_by_the_wrapper():
         r.frame_at(0.5, "c", None, None)
         r.end_firing()
     assert _Child.constructed == 3
+
+
+# --- end_firing forwards to the child that ran (fade design, "Meta wrapper") ---
+
+
+class _HookChild(_Child):
+    def __init__(self, raise_on_end=False):
+        super().__init__()
+        self.ends = 0
+        self.raise_on_end = raise_on_end
+
+    def end_firing(self):
+        self.ends += 1
+        if self.raise_on_end:
+            raise RuntimeError("hook boom")
+
+
+def test_end_firing_forwards_to_the_child_that_ran_not_the_next_pick():
+    kids = [_HookChild(), _HookChild()]
+    a = AutoTransition(kids, [None, None], ["a", "b"])
+    assert a.current_index == 0
+    a.end_firing()
+    assert kids[0].ends == 1 and kids[1].ends == 0
+    assert a.current_index == 1
+    a.end_firing()
+    assert kids[0].ends == 1 and kids[1].ends == 1
+
+
+async def test_end_firing_runs_exactly_once_per_firing_through_the_runner(
+    canvas, mock_frame, make_widget, no_sleep
+):
+    import random
+
+    from led_ticker.transitions import run_transition
+
+    kids = [_HookChild(), _HookChild()]
+    r = RandomTransition(kids, [None, None], ["a", "b"], rng=random.Random(1))
+    ran = kids[r.current_index]
+    await run_transition(
+        canvas, mock_frame, make_widget(), make_widget(), transition=r, duration=0.1
+    )
+    assert ran.ends == 1
+    assert sum(k.ends for k in kids) == 1
+
+
+def test_raising_child_hook_still_advances_the_pick():
+    kids = [_HookChild(raise_on_end=True), _HookChild()]
+    a = AutoTransition(kids, [None, None], ["a", "b"])
+    with pytest.raises(RuntimeError, match="hook boom"):
+        a.end_firing()  # the runner swallows + logs this; the wrapper must not
+    assert a.current_index == 1  # the pick advanced despite the raise
+
+
+def test_child_without_hook_is_unchanged():
+    kids = _kids(2)
+    a = AutoTransition(kids, [None, None], _names(2))
+    a.end_firing()
+    a.end_firing()
+    a.end_firing()
+    assert a.current_index == 1  # 0 -> 1 -> 0 -> 1, no AttributeError

@@ -13,6 +13,9 @@ from led_ticker.animations import Animation
 from led_ticker.backgrounds import BackgroundEffect
 from led_ticker.borders import BorderEffect
 from led_ticker.color_providers import ColorProvider
+from led_ticker.colors import (
+    rgb_shape_error,  # noqa: F401 - re-export for validate rule 74 / rule 73 / the factory
+)
 from led_ticker.widgets._image_base import (
     VALID_SCROLL_DIRECTIONS,
     VALID_TEXT_ALIGNS,
@@ -858,24 +861,6 @@ def _coerce_widget_cfg(
             widget_cfg[name] = value
             if warning is not None and collector is not None:
                 collector.append(warning)
-
-
-def rgb_shape_error(value: Any) -> str | None:
-    """Return None when ``value`` is a ``list``/``tuple`` of exactly three
-    ``int`` (``bool`` excluded) each in 0..255 — the ONE shape ``SetPixel``
-    accepts — else a one-line message naming the offending value.
-
-    Shared by validate rule 74 (transition slots) and, in the stacked
-    random/auto follow-up, the transition factory and rule 73 (pool entries),
-    so the three can't drift. Pure: never raises, whatever ``value`` is.
-    """
-    expected = "expected [r, g, b] with three ints 0-255"
-    if not isinstance(value, (list, tuple)) or len(value) != 3:
-        return f"{expected}; got {value!r}"
-    for c in value:
-        if isinstance(c, bool) or not isinstance(c, int) or not 0 <= c <= 255:
-            return f"{expected}; got {value!r}"
-    return None
 
 
 def rgb_list_shape_error(value: Any) -> str | None:

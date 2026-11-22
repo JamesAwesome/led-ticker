@@ -1577,9 +1577,10 @@ def _check_transition_color_shape(
     freezes). A short list (`[255, 0]`) raises `IndexError` in the wipe
     constructor, so the guarded builder silently cuts; a long list truncates
     and happens to run today — rule 74 refuses it as a mis-typed colour. The
-    shape predicate is `coercion.rgb_shape_error`, shared with the stacked
-    random/auto factory and rule 73 so they can't drift. A non-iterable value
-    (`transition_color = 255`, or a flat `transition_colors = [255, 0, 0]`)
+    shape predicate is `colors.rgb_shape_error` (re-exported by `app.coercion`),
+    shared with the random/auto factory and rule 73 so they can't drift. A
+    non-iterable value (`transition_color = 255`, or a flat
+    `transition_colors = [255, 0, 0]`)
     already fails inside `load_config` as a rule-less error and never reaches
     this rule.
 

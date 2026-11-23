@@ -342,7 +342,7 @@ Pass `incoming_scale=incoming_scale`,
 three on the `Transition` protocol docstring. Safe for every receiver: 53 of
 53 `frame_at` definitions across core and the plugins repo take `**kwargs`,
 `render_hires_frame` takes `**kwargs`, the meta wrapper forwards
-`**kwargs` (gate section 6). `API_VERSION` -> the next unclaimed minor, `(1, 5)` while PR #561 (`fix/image-play-settle-seam`, claims `(1, 4)` for `frames_to_rest` on gif/image hosts) is open; re-check `git branch -r` and open PRs at precursor-merge time, since a reused minor would satisfy a plugin's `>=` probe for a guarantee the core does not have ("`frame_at`
+`**kwargs` (gate section 6). `API_VERSION` -> the next unclaimed minor, `(1, 5)`: `(1, 4)` shipped in PR #561 (`frames_to_rest` on gif/image hosts, `origin/main` 017f3a9c, 2026-11-22) and the precursor is rebased onto it; a reused minor would satisfy a plugin's `>=` probe for a guarantee the core does not have ("`frame_at`
 receives the incoming geometry and the outgoing bg colour"); tests pin
 `>=`. `tests/test_docs_plugin_api_drift.py:143-158` checks the "currently
 `(1, 3)`" literal on TWO pages, `plugins/api-reference.mdx` and
@@ -597,8 +597,8 @@ LOW / DOCS only, cycle 5 with MEDIUM+ stops and asks); the hardware check
 between the feature PR's loop and ready-and-ask. No core release is needed
 before the feature PR (nothing depends on `(1, 5)` yet; `(1, 3)` is
 `api.font(threshold=)`, shipped in core v4.35.0 and consumed by flair
-0.25.0; `(1, 4)` is PR #561's); the next core release carries both. This design doc is committed on the feature branch,
-like item 2's.
+0.25.0; `(1, 4)` is PR #561's); the next core release carries both. This design doc, its loop ledger and the plan are committed on the
+precursor branch (they rode in with the runner commit).
 
 ## Builder-check decisions (2026-11-21)
 

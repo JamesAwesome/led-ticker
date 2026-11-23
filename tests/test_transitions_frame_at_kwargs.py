@@ -96,12 +96,18 @@ def test_api_version_is_at_least_1_5():
 async def test_same_geometry_entry_still_forwards_incoming_scale(
     mock_frame, make_widget, no_sleep
 ):
-    """An entry whose section scale equals the live wrapper's (`needs_switch`
-    False) still tells frame_at the incoming geometry; the kwargs are not
-    gated on the runner's own re-wrap decision."""
-    canvas = mock.MagicMock()
-    canvas.width, canvas.height, canvas.scale, canvas.content_height = 256, 64, 4, 16
-    mock_frame.swap.return_value = canvas
+    """An entry whose section geometry equals the live wrapper's (`needs_switch`
+    False, so the runner never re-wraps) still tells frame_at the incoming
+    geometry on every frame; the kwargs are not gated on the runner's own
+    re-wrap decision. A REAL wrapper is used: a mock with the raw panel
+    height would make `_wrapper_geometry_differs` return True."""
+    from led_ticker.backends.headless import HeadlessCanvas
+    from led_ticker.scaled_canvas import ScaledCanvas
+    from led_ticker.transitions import _wrapper_geometry_differs
+
+    canvas = ScaledCanvas(HeadlessCanvas(256, 64), scale=4, content_height=12)
+    assert not _wrapper_geometry_differs(canvas, 4, 12)
+    mock_frame.swap.side_effect = lambda c: c
     t = _Recorder()
     await run_transition(
         canvas,
@@ -111,9 +117,10 @@ async def test_same_geometry_entry_still_forwards_incoming_scale(
         transition=t,
         duration=0.1,
         incoming_scale=4,
-        incoming_content_height=16,
+        incoming_content_height=12,
         outgoing_bg_color=(9, 9, 9),
     )
+    assert len(t.kwargs) == 3
     assert all(kw["incoming_scale"] == 4 for kw in t.kwargs)
-    assert all(kw["incoming_content_height"] == 16 for kw in t.kwargs)
+    assert all(kw["incoming_content_height"] == 12 for kw in t.kwargs)
     assert all(kw["outgoing_bg_color"] == (9, 9, 9) for kw in t.kwargs)

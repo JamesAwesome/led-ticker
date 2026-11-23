@@ -196,29 +196,30 @@ def _image_files(tmp_path):
 def _build(name: str, scale: int, tmp_path):
     font = resolve_font("Inter-Regular", 24) if scale >= 2 else None
     text_kw: dict[str, Any] = {"font": font} if font is not None else {}
-    bg = colors.BLUE
+    # No bg_color on any widget: no core draw() paints it (the engine's
+    # reset_canvas does), so it would exercise nothing here. Border and hires
+    # font DO paint through draw().
     border = ConstantBorder(colors.GREEN)
     if name == "message":
         return TickerMessage(
             text="Hi :star: there",
             font_color=colors.RED,
-            bg_color=bg,
             border=border,
             **text_kw,
         )
     if name == "two_row":
         return TwoRowMessage(
-            top_text="Top :star:", bottom_text="Bottom row", bg_color=bg, border=border
+            top_text="Top :star:", bottom_text="Bottom row", border=border
         )
     if name == "clock":
-        return Clock(bg_color=bg, border=border, **text_kw)
+        return Clock(border=border, **text_kw)
     if name == "countdown":
         return TickerCountdown(
-            text="Days left", countdown_date="2030-01-01", bg_color=bg, border=border
+            text="Days left", countdown_date="2030-01-01", border=border
         )
     if name == "countup":
         return TickerCountup(
-            text="Days since", countup_date="2020-01-01", bg_color=bg, border=border
+            text="Days since", countup_date="2020-01-01", border=border
         )
     gif, png = _image_files(tmp_path)
     # No bg_color on the image widgets: their draw() calls _paint_full only

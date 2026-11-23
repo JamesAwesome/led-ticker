@@ -33,3 +33,16 @@ Reviewer: fresh subagent; 23 live mutations on a scratch copy. VERDICT: 0 HIGH, 
 - DOCS `incoming_content_height` unqualified on the plugin-facing pages. FOLDED: both qualified.
 - Mutations caught: 19 of 23 before the folds (M1, M3-M8, M10-M20); the four survivors (M2', M21, M22, M23) now have tests.
 - Pre-existing, out of scope: slow-path `len(px)` on `L`/`P` images is plugin-only and the real binding rejects non-RGB first; `rotate.py:525/694` pyright reportCallIssue exist on main; `_normalize_bg` passes a list through; `pytest -W error::DeprecationWarning` is blocked by pytest-asyncio's own warning.
+
+## Cycle 3
+
+Reviewer: fresh subagent (post-rebase; full suite 5389 passed / 5 skipped, pyright 0). VERDICT: 0 HIGH, 0 MEDIUM, 2 LOW, 1 DOCS -> exit (LOW/DOCS only); folded.
+
+- LOW the cycle 2 same-geometry kwargs test used a mock whose raw `height` made `_wrapper_geometry_differs` True, so it never reached the `needs_switch == False` state it claimed and the M23 gated-forwarding mutant survived. FOLDED: real `ScaledCanvas` over a `HeadlessCanvas`, `_wrapper_geometry_differs` asserted False, non-default `incoming_content_height = 12`.
+- LOW `bg_color` on the text widgets in the tripwire fixture was inert for the stated purpose (no core `draw()` paints it). FOLDED: removed with the same comment the image branch got.
+- DOCS the design doc rides in this PR and still said #561 was open / the doc is committed on the feature branch. FOLDED: `(1, 4)` shipped in #561 (017f3a9c); the spec, ledger and plan are committed on the precursor branch.
+- Clean: `plugin.py` (1,1)..(1,5) in order with #561's block intact; both docs literals and CLAUDE.md agree; #561 added no new `run_transition` / `frame_at` caller, `end_firing` fires exactly once per firing; 53/53 plugin `frame_at` take `**kwargs`, none defines `end_firing` or reads the new keys.
+
+## Exit
+
+Loop exits after cycle 3 (0 HIGH / 0 MEDIUM). Trend: 0H/1M -> 0H/1M -> 0H/0M. Byte-identity vs `origin/main` 017f3a9c: dissolve demo 29/29 frames identical; the gif demo's frame COUNT varies between two renders of main itself (295 vs 304), so its +-1 difference is renderer timing noise, with every aligned frame identical.

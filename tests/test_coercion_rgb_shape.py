@@ -46,3 +46,12 @@ def test_rgb_list_shape_accepts_lists_of_rgb(good):
 def test_rgb_list_shape_refuses_bad_shapes_with_a_message(bad):
     msg = rgb_list_shape_error(bad)
     assert isinstance(msg, str) and "[r, g, b]" in msg
+
+
+def test_rgb_shape_error_lives_in_colors_and_is_reexported():
+    """Home is the leaf `led_ticker.colors` so a transition module can import
+    it without a cycle through `led_ticker.app`; `app.coercion` re-exports."""
+    from led_ticker import colors
+    from led_ticker.app import coercion
+
+    assert coercion.rgb_shape_error is colors.rgb_shape_error

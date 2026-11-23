@@ -14,7 +14,7 @@ own palettes.
 
 from collections.abc import Callable
 from functools import cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from led_ticker._compat import require_graphics
 
@@ -73,6 +73,27 @@ _PALETTE: dict[str, tuple[int, int, int]] = {
     "CYAN": (0, 220, 220),
     "PINK": (240, 70, 200),
 }
+
+
+def rgb_shape_error(value: Any) -> str | None:
+    """Return None when ``value`` is a ``list``/``tuple`` of exactly three
+    ``int`` (``bool`` excluded) each in 0..255 — the ONE shape ``SetPixel``
+    accepts — else a one-line message naming the offending value.
+
+    Home is this leaf module so a transition module can import it without a
+    cycle through ``led_ticker.app``; ``app.coercion``
+    re-exports it for validate rule 74 (transition slots), rule 73 and the
+    transition factory (pool entries), so the four can't drift. Pure: never
+    raises, whatever ``value`` is.
+    """
+    expected = "expected [r, g, b] with three ints 0-255"
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return f"{expected}; got {value!r}"
+    for c in value:
+        if isinstance(c, bool) or not isinstance(c, int) or not 0 <= c <= 255:
+            return f"{expected}; got {value!r}"
+    return None
+
 
 __getattr__ = lazy_palette(_PALETTE)
 

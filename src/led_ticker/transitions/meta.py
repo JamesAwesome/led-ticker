@@ -130,10 +130,20 @@ class _PickAhead:
         )
 
     def end_firing(self) -> None:
-        """Called by `run_transition` once per firing (in its `finally`): pick
-        the child the NEXT firing runs, ahead of the runner's reads."""
-        self._current = self._advance()
-        self._log_pick()
+        """Called by `run_transition` once per firing (in its `finally`): tell
+        the child that RAN the firing is over (a snapshotting child such as
+        `fade` releases its rasters there), then pick the child the NEXT firing
+        runs, ahead of the runner's reads. `_current` names the child that ran
+        only BEFORE `_advance()`; the `finally` means a raising child hook can
+        never skip the pick (the runner logs and swallows the exception)."""
+        child = self._children[self._current]
+        try:
+            hook = getattr(child, "end_firing", None)
+            if callable(hook):
+                hook()
+        finally:
+            self._current = self._advance()
+            self._log_pick()
 
     def _first(self) -> int:  # pragma: no cover - overridden
         raise NotImplementedError

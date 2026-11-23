@@ -152,15 +152,15 @@ class TestSingleRowSettle:
     async def test_cap_is_wall_clock_in_this_loops_tick_units(
         self, swapping_frame, instant_sleep
     ):
-        """This loop ticks at scroll_speed_ms, not ENGINE_TICK_MS, so the
-        ~1 s budget is MAX_SETTLE_MS // tick_ms frames. At 100 ms ticks
-        15 frames is 1.5 s → refused; at 50 ms it is 0.75 s → granted."""
+        """This loop ticks at scroll_speed_ms, not ENGINE_TICK_MS, but a
+        frame is 50 ms of wall clock either way (#525): 15 owed frames is
+        0.75 s on both, i.e. 8 ticks at 100 ms and 15 at 50 ms."""
         slow = _single(
             text="hi", font_color=_RestProvider(remaining=15), scroll_speed_ms=100
         )
         swapping_frame.swap.return_value = _canvas()
         await slow._play_with_text(_canvas(), swapping_frame, n_ticks=5)
-        assert len(slow.paint_full_calls) == 5
+        assert len(slow.paint_full_calls) == 5 + 8
 
         fast = _single(
             text="hi", font_color=_RestProvider(remaining=15), scroll_speed_ms=50

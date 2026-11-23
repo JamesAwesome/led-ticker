@@ -34,7 +34,7 @@ import attrs
 from led_ticker._types import Canvas, Color, Font
 from led_ticker.color_providers import _ConstantColor
 from led_ticker.colors import DEFAULT_COLOR
-from led_ticker.constants import MAX_SETTLE_MS
+from led_ticker.constants import ENGINE_TICK_MS, MAX_SETTLE_MS
 from led_ticker.drawing import compute_baseline, get_text_width, safe_scale
 from led_ticker.fonts import (
     FONT_DEFAULT,
@@ -967,14 +967,18 @@ class _BaseImageWidget(FrameAwareBase):
         upcoming transition lands on a rest point (#526) — the play()-loop
         twin of `ticker._swap_and_scroll`'s settle seam (#305).
 
-        All-or-nothing against a ~1 s wall-clock budget expressed in THIS
-        loop's tick units (`MAX_SETTLE_MS // tick_ms`; the loop ticks at
-        `scroll_speed_ms`, not ENGINE_TICK_MS): a remainder above the cap
-        gets NO extension. `frames_to_transition_ready` never raises.
+        `frames_to_transition_ready` is in ENGINE_TICK_MS frames (a frame
+        is 50 ms of wall clock on this loop too, #525) while the loop ticks
+        at `scroll_speed_ms`, so the owed time is converted into THIS
+        loop's ticks: `ceil((frames × 50 − banked carry) / tick_ms)`. The
+        ~1 s budget (`MAX_SETTLE_MS`) is wall clock and all-or-nothing — a
+        remainder above it gets NO extension. Never raises.
         """
-        extra = self.frames_to_transition_ready()
-        cap = MAX_SETTLE_MS // max(1, tick_ms)
-        return extra if 0 < extra <= cap else 0
+        need_ms = self.frames_to_transition_ready() * ENGINE_TICK_MS
+        if not 0 < need_ms <= MAX_SETTLE_MS:
+            return 0
+        owed_ms = max(1, need_ms - self._frame_carry_ms)
+        return -(-owed_ms // max(1, tick_ms))
 
     def _measure_text(self, canvas: Canvas) -> int:
         # Use the resolved display string (token-substituted). For non-token
@@ -1866,7 +1870,7 @@ class _BaseImageWidget(FrameAwareBase):
             # initial value and the rainbow renders as a static
             # gradient. Mirrors `ticker._advance_frame_if_supported`'s
             # placement in `_swap_and_scroll` (advance BEFORE draw).
-            self.advance_frame()
+            self.advance_frame_elapsed(tick_ms)
             # Resolve tokens each tick (held path: live updates allowed).
             # Scrolling path: locked=True keeps the geometry stable for the
             # whole scroll duration (the pre-loop resolve above already set
@@ -2194,7 +2198,7 @@ class _BaseImageWidget(FrameAwareBase):
             self._pick_frame_for_elapsed(tick * tick_ms)
             # Advance the per-widget frame counter so ColorProviders
             # animate. See single-row path for rationale.
-            self.advance_frame()
+            self.advance_frame_elapsed(tick_ms)
             # Re-resolve the TOP row each tick when the bottom row is NOT
             # scrolling (held + held path). The top row is always held, so a
             # live clock / score token in `top_text` must update every tick

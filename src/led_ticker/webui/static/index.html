@@ -934,8 +934,20 @@ async function loadInventory() {
     const r = await fetch("/api/inventory", {headers: auth});
     if (!r.ok) return;
     const inv = await r.json();
+    // Plugin fonts reach the browser via status `plugins[].names.fonts`
+    // (the same route as plugin emoji below); the inventory endpoint lists
+    // only user + bundled files. Merge here so a plugin font is discoverable
+    // under the name the user types (`font = "flair.Bungee"`).
+    const pluginFonts = [];
+    const seenFonts = new Set();
+    for (const p of (lastStatus && lastStatus.plugins) || []) {
+      for (const name of (p.names && p.names["fonts"]) || []) {
+        if (!seenFonts.has(name)) { seenFonts.add(name); pluginFonts.push(name); }
+      }
+    }
     $("inv-fonts").tBodies[0].innerHTML =
       (inv.fonts.user || []).map((f) => `<tr><td>${esc(f)}</td><td class="muted">user</td></tr>`).join("") +
+      pluginFonts.map((f) => `<tr><td>${esc(f)}</td><td class="warning">plugin</td></tr>`).join("") +
       (inv.fonts.bundled || []).map((f) => `<tr><td>${esc(f)}</td><td class="muted">bundled</td></tr>`).join("") ||
       '<tr><td class="muted">none found</td></tr>';
     $("inv-assets").tBodies[0].innerHTML = (inv.assets || [])

@@ -10,6 +10,7 @@ dropped-capture bugs surface here exactly as on hardware.
 from typing import Any
 
 from led_ticker.backends import register_backend
+from led_ticker.pixel_mapper import mapped_canvas_size
 
 
 class HeadlessCanvas:
@@ -75,10 +76,12 @@ class HeadlessBackend:
     def __init__(
         self, width: int, height: int, *, pixel_mapper_config: str = ""
     ) -> None:
+        # One parse shared with the rgbmatrix test stub and validate
+        # (`pixel_mapper.mapped_canvas_size`): a `Remap:W,H|…` header wins,
+        # `U-mapper` folds the chain in half, anything else passes through.
         if pixel_mapper_config == "U-mapper":
-            # U-mapper folds the chain in half: doubles height, halves width.
             assert width % 2 == 0, "U-mapper requires an even effective width"
-            width, height = width // 2, height * 2
+        width, height = mapped_canvas_size(width, height, pixel_mapper_config)
         self._width = width
         self._height = height
         self.brightness = 100

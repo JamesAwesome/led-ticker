@@ -47,6 +47,23 @@ class TestCanvasWidth:
     def test_section_scale_override(self):
         assert _canvas_w({"cols": 32, "chain_length": 5}, {"scale": 2}) == 80
 
+    def test_remap_header_sets_the_width(self):
+        """A bigsign `[display]` block: 8 panels of 64 cols chain to 512
+        naively, but the `Remap:256,64|…` header says the canvas is 256
+        wide (same parse as render-demo and validate, #560 C2)."""
+        display = {
+            "cols": 64,
+            "chain_length": 8,
+            "default_scale": 4,
+            "pixel_mapper_config": "Remap:256,64|192,32n|192,0n|128,32n",
+        }
+        assert _canvas_w(display, {}) == 256 // 4
+        assert _canvas_w(display, {"scale": 1}) == 256
+
+    def test_bare_u_mapper_is_not_folded(self):
+        display = {"cols": 64, "chain_length": 8, "pixel_mapper_config": "U-mapper"}
+        assert _canvas_w(display, {}) == 512
+
 
 class TestWidgetMs:
     def test_message_fits_is_hold_only(self):

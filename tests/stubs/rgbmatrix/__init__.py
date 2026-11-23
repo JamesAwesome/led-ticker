@@ -14,11 +14,15 @@ KNOWN STUB-vs-REAL DIVERGENCES (with rationale):
   - `Font.descent` is NOT exposed by the real C extension. Code reading
     descent must go through `get_bdf_for(font).descent` (parsed from
     the BDF file at load time and cached alongside the C font).
-  - The stub `RGBMatrix` only honors `pixel_mapper_config="U-mapper"`
-    (folds chain in half: doubles height, halves width) — it doesn't
-    parse arbitrary `Remap:...` strings the way the real lib does.
-    Tests that need the bigsign's vertical-serpentine 2×4 layout pass
-    `pixel_mapper_config="U-mapper"` to get a 256×64 canvas.
+  - The stub `RGBMatrix` sizes its canvas via
+    `led_ticker.pixel_mapper.mapped_canvas_size` (shared with
+    HeadlessBackend and validate): a `Remap:W,H|...` header gives a W×H
+    canvas (the per-panel entries after the `|` are NOT applied — pixels
+    are stored by logical position, so no remapping is needed), and
+    `U-mapper` folds the chain in half. Other mapper strings pass the
+    naive `cols*chain × rows*parallel` through. Tests that need the
+    bigsign's 2×4 layout can pass its real Remap block or `U-mapper`;
+    both give 256×64.
   - `RGBMatrix.show_refresh_rate` is a config-only flag here; the real
     lib's stderr Hz output is not simulated. The startup explainer log
     (`app.build_frame_from_config` when `show_refresh_rate=true`) makes the
@@ -102,14 +106,15 @@ class RGBMatrix:
         parallel = getattr(options, "parallel", 1) if options else 1
         mapper = getattr(options, "pixel_mapper_config", "") if options else ""
 
-        width = cols * chain
-        height = rows * parallel
+        # Same parse as HeadlessBackend and validate (`Remap:W,H|…` header
+        # wins, `U-mapper` folds the chain, else naive). Imported lazily: this
+        # stub is the `rgbmatrix` package itself, so a module-level
+        # `led_ticker` import would be a cycle at import time.
+        from led_ticker.pixel_mapper import mapped_canvas_size
 
         if mapper == "U-mapper":
-            # U-mapper folds the chain in half: doubles height, halves width.
             assert chain % 2 == 0, "U-mapper requires an even chain length"
-            width = (cols * chain) // 2
-            height = rows * 2 * parallel
+        width, height = mapped_canvas_size(cols * chain, rows * parallel, mapper)
 
         self._width = width
         self._height = height

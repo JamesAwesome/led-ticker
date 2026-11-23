@@ -200,7 +200,13 @@ __all__ = [
 #   (1, 4) — ``frames_to_rest`` is honoured on the ``gif`` / ``image`` hosts
 #            too: their ``play()`` loops settle (held text only, ~1 s cap)
 #            before the transition, like the message path (led-ticker#526).
-API_VERSION: tuple[int, int] = (1, 4)
+#   (1, 5) — a frame is ENGINE_TICK_MS (50 ms) of wall clock on EVERY loop
+#            that drives a widget, including the scroll-paced ones
+#            (``scroll_step_ms`` in the engine, ``scroll_speed_ms`` on the
+#            gif / image overlays); before, those advanced one frame per
+#            scroll tick, so frame-timed animations ran fast on quick
+#            marquees (led-ticker#525).
+API_VERSION: tuple[int, int] = (1, 5)
 
 # Lifecycle-hook callable shapes (collected by the loader, run by app/run.py).
 # A startup hook may be sync or async; a shutdown hook takes no args.

@@ -63,6 +63,15 @@ def _canvas():
     return _StubCanvas(width=160, height=16)
 
 
+class TestApiVersion:
+    def test_minor_bump_is_probeable(self):
+        """Plugins gate on this: flair.blink may drop its fastest-cadence
+        (20 ms) WCAG assumption once `API_VERSION >= (1, 5)`."""
+        from led_ticker import plugin
+
+        assert plugin.API_VERSION >= (1, 5)
+
+
 class TestSwapAndScrollCadence:
     """cursor 200 on a 160-wide canvas → stop_pos −40 → 40 scroll ticks.
     `continuous=True` skips the holds so only the scroll loop advances."""

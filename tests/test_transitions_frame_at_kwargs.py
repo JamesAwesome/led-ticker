@@ -51,6 +51,10 @@ async def test_frame_at_receives_geometry_and_outgoing_bg(
     assert first["outgoing_bg_color"] == (1, 2, 3)
     assert first["incoming_bg_color"] == (4, 5, 6)
     assert first["outgoing_scroll_pos"] == 0 and first["duration_ms"] == 100
+    # EVERY frame sees the same kwargs: a snapshotting transition reads them on
+    # whichever frame it snapshots, and the runner's own bg cut-over at
+    # scale_switch_at must not leak into what frame_at is told.
+    assert all(kw == first for kw in t.kwargs), t.kwargs
 
 
 async def test_frame_at_within_section_sees_incoming_scale_none(
@@ -87,3 +91,29 @@ async def test_bg_kwargs_are_normalised_tuples(
 
 def test_api_version_is_at_least_1_5():
     assert plugin.API_VERSION >= (1, 5)
+
+
+async def test_same_geometry_entry_still_forwards_incoming_scale(
+    mock_frame, make_widget, no_sleep
+):
+    """An entry whose section scale equals the live wrapper's (`needs_switch`
+    False) still tells frame_at the incoming geometry; the kwargs are not
+    gated on the runner's own re-wrap decision."""
+    canvas = mock.MagicMock()
+    canvas.width, canvas.height, canvas.scale, canvas.content_height = 256, 64, 4, 16
+    mock_frame.swap.return_value = canvas
+    t = _Recorder()
+    await run_transition(
+        canvas,
+        mock_frame,
+        make_widget(),
+        make_widget(),
+        transition=t,
+        duration=0.1,
+        incoming_scale=4,
+        incoming_content_height=16,
+        outgoing_bg_color=(9, 9, 9),
+    )
+    assert all(kw["incoming_scale"] == 4 for kw in t.kwargs)
+    assert all(kw["incoming_content_height"] == 16 for kw in t.kwargs)
+    assert all(kw["outgoing_bg_color"] == (9, 9, 9) for kw in t.kwargs)

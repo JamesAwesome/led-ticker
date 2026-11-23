@@ -107,6 +107,29 @@ def test_setimage_slow_path_extent_tracks_pixels():
     assert buf.lit_extent == (3, 1, 5, 3)
 
 
+def test_setimage_full_size_at_offset_takes_the_slow_path():
+    """The fast path must require offset (0, 0): a panel-size image blitted at
+    (1, 0) lands shifted and clipped, exactly like HeadlessCanvas."""
+    buf, hc = _pair()
+    img = _rgb(8, 4)
+    buf.SetImage(img, 1, 0)
+    hc.SetImage(img, 1, 0)
+    assert _same(buf, hc)
+    assert buf.get(0, 0) is None
+
+
+def test_setimage_smaller_rgb_at_origin_takes_the_slow_path():
+    """The fast path must require the image to be buffer-sized: a 4x2 RGB at
+    the origin must not replace the pixel list (get() would IndexError)."""
+    buf, hc = _pair()
+    img = _rgb(4, 2)
+    buf.SetImage(img, 0, 0)
+    hc.SetImage(img, 0, 0)
+    assert _same(buf, hc)
+    assert buf.get(7, 3) is None
+    assert buf.lit_extent == (0, 0, 4, 2)
+
+
 def test_setimage_fast_path_values_are_ints_not_bytes_slices():
     """The fast path must store plain int tuples so `get()` and the fade's
     bytes conversion see the same shape the slow path stores."""
@@ -170,7 +193,7 @@ def _image_files(tmp_path):
     return gif, png
 
 
-def _build(name: str, scale: int, tmp_path, image_bg: bool = False):
+def _build(name: str, scale: int, tmp_path):
     font = resolve_font("Inter-Regular", 24) if scale >= 2 else None
     text_kw: dict[str, Any] = {"font": font} if font is not None else {}
     bg = colors.BLUE
@@ -198,10 +221,11 @@ def _build(name: str, scale: int, tmp_path, image_bg: bool = False):
             text="Days since", countup_date="2020-01-01", bg_color=bg, border=border
         )
     gif, png = _image_files(tmp_path)
-    image_kw: dict[str, Any] = {"bg_color": bg} if image_bg else {}
+    # No bg_color on the image widgets: their draw() calls _paint_full only
+    # (bg_color is consulted in play(), which the compositing path never runs).
     if name == "gif":
-        return GifPlayer(path=str(gif), fit="letterbox", **image_kw)
-    return StillImage(path=str(png), fit="letterbox", **image_kw)
+        return GifPlayer(path=str(gif), fit="letterbox")
+    return StillImage(path=str(png), fit="letterbox")
 
 
 @pytest.mark.parametrize(
@@ -209,9 +233,8 @@ def _build(name: str, scale: int, tmp_path, image_bg: bool = False):
 )
 @pytest.mark.parametrize("name", WIDGETS)
 @pytest.mark.parametrize("cursor", [0, -30])
-@pytest.mark.parametrize("image_bg", [False, True], ids=["nobg", "imagebg"])
 def test_every_core_widget_snapshots_into_pixelbuffer(
-    name, geom, cursor, image_bg, tmp_path, frozen_time
+    name, geom, cursor, tmp_path, frozen_time
 ):
     """(a) the transition draw guard never trips on a PixelBuffer target and
     (b) the buffer equals a HeadlessCanvas drawn the same way, pixel for pixel
@@ -219,7 +242,7 @@ def test_every_core_widget_snapshots_into_pixelbuffer(
     trips-only assertion and garble every image section's fade)."""
     w, h, scale, ch = geom
     breaker = RenderBreaker()
-    widget = _build(name, scale, tmp_path, image_bg)
+    widget = _build(name, scale, tmp_path)
     buf, hc = PixelBuffer(w, h), HeadlessCanvas(w, h)
     guard = guard_for_transition(widget, breaker)
     guard.draw(_maybe_wrap(buf, scale, ch), cursor_pos=cursor)

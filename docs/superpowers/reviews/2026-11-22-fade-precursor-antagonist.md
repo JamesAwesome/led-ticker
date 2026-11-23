@@ -21,3 +21,15 @@ Reviewer: fresh subagent. Baseline it verified: full suite 5367 passed / 5 skipp
 - DOCS api-reference enumerates (1,1),(1,2),(1,3),(1,5). ACCEPTED as is: the hole is true for this tree; the second PR to merge reconciles the sentence (noted in the PR body).
 - DOCS user-facing text named `fade` before it exists. FOLDED: `docs/plugin-system.md` says "the upcoming core `fade`"; `colors.py` docstring generalised. Code comments in `render_breaker.py` / `transitions/__init__.py` / `meta.py` keep the name (the feature PR lands it).
 - Pre-existing, out of scope: `HeadlessCanvas.SetImage` and the new slow path both `TypeError` on `L` / `P` images (the real binding rejects non-RGB anyway); `_normalize_bg` passes a list through; bare `uv run pyright` has 426 baseline errors.
+
+## Cycle 2
+
+Reviewer: fresh subagent; 23 live mutations on a scratch copy. VERDICT: 0 HIGH, 1 MEDIUM, 3 LOW, 1 DOCS.
+
+- MEDIUM PR #561 merged to `origin/main` (017f3a9c, 2026-11-22 18:27) and owns `(1, 4)`; the cycle 1 "(1, 4) reserved, not in this tree" wording was now false and `plugin.py` / both docs literals conflicted. FOLDED: branch rebased onto `origin/main`; #561's `(1, 4)` block and sentence kept, `(1, 5)` appended; CLAUDE.md names `(1, 4)` as shipped. Dissolve byte-identity re-run against the new `origin/main` (below).
+- LOW the cycle 1 `image_bg` parametrisation was vacuous: `GifPlayer.draw` / `StillImage.draw` call `_paint_full` only, so no core `draw()` ever calls `Clear` / `Fill` (the engine's reset does). FOLDED: parametrisation dropped with a comment; CLAUDE.md constraint #2 reworded (SetPixel/SubFill/SetImage pinned per widget, Clear/Fill by the unit tests). Correction to the cycle 1 LOW fold above.
+- LOW the fast path's offset and size guards had no test (M2', M21 survived). FOLDED: two Part-1 cases.
+- LOW runner kwargs asserted on the first frame only (M22, M23 survived). FOLDED: every frame equals the first; same-geometry entry case.
+- DOCS `incoming_content_height` unqualified on the plugin-facing pages. FOLDED: both qualified.
+- Mutations caught: 19 of 23 before the folds (M1, M3-M8, M10-M20); the four survivors (M2', M21, M22, M23) now have tests.
+- Pre-existing, out of scope: slow-path `len(px)` on `L`/`P` images is plugin-only and the real binding rejects non-RGB first; `rotate.py:525/694` pyright reportCallIssue exist on main; `_normalize_bg` passes a list through; `pytest -W error::DeprecationWarning` is blocked by pytest-asyncio's own warning.

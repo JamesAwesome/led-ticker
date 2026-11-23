@@ -347,14 +347,36 @@ class Ticker:
         if hasattr(widget, "_logical_scale"):
             widget._logical_scale = scale
 
-    def _advance_frame_if_supported(self, widget: Any) -> None:
-        """Call `widget.advance_frame(visit_id=self._current_visit)` if supported.
+    @property
+    def _scroll_tick_ms(self) -> int:
+        """Nominal tick of the scroll-paced loops, in whole ms (the config
+        knob `scroll_step_ms` is an int; 0 for the test-only
+        `scroll_speed = 0`)."""
+        return round(self.scroll_speed * 1000)
 
-        Quietly no-ops on widgets without the FrameAwareBase mixin.
-        Passes the current visit ID so FrameAwareBase can detect aliasing bugs
-        (same widget instance advancing in two concurrent section visits).
+    def _advance_frame_if_supported(
+        self, widget: Any, *, tick_ms: int = ENGINE_TICK_MS
+    ) -> None:
+        """Advance the widget's frame counters by one tick of *tick_ms*.
+
+        A frame is ENGINE_TICK_MS of wall clock on every loop (#525): the
+        hold loops tick at exactly that and advance one frame; the
+        scroll-paced loops pass ``tick_ms=self._scroll_tick_ms`` and a
+        `FrameAwareBase` widget converts via `advance_frame_elapsed`
+        (20 ms marquee → a frame every 2.5 ticks, 100 ms → 2 per tick).
+        The mixin method is looked up on the CLASS, like `_has_play`, so a
+        Mock widget (whose instances answer every `hasattr`) still gets
+        the plain `advance_frame` the spy-based tests count; a duck-typed
+        widget with only `advance_frame` keeps one frame per tick.
+        Quietly no-ops on widgets without either. Passes the current visit
+        ID so FrameAwareBase can detect aliasing bugs (same widget instance
+        advancing in two concurrent section visits).
         """
-        if hasattr(widget, "advance_frame"):
+        if tick_ms != ENGINE_TICK_MS and callable(
+            getattr(type(widget), "advance_frame_elapsed", None)
+        ):
+            widget.advance_frame_elapsed(tick_ms, visit_id=self._current_visit)
+        elif hasattr(widget, "advance_frame"):
             widget.advance_frame(visit_id=self._current_visit)
 
     @staticmethod
@@ -620,7 +642,9 @@ class Ticker:
                     self._maybe_restart()
                     t0 = loop.time()
                     pos -= 1
-                    self._advance_frame_if_supported(ticker_obj)
+                    self._advance_frame_if_supported(
+                        ticker_obj, tick_ms=self._scroll_tick_ms
+                    )
                     reset_canvas(canvas, bg_color)
                     canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
                     canvas = _swap(canvas, self.frame)
@@ -648,7 +672,9 @@ class Ticker:
                 while tick < n_ticks:
                     self._maybe_restart()
                     t0 = loop.time()
-                    self._advance_frame_if_supported(ticker_obj)
+                    self._advance_frame_if_supported(
+                        ticker_obj, tick_ms=self._scroll_tick_ms
+                    )
                     reset_canvas(canvas, bg_color)
                     canvas, cycle_width = self._safe_draw(ticker_obj, canvas, pos)
                     if tick == 0 and loops_floor > 0 and cycle_width > 0:
@@ -695,7 +721,9 @@ class Ticker:
                     self._maybe_restart()
                     t0 = loop.time()
                     pos -= 1
-                    self._advance_frame_if_supported(ticker_obj)
+                    self._advance_frame_if_supported(
+                        ticker_obj, tick_ms=self._scroll_tick_ms
+                    )
                     reset_canvas(canvas, bg_color)
                     canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
                     canvas = _swap(canvas, self.frame)
@@ -914,7 +942,7 @@ class Ticker:
             # landing — visually inconsistent with the post-scroll hold
             # below and with `_swap_and_scroll`'s scroll branch.
             t0 = loop.time()
-            self._advance_frame_if_supported(ticker_obj)
+            self._advance_frame_if_supported(ticker_obj, tick_ms=self._scroll_tick_ms)
             reset_canvas(canvas, bg_color)
             canvas, cursor_pos = self._safe_draw(ticker_obj, canvas, pos)
             pos -= 1
@@ -977,7 +1005,9 @@ class Ticker:
             # "rainbow"` render as a static gradient that scrolls but
             # doesn't sweep over time.
             t0 = loop.time()
-            self._advance_frame_if_supported(ticker_object)
+            self._advance_frame_if_supported(
+                ticker_object, tick_ms=self._scroll_tick_ms
+            )
             reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
             canvas, final_pos = self._safe_draw(ticker_object, canvas, pos)
             last_drawn_pos = pos
@@ -1058,7 +1088,9 @@ class Ticker:
             seen: set[int] = set()
             for buf_w in buffered_objects:
                 if id(buf_w) not in seen:
-                    self._advance_frame_if_supported(buf_w)
+                    self._advance_frame_if_supported(
+                        buf_w, tick_ms=self._scroll_tick_ms
+                    )
                     seen.add(id(buf_w))
 
             # Side-by-side scroll uses the FIRST buffered widget's bg_color for

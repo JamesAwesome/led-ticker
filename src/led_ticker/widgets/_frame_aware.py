@@ -30,6 +30,8 @@ from typing import ClassVar
 
 import attrs
 
+from led_ticker.constants import ENGINE_TICK_MS
+
 
 @attrs.define
 class FrameAwareBase:
@@ -85,6 +87,12 @@ class FrameAwareBase:
     # engine's scroll-branch lock; cleared by resume_frame(). Widgets
     # without tokens ignore it entirely.
     _resolution_locked: bool = attrs.field(init=False, default=False)
+    # Wall-clock remainder (ms) not yet converted into a frame by
+    # `advance_frame_elapsed`. A frame is ENGINE_TICK_MS of wall clock
+    # whatever cadence the driving loop ticks at (#525); loops that tick
+    # faster bank their ms here until a whole frame has elapsed, loops
+    # that tick slower advance several frames per tick. Cleared per visit.
+    _frame_carry_ms: int = attrs.field(init=False, default=0)
 
     def __new__(cls, *args: object, **kwargs: object) -> FrameAwareBase:
         if cls is not FrameAwareBase and "__attrs_attrs__" not in cls.__dict__:
@@ -128,6 +136,33 @@ class FrameAwareBase:
         for attr_name, _ in self._iter_effects():
             self._effect_frames[attr_name] = self._effect_frames.get(attr_name, 0) + 1
 
+    def advance_frame_elapsed(
+        self, tick_ms: int, *, visit_id: int | None = None
+    ) -> None:
+        """Advance by however many whole ENGINE_TICK_MS frames *tick_ms* of
+        wall clock represents, carrying the remainder to the next call.
+
+        The engine's per-tick loops call this with their nominal tick
+        (``scroll_step_ms`` / ``scroll_speed_ms``) so a frame means 50 ms
+        on a 20 ms marquee and on a 100 ms one alike — the cadence the
+        `Animation` protocol, `typing_duration_seconds`, validate rule 61
+        and the docs all promise (#525). ``tick_ms == ENGINE_TICK_MS`` is
+        exactly one `advance_frame`; ``tick_ms <= 0`` (only reachable with
+        the test-only ``scroll_speed = 0``) degrades to one frame per tick
+        so effects never freeze. No-op while paused: time spent paused is
+        not banked. Routes through `advance_frame` so overrides and spies
+        see every frame.
+        """
+        if self._frame_paused:
+            return
+        if tick_ms <= 0:
+            self.advance_frame(visit_id=visit_id)
+            return
+        self._frame_carry_ms += int(tick_ms)
+        frames, self._frame_carry_ms = divmod(self._frame_carry_ms, ENGINE_TICK_MS)
+        for _ in range(frames):
+            self.advance_frame(visit_id=visit_id)
+
     def pause_frame(self) -> None:
         """Stop advancing the frame counters — used by `run_transition`
         so an outgoing widget mid-typewriter (etc.) doesn't keep
@@ -160,6 +195,7 @@ class FrameAwareBase:
         independent."""
         self._frame_count = 0
         self._visit_owner = None
+        self._frame_carry_ms = 0
         for attr_name, effect in self._iter_effects():
             if getattr(effect, "restart_on_visit", True):
                 self._effect_frames[attr_name] = 0

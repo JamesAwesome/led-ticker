@@ -23,7 +23,7 @@ from led_ticker.transitions import (
     register_transition,
 )
 
-FIFTEEN = default_pool_names()
+SIXTEEN = default_pool_names()
 
 
 class _ColorsStub:
@@ -75,10 +75,10 @@ def _types(resolved):
 # --- default pool ---------------------------------------------------------
 
 
-def test_bare_random_builds_default_pool_of_fifteen():
+def test_bare_random_builds_default_pool_of_sixteen():
     resolved = _resolve_pool(_cfg())
-    assert _types(resolved) == FIFTEEN
-    assert [d for _c, d, _n in resolved] == [None] * 15
+    assert _types(resolved) == SIXTEEN
+    assert [d for _c, d, _n in resolved] == [None] * 16
     obj = _build_trans_obj(_cfg())
     assert isinstance(obj, RandomTransition)
 
@@ -86,19 +86,19 @@ def test_bare_random_builds_default_pool_of_fifteen():
 def test_bare_auto_builds_in_sorted_order():
     obj = _build_trans_obj(_cfg("auto"))
     assert isinstance(obj, AutoTransition)
-    assert [obj._names[i] for i in range(15)] == FIFTEEN
+    assert [obj._names[i] for i in range(16)] == SIXTEEN
 
 
 def test_exclude_removes_named_members():
     resolved = _resolve_pool(_cfg(extra={"exclude": ["dissolve", "color_flash"]}))
     assert _types(resolved) == [
-        n for n in FIFTEEN if n not in ("dissolve", "color_flash")
+        n for n in SIXTEEN if n not in ("dissolve", "color_flash")
     ]
 
 
 def test_pool_refuses_exclude_below_two():
     with pytest.raises(ValueError, match="1 distinct"):
-        _resolve_pool(_cfg(extra={"exclude": FIFTEEN[1:]}))
+        _resolve_pool(_cfg(extra={"exclude": SIXTEEN[1:]}))
 
 
 def test_exclude_name_not_in_pool_is_a_no_op():

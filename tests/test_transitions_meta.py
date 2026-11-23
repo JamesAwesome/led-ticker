@@ -20,9 +20,10 @@ from led_ticker.transitions import (
 )
 from led_ticker.transitions.meta import HARD_EXCLUDED, default_pool_names
 
-FIFTEEN = [
+SIXTEEN = [
     "color_flash",
     "dissolve",
+    "fade",
     "push_down",
     "push_left",
     "push_right",
@@ -91,9 +92,9 @@ def test_hard_excluded_set():
     )
 
 
-def test_default_pool_names_are_the_fifteen():
-    assert default_pool_names() == FIFTEEN
-    assert not (set(FIFTEEN) & HARD_EXCLUDED)
+def test_default_pool_names_are_the_sixteen():
+    assert default_pool_names() == SIXTEEN
+    assert not (set(SIXTEEN) & HARD_EXCLUDED)
 
 
 @pytest.mark.parametrize("cls", [RandomTransition, AutoTransition])

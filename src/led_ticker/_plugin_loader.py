@@ -392,6 +392,13 @@ def load_plugins(
                 result.failed.append((ns, str(e)))
                 continue
             _load_one(ns, source, register, requires, loaded_ns, result)
+        # A plugin font name looked up BEFORE its plugin committed is cached
+        # as a miss; the next resolve would then raise a misleading
+        # "registered but its file is missing". Drop the cache once the
+        # registries are final (mirrors reset_plugins; #560 D).
+        from led_ticker.fonts import hires_loader  # noqa: PLC0415
+
+        hires_loader.load_hires_font.cache_clear()
         _LOADED = result
         return result
 
@@ -413,13 +420,24 @@ def read_plugins_config(config_path: Path) -> PluginsConfig:
     return _parse_plugins_block(raw)
 
 
-def load_plugins_for_config(config_path: Path) -> LoadedPlugins:
+def load_plugins_for_config(
+    config_path: Path, *, config_dir: Path | None = None
+) -> LoadedPlugins:
     """Config-driven plugin load: read the ``[plugins]`` block, then load from
     ``<config dir>/<dir>`` honoring enable/disable. Used by the run loop, the
-    ``validate`` path, and the ``plugins`` CLI command."""
+    ``validate`` path, and the ``plugins`` CLI command.
+
+    ``config_dir`` overrides the directory the relative ``dir`` resolves
+    against (default: ``config_path.parent``). The webui's text validate
+    materializes the TOML in a temp dir; without this anchor the local
+    plugin dir resolved to ``<tempdir>/plugins`` and the load-once guard
+    then pinned a local-plugin-less set for the whole sidecar process
+    (#560 A1). The ``[plugins]`` block itself is still read from
+    ``config_path`` — the submitted text — so an edited ``dir`` /
+    ``disable`` / ``enabled`` is what gets validated."""
     pc = read_plugins_config(config_path)
     if not pc.enabled:
         logger.info("plugins disabled via [plugins].enabled=false; skipping")
         return load_plugins(None, entry_points_enabled=False)
-    plugin_dir = config_path.parent / pc.dir
+    plugin_dir = (config_dir or config_path.parent) / pc.dir
     return load_plugins(plugin_dir, disable=set(pc.disable))

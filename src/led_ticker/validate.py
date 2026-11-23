@@ -1688,6 +1688,10 @@ def _check_transition_color_shape(
                 )
                 if dead_why is not None:
                     why = dead_why
+                elif empty and core_defaults_on_empty and ttype == "fade":
+                    # An empty colour on `fade` selects the MIX (crossfade),
+                    # a different effect, not a default colour.
+                    why = "; empty, so fade crossfades instead of dipping"
                 elif empty and core_defaults_on_empty:
                     why = f"; empty, so type={ttype!r} falls back to its default colour"
                 elif color_effective:

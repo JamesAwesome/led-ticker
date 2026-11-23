@@ -552,3 +552,56 @@ def test_inherited_colour_message_does_not_blame_a_phantom_entry():
                 }
             )
         )  # noqa: E501
+
+
+# --- fade in pools: colour inheritance (fade design, "Config surface") ---------
+
+
+def _fade_children(obj):
+    from led_ticker.transitions.fade import Fade
+
+    return [c for c in obj._children if isinstance(c, Fade)]
+
+
+def test_random_slot_colour_makes_pooled_fade_dip():
+    obj = _build_trans_obj(_cfg(color=(255, 0, 0)))
+    fades = _fade_children(obj)
+    assert len(fades) == 1 and fades[0].through == (255, 0, 0)
+
+
+def test_bare_pool_entry_inherits_slot_colour():
+    obj = _build_trans_obj(
+        _cfg(extra={"pool": ["fade", "wipe_left"]}, color=(255, 0, 0))
+    )
+    assert _fade_children(obj)[0].through == (255, 0, 0)
+
+
+def test_pool_entry_own_colour_wins():
+    obj = _build_trans_obj(
+        _cfg(
+            extra={
+                "pool": [{"type": "fade", "transition_color": [0, 0, 255]}, "wipe_left"]
+            },
+            color=(255, 0, 0),
+        )
+    )
+    assert _fade_children(obj)[0].through == (0, 0, 255)
+
+
+def test_bare_fade_in_uncoloured_pool_is_a_mix():
+    obj = _build_trans_obj(_cfg(extra={"pool": ["fade", "wipe_left"]}))
+    assert _fade_children(obj)[0].through is None
+
+
+def test_plain_fade_slot_with_both_keys_is_a_mix():
+    """`transition_colors` wins at the factory and `transition_color` is dropped
+    (factories.py colors-elif-color), so a plain fade slot carrying both mixes."""
+    obj = _build_trans_obj(_cfg(type="fade", color=(255, 0, 0), colors=[(1, 2, 3)]))
+    assert obj.through is None
+
+
+def test_pool_parent_with_both_keys_dips_pooled_fade():
+    """For a core child the inherited list is dropped and the parent's colour
+    reaches it, so the pooled fade dips."""
+    obj = _build_trans_obj(_cfg(color=(255, 0, 0), colors=[(1, 2, 3)]))
+    assert _fade_children(obj)[0].through == (255, 0, 0)

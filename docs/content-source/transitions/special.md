@@ -5,6 +5,7 @@ The `special` family is a catch-all for transitions that don't fit the push, wip
 | `cut` | Instant switch — outgoing replaced by incoming on a single frame | Minimal default; "no transition" feel |
 | `color_flash` | Full-canvas white flash between content | Punctuating a major section change |
 | `dissolve` | Random pixel scatter (seeded RNG) creates a TV-static effect that resolves to the incoming widget | Dramatic between unrelated sections |
+| `fade` | Crossfade: both widgets are snapshotted once and blended per frame; `transition_color` turns it into a dip through that colour | Soft swaps; the broadcast crossfade or the classic dip to black |
 | `split` | Center-outward expanding black band with magenta edge lines | Geometric / theatrical |
 | `scroll` | Seamless continuous scroll with a 2×2 bullet-dot separator (6 px symmetric gaps), 1 px / frame for constant speed | Marquee feel — no pause, no flash |
 | `random` | Picks a different pool member each firing, never the same one twice in a row (per slot). Default pool: every core transition except `cut`, `scroll` and the four `*_random` / `*_alternating` wrappers | Variety between messages without hand-picking |

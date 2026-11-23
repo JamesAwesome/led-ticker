@@ -45,7 +45,7 @@ Include surrounding spaces for padding (e.g. `separator = ' · '`); set
 
 ## Fade
 
-`fade` crossfades the outgoing widget into the incoming one: both are drawn once, then blended frame by frame, so text, images, borders and `bg_color` all soften through each other instead of cutting. Set `transition_color` and it becomes a dip: the outgoing fades to that colour over the first half and the incoming rises out of it over the second (`[0, 0, 0]` is the classic dip to black).
+`fade` crossfades the outgoing widget into the incoming one: both are drawn once, then blended frame by frame, so text, images and `bg_color` (and a text widget's border) soften through each other instead of cutting. Set `transition_color` and it becomes a dip: the outgoing fades to that colour over the first half and the incoming rises out of it over the second (`[0, 0, 0]` is the classic dip to black).
 
 <DemoGif
   src="/demos/transitions-fade.gif"
@@ -118,7 +118,7 @@ font_color = [255, 244, 214]`}
 - In a `random` / `auto` pool, members inherit the slot's `transition_color`, so `{ type = "random", transition_color = [255, 0, 0] }` makes the pooled fade dip through red. Put the colour on the entries that want it instead: `pool = [{ type = "wipe_left", transition_color = [255, 0, 0] }, "fade"]`.
 - `fade` runs at least 8 frames (0.4 s at the default 20 fps); a shorter `duration` is stretched to that floor. Raise `transition_fps` for a faster fade.
 - Known limit, shared with every transition: a `gif` / `image` widget's text overlay, border and background are painted by its play loop, not its compositing draw, so they cut at the fade's endpoints while the image itself fades.
-- Bigsign: the panel's brightness curve has a short dead zone near black, so the very end of a fade-in can pop. If it shows, try `pwm_bits = 9` or `10` in `[display]` (more refresh cost; see the hardware page).
+- Bigsign: at `pwm_bits = 8` the lowest brightness steps are coarse, so the very start of a fade-in may read as a small pop rather than a ramp. If it bothers you, `pwm_bits = 9` or `10` in `[display]` adds finer steps at a refresh-rate cost; a hardware check of the trade-off is pending and will be recorded here.
 
 ## Pools (`random` / `auto`)
 

@@ -21,8 +21,10 @@ points and where each is closed:
    is built as ``RGB``;
 2. ``Image.blend`` rejects a size mismatch: every image is exactly
    ``(real.width, real.height)``;
-3. ``Image.new`` rejects a malformed colour: the constructor refuses one
-   (``rgb_shape_error``), so the guarded builder cuts;
+3. ``Image.new`` / ``PixelBuffer.Fill`` reject a malformed colour: the
+   through colour is refused in the constructor (``rgb_shape_error``), so
+   the guarded builder cuts, and a section bg is coerced or dropped by
+   ``_norm_bg`` (it reaches the runner un-validated);
 4. the raster -> bytes conversion rejects a widget-sourced non-int or
    out-of-range channel (``PixelBuffer`` stores whatever a widget passes):
    the conversion runs inside ``_snapshot``'s try/except and trips the widget
@@ -71,6 +73,23 @@ def _buffer_to_image(buf: PixelBuffer) -> Image.Image:
     return Image.frombytes("RGB", (buf.width, buf.height), data)
 
 
+def _norm_bg(bg: Any) -> ColorTuple | None:
+    """A section bg reaches the runner un-validated (`_normalize_bg` passes
+    lists and floats through); coerce it to three ints 0..255 or fall back to
+    black, so neither `Fill` nor `Image.new` can raise on it."""
+    if bg is None:
+        return None
+    try:
+        r, g, b = (int(c) for c in bg)
+    except TypeError, ValueError:
+        logger.warning("fade: ignoring malformed bg colour %r", bg)
+        return None
+    if not all(0 <= c <= 255 for c in (r, g, b)):
+        logger.warning("fade: ignoring out-of-range bg colour %r", bg)
+        return None
+    return (r, g, b)
+
+
 def _bg_image(size: tuple[int, int], bg: ColorTuple | None) -> Image.Image:
     return Image.new("RGB", size, bg or (0, 0, 0))
 
@@ -88,11 +107,16 @@ def _snapshot(
     through its guard and replaced by its bg; with no guard (``breaker=None``,
     programmatic callers) the error propagates."""
     size = (real.width, real.height)
+    bg = _norm_bg(bg)
     buf = PixelBuffer(*size)
     if bg is not None:
         buf.Fill(*bg)
+    # The wrapper is built OUTSIDE the try: a geometry the panel cannot hold
+    # (content_height * scale > rows) is a config error the runner's own
+    # re-wrap raises on for every switching transition, never the widget's.
+    target = _wrap(buf, geometry)
     try:
-        widget.draw(_wrap(buf, geometry), cursor_pos=cursor_pos)
+        widget.draw(target, cursor_pos=cursor_pos)
         if transition_draw_tripped(widget):
             # The guard swallowed a mid-draw raise and painted nothing more;
             # the per-frame reset that normally hides a partial frame does
@@ -101,7 +125,8 @@ def _snapshot(
         return _buffer_to_image(buf)
     except Exception as exc:
         if trip_transition_draw(widget, exc):
-            logger.debug("fade: snapshot of %s tripped: %r", type(widget).__name__, exc)
+            inner = getattr(widget, "_widget", widget)  # the guard's slot
+            logger.debug("fade: snapshot of %s tripped: %r", type(inner).__name__, exc)
             return _bg_image(size, bg)
         raise
 

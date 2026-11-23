@@ -440,13 +440,21 @@ async def test_aba_through_seeded_random_pool_resnapshots(no_sleep):
 
 
 async def test_cancel_mid_fade_releases_snapshots(no_sleep):
+    """Through a `random` pool with `fade` current (Review Focus 2): the
+    runner's `finally` reaches the wrapper, which forwards to the fade and
+    then advances the pick."""
     out, inc = _msg("OLD", colors.RED), _msg("NEW", colors.GREEN)
     real, canvas = _canvas()
     f = Fade()
+    seed = next(s for s in range(50) if random.Random(s).randrange(2) == 0)
+    pool = RandomTransition(
+        [f, Cut()], [None, None], ["fade", "cut"], rng=random.Random(seed)
+    )
+    assert pool.current_name == "fade"
 
     async def driver():
         await run_transition(
-            canvas, _identity_frame(), out, inc, transition=f, duration=1.0
+            canvas, _identity_frame(), out, inc, transition=pool, duration=1.0
         )
 
     task = asyncio.create_task(driver())
@@ -457,6 +465,7 @@ async def test_cancel_mid_fade_releases_snapshots(no_sleep):
     with pytest.raises(asyncio.CancelledError):
         await task
     assert f._out_img is None and f._in_img is None
+    assert pool.current_name == "cut"  # the pick advanced too
 
 
 # --- breaker ----------------------------------------------------------------------
@@ -527,10 +536,45 @@ def test_snapshot_widget_missing_canvas_method_trips_and_completes():
 
 
 def test_incoming_that_draws_nothing_fades_to_bg():
+    """A guard around a widget that draws nothing (schedule-filtered incoming,
+    Review Focus 4): t = 1 is the incoming bg, no stale pixels, nothing tripped."""
     out, inc = _msg("OLD", colors.RED), _DrawsNothing()
+    br = RenderBreaker()
     real, canvas = _canvas()
-    t1 = _frame(Fade(), 1.0, canvas, out, inc, incoming_bg_color=(0, 5, 0))
+    g_out, g_inc = guard_for_transition(out, br), guard_for_transition(inc, br)
+    t1 = _frame(Fade(), 1.0, canvas, g_out, g_inc, incoming_bg_color=(0, 5, 0))
     assert _palette(t1) == {(0, 5, 0)}
+    assert not br.disabled
+
+
+def test_malformed_section_bg_is_dropped_not_raised(caplog):
+    """A section bg reaches the runner un-validated: float channels are
+    coerced, an out-of-range channel is dropped with a WARNING; neither
+    raises out of frame_at nor trips a healthy widget."""
+    out, inc = _msg("OLD", colors.RED), _msg("NEW", colors.GREEN)
+    br = RenderBreaker()
+    real, canvas = _canvas()
+    g_out, g_inc = guard_for_transition(out, br), guard_for_transition(inc, br)
+    f = Fade()
+    with caplog.at_level(logging.WARNING, logger="led_ticker.transitions.fade"):
+        kw = {"outgoing_bg_color": (99.0, 60, 138), "incoming_bg_color": (300, 0, 0)}
+        t0 = _frame(f, 0.0, canvas, g_out, g_inc, **kw)
+        t1 = _frame(f, 1.0, canvas, g_out, g_inc, **kw)
+    assert not br.disabled
+    assert t0.getpixel((159, 15)) == (99, 60, 138)  # coerced
+    assert t1.getpixel((159, 15)) == (0, 0, 0)  # dropped -> black
+    assert sum("bg colour" in r.getMessage() for r in caplog.records) == 1
+
+
+def test_dip_through_cache_is_keyed_on_panel_size():
+    out, inc = _msg("OLD", colors.RED), _msg("NEW", colors.GREEN)
+    f = Fade(color=(0, 0, 255))
+    small_real, small = _canvas(160, 16)
+    big_real, big = _canvas(256, 64, 4, 16)
+    assert _palette(_frame(f, 0.5, small, out, inc)) == {(0, 0, 255)}
+    f.end_firing()
+    mid = _frame(f, 0.5, big, out, inc)
+    assert mid.size == (256, 64) and _palette(mid) == {(0, 0, 255)}
 
 
 # --- per-frame path on a spy canvas -----------------------------------------------

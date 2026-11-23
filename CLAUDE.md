@@ -76,11 +76,11 @@ src/led_ticker/
     wipe.py             # WipeLeft/Right/Up/Down, WipeAlternating, WipeRandom
     center_wipe.py      # WipeIn/Out (+ _vertical): erase-style center sweeps over _BaseWipe
     effects.py          # Cut, ColorFlash, Dissolve, SplitHorizontal, Scroll
-    fade.py             # Fade: snapshot both widgets into a PixelBuffer once, Image.blend
-                        #  per frame, one SetImage; transition_color = dip through it
                         # (the nyancat/pokeball/pacman/sailor_moon sprite-trail
                         #  families ship INSIDE the flair package of the
                         #  led-ticker-plugins monorepo: led_ticker_flair/<family>/)
+    fade.py             # Fade: snapshot both widgets into a PixelBuffer once, Image.blend
+                        #  per frame, one SetImage; transition_color = dip through it
     meta.py             # RandomTransition / AutoTransition: pick-ahead wrappers
                         #  over a pool of pre-built children (end_firing hook)
     _hires_loader.py    # Public hi-res infra: HiresSpec + render_hires_frame

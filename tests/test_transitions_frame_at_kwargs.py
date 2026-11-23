@@ -10,6 +10,8 @@ from led_ticker.transitions import run_transition
 
 
 class _Recorder:
+    min_frames = 0
+
     def __init__(self):
         self.kwargs = []
 

@@ -80,8 +80,8 @@ def rgb_shape_error(value: Any) -> str | None:
     ``int`` (``bool`` excluded) each in 0..255 — the ONE shape ``SetPixel``
     accepts — else a one-line message naming the offending value.
 
-    Home is this leaf module so a transition module (``transitions/fade.py``)
-    can import it without a cycle through ``led_ticker.app``; ``app.coercion``
+    Home is this leaf module so a transition module can import it without a
+    cycle through ``led_ticker.app``; ``app.coercion``
     re-exports it for validate rule 74 (transition slots), rule 73 and the
     transition factory (pool entries), so the four can't drift. Pure: never
     raises, whatever ``value`` is.

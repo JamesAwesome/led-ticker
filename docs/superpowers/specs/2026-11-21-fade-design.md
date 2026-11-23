@@ -342,7 +342,7 @@ Pass `incoming_scale=incoming_scale`,
 three on the `Transition` protocol docstring. Safe for every receiver: 53 of
 53 `frame_at` definitions across core and the plugins repo take `**kwargs`,
 `render_hires_frame` takes `**kwargs`, the meta wrapper forwards
-`**kwargs` (gate section 6). `API_VERSION` -> the next unclaimed minor, `(1, 5)` while PR #561 (`fix/image-play-settle-seam`, claims `(1, 5)` for `frames_to_rest` on gif/image hosts) is open; re-check `git branch -r` and open PRs at precursor-merge time, since a reused minor would satisfy a plugin's `>=` probe for a guarantee the core does not have ("`frame_at`
+`**kwargs` (gate section 6). `API_VERSION` -> the next unclaimed minor, `(1, 5)` while PR #561 (`fix/image-play-settle-seam`, claims `(1, 4)` for `frames_to_rest` on gif/image hosts) is open; re-check `git branch -r` and open PRs at precursor-merge time, since a reused minor would satisfy a plugin's `>=` probe for a guarantee the core does not have ("`frame_at`
 receives the incoming geometry and the outgoing bg colour"); tests pin
 `>=`. `tests/test_docs_plugin_api_drift.py:143-158` checks the "currently
 `(1, 3)`" literal on TWO pages, `plugins/api-reference.mdx` and

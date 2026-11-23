@@ -8,6 +8,8 @@ pixel-identical to the same draw on a `HeadlessCanvas` — the tripwire a
 snapshotting transition relies on.
 """
 
+from typing import Any
+
 from PIL import Image
 
 from led_ticker.backends.headless import HeadlessCanvas
@@ -168,9 +170,9 @@ def _image_files(tmp_path):
     return gif, png
 
 
-def _build(name: str, scale: int, tmp_path):
-    font = resolve_font("Inter-Regular", 24) if scale >= 4 else None
-    text_kw = {"font": font} if font is not None else {}
+def _build(name: str, scale: int, tmp_path, image_bg: bool = False):
+    font = resolve_font("Inter-Regular", 24) if scale >= 2 else None
+    text_kw: dict[str, Any] = {"font": font} if font is not None else {}
     bg = colors.BLUE
     border = ConstantBorder(colors.GREEN)
     if name == "message":
@@ -196,9 +198,10 @@ def _build(name: str, scale: int, tmp_path):
             text="Days since", countup_date="2020-01-01", bg_color=bg, border=border
         )
     gif, png = _image_files(tmp_path)
+    image_kw: dict[str, Any] = {"bg_color": bg} if image_bg else {}
     if name == "gif":
-        return GifPlayer(path=str(gif), fit="letterbox")
-    return StillImage(path=str(png), fit="letterbox")
+        return GifPlayer(path=str(gif), fit="letterbox", **image_kw)
+    return StillImage(path=str(png), fit="letterbox", **image_kw)
 
 
 @pytest.mark.parametrize(
@@ -206,8 +209,9 @@ def _build(name: str, scale: int, tmp_path):
 )
 @pytest.mark.parametrize("name", WIDGETS)
 @pytest.mark.parametrize("cursor", [0, -30])
+@pytest.mark.parametrize("image_bg", [False, True], ids=["nobg", "imagebg"])
 def test_every_core_widget_snapshots_into_pixelbuffer(
-    name, geom, cursor, tmp_path, frozen_time
+    name, geom, cursor, image_bg, tmp_path, frozen_time
 ):
     """(a) the transition draw guard never trips on a PixelBuffer target and
     (b) the buffer equals a HeadlessCanvas drawn the same way, pixel for pixel
@@ -215,7 +219,7 @@ def test_every_core_widget_snapshots_into_pixelbuffer(
     trips-only assertion and garble every image section's fade)."""
     w, h, scale, ch = geom
     breaker = RenderBreaker()
-    widget = _build(name, scale, tmp_path)
+    widget = _build(name, scale, tmp_path, image_bg)
     buf, hc = PixelBuffer(w, h), HeadlessCanvas(w, h)
     guard = guard_for_transition(widget, breaker)
     guard.draw(_maybe_wrap(buf, scale, ch), cursor_pos=cursor)

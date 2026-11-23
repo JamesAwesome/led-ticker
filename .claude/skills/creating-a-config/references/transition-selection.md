@@ -14,8 +14,8 @@ Use this guide to **choose** a transition (by tone) and **wire** it into the con
 |------|----------------------|
 | Minimal | `cut`, `wipe_left`, `wipe_right` |
 | Playful | `nyancat.alternating`, `pokeball.alternating`, `pacman.alternating` (requires per-family plugin — `led-ticker-nyancat`, `led-ticker-pokeball`, `led-ticker-pacman`) |
-| Info-dense | `push_up`, `wipe_up`, `dissolve` |
-| Branded-pro | `wipe_alternating` with brand `transition_color`, `cut`, `color_flash` |
+| Info-dense | `push_up`, `wipe_up`, `fade`, `dissolve` |
+| Branded-pro | `wipe_alternating` with brand `transition_color`, `fade` (dip to black via `transition_color = [0, 0, 0]`), `cut`, `color_flash` |
 
 ---
 

@@ -13,8 +13,8 @@ The `special` family is a catch-all for transitions that don't fit the push, wip
 
 ## Tuning
 
-- `transition_duration` (seconds): default 0.5. `cut` ignores it (single frame). `color_flash`, `dissolve`, and `split` look right between 0.4–0.8 s. `scroll` is the exception — duration is implied by content width and the 1 px / frame cadence, not by `transition_duration`.
-- `transition_color` ([r, g, b]): used by `color_flash` (overrides the white) and `dissolve` (tints the static). Ignored by `cut`, `split`, `scroll`.
+- `transition_duration` (seconds): default 0.5. `cut` ignores it (single frame). `color_flash`, `dissolve`, and `split` look right between 0.4–0.8 s. `fade` has a 0.4 s floor at 20 fps (`min_frames = 8`); below it, raise `transition_fps`. `scroll` is the exception — duration is implied by content width and the 1 px / frame cadence, not by `transition_duration`.
+- `transition_color` ([r, g, b]): used by `color_flash` (overrides the white), `dissolve` (tints the static) and `fade` (turns the crossfade into a dip through that colour; unset or `[]` = crossfade). Ignored by `cut`, `split`, `scroll`.
 
 ## Tips
 

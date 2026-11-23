@@ -1,13 +1,14 @@
 ---
 title: Special transitions
-description: "Catch-all for transitions that aren't push, wipe, or sprite — cut, color_flash, dissolve, split, scroll."
+description: "Catch-all for transitions that aren't push, wipe, or sprite — cut, color_flash, fade, dissolve, split, scroll."
 ---
 
 import DemoGif from "../../../components/DemoGif.astro";
 import OptionsTable from "../../../components/OptionsTable.astro";
+import TomlExample from "../../../components/TomlExample.astro";
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-The special family covers transitions that don't fit the push / wipe / sprite shapes. Most are full-canvas effects (`color_flash`, `dissolve`, `split`) or single-frame cuts; `scroll` is the odd one out — a continuous-scroll bridge that connects two widgets with a bullet separator instead of pausing for a transition.
+The special family covers transitions that don't fit the push / wipe / sprite shapes. Most are full-canvas effects (`color_flash`, `fade`, `dissolve`, `split`) or single-frame cuts; `scroll` is the odd one out — a continuous-scroll bridge that connects two widgets with a bullet separator instead of pausing for a transition.
 
 <DemoGif
   src="/demos/transitions-dissolve.gif"
@@ -41,6 +42,83 @@ To use a character instead of a dot, set `separator`:
 Include surrounding spaces for padding (e.g. `separator = ' · '`); set
 `separator_font` / `separator_font_size` only for a non-default font.
 `separator_size` sets the dot's pixel size (default 2); it has no effect when a glyph separator is set.
+
+## Fade
+
+`fade` crossfades the outgoing widget into the incoming one: both are drawn once, then blended frame by frame, so text, images, borders and `bg_color` all soften through each other instead of cutting. Set `transition_color` and it becomes a dip: the outgoing fades to that colour over the first half and the incoming rises out of it over the second (`[0, 0, 0]` is the classic dip to black).
+
+<DemoGif
+  src="/demos/transitions-fade.gif"
+  caption="fade — a crossfade between two messages, a dip through black, then a crossfade from one bg_color to another"
+/>
+
+<TomlExample
+  title="The demo above"
+  code={`[transitions]
+default = "fade"
+between_sections = "fade"
+duration = 0.8
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 1.5
+transition = "fade"
+
+[[playlist.section.widget]]
+type = "message"
+text = "fade"
+font_color = [255, 244, 214]
+
+[[playlist.section.widget]]
+type = "message"
+text = "crossfade"
+font_color = [80, 220, 255]
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 1.5
+transition = { type = "fade", transition_color = [0, 0, 0] }
+
+[[playlist.section.widget]]
+type = "message"
+text = "dip"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "through black"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 1.5
+bg_color = [99, 60, 138]
+
+[[playlist.section.widget]]
+type = "message"
+text = "one bg"
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 1.5
+bg_color = [0, 70, 80]
+
+[[playlist.section.widget]]
+type = "message"
+text = "another bg"
+font_color = [255, 244, 214]`}
+/>
+
+- Bare `fade` is the crossfade; `transition_color = [r, g, b]` is the dip. An empty list (`[]`) is the crossfade too, not a default colour.
+- In a `random` / `auto` pool, members inherit the slot's `transition_color`, so `{ type = "random", transition_color = [255, 0, 0] }` makes the pooled fade dip through red. Put the colour on the entries that want it instead: `pool = [{ type = "wipe_left", transition_color = [255, 0, 0] }, "fade"]`.
+- `fade` runs at least 8 frames (0.4 s at the default 20 fps); a shorter `duration` is stretched to that floor. Raise `transition_fps` for a faster fade.
+- Known limit, shared with every transition: a `gif` / `image` widget's text overlay, border and background are painted by its play loop, not its compositing draw, so they cut at the fade's endpoints while the image itself fades.
+- Bigsign: the panel's brightness curve has a short dead zone near black, so the very end of a fade-in can pop. If it shows, try `pwm_bits = 9` or `10` in `[display]` (more refresh cost; see the hardware page).
 
 ## Pools (`random` / `auto`)
 

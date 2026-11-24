@@ -225,6 +225,134 @@ class TestScrollLoopsPassTickMs:
         assert n >= 6, n
 
 
+class TestHoldLoopPassesFlooredTick:
+    """AST tripwire (cycle-2 finding 4): `_hold_ticks` is the ONE
+    ENGINE_TICK_MS-paced advance site in the engine (the post-scroll hold
+    and the settle seam route through it). Its advance must pass
+    ``tick_ms=<local>`` where ``<local>`` is assigned IN `_hold_ticks` from
+    exactly ``floor_tick_ms(self.frame, ENGINE_TICK_MS)`` — hoisted once,
+    not re-evaluated per tick. A bare `_advance_frame_if_supported(widget)`
+    banks a flat 50 and reopens the 0.75× hold on a 30 Hz cap. Completeness:
+    NO `_advance_frame_if_supported` call anywhere in ticker.py may omit
+    `tick_ms=` — every loop is either scroll-paced (`self._scroll_tick_ms`)
+    or hold-paced (the floored local)."""
+
+    @staticmethod
+    def _is_floor_of_engine_tick(value: ast.expr) -> bool:
+        """Exactly `floor_tick_ms(self.frame, ENGINE_TICK_MS)`."""
+        return (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id == "floor_tick_ms"
+            and len(value.args) == 2
+            and not value.keywords
+            and isinstance(value.args[0], ast.Attribute)
+            and value.args[0].attr == "frame"
+            and isinstance(value.args[0].value, ast.Name)
+            and value.args[0].value.id == "self"
+            and isinstance(value.args[1], ast.Name)
+            and value.args[1].id == "ENGINE_TICK_MS"
+        )
+
+    @classmethod
+    def _floored_locals(cls, fn: ast.AST) -> set[str]:
+        """Names bound at the function's top level (outside any loop) from
+        the floor call."""
+        names: set[str] = set()
+        for stmt in getattr(fn, "body", []):
+            if (
+                isinstance(stmt, ast.Assign)
+                and len(stmt.targets) == 1
+                and isinstance(stmt.targets[0], ast.Name)
+                and cls._is_floor_of_engine_tick(stmt.value)
+            ):
+                names.add(stmt.targets[0].id)
+        return names
+
+    @staticmethod
+    def _function(tree: ast.AST, name: str) -> ast.AST:
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+                and node.name == name
+            ):
+                return node
+        raise AssertionError(f"{name} not found in ticker.py")
+
+    def test_predicate_accepts_only_the_exact_floor_call(self):
+        """Guard the guard."""
+        ok = ast.parse("floor_tick_ms(self.frame, ENGINE_TICK_MS)", mode="eval").body
+        assert self._is_floor_of_engine_tick(ok)
+        for src in (
+            "floor_tick_ms(self.frame, 50)",
+            "floor_tick_ms(frame, ENGINE_TICK_MS)",
+            "floor_tick_ms(self.frame, self._scroll_tick_ms)",
+            "self.frame.swap_interval_ms",
+            "ENGINE_TICK_MS",
+            "max(ENGINE_TICK_MS, self.frame.swap_interval_ms)",
+        ):
+            assert not self._is_floor_of_engine_tick(
+                ast.parse(src, mode="eval").body
+            ), src
+
+    def test_hoisted_local_is_found_only_outside_loops(self):
+        """Guard the guard: a per-tick assignment inside the loop body is
+        NOT accepted (the floor is hoisted once)."""
+        hoisted = ast.parse(
+            "def f(self):\n"
+            "    tick = floor_tick_ms(self.frame, ENGINE_TICK_MS)\n"
+            "    for _ in x:\n"
+            "        pass\n"
+        ).body[0]
+        assert self._floored_locals(hoisted) == {"tick"}
+        per_tick = ast.parse(
+            "def f(self):\n"
+            "    for _ in x:\n"
+            "        tick = floor_tick_ms(self.frame, ENGINE_TICK_MS)\n"
+        ).body[0]
+        assert self._floored_locals(per_tick) == set()
+
+    def test_hold_ticks_advances_by_the_hoisted_floored_tick(self):
+        tree = ast.parse(inspect.getsource(ticker_mod))
+        fn = self._function(tree, "_hold_ticks")
+        floored = self._floored_locals(fn)
+        assert floored, (
+            "_hold_ticks must hoist floor_tick_ms(self.frame, ENGINE_TICK_MS)"
+        )
+        calls = [
+            call
+            for call in ast.walk(fn)
+            if isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "_advance_frame_if_supported"
+        ]
+        assert calls, "_hold_ticks lost its advance call"
+        for call in calls:
+            kw = [k for k in call.keywords if k.arg == "tick_ms"]
+            assert kw, f"ticker.py:{call.lineno}: _hold_ticks advance omits tick_ms="
+            value = kw[0].value
+            assert isinstance(value, ast.Name) and value.id in floored, (
+                f"ticker.py:{call.lineno}: tick_ms must be the hoisted "
+                f"floor_tick_ms(self.frame, ENGINE_TICK_MS) local, got "
+                f"{ast.unparse(value)}"
+            )
+
+    def test_no_advance_site_in_the_engine_omits_tick_ms(self):
+        tree = ast.parse(inspect.getsource(ticker_mod))
+        offenders = [
+            f"ticker.py:{call.lineno}"
+            for call in ast.walk(tree)
+            if isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "_advance_frame_if_supported"
+            and not any(k.arg == "tick_ms" for k in call.keywords)
+        ]
+        assert not offenders, (
+            "every engine advance must bank the wall clock its loop really "
+            f"ticks at — pass tick_ms= at {offenders}"
+        )
+
+
 class TestSwapIntervalFloor:
     """Finding 1 of the #525 review: on a refresh-capped sign
     `SwapOnVSync(canvas, fraction)` blocks until the next multiple of
@@ -265,6 +393,181 @@ class TestSwapIntervalFloor:
         nominal tick must come through untouched (no TypeError, no floor)."""
         t = Ticker(monitors=[], frame=swapping_frame, scroll_speed=0.02)
         assert t._scroll_tick_ms == 20
+
+
+class TestScrollTickMsIsTheConfiguredMs:
+    """Cycle-2 finding 3: `scroll_speed` is `scroll_step_ms / 1000` and the
+    product `scroll_speed * 1000` is not always exact in binary — `int()`
+    truncates 1.001 * 1000 = 1000.9999… to 1000 (and 2.002 → 2001, 4.007 →
+    4006), so the tick must be `round()`ed back to the configured ms."""
+
+    @pytest.mark.parametrize("ms", [29, 1001, 2002, 4007, 4999])
+    def test_scroll_tick_ms_is_the_configured_ms(self, swapping_frame, ms):
+        t = Ticker(monitors=[], frame=swapping_frame, scroll_speed=ms / 1000)
+        assert t._scroll_tick_ms == ms
+
+
+@attrs.define
+class _Settling(_Anim):
+    """Frame-aware widget that always asks the settle seam for *owed*
+    more frames (constant, so the tick arithmetic is the only variable)."""
+
+    owed: int = 10
+
+    def frames_to_transition_ready(self) -> int:
+        return self.owed
+
+
+class TestHoldLoopFloorsAtSwapInterval:
+    """Cycle-2 finding 4: the ENGINE_TICK_MS-paced loops (`_hold_ticks`, and
+    through it `_scroll_and_delay`'s post-scroll hold and the settle seam)
+    ALSO really tick at the swap interval on a refresh-capped sign — 67 ms
+    at 30 Hz, 55 at 110 — so banking a flat 50 per tick ran held effects at
+    0.75–0.95×. The hold loop banks `floor_tick_ms(frame, ENGINE_TICK_MS)`
+    so the (1, 6) "every core loop" guarantee is true as written."""
+
+    async def test_capped_frame_banks_the_swap_interval(self, swapping_frame, no_sleep):
+        """10 ticks × 67 ms = 670 ms = 13 frames + 20 ms carry, not 10."""
+        w = _Anim(cursor=5)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._hold_ticks(_canvas(), w, 10, 0, None)
+        assert w.draws == 10, "the tick count / sleep cadence must not change"
+        assert w._frame_count == 13
+        assert w._frame_carry_ms == 20
+
+    async def test_interval_below_the_engine_tick_is_one_frame_per_tick(
+        self, swapping_frame, no_sleep
+    ):
+        """A 25 Hz cap swaps every 40 ms — shorter than the 50 ms hold tick,
+        so the loop still really ticks at 50: `max`, not a replacement (a
+        mutant that passes the raw interval instead of the floored nominal
+        banks 40 and delivers 8 frames)."""
+        w = _Anim(cursor=5)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 40
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._hold_ticks(_canvas(), w, 10, 0, None)
+        assert w._frame_count == 10
+        assert w._frame_carry_ms == 0
+
+    async def test_duck_typed_widget_keeps_one_frame_per_tick(
+        self, swapping_frame, no_sleep
+    ):
+        w = _LegacyAdvance()
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._hold_ticks(_canvas(), w, 10, 0, None)
+        assert w.advances == 10
+
+    async def test_post_scroll_hold_inherits_the_floor(self, swapping_frame, no_sleep):
+        """`_scroll_and_delay` at pos 0 is pure hold: 0.5 s = 10 ticks."""
+        w = _Anim(cursor=5)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._scroll_and_delay(_canvas(), w, delay=0.5, cursor_pos=0)
+        assert w._frame_count == 13
+
+
+class TestSettleConvertsFramesToFlooredTicks:
+    """The settle seam asks the widget for FRAMES and used to hand them to
+    `_hold_ticks` as TICKS — exact while a hold tick was one frame. On a
+    capped frame the hold banks 67 per tick, so 10 ticks would overshoot
+    the rest point (13 frames). Mirror the image loops' `_settle_ticks`:
+    `ceil((frames × 50 − banked carry) / hold_tick_ms)` ticks, refused when
+    the DELIVERED extension `ticks × hold_tick_ms` exceeds MAX_SETTLE_MS."""
+
+    async def test_uncapped_frame_holds_one_tick_per_frame(
+        self, swapping_frame, no_sleep
+    ):
+        """Parity: cursor 5 fits, hold 0.05 s = 1 tick, then 10 settle
+        ticks → entry draw + 1 + 10 draws, 11 frames."""
+        w = _Settling(cursor=5, owed=10)
+        swapping_frame.swap.return_value = _canvas()
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 12
+        assert w._frame_count == 11
+
+    async def test_capped_frame_converts_owed_frames_into_ticks(
+        self, swapping_frame, no_sleep
+    ):
+        """After the 1-tick hold (67 banked → 1 frame, carry 17) the widget
+        owes 10 frames = 500 ms − 17 carry = 483 ms → ceil(483 / 67) = 8
+        ticks (not 10), which bank 536 → 11 frames: the rest point (11)
+        plus the sub-tick ceil remainder, never the 13-frame overshoot."""
+        w = _Settling(cursor=5, owed=10)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 1 + 1 + 8
+        assert w._frame_count == 12
+
+    async def test_delivered_extension_over_budget_is_refused(
+        self, swapping_frame, no_sleep
+    ):
+        """20 frames (the MAX_SETTLE_TICKS edge) = 1000 ms owed; on a
+        2000 ms swap interval even one tick would hold the panel 2 s, so
+        the extension is refused outright (all-or-nothing)."""
+        w = _Settling(cursor=5, owed=20)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 2000
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 2  # entry draw + the 1-tick hold, no settle
+
+    async def test_duck_typed_widget_keeps_one_tick_per_frame(
+        self, swapping_frame, no_sleep
+    ):
+        """A widget without `advance_frame_elapsed` advances one frame per
+        hold tick whatever the interval, so its settle must NOT be
+        converted (it would undershoot the rest point)."""
+
+        class _LegacySettling(_LegacyAdvance):
+            def draw(self, canvas, cursor_pos=0, **kwargs):
+                self.draws += 1
+                return canvas, 5
+
+            def frames_to_transition_ready(self) -> int:
+                return 10
+
+        w = _LegacySettling()
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.advances == 1 + 10
+
+    async def test_banked_carry_is_subtracted_from_the_owed_time(
+        self, swapping_frame, no_sleep
+    ):
+        """The 1-tick hold leaves 17 ms banked; 3 owed frames = 150 ms −
+        17 = 133 → ceil(133 / 67) = 2 ticks (3 without the carry term),
+        which bank 134 + 17 = 151 → exactly the 3 frames owed."""
+        w = _Settling(cursor=5, owed=3)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 1 + 1 + 2
+        assert w._frame_count == 1 + 3
+
+    async def test_delivered_extension_at_exactly_the_budget_is_granted(
+        self, swapping_frame, no_sleep
+    ):
+        """20 frames = 1000 ms owed on a 100 ms interval → 10 ticks ×
+        100 = exactly MAX_SETTLE_MS: granted (`>`, not `>=`)."""
+        w = _Settling(cursor=5, owed=20)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 100
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 1 + 1 + 10
+        assert w._frame_count == 2 + 20
 
 
 class TestEveryAdvanceFrameClassBanksElapsed:

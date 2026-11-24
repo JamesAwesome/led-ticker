@@ -1296,3 +1296,55 @@ class TestStillPlayNoTextBorderPerEffectCounter:
             f"fast-path paint should read per-effect counter (42); "
             f"got {captured} — bug-state would yield [0]"
         )
+
+
+class TestStillPlayNoTextFloorsAtSwapInterval:
+    """#525 cycle-2 finding 4: the slow path ticks at ENGINE_TICK_MS but on
+    a refresh-capped sign every `swap()` blocks for the swap interval
+    (67 ms at 30 Hz), so banking a flat frame per tick ran an animated
+    border at 0.75×. The loop banks `floor_tick_ms(frame, ENGINE_TICK_MS)`
+    via `advance_frame_elapsed`; a Mock / uncapped frame floors at the
+    nominal 50 and stays byte-identical (one frame per tick)."""
+
+    @pytest.fixture
+    def still(self, tmp_path):
+        from led_ticker.borders import RainbowChaseBorder
+
+        img_path = tmp_path / "x.png"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(img_path)
+        # hold 0.5 s → 10 slow-path ticks
+        return StillImage(path=img_path, hold_time=0.5, border=RainbowChaseBorder())
+
+    async def test_uncapped_frame_is_one_frame_per_tick(
+        self, still, mock_frame, mocker
+    ):
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        await still._play_no_text(mock_frame.swap.return_value, mock_frame)
+        assert mock_frame.swap.call_count == 10
+        assert still._frame_count == 10
+        assert still._frame_carry_ms == 0
+
+    async def test_capped_frame_banks_the_swap_interval(
+        self, still, mock_frame, mocker
+    ):
+        """10 ticks × 67 ms = 670 ms = 13 frames + 20 ms carry; the tick
+        count (swaps) is unchanged."""
+        mock_frame.swap_interval_ms = 67
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        await still._play_no_text(mock_frame.swap.return_value, mock_frame)
+        assert mock_frame.swap.call_count == 10
+        assert still._frame_count == 13
+        assert still._frame_carry_ms == 20
+
+    async def test_interval_below_the_engine_tick_is_one_frame_per_tick(
+        self, still, mock_frame, mocker
+    ):
+        """A 25 Hz cap swaps every 40 ms < 50: the floor is a `max`, so
+        the nominal 50 is banked, never the raw interval (a mutant that
+        banks `swap_interval_ms` directly delivers 8 frames here and
+        degrades to 0 on a Mock frame)."""
+        mock_frame.swap_interval_ms = 40
+        mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+        await still._play_no_text(mock_frame.swap.return_value, mock_frame)
+        assert still._frame_count == 10
+        assert still._frame_carry_ms == 0

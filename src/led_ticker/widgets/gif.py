@@ -96,6 +96,7 @@ from typing import Any
 import attrs
 
 from led_ticker._types import Canvas, DrawResult
+from led_ticker.frame import floor_tick_ms
 from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.widgets import register
 from led_ticker.widgets._effects import paint_background
@@ -315,6 +316,21 @@ class GifPlayer(_BaseImageWidget):
         20 Hz on this path — same cap `_play_with_text` already
         imposes. Gifs with frame durations >= 50ms (the common case)
         render identically to before.
+
+        The frame counter banks the wall clock a tick REALLY takes —
+        ENGINE_TICK_MS floored at the frame's swap interval, hoisted once
+        (#525 cycle-2 finding 4): on a refresh-capped sign `swap()` blocks
+        for that interval (67 ms at 30 Hz), so a flat frame per tick ran
+        an animated border at 0.75×. Uncapped / Mock frames floor at 50 →
+        exactly one frame per tick, unchanged. The nominal tick still
+        drives the tick count, the sleep and the gif frame pick.
+
+        Known limit: the sleep below is flat (not drift-compensated like
+        `Ticker._hold_ticks`), so on a cap whose interval is AT OR BELOW
+        50 ms the swap request lands just after a refresh boundary and
+        the tick really runs to the next one (~100 ms at a 100 Hz cap)
+        while 50 is banked — the floor only corrects intervals above the
+        nominal. Pre-existing; compensating the sleep changes gif pacing.
         """
         from led_ticker.ticker import ENGINE_TICK_MS
 
@@ -328,10 +344,11 @@ class GifPlayer(_BaseImageWidget):
         total_ms = self._loop_ms * loops
         n_ticks = max(1, total_ms // ENGINE_TICK_MS)
         tick_seconds = ENGINE_TICK_MS / 1000
+        frame_tick_ms = floor_tick_ms(frame, ENGINE_TICK_MS)
 
         for tick in range(n_ticks):
             self._pick_frame_for_elapsed(tick * ENGINE_TICK_MS)
-            self.advance_frame()
+            self.advance_frame_elapsed(frame_tick_ms)
             reset_canvas(canvas, self.bg_color)
             paint_background(self, canvas)
             self._paint_image(canvas)

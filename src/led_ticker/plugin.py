@@ -205,12 +205,13 @@ __all__ = [
 #            existing ``outgoing_scroll_pos`` / ``duration_ms`` /
 #            ``incoming_bg_color``.
 #   (1, 6) — a frame is ENGINE_TICK_MS (50 ms) of wall clock on every CORE
-#            loop that drives a widget, including the scroll-paced ones
-#            (``scroll_step_ms`` in the engine, ``scroll_speed_ms`` on the
-#            gif / image overlays): each banks its nominal tick floored at
-#            the frame's swap interval (on a refresh-capped sign the swap
-#            blocks that long, so a frame is 50 ms there too); before,
-#            those advanced one frame per scroll tick, so frame-timed
+#            loop that drives a widget — the 50 ms-paced hold / no-text
+#            loops and the scroll-paced ones (``scroll_step_ms`` in the
+#            engine, ``scroll_speed_ms`` on the gif / image overlays)
+#            alike: each banks its nominal tick floored at the frame's
+#            swap interval (on a refresh-capped sign the swap blocks that
+#            long, so a frame is 50 ms there too); before, the scroll-paced
+#            loops advanced one frame per scroll tick, so frame-timed
 #            animations ran fast on quick marquees (led-ticker#525).
 #            Outside it: plugin ``play()`` loops that advance themselves,
 #            and duck-typed widgets without ``advance_frame_elapsed``.

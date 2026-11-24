@@ -4,12 +4,14 @@ Each widget tracks its own `_frame_count` (whole ENGINE_TICK_MS = 50 ms
 frames of wall clock, resets per visit) AND a parallel `_effect_frames`
 dict tracking per-effect-attribute counters that follow each effect's
 `restart_on_visit` policy. A frame is 50 ms on EVERY core loop (#525):
-loops that tick at exactly ENGINE_TICK_MS call `advance_frame()` once
-per tick; loops that tick at another cadence (the engine's scroll-paced
-loops, the image play loops) call `advance_frame_elapsed(tick_ms)` with
-the wall clock one tick really takes and the mixin banks the ms in
-`_frame_carry_ms`, advancing whole frames as they accrue — so the
-counter is NOT "one per loop iteration" anywhere.
+each loop banks the wall clock one tick really takes — its nominal tick
+(ENGINE_TICK_MS on the hold / no-text loops, `scroll_step_ms` /
+`scroll_speed_ms` on the scroll-paced ones) floored at the frame's swap
+interval — through `advance_frame_elapsed(tick_ms)`, which keeps the
+sub-frame remainder in `_frame_carry_ms` and advances whole frames as
+they accrue; a tick of exactly ENGINE_TICK_MS is one `advance_frame()`,
+which is what the engine calls directly then. So the counter is NOT
+"one per loop iteration" anywhere.
 
 The orchestrator advances per draw tick (both the primary counter and
 all per-effect counters increment together). Transitions
@@ -170,9 +172,11 @@ class FrameAwareBase:
         wall clock represents, carrying the remainder to the next call.
 
         The engine's per-tick loops call this with the wall clock one tick
-        really takes — the nominal ``scroll_step_ms`` / ``scroll_speed_ms``
-        floored at the frame's swap interval (`frame.floor_tick_ms`) — so a
-        frame means 50 ms on a 20 ms marquee and on a 100 ms one alike —
+        really takes — the nominal tick (ENGINE_TICK_MS on the hold /
+        no-text loops, ``scroll_step_ms`` / ``scroll_speed_ms`` on the
+        scroll-paced ones) floored at the frame's swap interval
+        (`frame.floor_tick_ms`) — so a frame means 50 ms on a 20 ms
+        marquee, on a 100 ms one and on a 30 Hz-capped hold alike —
         the cadence the `Animation` protocol, `typing_duration_seconds`,
         validate rule 61 and the docs all promise (#525).
         ``tick_ms == ENGINE_TICK_MS`` is exactly one `advance_frame`;

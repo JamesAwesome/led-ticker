@@ -1613,6 +1613,59 @@ class TestGifPlayNoTextBorderPerEffectCounter:
         )
 
 
+class TestGifPlayNoTextFloorsAtSwapInterval:
+    """#525 cycle-2 finding 4: `_play_no_text` ticks at ENGINE_TICK_MS but
+    on a refresh-capped sign every `swap()` blocks for the swap interval
+    (67 ms at 30 Hz), so banking a flat frame per tick ran an animated
+    border at 0.75×. The loop banks `floor_tick_ms(frame, ENGINE_TICK_MS)`
+    via `advance_frame_elapsed` — a Mock / uncapped frame floors at the
+    nominal 50 and stays byte-identical (one frame per tick)."""
+
+    @pytest.fixture
+    def widget(self, tmp_path):
+        from led_ticker.borders import RainbowChaseBorder
+
+        # 200 ms total → 4 ticks at 50 ms cadence
+        gif_path = tmp_path / "one.gif"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(gif_path, duration=200, loop=0)
+        w = GifPlayer(path=gif_path, border=RainbowChaseBorder(speed=4))
+        w._load(panel_w=4, panel_h=4)
+        return w
+
+    async def _play(self, widget, mock_frame):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await widget._play_no_text(
+                mock_frame.swap.return_value, mock_frame, loop_count=1
+            )
+
+    async def test_uncapped_frame_is_one_frame_per_tick(self, widget, mock_frame):
+        await self._play(widget, mock_frame)
+        assert mock_frame.swap.call_count == 4
+        assert widget._frame_count == 4
+        assert widget._frame_carry_ms == 0
+
+    async def test_capped_frame_banks_the_swap_interval(self, widget, mock_frame):
+        """4 ticks × 67 ms = 268 ms = 5 frames + 18 ms carry; the tick
+        count (swaps) and the gif frame pick are unchanged."""
+        mock_frame.swap_interval_ms = 67
+        await self._play(widget, mock_frame)
+        assert mock_frame.swap.call_count == 4
+        assert widget._frame_count == 5
+        assert widget._frame_carry_ms == 18
+
+    async def test_interval_below_the_engine_tick_is_one_frame_per_tick(
+        self, widget, mock_frame
+    ):
+        """A 25 Hz cap swaps every 40 ms < 50: the floor is a `max`, so
+        the nominal 50 is banked, never the raw interval (a mutant that
+        banks `swap_interval_ms` directly delivers 3 frames here and
+        degrades to 0 on a Mock frame)."""
+        mock_frame.swap_interval_ms = 40
+        await self._play(widget, mock_frame)
+        assert widget._frame_count == 4
+        assert widget._frame_carry_ms == 0
+
+
 # ---------------------------------------------------------------------------
 # play_count = 0 hold_time semantics
 # ---------------------------------------------------------------------------

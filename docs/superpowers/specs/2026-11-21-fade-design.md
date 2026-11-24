@@ -563,7 +563,32 @@ design.
 
 ## Hardware findings
 
-(pending)
+Bigsign (moonbunny), 2026-11-23 07:10 ET, branch `fade-transition` @ `8582c9ce`,
+live `[display]` block (brightness 70, `pwm_bits = 8`), core-only config of
+nine sections covering pairs (a)-(d) as mix and dip-black at 0.5 / 1.0 s,
+linear and `ease_in_out`; backup `config.toml.bak-flairfonts-20261123-070958`.
+
+Capture-provable (365 preview frames over 75 s at ~5 fps, plus DEBUG log):
+
+- Snapshot cost at 256x64 / scale 4: 8.4-22 ms for message pairs; one
+  322 ms outlier on the gif section (the phoenix gif's first lazy `_load`
+  runs inside `draw()`; that firing ran 1340 ms instead of 1062 ms, so frame
+  1 stretched by ~280 ms once; later gif firings are not affected).
+- Firing shape: 21 frames / ~1062 ms at `duration = 1.0`, 11 frames / 556 ms
+  at 0.5 (`int(duration / 0.05) + 1`, above the `min_frames = 8` floor).
+- Intermediate blend levels reach the panel path on every pair; the dip
+  bottoms out black and rises; the `bg_color` crossfades (black -> dusk,
+  dusk -> teal, teal -> black under the incoming gif) with the text widget's
+  border riding along.
+- Cross-scale entries 4 -> 2 and 2 -> 4 land at the incoming geometry (the
+  small text fades in at its final size and position, no vertical snap).
+- No stale snapshot across firings: each firing's first captured frame is
+  the new outgoing. 100 s of DEBUG logs: no errors, no disabled widgets.
+
+Eyes-on (pending James): the tail at `pwm_bits = 8` (pop vs ramp), the mix
+midpoint (soft blend vs mush), dip vs mix preference, and whether
+`pwm_bits = 9` / `10` is worth its refresh cost (`show_refresh_rate = true`).
+Smallsign pairs (a) and (b): not run (bigsign only was asked for).
 
 ## Process
 

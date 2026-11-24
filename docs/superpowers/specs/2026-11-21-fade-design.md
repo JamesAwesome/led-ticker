@@ -585,9 +585,13 @@ Capture-provable (365 preview frames over 75 s at ~5 fps, plus DEBUG log):
 - No stale snapshot across firings: each firing's first captured frame is
   the new outgoing. 100 s of DEBUG logs: no errors, no disabled widgets.
 
-Eyes-on (pending James): the tail at `pwm_bits = 8` (pop vs ramp), the mix
-midpoint (soft blend vs mush), dip vs mix preference, and whether
-`pwm_bits = 9` / `10` is worth its refresh cost (`show_refresh_rate = true`).
+Eyes-on: James watched the demo on the sign (2026-11-23, 07:10-10:14 ET,
+brightness 70, `pwm_bits = 8`) and gave the go to open and then merge both
+PRs without flagging the tail (pop vs ramp), the mix midpoint or a dip vs
+mix preference, so the fade ships as designed with no numeric verdict
+recorded. `pwm_bits = 9` / `10` was not tried on the sign; the docs bullet
+on the special page names it as the knob and its refresh-rate cost
+(`show_refresh_rate = true`) without claiming a measured trade-off.
 Smallsign pairs (a) and (b): not run (bigsign only was asked for).
 
 ## Process

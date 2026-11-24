@@ -7074,3 +7074,135 @@ async def test_rule74_empty_colour_on_fade_says_crossfade(conf):
     assert len(warns) == 1, result
     assert "crossfade" in warns[0].message
     assert "falls back to its default colour" not in warns[0].message
+
+
+# ---------------------------------------------------------------------------
+# Rule 75: `bg_color` / `top_bg_color` / `bottom_bg_color` shape, section and
+# widget level. A section-level `"red"` loads as `('r', 'e', 'd')` and a
+# widget-level `"red"` / `[255, 0]` skips `_coerce_widget_colors`' len-3 gate
+# entirely, reaching `reset_canvas` as a bare str/list and raising on the
+# first hold OUTSIDE the render breaker (the loop dies).
+# ---------------------------------------------------------------------------
+
+_R75 = """\
+    [display]
+    rows = 16
+    cols = 32
+    chain_length = 5
+    default_scale = 1
+
+    [[playlist.section]]
+    mode = "slideshow"
+    {section}
+
+    [[playlist.section.widget]]
+    type = "{wtype}"
+    {widget}
+    """
+
+_R75_BAD = [
+    '"red"',
+    "[255, 0]",
+    "[255, 0, 0, 0]",
+    "[255.0, 0, 0]",
+    "[true, true, true]",
+    "[256, 0, 0]",
+]
+
+
+def _r75(result):
+    return [i for i in result.errors if i.rule == 75]
+
+
+@pytest.mark.parametrize("value", _R75_BAD)
+async def test_rule75_bad_section_bg_color_is_error(conf, value):
+    result = await validate_config(
+        conf(
+            _R75.format(
+                section=f"bg_color = {value}", wtype="message", widget='text = "hi"'
+            )
+        )
+    )
+    errs = _r75(result)
+    assert [e.location for e in errs] == ["section[0].bg_color"], result
+    assert "0-255" in errs[0].message
+    assert errs[0].severity == "error"
+
+
+@pytest.mark.parametrize("value", _R75_BAD)
+async def test_rule75_bad_widget_bg_color_is_error_exactly_once(conf, value):
+    """Rule 75 owns the report: the rule-less coercion-pass error that today
+    fires for a len-3 bad value at the same location is folded into it."""
+    result = await validate_config(
+        conf(
+            _R75.format(
+                section="",
+                wtype="message",
+                widget=f'text = "hi"\n    bg_color = {value}',
+            )
+        )
+    )
+    errs = _r75(result)
+    assert [e.location for e in errs] == ["section[0].widget[0].bg_color"], result
+    assert "0-255" in errs[0].message
+    same_loc = [
+        e for e in result.errors if e.location.startswith("section[0].widget[0]")
+    ]
+    assert same_loc == errs, [(e.rule, e.location, e.message) for e in result.errors]
+
+
+@pytest.mark.parametrize("key", ["top_bg_color", "bottom_bg_color"])
+async def test_rule75_two_row_band_bg_keys(conf, key):
+    result = await validate_config(
+        conf(
+            _R75.format(
+                section="",
+                wtype="two_row",
+                widget=f'top_text = "a"\n    bottom_text = "b"\n    {key} = [255, 0]',
+            )
+        )
+    )
+    errs = _r75(result)
+    assert [e.location for e in errs] == [f"section[0].widget[0].{key}"], result
+
+
+@pytest.mark.parametrize("value", ["[0, 0, 0]", "[255, 244, 214]"])
+async def test_rule75_valid_bg_colors_pass_at_both_levels(conf, value):
+    result = await validate_config(
+        conf(
+            _R75.format(
+                section=f"bg_color = {value}",
+                wtype="message",
+                widget=f'text = "hi"\n    bg_color = {value}',
+            )
+        )
+    )
+    assert _r75(result) == [], result
+    assert result.errors == [], result
+
+
+async def test_rule75_omitted_bg_color_is_silent(conf):
+    result = await validate_config(
+        conf(_R75.format(section="", wtype="message", widget='text = "hi"'))
+    )
+    assert _r75(result) == [], result
+
+
+async def test_rule75_image_widget_bg_color(conf, tmp_path):
+    """The image widgets consult `bg_color` on every `play()` reset too."""
+    from PIL import Image
+
+    png = tmp_path / "p.png"
+    Image.new("RGB", (16, 16), (10, 200, 10)).save(png)
+    result = await validate_config(
+        conf(
+            _R75.format(
+                section="",
+                wtype="image",
+                widget=f'path = "{png}"\n    bg_color = "red"',
+            )
+        )
+    )
+    assert [e.location for e in _r75(result)] == ["section[0].widget[0].bg_color"], (
+        result
+    )

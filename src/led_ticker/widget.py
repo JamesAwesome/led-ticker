@@ -104,9 +104,18 @@ class Playable(Protocol):
 class FrameAwareWidget(Protocol):
     """Widget that tracks per-effect frame counters for animated ColorProviders,
     BorderEffects, and Animations. Implement by inheriting ``FrameAwareBase`` from
-    ``widgets/_frame_aware.py`` — do not implement these methods manually."""
+    ``widgets/_frame_aware.py`` — do not implement these methods manually.
+
+    ``advance_frame_elapsed`` is part of the shape (#525): the engine's
+    scroll-paced loops look it up on the CLASS and bank wall clock through it;
+    a widget with only ``advance_frame`` still runs, but advances one frame per
+    scroll tick instead of one per 50 ms. Nothing in core dispatches on
+    ``isinstance(w, FrameAwareWidget)`` — the Protocol documents the shape."""
 
     def advance_frame(self, *, visit_id: int | None = None) -> None: ...
+    def advance_frame_elapsed(
+        self, tick_ms: int, *, visit_id: int | None = None
+    ) -> None: ...
     def pause_frame(self) -> None: ...
     def resume_frame(self) -> None: ...
     def reset_frame(self) -> None: ...

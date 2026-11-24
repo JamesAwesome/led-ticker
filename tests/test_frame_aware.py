@@ -405,13 +405,52 @@ class TestAdvanceFrameElapsed:
         assert w.frame_for("font_color") == 4
 
     def test_paused_does_not_accumulate(self):
+        """9 × 20 ms = 180 ms while paused must leave NO residue — a
+        mutant without the pause guard in `advance_frame_elapsed` banks
+        it (count stays 0 only because `advance_frame` has its own guard,
+        but the carry would read 30 and the next tick would fire a frame).
+        10 ticks would land exactly on a frame boundary and hide it."""
         d = _Dummy()
         d.pause_frame()
-        for _ in range(10):
+        for _ in range(9):
             d.advance_frame_elapsed(20)
         d.resume_frame()
-        d.advance_frame_elapsed(20)
         assert d._frame_count == 0, "time while paused must not bank frames"
+        assert d._frame_carry_ms == 0, "time while paused must not bank ms"
+        d.advance_frame_elapsed(20)
+        assert d._frame_count == 0
+        assert d._frame_carry_ms == 20
+
+    def test_sub_frame_ticks_check_visit_ownership(self):
+        """Finding 4 of the #525 review: the claim/check must run BEFORE
+        banking, so a stale visit is caught on its first sub-frame tick
+        — not only once 50 ms have accumulated and `advance_frame` fires."""
+        w = _SimpleWidget()
+        w.advance_frame_elapsed(20, visit_id=1)
+        assert w._visit_owner == 1
+        with pytest.raises(RuntimeError, match="claimed by visit_id"):
+            w.advance_frame_elapsed(20, visit_id=2)
+        assert w._frame_carry_ms == 20, "the rejected tick must not bank"
+
+    def test_sub_frame_ticks_same_visit_allowed(self):
+        w = _SimpleWidget()
+        for _ in range(5):
+            w.advance_frame_elapsed(20, visit_id=1)
+        assert w._frame_count == 2
+
+    def test_sub_frame_ticks_without_visit_id_are_unchecked(self):
+        w = _SimpleWidget()
+        w.advance_frame_elapsed(20, visit_id=1)
+        w.advance_frame_elapsed(20)  # no visit_id — must not raise
+        assert w._frame_carry_ms == 40
+
+    def test_paused_sub_frame_tick_does_not_claim(self):
+        """Same order as `advance_frame`: the pause check comes first, so a
+        paused widget is not claimed by a tick it did not bank."""
+        w = _SimpleWidget()
+        w.pause_frame()
+        w.advance_frame_elapsed(20, visit_id=1)
+        assert w._visit_owner is None
 
     def test_reset_clears_carry(self):
         d = _Dummy()

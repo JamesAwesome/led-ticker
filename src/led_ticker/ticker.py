@@ -16,6 +16,7 @@ from led_ticker._types import Canvas
 from led_ticker.colors import RGB_WHITE
 from led_ticker.constants import ENGINE_TICK_MS, MAX_SETTLE_TICKS
 from led_ticker.drawing import get_widget_padding
+from led_ticker.frame import floor_tick_ms
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
 from led_ticker.separator import (
@@ -349,10 +350,13 @@ class Ticker:
 
     @property
     def _scroll_tick_ms(self) -> int:
-        """Nominal tick of the scroll-paced loops, in whole ms (the config
-        knob `scroll_step_ms` is an int; 0 for the test-only
-        `scroll_speed = 0`)."""
-        return round(self.scroll_speed * 1000)
+        """Wall clock one scroll-paced tick really takes, in whole ms: the
+        nominal `scroll_step_ms` (an int in config; 0 for the test-only
+        `scroll_speed = 0`) floored at the frame's swap interval — on a
+        refresh-capped sign `SwapOnVSync` blocks for that long whatever the
+        nominal tick, so banking the nominal would run effects slow (#525
+        review finding 1). Mock / uncapped frames have no floor."""
+        return floor_tick_ms(self.frame, round(self.scroll_speed * 1000))
 
     def _advance_frame_if_supported(
         self, widget: Any, *, tick_ms: int = ENGINE_TICK_MS

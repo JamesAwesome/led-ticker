@@ -161,6 +161,42 @@ class TestSettleConversion:
         assert w.paints == 5
 
 
+class TestSettleDeliveredCap:
+    """Finding 3 of the #525 review: the cap is on the DELIVERED extension,
+    not the owed frames. A 2000 ms tick owing one frame (50 ms) would hold
+    the panel 2 s to deliver it — main refused; so do we."""
+
+    def test_one_frame_on_a_two_second_tick_is_refused(self):
+        w = _single(text="hi", font_color=_RestProvider(remaining=1))
+        assert w._settle_ticks(2000) == 0
+
+    def test_at_cap_on_a_dividing_tick_is_delivered(self):
+        w = _single(text="hi", font_color=_RestProvider(remaining=20))
+        assert w._settle_ticks(50) == 20  # 1000 ms exactly
+        assert w._settle_ticks(100) == 10
+        assert w._settle_ticks(20) == 50
+
+    def test_non_dividing_tick_that_overshoots_the_cap_is_refused(self):
+        """20 frames (1000 ms) at 60 ms ticks needs 17 ticks = 1020 ms of
+        real hold — over the budget, so no extension."""
+        w = _single(text="hi", font_color=_RestProvider(remaining=20))
+        assert w._settle_ticks(60) == 0
+
+    def test_under_cap_on_a_slow_tick_is_delivered(self):
+        """15 frames (750 ms) at 100 ms = 8 ticks = 800 ms: inside the
+        budget (the existing cap test's case)."""
+        w = _single(text="hi", font_color=_RestProvider(remaining=15))
+        assert w._settle_ticks(100) == 8
+
+    async def test_play_loop_refuses_the_overshoot(self, swapping_frame, instant_sleep):
+        w = _single(
+            text="hi", font_color=_RestProvider(remaining=1), scroll_speed_ms=2000
+        )
+        swapping_frame.swap.return_value = _canvas()
+        await w._play_with_text(_canvas(), swapping_frame, n_ticks=3)
+        assert w.paints == 3
+
+
 class TestTwoRowCadence:
     async def test_held_rows_frames_track_wall_clock(
         self, swapping_frame, instant_sleep
@@ -186,3 +222,76 @@ class TestTwoRowCadence:
         swapping_frame.swap.return_value = _canvas()
         await w._play_with_two_row_text(_canvas(), swapping_frame, n_ticks=4)
         assert w.paints == 4 + 3  # 6 frames = 300 ms = 3 ticks
+
+
+class TestSwapIntervalFloor:
+    """Finding 1 of the #525 review on the image hosts: the loop's own
+    `tick_ms` keeps driving sleep / gif frame pick / traversal length,
+    but the ms BANKED per tick (and the settle conversion) is floored at
+    `frame.swap_interval_ms`, because on a refresh-capped sign the swap
+    blocks for that long whatever the nominal `scroll_speed_ms`."""
+
+    async def test_single_row_banks_the_swap_interval(
+        self, swapping_frame, instant_sleep
+    ):
+        """35 ms nominal, 50 ms swap interval → one frame per tick."""
+        w = _single(
+            text="hi", font_color=_RestProvider(remaining=0), scroll_speed_ms=35
+        )
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 50
+        await w._play_with_text(_canvas(), swapping_frame, n_ticks=25)
+        assert w.paints == 25
+        assert w._frame_count == 25
+
+    async def test_two_row_banks_the_swap_interval(self, swapping_frame, instant_sleep):
+        w = _two_row(
+            top_text="A",
+            bottom_text="B",
+            top_color=_RestProvider(remaining=0),
+            scroll_speed_ms=35,
+        )
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 50
+        await w._play_with_two_row_text(_canvas(), swapping_frame, n_ticks=25)
+        assert w.paints == 25
+        assert w._frame_count == 25
+
+    async def test_single_row_settle_converts_at_the_floored_tick(
+        self, swapping_frame, instant_sleep
+    ):
+        """15 owed frames on a 20 ms nominal / 50 ms real tick: each real
+        tick delivers one frame, so 15 extra ticks — not the 38 the
+        nominal tick would owe (which would be 1.9 s of real hold)."""
+        w = _single(
+            text="hi", font_color=_RestProvider(remaining=15), scroll_speed_ms=20
+        )
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 50
+        await w._play_with_text(_canvas(), swapping_frame, n_ticks=5)
+        assert w.paints == 5 + 15
+
+    async def test_two_row_settle_converts_at_the_floored_tick(
+        self, swapping_frame, instant_sleep
+    ):
+        w = _two_row(
+            top_text="A",
+            bottom_text="B",
+            top_color=_RestProvider(remaining=6),
+            scroll_speed_ms=20,
+        )
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 50
+        await w._play_with_two_row_text(_canvas(), swapping_frame, n_ticks=4)
+        assert w.paints == 4 + 6
+
+    async def test_interval_below_nominal_leaves_nominal(
+        self, swapping_frame, instant_sleep
+    ):
+        w = _single(
+            text="hi", font_color=_RestProvider(remaining=0), scroll_speed_ms=100
+        )
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 50
+        await w._play_with_text(_canvas(), swapping_frame, n_ticks=25)
+        assert w._frame_count == 50

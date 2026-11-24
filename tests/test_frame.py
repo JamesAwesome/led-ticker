@@ -344,3 +344,83 @@ class TestGetCleanCanvasRecycling:
         assert c2 is tee
         assert tee._hw is not hw1  # rebound to the swap-returned buffer
         assert backend.create_calls == 1
+
+
+class TestSwapIntervalMs:
+    """#525 cycle-1 finding 1: `SwapOnVSync(canvas, framerate_fraction)`
+    BLOCKS until a refresh where `frame_count % fraction == 0`, so on a
+    refresh-capped sign every swap takes at least `fraction / hz` seconds
+    and a loop nominally ticking faster really ticks at that interval.
+    `LedFrame.swap_interval_ms` exposes it (duck-typed off the backend —
+    NOT part of the Backend protocol) so cadence math can floor the
+    nominal tick; 0 means "no floor"."""
+
+    def test_capped_backend_reports_fraction_over_hz(self):
+        frame = _rgb_frame(led_limit_refresh_rate_hz=100)
+        assert frame.backend.framerate_fraction == 5
+        assert frame.swap_interval_ms == 50
+
+    def test_fraction_one_is_no_floor(self):
+        """20 Hz / 20 fps → fraction 1: the swap waits only one refresh,
+        which is the uncapped behaviour — no floor."""
+        frame = _rgb_frame(led_limit_refresh_rate_hz=20)
+        assert frame.backend.framerate_fraction == 1
+        assert frame.swap_interval_ms == 0
+
+    def test_backend_without_the_attrs_is_zero(self):
+        frame = _frame(HeadlessBackend(160, 16))
+        assert not hasattr(frame.backend, "framerate_fraction")
+        assert frame.swap_interval_ms == 0
+
+    def test_mock_backend_is_zero(self):
+        """A Mock answers every attribute with a Mock — must not be
+        mistaken for ints."""
+        frame = LedFrame(backend=Mock())
+        assert frame.swap_interval_ms == 0
+
+    def test_bool_attrs_are_not_ints(self):
+        """`fraction=5, hz=True`: a mutant that drops the bool exclusion
+        computes `round(5 * 1000 / True)` = 5000 (a bool `fraction` alone
+        would hide behind the `fraction <= 1` early return)."""
+        backend = Mock()
+        backend.framerate_fraction = 5
+        backend.led_limit_refresh_rate_hz = True
+        assert LedFrame(backend=backend).swap_interval_ms == 0
+
+    def test_zero_hz_is_zero(self):
+        backend = Mock()
+        backend.framerate_fraction = 5
+        backend.led_limit_refresh_rate_hz = 0
+        assert LedFrame(backend=backend).swap_interval_ms == 0
+
+
+class TestFloorTickMs:
+    def test_floors_nominal_at_the_swap_interval(self):
+        from led_ticker.frame import floor_tick_ms
+
+        frame = _rgb_frame(led_limit_refresh_rate_hz=100)
+        assert floor_tick_ms(frame, 35) == 50
+        assert floor_tick_ms(frame, 20) == 50
+
+    def test_nominal_above_the_interval_is_unchanged(self):
+        from led_ticker.frame import floor_tick_ms
+
+        frame = _rgb_frame(led_limit_refresh_rate_hz=100)
+        assert floor_tick_ms(frame, 100) == 100
+
+    def test_uncapped_frame_is_nominal(self):
+        from led_ticker.frame import floor_tick_ms
+
+        assert floor_tick_ms(_frame(), 35) == 35
+
+    def test_mock_frame_is_nominal(self):
+        """`max(int, Mock)` raises TypeError — the engine tests drive the
+        Ticker with Mock frames, so a non-int interval means no floor."""
+        from led_ticker.frame import floor_tick_ms
+
+        assert floor_tick_ms(Mock(), 35) == 35
+
+    def test_frame_without_the_property_is_nominal(self):
+        from led_ticker.frame import floor_tick_ms
+
+        assert floor_tick_ms(object(), 35) == 35

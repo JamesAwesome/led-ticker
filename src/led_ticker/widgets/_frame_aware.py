@@ -1,12 +1,18 @@
 """Frame counter mixin shared by every text-painting widget.
 
-Each widget tracks its own `_frame_count` (engine tick counter,
-resets per visit) AND a parallel `_effect_frames` dict tracking
-per-effect-attribute counters that follow each effect's
-`restart_on_visit` policy.
+Each widget tracks its own `_frame_count` (whole ENGINE_TICK_MS = 50 ms
+frames of wall clock, resets per visit) AND a parallel `_effect_frames`
+dict tracking per-effect-attribute counters that follow each effect's
+`restart_on_visit` policy. A frame is 50 ms on EVERY core loop (#525):
+loops that tick at exactly ENGINE_TICK_MS call `advance_frame()` once
+per tick; loops that tick at another cadence (the engine's scroll-paced
+loops, the image play loops) call `advance_frame_elapsed(tick_ms)` with
+the wall clock one tick really takes and the mixin banks the ms in
+`_frame_carry_ms`, advancing whole frames as they accrue — so the
+counter is NOT "one per loop iteration" anywhere.
 
-The orchestrator calls `advance_frame()` per draw tick (both the
-primary counter and all per-effect counters increment). Transitions
+The orchestrator advances per draw tick (both the primary counter and
+all per-effect counters increment together). Transitions
 call `pause_frame()` / `resume_frame()` around their compositing
 loop so the count doesn't drift while the widget is being re-
 rendered for a dissolve. `reset_frame()` is called by
@@ -31,6 +37,17 @@ from typing import ClassVar
 import attrs
 
 from led_ticker.constants import ENGINE_TICK_MS
+
+
+def bank_frames(carry_ms: int, tick_ms: int) -> tuple[int, int]:
+    """Convert *tick_ms* of wall clock plus the banked *carry_ms* into
+    ``(whole_frames, new_carry_ms)`` at ENGINE_TICK_MS per frame.
+
+    Pure helper so every class with its own frame counter (the mixin, the
+    plain-class `SegmentMessage`) converts identically; a frame is 50 ms
+    of wall clock whatever the loop's cadence (#525).
+    """
+    return divmod(carry_ms + int(tick_ms), ENGINE_TICK_MS)
 
 
 @attrs.define
@@ -123,18 +140,28 @@ class FrameAwareBase:
         """
         if self._frame_paused:
             return
-        if visit_id is not None:
-            if self._visit_owner is not None and self._visit_owner != visit_id:
-                raise RuntimeError(
-                    f"{type(self).__name__} frame counter is claimed by visit_id "
-                    f"{self._visit_owner!r}, but advance_frame called with "
-                    f"{visit_id!r}. The same widget instance appears to be "
-                    "advancing in two concurrent section visits."
-                )
-            self._visit_owner = visit_id
+        self._claim_visit(visit_id)
         self._frame_count += 1
         for attr_name, _ in self._iter_effects():
             self._effect_frames[attr_name] = self._effect_frames.get(attr_name, 0) + 1
+
+    def _claim_visit(self, visit_id: int | None) -> None:
+        """Record *visit_id* as this widget's visit owner, or raise if a
+        different visit already holds the claim (until `reset_frame`).
+        ``None`` bypasses the check. Shared by `advance_frame` and
+        `advance_frame_elapsed` so a stale visit is caught on its first
+        sub-frame tick, before any ms is banked — not only once a whole
+        frame fires."""
+        if visit_id is None:
+            return
+        if self._visit_owner is not None and self._visit_owner != visit_id:
+            raise RuntimeError(
+                f"{type(self).__name__} frame counter is claimed by visit_id "
+                f"{self._visit_owner!r}, but advance_frame called with "
+                f"{visit_id!r}. The same widget instance appears to be "
+                "advancing in two concurrent section visits."
+            )
+        self._visit_owner = visit_id
 
     def advance_frame_elapsed(
         self, tick_ms: int, *, visit_id: int | None = None
@@ -142,24 +169,28 @@ class FrameAwareBase:
         """Advance by however many whole ENGINE_TICK_MS frames *tick_ms* of
         wall clock represents, carrying the remainder to the next call.
 
-        The engine's per-tick loops call this with their nominal tick
-        (``scroll_step_ms`` / ``scroll_speed_ms``) so a frame means 50 ms
-        on a 20 ms marquee and on a 100 ms one alike — the cadence the
-        `Animation` protocol, `typing_duration_seconds`, validate rule 61
-        and the docs all promise (#525). ``tick_ms == ENGINE_TICK_MS`` is
-        exactly one `advance_frame`; ``tick_ms <= 0`` (only reachable with
-        the test-only ``scroll_speed = 0``) degrades to one frame per tick
-        so effects never freeze. No-op while paused: time spent paused is
-        not banked. Routes through `advance_frame` so overrides and spies
-        see every frame.
+        The engine's per-tick loops call this with the wall clock one tick
+        really takes — the nominal ``scroll_step_ms`` / ``scroll_speed_ms``
+        floored at the frame's swap interval (`frame.floor_tick_ms`) — so a
+        frame means 50 ms on a 20 ms marquee and on a 100 ms one alike —
+        the cadence the `Animation` protocol, `typing_duration_seconds`,
+        validate rule 61 and the docs all promise (#525).
+        ``tick_ms == ENGINE_TICK_MS`` is exactly one `advance_frame`;
+        ``tick_ms <= 0`` (only reachable with the test-only
+        ``scroll_speed = 0``) degrades to one frame per tick so effects
+        never freeze. No-op while paused: time spent paused is not banked
+        and does not claim the visit. The visit claim/check runs BEFORE
+        banking (same order as `advance_frame`) so a stale visit is
+        rejected on its first sub-frame tick. Routes through
+        `advance_frame` so overrides and spies see every frame.
         """
         if self._frame_paused:
             return
+        self._claim_visit(visit_id)
         if tick_ms <= 0:
             self.advance_frame(visit_id=visit_id)
             return
-        self._frame_carry_ms += int(tick_ms)
-        frames, self._frame_carry_ms = divmod(self._frame_carry_ms, ENGINE_TICK_MS)
+        frames, self._frame_carry_ms = bank_frames(self._frame_carry_ms, tick_ms)
         for _ in range(frames):
             self.advance_frame(visit_id=visit_id)
 

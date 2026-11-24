@@ -13,9 +13,11 @@ ENGINE_TICK_MS: int = 50  # 20 fps for held-text frame animation
 # typewriter reveal, blink ON phase) land at a rest point. All-or-nothing:
 # a remainder above the cap gets NO extension (never pay latency without a
 # clean landing). ~1 s keeps the slip inside the rotation's jitter budget.
-# `frames_to_rest` counts FRAMES, so each loop converts the wall-clock
-# budget at its own tick period: the engine's `_swap_and_scroll` ticks at
+# `frames_to_rest` counts FRAMES (50 ms each, #525), so each loop converts
+# the owed time into its own ticks: the engine's `_swap_and_scroll` ticks at
 # ENGINE_TICK_MS (MAX_SETTLE_TICKS); the image play() loops tick at
-# `scroll_speed_ms` and use `MAX_SETTLE_MS // tick_ms`.
+# `scroll_speed_ms` (floored at the frame's swap interval) and owe
+# `ceil((frames * 50 - banked carry) / tick_ms)` ticks, refused unless the
+# DELIVERED extension `ticks * tick_ms` also fits in MAX_SETTLE_MS.
 MAX_SETTLE_MS: int = 1000
 MAX_SETTLE_TICKS: int = MAX_SETTLE_MS // ENGINE_TICK_MS

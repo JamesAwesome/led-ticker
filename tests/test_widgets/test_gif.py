@@ -154,6 +154,11 @@ async def test_play_uses_engine_cadence_without_text(tmp_path, mocker, bigsign_c
     frame.swap.side_effect = lambda c: c
 
     sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+    # Frozen clock: the sleep is drift-compensated (swap/draw time comes
+    # off the budget), so hold time still to assert the nominal cadence.
+    mock_loop = mocker.Mock()
+    mock_loop.time.return_value = 0.0
+    mocker.patch("asyncio.get_running_loop", return_value=mock_loop)
 
     await widget.play(real, frame, loop_count=1)
 
@@ -1664,6 +1669,34 @@ class TestGifPlayNoTextFloorsAtSwapInterval:
         await self._play(widget, mock_frame)
         assert widget._frame_count == 4
         assert widget._frame_carry_ms == 0
+
+    async def test_blocking_swap_is_subtracted_from_the_sleep(
+        self, widget, mock_frame, mocker
+    ):
+        """The sleep is drift-compensated like `_hold_ticks` and
+        `_play_with_text`: time spent inside a blocking `swap()` comes
+        off the 50 ms budget. A flat `sleep(0.05)` after a swap that
+        itself waited 50 ms made the real tick ~100 ms on a 100 Hz cap
+        while 50 ms was banked (effects at 0.5×)."""
+        clock = [0.0]
+
+        def swap(canvas):
+            clock[0] += 0.05  # SwapOnVSync blocked for one swap interval
+            return canvas
+
+        mock_frame.swap.side_effect = swap
+        mock_loop = mocker.Mock()
+        mock_loop.time.side_effect = lambda: clock[0]
+        mocker.patch("asyncio.get_running_loop", return_value=mock_loop)
+        sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await widget._play_no_text(
+            mock_frame.swap.return_value, mock_frame, loop_count=1
+        )
+
+        sleeps = [c.args[0] for c in sleep_mock.await_args_list]
+        assert len(sleeps) == 4
+        assert all(s < 1e-6 for s in sleeps), sleeps
 
 
 # ---------------------------------------------------------------------------

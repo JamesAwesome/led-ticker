@@ -1348,3 +1348,27 @@ class TestStillPlayNoTextFloorsAtSwapInterval:
         await still._play_no_text(mock_frame.swap.return_value, mock_frame)
         assert still._frame_count == 10
         assert still._frame_carry_ms == 0
+
+    async def test_blocking_swap_is_subtracted_from_the_sleep(
+        self, still, mock_frame, mocker
+    ):
+        """Drift-compensated like `_hold_ticks`: time spent inside a
+        blocking `swap()` comes off the 50 ms budget, so a 100 Hz cap
+        (50 ms swap) gives a real 50 ms tick, not ~100 ms."""
+        clock = [0.0]
+
+        def swap(canvas):
+            clock[0] += 0.05
+            return canvas
+
+        mock_frame.swap.side_effect = swap
+        mock_loop = mocker.Mock()
+        mock_loop.time.side_effect = lambda: clock[0]
+        mocker.patch("asyncio.get_running_loop", return_value=mock_loop)
+        sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await still._play_no_text(mock_frame.swap.return_value, mock_frame)
+
+        sleeps = [c.args[0] for c in sleep_mock.await_args_list]
+        assert len(sleeps) == 10
+        assert all(s < 1e-6 for s in sleeps), sleeps

@@ -324,13 +324,6 @@ class GifPlayer(_BaseImageWidget):
         an animated border at 0.75×. Uncapped / Mock frames floor at 50 →
         exactly one frame per tick, unchanged. The nominal tick still
         drives the tick count, the sleep and the gif frame pick.
-
-        Known limit: the sleep below is flat (not drift-compensated like
-        `Ticker._hold_ticks`), so on a cap whose interval is AT OR BELOW
-        50 ms the swap request lands just after a refresh boundary and
-        the tick really runs to the next one (~100 ms at a 100 Hz cap)
-        while 50 is banked — the floor only corrects intervals above the
-        nominal. Pre-existing; compensating the sleep changes gif pacing.
         """
         from led_ticker.ticker import ENGINE_TICK_MS
 
@@ -345,8 +338,10 @@ class GifPlayer(_BaseImageWidget):
         n_ticks = max(1, total_ms // ENGINE_TICK_MS)
         tick_seconds = ENGINE_TICK_MS / 1000
         frame_tick_ms = floor_tick_ms(frame, ENGINE_TICK_MS)
+        loop = asyncio.get_running_loop()
 
         for tick in range(n_ticks):
+            t0 = loop.time()
             self._pick_frame_for_elapsed(tick * ENGINE_TICK_MS)
             self.advance_frame_elapsed(frame_tick_ms)
             reset_canvas(canvas, self.bg_color)
@@ -355,7 +350,10 @@ class GifPlayer(_BaseImageWidget):
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
             canvas = frame.swap(canvas)
-            await asyncio.sleep(tick_seconds)
+            # Drift-compensated (constraint #5: swap, then sleep): a blocking
+            # SwapOnVSync on a refresh-capped sign comes off the budget, so
+            # the real tick stays at the banked frame_tick_ms.
+            await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
 
         self._current_frame_idx = len(self._frames) - 1
         return canvas

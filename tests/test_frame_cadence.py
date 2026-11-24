@@ -231,9 +231,13 @@ class TestHoldLoopPassesFlooredTick:
     and the settle seam route through it). Its advance must pass
     ``tick_ms=<local>`` where ``<local>`` is assigned IN `_hold_ticks` from
     exactly ``floor_tick_ms(self.frame, ENGINE_TICK_MS)`` — hoisted once,
-    not re-evaluated per tick. A bare `_advance_frame_if_supported(widget)`
-    banks a flat 50 and reopens the 0.75× hold on a 30 Hz cap. Completeness:
-    NO `_advance_frame_if_supported` call anywhere in ticker.py may omit
+    not re-evaluated per tick. (The scroll loops are pinned the other way
+    round, to the per-tick property ``self._scroll_tick_ms``; both are
+    equivalent because the swap interval is fixed after ``setup()`` — the
+    two conventions are deliberate, don't "fix" one to match the other.)
+    A bare `_advance_frame_if_supported(widget)` banks a flat 50 and reopens
+    the 0.75× hold on a 30 Hz cap. Completeness: NO
+    `_advance_frame_if_supported` call anywhere in ticker.py may omit
     `tick_ms=` — every loop is either scroll-paced (`self._scroll_tick_ms`)
     or hold-paced (the floored local)."""
 
@@ -639,6 +643,28 @@ class TestEveryAdvanceFrameClassBanksElapsed:
 
 
 class TestSegmentMessageCadence:
+    def test_routes_through_advance_frame(self):
+        """Every banked frame goes through `advance_frame`, so a subclass
+        override (the `FrameAwareBase` contract, promised by the docstring)
+        sees each one — a `_frame_count += frames` shortcut would skip it
+        (cycle-4 mutant survived without it)."""
+        from led_ticker.colors import RGB_WHITE
+        from led_ticker.widgets.message import SegmentMessage
+
+        seen: list[int | None] = []
+
+        class _Spy(SegmentMessage):
+            def advance_frame(self, *, visit_id: int | None = None) -> None:
+                seen.append(visit_id)
+                super().advance_frame(visit_id=visit_id)
+
+        w = _Spy([("A", RGB_WHITE)])
+        w.advance_frame_elapsed(100, visit_id=7)
+        w.advance_frame_elapsed(20, visit_id=7)
+        w.advance_frame_elapsed(30, visit_id=7)
+        assert seen == [7, 7, 7]
+        assert w._frame_count == 3
+
     def test_sub_frame_ticks_bank_to_wall_clock(self):
         """5 × 20 ms = 100 ms = 2 frames, not 5."""
         from led_ticker.colors import RGB_WHITE

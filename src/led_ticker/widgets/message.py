@@ -623,13 +623,14 @@ class SegmentMessage:
     `font_color` is an optional `ColorProvider` override. When set it
     replaces the per-segment colors, allowing a `color_cycle` effect to
     animate the whole message. A plain class (not `FrameAwareBase`), so it
-    carries its own frame counter: `advance_frame()` for the 50 ms engine
-    loops and `advance_frame_elapsed(tick_ms)` for the scroll-paced ones,
-    banking ms through the shared `bank_frames` helper so a frame is 50 ms
-    of wall clock here too (#525) — the engine dispatches by CLASS
-    attribute, so without the elapsed method this would silently fall back
-    to one frame per scroll tick and a `color_cycle` segment row would
-    cycle faster than a `TickerMessage` beside it.
+    carries its own frame counter: `advance_frame()` per frame and
+    `advance_frame_elapsed(tick_ms)` for every core loop's tick (banking ms
+    through the shared `bank_frames` helper, each whole frame routed through
+    `advance_frame` so overrides see it) so a frame is 50 ms of wall clock
+    here too (#525) — the engine dispatches by CLASS attribute, so without
+    the elapsed method this would silently fall back to one frame per loop
+    tick and a `color_cycle` segment row would cycle faster than a
+    `TickerMessage` beside it on a quick marquee.
     """
 
     def __init__(

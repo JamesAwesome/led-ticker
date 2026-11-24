@@ -106,10 +106,11 @@ class FrameAwareWidget(Protocol):
     BorderEffects, and Animations. Implement by inheriting ``FrameAwareBase`` from
     ``widgets/_frame_aware.py`` — do not implement these methods manually.
 
-    ``advance_frame_elapsed`` is part of the shape (#525): the engine's
-    scroll-paced loops look it up on the CLASS and bank wall clock through it;
-    a widget with only ``advance_frame`` still runs, but advances one frame per
-    scroll tick instead of one per 50 ms. Nothing in core dispatches on
+    ``advance_frame_elapsed`` is part of the shape (#525): every core loop
+    looks it up on the CLASS and banks its tick (nominal, floored at the
+    frame's swap interval) through it; a widget with only ``advance_frame``
+    still runs, but advances one frame per loop tick instead of one per
+    50 ms of wall clock. Nothing in core dispatches on
     ``isinstance(w, FrameAwareWidget)`` — the Protocol documents the shape."""
 
     def advance_frame(self, *, visit_id: int | None = None) -> None: ...

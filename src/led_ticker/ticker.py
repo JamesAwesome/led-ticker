@@ -16,7 +16,7 @@ from led_ticker._types import Canvas
 from led_ticker.colors import RGB_WHITE
 from led_ticker.constants import ENGINE_TICK_MS, MAX_SETTLE_MS, MAX_SETTLE_TICKS
 from led_ticker.drawing import get_widget_padding
-from led_ticker.frame import floor_tick_ms
+from led_ticker.frame import _is_int, floor_tick_ms
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
 from led_ticker.separator import (
@@ -416,7 +416,7 @@ class Ticker:
         if hold_tick_ms == ENGINE_TICK_MS or not self._banks_elapsed(widget):
             return frames
         carry = getattr(widget, "_frame_carry_ms", 0)
-        if not isinstance(carry, int) or isinstance(carry, bool):
+        if not _is_int(carry):
             carry = 0
         owed_ms = max(1, frames * ENGINE_TICK_MS - carry)
         ticks = -(-owed_ms // hold_tick_ms)

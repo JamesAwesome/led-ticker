@@ -131,6 +131,60 @@ class PixelBuffer:
         self._ex1 = None
         self._ey1 = None
 
+    # -- canvas-contract methods (Clear / Fill / SetImage) ---------------------
+    # Added so a transition can snapshot ANY widget into a buffer: a widget
+    # paints through whichever of these its canvas offers, and a missing
+    # method would trip the draw guard on a healthy widget. Semantics mirror
+    # `backends.headless.HeadlessCanvas` (the tripwire in
+    # tests/test_pixel_buffer_surface.py pins pixel equality per widget type).
+
+    def Clear(self) -> None:  # noqa: N802 - canvas API
+        """Canvas-API alias of :meth:`clear`."""
+        self.clear()
+
+    def Fill(self, r: int, g: int, b: int) -> None:  # noqa: N802 - canvas API
+        """Set every slot to ``(r, g, b)``; the lit extent becomes the whole
+        buffer."""
+        self._pixels = [(r, g, b)] * (self.width * self.height)
+        self._ex0, self._ey0 = 0, 0
+        self._ex1, self._ey1 = self.width, self.height
+
+    def SetImage(  # noqa: N802 - canvas API
+        self, image: Any, offset_x: int = 0, offset_y: int = 0
+    ) -> None:
+        """Blit a PIL image at ``(offset_x, offset_y)``.
+
+        Fast path — a full-size ``RGB`` image at the origin, which is what the
+        ``gif`` / ``image`` widgets paint (`gif.py` / `still.py`
+        ``_paint_full``): one ``tobytes()`` sliced into int triples replaces
+        the pixel list (``getdata()`` is deprecated in Pillow 13). Anything
+        else walks the image like ``HeadlessCanvas.SetImage``: alpha 0 ->
+        black, per-pixel ``SetPixel`` so bounds and the extent stay exact.
+        """
+        if (
+            offset_x == 0
+            and offset_y == 0
+            and image.mode == "RGB"
+            and image.size == (self.width, self.height)
+        ):
+            raw = image.tobytes()
+            self._pixels = [
+                (raw[i], raw[i + 1], raw[i + 2]) for i in range(0, len(raw), 3)
+            ]
+            self._ex0, self._ey0 = 0, 0
+            self._ex1, self._ey1 = self.width, self.height
+            return
+        pixels = image.load()
+        w, h = image.size
+        for y in range(h):
+            for x in range(w):
+                px = pixels[x, y]
+                if len(px) == 4 and px[3] == 0:
+                    r, g, b = 0, 0, 0
+                else:
+                    r, g, b = px[0], px[1], px[2]
+                self.SetPixel(offset_x + x, offset_y + y, r, g, b)
+
     def get(self, x: int, y: int) -> tuple[int, int, int] | None:
         """The pixel at (x, y), or None when unset (= transparent)."""
         if 0 <= x < self.width and 0 <= y < self.height:

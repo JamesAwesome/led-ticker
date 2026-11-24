@@ -66,10 +66,10 @@ def _canvas():
 class TestApiVersion:
     def test_minor_bump_is_probeable(self):
         """Plugins gate on this: flair.blink may drop its fastest-cadence
-        (20 ms) WCAG assumption once `API_VERSION >= (1, 5)`."""
+        (20 ms) WCAG assumption once `API_VERSION >= (1, 6)`."""
         from led_ticker import plugin
 
-        assert plugin.API_VERSION >= (1, 5)
+        assert plugin.API_VERSION >= (1, 6)
 
 
 class TestSwapAndScrollCadence:
@@ -271,7 +271,7 @@ class TestEveryAdvanceFrameClassBanksElapsed:
     """Finding 2 of the #525 review: the engine dispatches
     `advance_frame_elapsed` by CLASS attribute, so a core class that defines
     its own `advance_frame` without `advance_frame_elapsed` silently falls
-    back to one frame per scroll tick — a hole in the (1, 5) guarantee
+    back to one frame per scroll tick — a hole in the (1, 6) guarantee
     (`SegmentMessage`, a plugin export, had exactly that). Every class in
     `src/led_ticker/**` that defines `advance_frame` must also define
     `advance_frame_elapsed` or inherit `FrameAwareBase` (by base name)."""

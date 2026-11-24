@@ -7057,3 +7057,20 @@ async def test_rule71_fires_for_plugin_hires_font_in_two_row_mode(
     issues = [e for e in result.errors if e.rule == 71]
     assert issues, result.errors
     assert "acme.Brand" in issues[0].message
+
+
+async def test_rule74_empty_colour_on_fade_says_crossfade(conf):
+    """`transition_color = []` on `fade` selects the MIX (a different effect),
+    not a default colour — the generic core wording would mislead."""
+    result = await validate_config(
+        conf(
+            _R74.format(
+                transitions="",
+                section='transition = { type = "fade", transition_color = [] }',
+            )
+        )
+    )
+    warns = _r74(result, "warning")
+    assert len(warns) == 1, result
+    assert "crossfade" in warns[0].message
+    assert "falls back to its default colour" not in warns[0].message

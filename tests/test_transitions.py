@@ -94,6 +94,7 @@ class TestTransitionRegistry:
             "wipe_out_vertical",
             "random",
             "auto",
+            "fade",
         ]
         for name in expected:
             assert name in _TRANSITION_REGISTRY, f"{name!r} not in registry"
@@ -103,7 +104,7 @@ class TestTransitionRegistry:
             assert arcade_name not in _TRANSITION_REGISTRY, (
                 f"{arcade_name!r} is still in core — should be in led-ticker-arcade"
             )
-        assert len(_TRANSITION_REGISTRY) == 23
+        assert len(_TRANSITION_REGISTRY) == 24
 
     def test_get_unknown_raises(self):
         # get_transition_class now delegates to explain_unknown_transition,
@@ -2718,7 +2719,16 @@ class TestRunTransitionOutgoingBgColor:
         # Likewise, an accidental KEY ADDITION (e.g. typo'd duplicate)
         # surfaces here. Update this set when you legitimately add a
         # kwarg to `run_transition`'s frame_at call.
-        expected_keys = {"outgoing_scroll_pos", "duration_ms", "incoming_bg_color"}
+        expected_keys = {
+            "outgoing_scroll_pos",
+            "duration_ms",
+            "incoming_bg_color",
+            # API (1, 5): the incoming geometry + outgoing bg for snapshotting
+            # transitions (fade).
+            "incoming_scale",
+            "incoming_content_height",
+            "outgoing_bg_color",
+        }
         for kw in captured_kwargs:
             assert set(kw.keys()) == expected_keys, (
                 f"frame_at kwargs drifted: got {sorted(kw.keys())}, "

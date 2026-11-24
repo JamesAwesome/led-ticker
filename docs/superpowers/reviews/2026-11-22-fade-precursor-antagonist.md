@@ -1,0 +1,48 @@
+# Antagonist loop — `fade` PRECURSOR PR (branch `fade-precursor`)
+
+Target: the diff `origin/main..fade-precursor` (PixelBuffer Clear/Fill/SetImage +
+pixel-equality tripwire; breaker helpers; runner kwargs + API (1, 5) + docs;
+meta `end_firing` forward; `rgb_shape_error` relocation + import tripwires).
+Design: `docs/superpowers/specs/2026-11-21-fade-design.md`. Plan:
+`docs/superpowers/plans/2026-11-22-fade-transition.md`.
+Rules: fresh reviewer per cycle, full diff each time, cap 5, exit when only
+LOW/DOCS remain (folded in). Pre-existing issues outside the diff do not count.
+Contract under test: behaviour-free for every existing config (dissolve demo
+29/29 frames byte-identical vs origin/main before cycle 1).
+
+## Cycle 1
+
+Reviewer: fresh subagent. Baseline it verified: full suite 5367 passed / 5 skipped; 53/53 `frame_at` defs across both repos take `**kwargs` and every splat sink reads keys via `.get`; the import-cycle tripwire reproduces the cycle on a scratch copy; no Mock children reach `_PickAhead`. VERDICT: 0 HIGH, 1 MEDIUM, 2 LOW, 3 DOCS.
+
+- MEDIUM `plugin.py` / CLAUDE.md documented `(1, 4)` as a shipped `frames_to_rest` guarantee that is NOT in this tree (#561 is unmerged). FOLDED: both now say "(1, 4) reserved by open PR #561, not in this tree; minors are never reused". Merge order (#561 first, or renumber) stays in the PR body.
+- LOW 10 pyright errors in the two new test files. FOLDED: `text_kw: dict[str, Any]`; `_Recorder.min_frames = 0`.
+- LOW the widget tripwire never drove `Fill` / `Clear` on `PixelBuffer` (image widgets without `bg_color` take `_paint_full`). FOLDED: `image_bg` parametrisation (gif/image with `bg_color` -> `reset_canvas` Fill + skip-black per-pixel path) and the hires font now also at the scale-2 geometry; 121 cells.
+- DOCS the design said #561 claims `(1, 5)` (a global replace artefact). FOLDED: `(1, 4)`.
+- DOCS api-reference enumerates (1,1),(1,2),(1,3),(1,5). ACCEPTED as is: the hole is true for this tree; the second PR to merge reconciles the sentence (noted in the PR body).
+- DOCS user-facing text named `fade` before it exists. FOLDED: `docs/plugin-system.md` says "the upcoming core `fade`"; `colors.py` docstring generalised. Code comments in `render_breaker.py` / `transitions/__init__.py` / `meta.py` keep the name (the feature PR lands it).
+- Pre-existing, out of scope: `HeadlessCanvas.SetImage` and the new slow path both `TypeError` on `L` / `P` images (the real binding rejects non-RGB anyway); `_normalize_bg` passes a list through; bare `uv run pyright` has 426 baseline errors.
+
+## Cycle 2
+
+Reviewer: fresh subagent; 23 live mutations on a scratch copy. VERDICT: 0 HIGH, 1 MEDIUM, 3 LOW, 1 DOCS.
+
+- MEDIUM PR #561 merged to `origin/main` (017f3a9c, 2026-11-22 18:27) and owns `(1, 4)`; the cycle 1 "(1, 4) reserved, not in this tree" wording was now false and `plugin.py` / both docs literals conflicted. FOLDED: branch rebased onto `origin/main`; #561's `(1, 4)` block and sentence kept, `(1, 5)` appended; CLAUDE.md names `(1, 4)` as shipped. Dissolve byte-identity re-run against the new `origin/main` (below).
+- LOW the cycle 1 `image_bg` parametrisation was vacuous: `GifPlayer.draw` / `StillImage.draw` call `_paint_full` only, so no core `draw()` ever calls `Clear` / `Fill` (the engine's reset does). FOLDED: parametrisation dropped with a comment; CLAUDE.md constraint #2 reworded (SetPixel/SubFill/SetImage pinned per widget, Clear/Fill by the unit tests). Correction to the cycle 1 LOW fold above.
+- LOW the fast path's offset and size guards had no test (M2', M21 survived). FOLDED: two Part-1 cases.
+- LOW runner kwargs asserted on the first frame only (M22, M23 survived). FOLDED: every frame equals the first; same-geometry entry case.
+- DOCS `incoming_content_height` unqualified on the plugin-facing pages. FOLDED: both qualified.
+- Mutations caught: 19 of 23 before the folds (M1, M3-M8, M10-M20); the four survivors (M2', M21, M22, M23) now have tests.
+- Pre-existing, out of scope: slow-path `len(px)` on `L`/`P` images is plugin-only and the real binding rejects non-RGB first; `rotate.py:525/694` pyright reportCallIssue exist on main; `_normalize_bg` passes a list through; `pytest -W error::DeprecationWarning` is blocked by pytest-asyncio's own warning.
+
+## Cycle 3
+
+Reviewer: fresh subagent (post-rebase; full suite 5389 passed / 5 skipped, pyright 0). VERDICT: 0 HIGH, 0 MEDIUM, 2 LOW, 1 DOCS -> exit (LOW/DOCS only); folded.
+
+- LOW the cycle 2 same-geometry kwargs test used a mock whose raw `height` made `_wrapper_geometry_differs` True, so it never reached the `needs_switch == False` state it claimed and the M23 gated-forwarding mutant survived. FOLDED: real `ScaledCanvas` over a `HeadlessCanvas`, `_wrapper_geometry_differs` asserted False, non-default `incoming_content_height = 12`.
+- LOW `bg_color` on the text widgets in the tripwire fixture was inert for the stated purpose (no core `draw()` paints it). FOLDED: removed with the same comment the image branch got.
+- DOCS the design doc rides in this PR and still said #561 was open / the doc is committed on the feature branch. FOLDED: `(1, 4)` shipped in #561 (017f3a9c); the spec, ledger and plan are committed on the precursor branch.
+- Clean: `plugin.py` (1,1)..(1,5) in order with #561's block intact; both docs literals and CLAUDE.md agree; #561 added no new `run_transition` / `frame_at` caller, `end_firing` fires exactly once per firing; 53/53 plugin `frame_at` take `**kwargs`, none defines `end_firing` or reads the new keys.
+
+## Exit
+
+Loop exits after cycle 3 (0 HIGH / 0 MEDIUM). Trend: 0H/1M -> 0H/1M -> 0H/0M. Byte-identity vs `origin/main` 017f3a9c: dissolve demo 29/29 frames identical; the gif demo's frame COUNT varies between two renders of main itself (295 vs 304), so its +-1 difference is renderer timing noise, with every aligned frame identical.

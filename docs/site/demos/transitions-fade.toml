@@ -1,0 +1,73 @@
+# Demo: fade transition — crossfade, dip through black, and across bg colours.
+# Section 1 crossfades between two messages (bare `fade`). Section 2 dips
+# through black (`transition_color = [0, 0, 0]`). Sections 3 and 4 each
+# carry a bg_color, so the `between_sections` fade crosses from one bg to
+# the other. The `TomlExample` on transitions/special.mdx is copied from
+# this file character-for-character (DOCS-STYLE snippet/GIF parity).
+#
+# render-duration: 15
+[display]
+rows = 16
+cols = 32
+chain_length = 5
+default_scale = 1
+brightness = 60
+
+[transitions]
+default = "fade"
+between_sections = "fade"
+duration = 0.8
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 1.5
+transition = "fade"
+
+[[playlist.section.widget]]
+type = "message"
+text = "fade"
+font_color = [255, 244, 214]
+
+[[playlist.section.widget]]
+type = "message"
+text = "crossfade"
+font_color = [80, 220, 255]
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 1.5
+transition = { type = "fade", transition_color = [0, 0, 0] }
+
+[[playlist.section.widget]]
+type = "message"
+text = "dip"
+font_color = [255, 183, 3]
+
+[[playlist.section.widget]]
+type = "message"
+text = "through black"
+font_color = [255, 92, 38]
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 1.5
+bg_color = [99, 60, 138]
+
+[[playlist.section.widget]]
+type = "message"
+text = "one bg"
+font_color = [255, 244, 214]
+
+[[playlist.section]]
+mode = "slideshow"
+loop_count = 1
+hold_time = 1.5
+bg_color = [0, 70, 80]
+
+[[playlist.section.widget]]
+type = "message"
+text = "another bg"
+font_color = [255, 244, 214]

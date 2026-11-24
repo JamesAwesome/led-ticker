@@ -188,3 +188,66 @@ def test_guard_delegates_other_attrs():
     g = guard_for_transition(w, RenderBreaker())
     assert g.bg_color == (1, 2, 3)  # __getattr__ delegates
     assert g.text == "hi"
+
+
+# --- helpers for snapshotting transitions (fade design, "Breaker helpers") ---
+
+
+class _IdKeyed:
+    """No text / top_text / path, so `_key` falls back to id(): the case where
+    tripping the GUARD instead of the widget would disable a key nobody checks."""
+
+    def draw(self, canvas, cursor_pos=0, **kw):
+        return canvas, 0
+
+
+def test_trip_transition_draw_disables_the_inner_widget():
+    from led_ticker.render_breaker import (
+        guard_for_transition,
+        transition_draw_tripped,
+        trip_transition_draw,
+    )
+
+    w = _IdKeyed()
+    br = RenderBreaker()
+    g = guard_for_transition(w, br)
+    assert transition_draw_tripped(g) is False
+    assert trip_transition_draw(g, RuntimeError("x")) is True
+    assert br.is_disabled(w)  # the WIDGET is disabled, not the guard object
+    assert id(g) not in br.disabled
+    assert transition_draw_tripped(g) is True
+
+
+def test_trip_transition_draw_records_the_widget_not_the_guard(monkeypatch):
+    from led_ticker import status_board
+    from led_ticker.render_breaker import guard_for_transition, trip_transition_draw
+
+    seen = []
+    monkeypatch.setattr(
+        status_board, "record_disabled_widget", lambda widget, err: seen.append(widget)
+    )
+    w = _IdKeyed()
+    g = guard_for_transition(w, RenderBreaker())
+    trip_transition_draw(g, RuntimeError("x"))
+    assert seen == [w]
+
+
+def test_helpers_read_false_on_a_raw_widget():
+    from led_ticker.render_breaker import transition_draw_tripped, trip_transition_draw
+
+    w = _IdKeyed()
+    assert transition_draw_tripped(w) is False
+    assert trip_transition_draw(w, RuntimeError("x")) is False
+
+
+def test_tripped_reads_true_after_the_guard_itself_trips():
+    from led_ticker.render_breaker import guard_for_transition, transition_draw_tripped
+
+    class _Raises:
+        def draw(self, canvas, cursor_pos=0, **kw):
+            raise ValueError("boom")
+
+    br = RenderBreaker()
+    g = guard_for_transition(_Raises(), br)
+    g.draw(SimpleNamespace())
+    assert transition_draw_tripped(g) is True

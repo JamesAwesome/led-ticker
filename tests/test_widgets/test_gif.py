@@ -155,7 +155,7 @@ async def test_play_uses_engine_cadence_without_text(tmp_path, mocker, bigsign_c
 
     sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
     # Frozen clock: the sleep is drift-compensated (swap/draw time comes
-    # off the budget), so hold time still to assert the nominal cadence.
+    # off the budget), so freeze loop.time() to assert the nominal cadence.
     mock_loop = mocker.Mock()
     mock_loop.time.return_value = 0.0
     mocker.patch("asyncio.get_running_loop", return_value=mock_loop)
@@ -1669,6 +1669,47 @@ class TestGifPlayNoTextFloorsAtSwapInterval:
         await self._play(widget, mock_frame)
         assert widget._frame_count == 4
         assert widget._frame_carry_ms == 0
+
+    async def test_gif_frame_pick_stays_on_the_nominal_tick(self, tmp_path, mock_frame):
+        """The floored tick feeds the frame COUNTER only; the gif frame pick
+        still sees nominal elapsed time (0, 50, 100, … ms) on a capped
+        frame — a single-frame fixture cannot observe this (cycle-3 mutant
+        `tick * frame_tick_ms` survived), so use three 100 ms frames."""
+        from led_ticker.borders import RainbowChaseBorder
+
+        gif_path = tmp_path / "three.gif"
+        frames = [
+            Image.new("RGB", (4, 4), (255, 0, 0)),
+            Image.new("RGB", (4, 4), (0, 255, 0)),
+            Image.new("RGB", (4, 4), (0, 0, 255)),
+        ]
+        frames[0].save(
+            gif_path, save_all=True, append_images=frames[1:], duration=100, loop=0
+        )
+        w = GifPlayer(path=gif_path, border=RainbowChaseBorder(speed=4))
+        w._load(panel_w=4, panel_h=4)
+        mock_frame.swap_interval_ms = 67
+
+        elapsed_seen: list[int] = []
+        _original_pick = GifPlayer._pick_frame_for_elapsed
+
+        def _spy(self_w, elapsed_ms: int) -> None:
+            elapsed_seen.append(elapsed_ms)
+            _original_pick(self_w, elapsed_ms)
+
+        with (
+            mock.patch.object(GifPlayer, "_pick_frame_for_elapsed", _spy),
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await w._play_no_text(
+                mock_frame.swap.return_value, mock_frame, loop_count=1
+            )
+
+        # 300 ms / 50 ms = 6 ticks at NOMINAL elapsed, not 0, 67, 134, …
+        assert elapsed_seen == [0, 50, 100, 150, 200, 250]
+        # … while the counter banked 6 × 67 = 402 ms = 8 frames + 2 carry
+        assert w._frame_count == 8
+        assert w._frame_carry_ms == 2
 
     async def test_blocking_swap_is_subtracted_from_the_sleep(
         self, widget, mock_frame, mocker

@@ -1372,3 +1372,21 @@ class TestStillPlayNoTextFloorsAtSwapInterval:
         sleeps = [c.args[0] for c in sleep_mock.await_args_list]
         assert len(sleeps) == 10
         assert all(s < 1e-6 for s in sleeps), sleeps
+
+    async def test_instant_swap_sleeps_the_full_nominal_tick(
+        self, still, mock_frame, mocker
+    ):
+        """The other side of drift compensation: with a frozen clock (swap
+        and draw take no time) every slow-path sleep is exactly 50 ms —
+        pins hold pacing, so `sleep(0)` / a dropped sleep cannot survive
+        (cycle-3 mutant: a 10-tick hold spun in ~0 ms)."""
+        mock_loop = mocker.Mock()
+        mock_loop.time.return_value = 0.0
+        mocker.patch("asyncio.get_running_loop", return_value=mock_loop)
+        sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await still._play_no_text(mock_frame.swap.return_value, mock_frame)
+
+        sleeps = [c.args[0] for c in sleep_mock.await_args_list]
+        assert len(sleeps) == 10
+        assert all(abs(s - 0.05) < 1e-9 for s in sleeps), sleeps

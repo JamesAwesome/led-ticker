@@ -507,6 +507,20 @@ class TestSettleConvertsFramesToFlooredTicks:
         assert w.draws == 1 + 1 + 8
         assert w._frame_count == 12
 
+    async def test_nothing_owed_on_a_capped_frame_is_no_extension(
+        self, swapping_frame, no_sleep
+    ):
+        """A widget already at rest (0 owed frames) must get no settle tick
+        on a capped frame either: the `max(1, …)` floor on the owed ms must
+        never turn a zero debt into a 67 ms hold (cycle-3 mutant: guard
+        `0 < frames` → `0 <= frames` survived)."""
+        w = _Settling(cursor=5, owed=0)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 2  # entry draw + the 1-tick hold, no settle
+
     async def test_delivered_extension_over_budget_is_refused(
         self, swapping_frame, no_sleep
     ):

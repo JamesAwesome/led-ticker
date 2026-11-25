@@ -16,7 +16,7 @@ ENGINE_TICK_MS: int = 50  # 20 fps for held-text frame animation
 # `frames_to_rest` counts FRAMES (50 ms each, #525) and every loop converts
 # the owed time into its own ticks — `ceil((frames * 50 - banked carry) /
 # tick_ms)`, refused when a tick is longer than MAX_SETTLE_MS or would
-# START past it (`tick_ms > MAX_SETTLE_MS or (ticks - 1) * tick_ms >=
+# START at or past it (`tick_ms > MAX_SETTLE_MS or (ticks - 1) * tick_ms >=
 # MAX_SETTLE_MS`); the LAST tick may cross the line (#570 — refusing on the
 # delivered total `ticks * tick_ms` dropped every top-of-budget settle on a
 # tick that does not divide 1000: 20 frames at 30 ms = 1020 ms, at a 67 ms

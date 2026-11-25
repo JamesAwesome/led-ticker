@@ -974,21 +974,20 @@ class _BaseImageWidget(FrameAwareBase):
         floored at the frame's swap interval), so the owed time is
         converted into THIS loop's ticks:
         `ceil((frames × 50 − banked carry) / tick_ms)`. The ~1 s budget
-        (`MAX_SETTLE_MS`) is wall clock and all-or-nothing, applied TWICE:
-        to the owed frames (a remainder above it gets NO extension) and to
-        where the ticks START — no tick may begin past the budget line
-        (#570): a tick longer than the budget can't deliver even one frame
-        without holding the panel over a second (2000 ms owing 50 → 2 s),
-        so that is refused; but the LAST tick may cross the line, since
-        refusing it dropped every top-of-budget settle whose tick does not
-        divide 1000 (20 frames at 30 ms = 34 ticks = 1020 ms, at the 67 ms
-        swap interval of a 30 Hz cap = 1005 ms for every carry) and the
-        transition then fired mid-effect. The overshoot is bounded by one
-        tick. With the owed time already ≤ MAX_SETTLE_MS the start-of-last-
-        tick clause `(ticks − 1) × tick_ms >= MAX_SETTLE_MS` is implied
-        here (ceil puts that start strictly below the owed time); it is
-        kept so the twins read the same and the engine's backstop against a
-        duck-typed negative carry has a twin to match. Never raises.
+        (`MAX_SETTLE_MS`) is wall clock and all-or-nothing, applied to the
+        owed frames (a remainder above it gets NO extension), to the tick
+        LENGTH (`tick_ms > MAX_SETTLE_MS`: a 2000 ms tick can't deliver
+        even one frame without holding the panel 2 s — refused) and to
+        where the ticks START (`(ticks − 1) × tick_ms >= MAX_SETTLE_MS`:
+        no tick may begin at or past the line). The LAST tick may cross
+        the line (#570): refusing on the delivered total dropped every
+        top-of-budget settle whose tick does not divide 1000 (20 frames at
+        30 ms = 34 ticks = 1020 ms; at the 67 ms swap interval of a 30 Hz
+        cap = 1005 ms, for every carry) and the transition fired
+        mid-effect. The overshoot is bounded by one tick. On this twin the
+        start clause can never refuse (owed ≤ MAX_SETTLE_MS and carry ≥ 0
+        ⇒ `(ticks − 1) × tick_ms < owed`); it is kept for parity with
+        `Ticker._settle_hold_ticks`. Never raises.
         """
         need_ms = self.frames_to_transition_ready() * ENGINE_TICK_MS
         if not 0 < need_ms <= MAX_SETTLE_MS:

@@ -121,8 +121,9 @@ class TestSingleRowCadence:
 
 class TestSettleConversion:
     """`frames_to_transition_ready` is in 50 ms frames; the loop owes
-    ceil(frames × 50 / tick_ms) ticks, capped at MAX_SETTLE_MS of wall
-    clock whatever the tick."""
+    ceil(frames × 50 / tick_ms) ticks against a MAX_SETTLE_MS wall-clock
+    budget whatever the tick (no tick may start at or past the line; the
+    last one may cross it — `TestSettleDeliveredCap`)."""
 
     @pytest.mark.parametrize("tick_ms", [20, 50, 100])
     async def test_extension_is_wall_clock(
@@ -162,9 +163,11 @@ class TestSettleConversion:
 
 
 class TestSettleDeliveredCap:
-    """Finding 3 of the #525 review: the cap is on the DELIVERED extension,
-    not the owed frames. A 2000 ms tick owing one frame (50 ms) would hold
-    the panel 2 s to deliver it — main refused; so do we."""
+    """The ~1 s budget is applied to where the settle ticks START, not to
+    the delivered total (#570): a tick longer than MAX_SETTLE_MS, or one
+    that would begin at or past the line, is refused; the last tick may
+    cross it. A 2000 ms tick owing one frame (50 ms) would hold the panel
+    2 s to deliver it — refused by the tick-length clause."""
 
     def test_one_frame_on_a_two_second_tick_is_refused(self):
         w = _single(text="hi", font_color=_RestProvider(remaining=1))
@@ -214,10 +217,19 @@ class TestSettleDeliveredCap:
         """600 ms tick owing 20 frames → 2 ticks = 1200 ms delivered. The
         second tick starts at 600 (< 1000) so #570's rule grants it; the
         overshoot is bounded by one tick (< MAX_SETTLE_MS), i.e. the worst
-        case is just under 2 s on a 999 ms tick. Pinned so a tighter rule
-        is a deliberate change, not drift."""
+        case is just under 2 s on a 999 ms tick. In FRAMES that is up to
+        tick_ms / 50 frames past the rest point, so a rest window shorter
+        than the tick (shimmer's default pause is 10 frames) can be
+        overshot — that is part of the recorded choice. Pinned so a
+        tighter rule is a deliberate change, not drift."""
         w = _single(text="hi", font_color=_RestProvider(remaining=20))
         assert w._settle_ticks(600) == 2
+
+    def test_non_positive_tick_is_treated_as_one_ms(self):
+        """`_settle_ticks` never raises: a direct call with tick 0 is
+        clamped to 1 ms (callers always pass >= 20, floored up)."""
+        w = _single(text="hi", font_color=_RestProvider(remaining=20))
+        assert w._settle_ticks(0) == MAX_SETTLE_MS
 
     def test_under_cap_on_a_slow_tick_is_delivered(self):
         """15 frames (750 ms) at 100 ms = 8 ticks = 800 ms: inside the
@@ -225,13 +237,46 @@ class TestSettleDeliveredCap:
         w = _single(text="hi", font_color=_RestProvider(remaining=15))
         assert w._settle_ticks(100) == 8
 
-    async def test_play_loop_refuses_the_overshoot(self, swapping_frame, instant_sleep):
+    async def test_play_loop_refuses_a_tick_longer_than_the_budget(
+        self, swapping_frame, instant_sleep
+    ):
         w = _single(
             text="hi", font_color=_RestProvider(remaining=1), scroll_speed_ms=2000
         )
         swapping_frame.swap.return_value = _canvas()
         await w._play_with_text(_canvas(), swapping_frame, n_ticks=3)
         assert w.paints == 3
+
+    async def test_single_row_loop_delivers_a_top_of_budget_settle(
+        self, swapping_frame, instant_sleep
+    ):
+        """End-to-end #570 on `_play_with_text`: 5 ticks at 30 ms bank
+        150 ms = 3 frames (carry 0); 20 owed frames → 34 extra ticks
+        (1020 ms), so the loop paints 5 + 34 and reaches the rest point.
+        Pins the CALL SITE too — a clamp to `MAX_SETTLE_MS // tick_ms`
+        there would pass every direct `_settle_ticks` test."""
+        w = _single(
+            text="hi", font_color=_RestProvider(remaining=20), scroll_speed_ms=30
+        )
+        swapping_frame.swap.return_value = _canvas()
+        await w._play_with_text(_canvas(), swapping_frame, n_ticks=5)
+        assert w.paints == 5 + 34
+        assert w._frame_count >= 3 + 20
+
+    async def test_two_row_loop_delivers_a_top_of_budget_settle(
+        self, swapping_frame, instant_sleep
+    ):
+        """Same on `_play_with_two_row_text` (held rows), via `top_color`."""
+        w = _two_row(
+            top_text="A",
+            bottom_text="B",
+            top_color=_RestProvider(remaining=20),
+            scroll_speed_ms=30,
+        )
+        swapping_frame.swap.return_value = _canvas()
+        await w._play_with_two_row_text(_canvas(), swapping_frame, n_ticks=5)
+        assert w.paints == 5 + 34
+        assert w._frame_count >= 3 + 20
 
 
 class TestTwoRowCadence:

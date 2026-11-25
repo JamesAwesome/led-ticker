@@ -406,16 +406,20 @@ class Ticker:
         frames): convert the owed time into ticks instead,
         ``ceil((frames × 50 − banked carry) / hold_tick_ms)``, and refuse
         (all-or-nothing, like the budget on *frames* itself) when a tick is
-        longer than `MAX_SETTLE_MS` or would START past it. The LAST tick
-        may cross the line (#570): refusing on the delivered total
+        longer than `MAX_SETTLE_MS` or would START at or past it. The LAST
+        tick may cross the line (#570): refusing on the delivered total
         ``ticks × hold_tick_ms`` dropped every top-of-budget settle on an
         interval that does not divide 1000 (20 frames at 67 ms = 15 ticks =
         1005 ms, refused for every carry), and the transition fired
-        mid-effect. The start-of-last-tick clause is also the backstop
-        for a duck-typed negative carry inflating the owed time past the
-        budget. A widget that doesn't bank ms (`_banks_elapsed` false)
-        advances one frame per tick whatever the interval, so its count is
-        NOT converted.
+        mid-effect. Neither refusal fires for in-tree code — `bank_frames`
+        keeps the carry in [0, 49] so the start clause is implied, and the
+        rgbmatrix swap interval is ≤ 1000 ms at any `limit_refresh_rate_hz`
+        ≥ 1 — they are a backstop for a third-party backend reporting a
+        longer interval or a third-party banking class whose own carry
+        goes negative (no extension is the safe outcome for a bogus carry).
+        A widget that doesn't bank ms (`_banks_elapsed` false) advances
+        one frame per tick whatever the interval, so its count is NOT
+        converted (and is not wall-clock budgeted — pre-existing, #566).
         """
         if not 0 < frames <= MAX_SETTLE_TICKS:
             return 0

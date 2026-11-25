@@ -176,11 +176,48 @@ class TestSettleDeliveredCap:
         assert w._settle_ticks(100) == 10
         assert w._settle_ticks(20) == 50
 
-    def test_non_dividing_tick_that_overshoots_the_cap_is_refused(self):
-        """20 frames (1000 ms) at 60 ms ticks needs 17 ticks = 1020 ms of
-        real hold — over the budget, so no extension."""
+    def test_non_dividing_tick_may_cross_the_line_on_its_last_tick(self):
+        """#570: 20 frames (1000 ms) at 60 ms ticks needs 17 ticks = 1020 ms
+        of real hold. The last tick STARTS at 960 ms, inside the budget, so
+        the settle is granted — refusing it (the pre-#570 rule) fired the
+        transition 20 frames early for every tick that does not divide
+        1000."""
         w = _single(text="hi", font_color=_RestProvider(remaining=20))
-        assert w._settle_ticks(60) == 0
+        assert w._settle_ticks(60) == 17
+
+    def test_top_of_budget_on_a_30_ms_marquee_is_granted(self):
+        """The issue's headline case: `flair.blink period_ms=2000,
+        duty=0.5` owes exactly 20 frames at off-phase start; on a 30 ms
+        marquee that is ceil(1000 / 30) = 34 ticks (1020 ms) — granted."""
+        w = _single(text="hi", font_color=_RestProvider(remaining=20))
+        assert w._settle_ticks(30) == 34
+
+    def test_top_of_budget_at_the_30_hz_swap_interval_is_granted(self):
+        """At a 67 ms swap interval 20 frames need 15 ticks (1005 ms); the
+        strict rule refused this for EVERY carry (floor(1000/67)×67 =
+        938 < 1000), so a refresh-capped sign could never settle a 20-frame
+        debt."""
+        w = _single(text="hi", font_color=_RestProvider(remaining=20))
+        assert w._settle_ticks(67) == 15
+
+    def test_a_tick_as_long_as_the_budget_is_granted(self):
+        """1000 ms tick owing one frame: the single tick starts at 0, so
+        the rule's boundary is `tick_ms > MAX_SETTLE_MS`, not `>=`."""
+        w = _single(text="hi", font_color=_RestProvider(remaining=1))
+        assert w._settle_ticks(MAX_SETTLE_MS) == 1
+
+    def test_a_tick_longer_than_the_budget_is_refused(self):
+        w = _single(text="hi", font_color=_RestProvider(remaining=1))
+        assert w._settle_ticks(MAX_SETTLE_MS + 1) == 0
+
+    def test_wide_tick_overshoot_is_a_recorded_choice(self):
+        """600 ms tick owing 20 frames → 2 ticks = 1200 ms delivered. The
+        second tick starts at 600 (< 1000) so #570's rule grants it; the
+        overshoot is bounded by one tick (< MAX_SETTLE_MS), i.e. the worst
+        case is just under 2 s on a 999 ms tick. Pinned so a tighter rule
+        is a deliberate change, not drift."""
+        w = _single(text="hi", font_color=_RestProvider(remaining=20))
+        assert w._settle_ticks(600) == 2
 
     def test_under_cap_on_a_slow_tick_is_delivered(self):
         """15 frames (750 ms) at 100 ms = 8 ticks = 800 ms: inside the

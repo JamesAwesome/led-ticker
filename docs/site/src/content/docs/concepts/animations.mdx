@@ -31,7 +31,7 @@ animation = "typewriter"`}
 
 ## Tuning `frames_per_char`
 
-The cadence is `frames_per_char × 50 ms` per character — the engine ticks at 50 ms and advances the typewriter counter once per tick. The default of `3` gives about 150 ms per character, which feels snappy but still readable at roughly 7 characters per second. A value of `5` or `6` reads as deliberate and is a good choice when you want the audience to register each character dropping in. Values above `10` read as comically slow. There is no separate animation clock — everything runs on the same 50 ms engine tick.
+The cadence is `frames_per_char × 50 ms` per character — a frame is 50 ms of wall clock, and the typewriter counter advances once per frame. The default of `3` gives about 150 ms per character, which feels snappy but still readable at roughly 7 characters per second. A value of `5` or `6` reads as deliberate and is a good choice when you want the audience to register each character dropping in. Values above `10` read as comically slow. There is no separate animation clock — every effect counts the same 50 ms frames, even on a section whose `scroll_step_ms` makes the marquee itself tick faster or slower, and on a sign whose [`limit_refresh_rate_hz`](/reference/config-options/#display) cap makes each tick take longer than its nominal length — a held message's 50 ms as much as a marquee's `scroll_step_ms` (every loop counts the time a tick really takes).
 
 To override `frames_per_char`, switch from the string shorthand to an inline TOML table with a `style` key:
 

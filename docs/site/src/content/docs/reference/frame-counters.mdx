@@ -5,7 +5,7 @@ description: Per-effect counters, restart-on-visit vs continuous phase, and how 
 
 import RelatedPages from "../../../components/RelatedPages.astro";
 
-Every animated effect — rainbow text, color cycle, typewriter, rainbow chase border — advances a frame counter that ticks once per 50 ms engine iteration. Each effect on a widget gets its own independent counter: a `message` with `font_color = "rainbow"`, `border = "rainbow"`, and `animation = "typewriter"` carries three counters, one per effect, that advance separately and never interfere.
+Every animated effect — rainbow text, color cycle, typewriter, rainbow chase border — advances a frame counter that ticks once per 50 ms of wall clock. Every loop converts the time each tick really takes — its nominal tick (50 ms for a held message, `scroll_step_ms` for a marquee, `scroll_speed_ms` for a `gif` / `image` overlay), or the panel's swap interval when the [`limit_refresh_rate_hz`](/reference/config-options/#display) cap makes a swap block longer than that — into whole 50 ms frames, so an effect's speed never depends on how fast the text happens to scroll. Each effect on a widget gets its own independent counter: a `message` with `font_color = "rainbow"`, `border = "rainbow"`, and `animation = "typewriter"` carries three counters, one per effect, that advance separately and never interfere.
 
 Most users never need to think about this model directly. The defaults produce the right visual behavior. This page is for two narrower audiences: users debugging unexpected restart behavior, and developers implementing a new effect class.
 

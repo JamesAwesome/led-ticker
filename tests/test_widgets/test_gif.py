@@ -154,6 +154,11 @@ async def test_play_uses_engine_cadence_without_text(tmp_path, mocker, bigsign_c
     frame.swap.side_effect = lambda c: c
 
     sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+    # Frozen clock: the sleep is drift-compensated (swap/draw time comes
+    # off the budget), so freeze loop.time() to assert the nominal cadence.
+    mock_loop = mocker.Mock()
+    mock_loop.time.return_value = 0.0
+    mocker.patch("asyncio.get_running_loop", return_value=mock_loop)
 
     await widget.play(real, frame, loop_count=1)
 
@@ -1611,6 +1616,128 @@ class TestGifPlayNoTextBorderPerEffectCounter:
             f"first paint should see persisted counter (51); "
             f"got {captured[0]} — _frame_count was being read directly"
         )
+
+
+class TestGifPlayNoTextFloorsAtSwapInterval:
+    """#525 cycle-2 finding 4: `_play_no_text` ticks at ENGINE_TICK_MS but
+    on a refresh-capped sign every `swap()` blocks for the swap interval
+    (67 ms at 30 Hz), so banking a flat frame per tick ran an animated
+    border at 0.75×. The loop banks `floor_tick_ms(frame, ENGINE_TICK_MS)`
+    via `advance_frame_elapsed` — a Mock / uncapped frame floors at the
+    nominal 50 and stays byte-identical (one frame per tick)."""
+
+    @pytest.fixture
+    def widget(self, tmp_path):
+        from led_ticker.borders import RainbowChaseBorder
+
+        # 200 ms total → 4 ticks at 50 ms cadence
+        gif_path = tmp_path / "one.gif"
+        Image.new("RGB", (4, 4), (255, 0, 0)).save(gif_path, duration=200, loop=0)
+        w = GifPlayer(path=gif_path, border=RainbowChaseBorder(speed=4))
+        w._load(panel_w=4, panel_h=4)
+        return w
+
+    async def _play(self, widget, mock_frame):
+        with mock.patch("asyncio.sleep", new=mock.AsyncMock()):
+            await widget._play_no_text(
+                mock_frame.swap.return_value, mock_frame, loop_count=1
+            )
+
+    async def test_uncapped_frame_is_one_frame_per_tick(self, widget, mock_frame):
+        await self._play(widget, mock_frame)
+        assert mock_frame.swap.call_count == 4
+        assert widget._frame_count == 4
+        assert widget._frame_carry_ms == 0
+
+    async def test_capped_frame_banks_the_swap_interval(self, widget, mock_frame):
+        """4 ticks × 67 ms = 268 ms = 5 frames + 18 ms carry; the tick
+        count (swaps) and the gif frame pick are unchanged."""
+        mock_frame.swap_interval_ms = 67
+        await self._play(widget, mock_frame)
+        assert mock_frame.swap.call_count == 4
+        assert widget._frame_count == 5
+        assert widget._frame_carry_ms == 18
+
+    async def test_interval_below_the_engine_tick_is_one_frame_per_tick(
+        self, widget, mock_frame
+    ):
+        """A 25 Hz cap swaps every 40 ms < 50: the floor is a `max`, so
+        the nominal 50 is banked, never the raw interval (a mutant that
+        banks `swap_interval_ms` directly delivers 3 frames here and
+        degrades to 0 on a Mock frame)."""
+        mock_frame.swap_interval_ms = 40
+        await self._play(widget, mock_frame)
+        assert widget._frame_count == 4
+        assert widget._frame_carry_ms == 0
+
+    async def test_gif_frame_pick_stays_on_the_nominal_tick(self, tmp_path, mock_frame):
+        """The floored tick feeds the frame COUNTER only; the gif frame pick
+        still sees nominal elapsed time (0, 50, 100, … ms) on a capped
+        frame — a single-frame fixture cannot observe this (cycle-3 mutant
+        `tick * frame_tick_ms` survived), so use three 100 ms frames."""
+        from led_ticker.borders import RainbowChaseBorder
+
+        gif_path = tmp_path / "three.gif"
+        frames = [
+            Image.new("RGB", (4, 4), (255, 0, 0)),
+            Image.new("RGB", (4, 4), (0, 255, 0)),
+            Image.new("RGB", (4, 4), (0, 0, 255)),
+        ]
+        frames[0].save(
+            gif_path, save_all=True, append_images=frames[1:], duration=100, loop=0
+        )
+        w = GifPlayer(path=gif_path, border=RainbowChaseBorder(speed=4))
+        w._load(panel_w=4, panel_h=4)
+        mock_frame.swap_interval_ms = 67
+
+        elapsed_seen: list[int] = []
+        _original_pick = GifPlayer._pick_frame_for_elapsed
+
+        def _spy(self_w, elapsed_ms: int) -> None:
+            elapsed_seen.append(elapsed_ms)
+            _original_pick(self_w, elapsed_ms)
+
+        with (
+            mock.patch.object(GifPlayer, "_pick_frame_for_elapsed", _spy),
+            mock.patch("asyncio.sleep", new=mock.AsyncMock()),
+        ):
+            await w._play_no_text(
+                mock_frame.swap.return_value, mock_frame, loop_count=1
+            )
+
+        # 300 ms / 50 ms = 6 ticks at NOMINAL elapsed, not 0, 67, 134, …
+        assert elapsed_seen == [0, 50, 100, 150, 200, 250]
+        # … while the counter banked 6 × 67 = 402 ms = 8 frames + 2 carry
+        assert w._frame_count == 8
+        assert w._frame_carry_ms == 2
+
+    async def test_blocking_swap_is_subtracted_from_the_sleep(
+        self, widget, mock_frame, mocker
+    ):
+        """The sleep is drift-compensated like `_hold_ticks` and
+        `_play_with_text`: time spent inside a blocking `swap()` comes
+        off the 50 ms budget. A flat `sleep(0.05)` after a swap that
+        itself waited 50 ms made the real tick ~100 ms on a 100 Hz cap
+        while 50 ms was banked (effects at 0.5×)."""
+        clock = [0.0]
+
+        def swap(canvas):
+            clock[0] += 0.05  # SwapOnVSync blocked for one swap interval
+            return canvas
+
+        mock_frame.swap.side_effect = swap
+        mock_loop = mocker.Mock()
+        mock_loop.time.side_effect = lambda: clock[0]
+        mocker.patch("asyncio.get_running_loop", return_value=mock_loop)
+        sleep_mock = mocker.patch("asyncio.sleep", new=mocker.AsyncMock())
+
+        await widget._play_no_text(
+            mock_frame.swap.return_value, mock_frame, loop_count=1
+        )
+
+        sleeps = [c.args[0] for c in sleep_mock.await_args_list]
+        assert len(sleeps) == 4
+        assert all(s < 1e-6 for s in sleeps), sleeps
 
 
 # ---------------------------------------------------------------------------

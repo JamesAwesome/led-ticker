@@ -27,7 +27,7 @@ from led_ticker.sources import (
 )
 from led_ticker.widgets import register
 from led_ticker.widgets._effects import paint_background
-from led_ticker.widgets._frame_aware import FrameAwareBase
+from led_ticker.widgets._frame_aware import FrameAwareBase, bank_frames
 from led_ticker.widgets._text_run import draw_text_run
 
 
@@ -622,8 +622,15 @@ class SegmentMessage:
 
     `font_color` is an optional `ColorProvider` override. When set it
     replaces the per-segment colors, allowing a `color_cycle` effect to
-    animate the whole message. `advance_frame()` increments the frame
-    counter so `_advance_frame_if_supported` in the engine picks it up.
+    animate the whole message. A plain class (not `FrameAwareBase`), so it
+    carries its own frame counter: `advance_frame()` per frame and
+    `advance_frame_elapsed(tick_ms)` for every core loop's tick (banking ms
+    through the shared `bank_frames` helper, each whole frame routed through
+    `advance_frame` so overrides see it) so a frame is 50 ms of wall clock
+    here too (#525) — the engine dispatches by CLASS attribute, so without
+    the elapsed method this would silently fall back to one frame per loop
+    tick and a `color_cycle` segment row would cycle faster than a
+    `TickerMessage` beside it on a quick marquee.
     """
 
     def __init__(
@@ -643,9 +650,23 @@ class SegmentMessage:
         self.font_color: Color | ColorProvider | None = font_color
         self._content_width: int = -1
         self._frame_count: int = 0
+        self._frame_carry_ms: int = 0
 
     def advance_frame(self, *, visit_id: int | None = None) -> None:
         self._frame_count += 1
+
+    def advance_frame_elapsed(
+        self, tick_ms: int, *, visit_id: int | None = None
+    ) -> None:
+        """Bank *tick_ms* of wall clock and advance whole 50 ms frames —
+        same semantics as `FrameAwareBase.advance_frame_elapsed`
+        (``tick_ms <= 0`` → one frame; carry cleared by `reset_frame`)."""
+        if tick_ms <= 0:
+            self.advance_frame(visit_id=visit_id)
+            return
+        frames, self._frame_carry_ms = bank_frames(self._frame_carry_ms, tick_ms)
+        for _ in range(frames):
+            self.advance_frame(visit_id=visit_id)
 
     def pause_frame(self) -> None:
         pass
@@ -655,6 +676,7 @@ class SegmentMessage:
 
     def reset_frame(self) -> None:
         self._frame_count = 0
+        self._frame_carry_ms = 0
 
     def draw(
         self,

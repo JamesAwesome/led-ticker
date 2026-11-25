@@ -348,3 +348,134 @@ class TestVisitOwnership:
     def test_visit_owner_is_none_initially(self):
         w = _SimpleWidget()
         assert w._visit_owner is None
+
+
+class TestAdvanceFrameElapsed:
+    """#525: a frame is 50 ms of wall clock (ENGINE_TICK_MS), whatever the
+    cadence of the loop driving the widget. Loops that tick at a different
+    rate report their nominal tick via ``advance_frame_elapsed`` and the
+    mixin converts to whole frames with an ms accumulator."""
+
+    def test_engine_tick_advances_exactly_one_frame(self):
+        d = _Dummy()
+        for _ in range(5):
+            d.advance_frame_elapsed(50)
+        assert d._frame_count == 5
+
+    def test_fast_ticks_accumulate_to_wall_clock_frames(self):
+        """10 ticks at 20 ms = 200 ms = 4 frames, not 10."""
+        d = _Dummy()
+        for _ in range(10):
+            d.advance_frame_elapsed(20)
+        assert d._frame_count == 4
+
+    def test_slow_ticks_advance_several_frames(self):
+        """100 ms ticks = 2 frames each."""
+        d = _Dummy()
+        d.advance_frame_elapsed(100)
+        assert d._frame_count == 2
+        d.advance_frame_elapsed(100)
+        assert d._frame_count == 4
+
+    def test_remainder_carries_across_ticks(self):
+        """60 ms ticks: 60, 120, 180, 240, 300 → 1, 2, 3, 4, 6 frames."""
+        d = _Dummy()
+        seen = []
+        for _ in range(5):
+            d.advance_frame_elapsed(60)
+            seen.append(d._frame_count)
+        assert seen == [1, 2, 3, 4, 6]
+
+    def test_non_positive_tick_is_one_frame(self):
+        """`scroll_speed=0` (tests; refused by validate rule 31) must not
+        freeze every effect — degrade to the legacy one-frame-per-tick."""
+        d = _Dummy()
+        d.advance_frame_elapsed(0)
+        d.advance_frame_elapsed(-5)
+        assert d._frame_count == 2
+
+    def test_per_effect_counters_follow(self):
+        @attrs.define
+        class _W(FrameAwareBase):
+            font_color: object = None
+
+        w = _W(font_color=object())
+        for _ in range(10):
+            w.advance_frame_elapsed(20)
+        assert w.frame_for("font_color") == 4
+
+    def test_paused_does_not_accumulate(self):
+        """9 × 20 ms = 180 ms while paused must leave NO residue — a
+        mutant without the pause guard in `advance_frame_elapsed` banks
+        it (count stays 0 only because `advance_frame` has its own guard,
+        but the carry would read 30 and the next tick would fire a frame).
+        10 ticks would land exactly on a frame boundary and hide it."""
+        d = _Dummy()
+        d.pause_frame()
+        for _ in range(9):
+            d.advance_frame_elapsed(20)
+        d.resume_frame()
+        assert d._frame_count == 0, "time while paused must not bank frames"
+        assert d._frame_carry_ms == 0, "time while paused must not bank ms"
+        d.advance_frame_elapsed(20)
+        assert d._frame_count == 0
+        assert d._frame_carry_ms == 20
+
+    def test_sub_frame_ticks_check_visit_ownership(self):
+        """Finding 4 of the #525 review: the claim/check must run BEFORE
+        banking, so a stale visit is caught on its first sub-frame tick
+        — not only once 50 ms have accumulated and `advance_frame` fires."""
+        w = _SimpleWidget()
+        w.advance_frame_elapsed(20, visit_id=1)
+        assert w._visit_owner == 1
+        with pytest.raises(RuntimeError, match="claimed by visit_id"):
+            w.advance_frame_elapsed(20, visit_id=2)
+        assert w._frame_carry_ms == 20, "the rejected tick must not bank"
+
+    def test_sub_frame_ticks_same_visit_allowed(self):
+        w = _SimpleWidget()
+        for _ in range(5):
+            w.advance_frame_elapsed(20, visit_id=1)
+        assert w._frame_count == 2
+
+    def test_sub_frame_ticks_without_visit_id_are_unchecked(self):
+        w = _SimpleWidget()
+        w.advance_frame_elapsed(20, visit_id=1)
+        w.advance_frame_elapsed(20)  # no visit_id — must not raise
+        assert w._frame_carry_ms == 40
+
+    def test_paused_sub_frame_tick_does_not_claim(self):
+        """Same order as `advance_frame`: the pause check comes first, so a
+        paused widget is not claimed by a tick it did not bank."""
+        w = _SimpleWidget()
+        w.pause_frame()
+        w.advance_frame_elapsed(20, visit_id=1)
+        assert w._visit_owner is None
+
+    def test_reset_clears_carry(self):
+        d = _Dummy()
+        d.advance_frame_elapsed(40)  # 40 ms banked, 0 frames
+        d.reset_frame()
+        d.advance_frame_elapsed(20)  # would be 60 ms → 1 frame if carry leaked
+        assert d._frame_count == 0
+
+    def test_visit_id_is_forwarded(self):
+        w = _SimpleWidget()
+        w.advance_frame_elapsed(100, visit_id=7)
+        with pytest.raises(RuntimeError):
+            w.advance_frame_elapsed(100, visit_id=8)
+
+    def test_routes_through_advance_frame(self):
+        """Spies and subclasses that override advance_frame keep seeing
+        every frame."""
+        calls = []
+
+        @attrs.define
+        class _Spy(FrameAwareBase):
+            def advance_frame(self, *, visit_id=None):
+                calls.append(visit_id)
+                super().advance_frame(visit_id=visit_id)
+
+        s = _Spy()
+        s.advance_frame_elapsed(100, visit_id=3)
+        assert calls == [3, 3]

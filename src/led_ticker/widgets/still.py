@@ -83,6 +83,7 @@ import attrs
 from PIL import Image
 
 from led_ticker._types import Canvas, DrawResult
+from led_ticker.frame import floor_tick_ms
 from led_ticker.scaled_canvas import unwrap_to_real
 from led_ticker.widgets import register
 from led_ticker.widgets._effects import background_is_static, paint_background
@@ -280,6 +281,14 @@ class StillImage(_BaseImageWidget):
         since transitions call `pause_frame()` and any subsequent
         text-overlay path resets restart-on-visit counters on visit
         entry.
+
+        The slow path banks the wall clock a tick REALLY takes —
+        ENGINE_TICK_MS floored at the frame's swap interval, hoisted once
+        (#525 cycle-2 finding 4): on a refresh-capped sign `swap()` blocks
+        for that interval (67 ms at 30 Hz), so a flat frame per tick ran
+        an animated border at 0.75×. Uncapped / Mock frames floor at 50 →
+        exactly one frame per tick, unchanged. The nominal tick still
+        drives the tick count and the sleep.
         """
         from led_ticker.ticker import ENGINE_TICK_MS
 
@@ -304,13 +313,19 @@ class StillImage(_BaseImageWidget):
         # animating lands here).
         n_ticks = max(1, int(self.hold_time * 1000) // ENGINE_TICK_MS)
         tick_seconds = ENGINE_TICK_MS / 1000
+        frame_tick_ms = floor_tick_ms(frame, ENGINE_TICK_MS)
+        loop = asyncio.get_running_loop()
         for _ in range(n_ticks):
-            self.advance_frame()
+            t0 = loop.time()
+            self.advance_frame_elapsed(frame_tick_ms)
             reset_canvas(canvas, self.bg_color)
             paint_background(self, canvas)
             self._paint_image(canvas)
             if self.border is not None:
                 self.border.paint(canvas, self.frame_for("border"))
             canvas = frame.swap(canvas)
-            await asyncio.sleep(tick_seconds)
+            # Drift-compensated (constraint #5: swap, then sleep): a blocking
+            # SwapOnVSync on a refresh-capped sign comes off the budget, so
+            # the real tick stays at the banked frame_tick_ms.
+            await asyncio.sleep(max(0.0, tick_seconds - (loop.time() - t0)))
         return canvas

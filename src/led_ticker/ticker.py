@@ -14,8 +14,9 @@ import attrs
 from led_ticker import status_board
 from led_ticker._types import Canvas
 from led_ticker.colors import RGB_WHITE
-from led_ticker.constants import ENGINE_TICK_MS, MAX_SETTLE_TICKS
+from led_ticker.constants import ENGINE_TICK_MS, MAX_SETTLE_MS, MAX_SETTLE_TICKS
 from led_ticker.drawing import get_widget_padding
+from led_ticker.frame import _is_int, floor_tick_ms
 from led_ticker.render_breaker import RenderBreaker, guard_for_transition
 from led_ticker.scaled_canvas import ScaledCanvas, is_scaled, unwrap_to_real
 from led_ticker.separator import (
@@ -347,15 +348,81 @@ class Ticker:
         if hasattr(widget, "_logical_scale"):
             widget._logical_scale = scale
 
-    def _advance_frame_if_supported(self, widget: Any) -> None:
-        """Call `widget.advance_frame(visit_id=self._current_visit)` if supported.
+    @property
+    def _scroll_tick_ms(self) -> int:
+        """Wall clock one scroll-paced tick really takes, in whole ms: the
+        nominal `scroll_step_ms` (an int in config; 0 for the test-only
+        `scroll_speed = 0`) floored at the frame's swap interval — on a
+        refresh-capped sign `SwapOnVSync` blocks for that long whatever the
+        nominal tick, so banking the nominal would run effects slow (#525
+        review finding 1). Mock / uncapped frames have no floor."""
+        return floor_tick_ms(self.frame, round(self.scroll_speed * 1000))
 
-        Quietly no-ops on widgets without the FrameAwareBase mixin.
-        Passes the current visit ID so FrameAwareBase can detect aliasing bugs
-        (same widget instance advancing in two concurrent section visits).
+    def _advance_frame_if_supported(
+        self, widget: Any, *, tick_ms: int = ENGINE_TICK_MS
+    ) -> None:
+        """Advance the widget's frame counters by one tick of *tick_ms*.
+
+        A frame is ENGINE_TICK_MS of wall clock on every loop (#525), so
+        every caller passes the wall clock one tick REALLY takes: the
+        scroll-paced loops pass ``tick_ms=self._scroll_tick_ms``, the hold
+        loop (`_hold_ticks`) its nominal ENGINE_TICK_MS floored at the
+        frame's swap interval — both 50 on an uncapped sign, 67 on a 30 Hz
+        cap. A `FrameAwareBase` widget converts via `advance_frame_elapsed`
+        (20 ms marquee → a frame every 2.5 ticks, 100 ms → 2 per tick);
+        exactly ENGINE_TICK_MS takes the plain `advance_frame` path (the
+        two are equivalent there, and the spy-based tests count that one).
+        The mixin method is looked up on the CLASS, like `_has_play`, so a
+        Mock widget (whose instances answer every `hasattr`) still gets
+        the plain `advance_frame`; a duck-typed widget with only
+        `advance_frame` keeps one frame per tick. Quietly no-ops on widgets
+        without either. Passes the current visit ID so FrameAwareBase can
+        detect aliasing bugs (same widget instance advancing in two
+        concurrent section visits).
         """
-        if hasattr(widget, "advance_frame"):
+        if tick_ms != ENGINE_TICK_MS and self._banks_elapsed(widget):
+            widget.advance_frame_elapsed(tick_ms, visit_id=self._current_visit)
+        elif hasattr(widget, "advance_frame"):
             widget.advance_frame(visit_id=self._current_visit)
+
+    @staticmethod
+    def _banks_elapsed(widget: Any) -> bool:
+        """True when the widget's CLASS defines `advance_frame_elapsed` —
+        the one predicate for "this widget banks ms into frames", shared by
+        the advance dispatch and the settle conversion so they can't
+        disagree about a widget."""
+        return callable(getattr(type(widget), "advance_frame_elapsed", None))
+
+    def _settle_hold_ticks(self, widget: Any, frames: int) -> int:
+        """Hold ticks that deliver *frames* more frames to *widget* on this
+        frame's real cadence — the engine twin of
+        `_BaseImageWidget._settle_ticks` (#526).
+
+        `frames_to_transition_ready` is in ENGINE_TICK_MS frames; on an
+        uncapped sign a hold tick is exactly one frame, so the answer is
+        *frames* (unchanged path). On a refresh-capped sign `_hold_ticks`
+        banks the swap interval per tick (67 ms at 30 Hz), so handing it
+        *frames* ticks would overshoot the rest point (10 ticks → 13
+        frames): convert the owed time into ticks instead,
+        ``ceil((frames × 50 − banked carry) / hold_tick_ms)``, and refuse
+        (all-or-nothing, like the budget on *frames* itself) when the
+        DELIVERED extension ``ticks × hold_tick_ms`` exceeds `MAX_SETTLE_MS`.
+        A widget that doesn't bank ms (`_banks_elapsed` false) advances one
+        frame per tick whatever the interval, so its count is NOT converted.
+        """
+        if not 0 < frames <= MAX_SETTLE_TICKS:
+            return 0
+        hold_tick_ms = floor_tick_ms(self.frame, ENGINE_TICK_MS)
+        if hold_tick_ms == ENGINE_TICK_MS or not self._banks_elapsed(widget):
+            return frames
+        carry = getattr(widget, "_frame_carry_ms", 0)
+        if not _is_int(carry):
+            carry = 0
+        owed_ms = max(1, frames * ENGINE_TICK_MS - carry)
+        ticks = -(-owed_ms // hold_tick_ms)
+        if ticks * hold_tick_ms > MAX_SETTLE_MS:
+            return 0
+        return ticks
 
     @staticmethod
     def _resolve_now_if_supported(widget: Any) -> None:
@@ -431,14 +498,23 @@ class Ticker:
         pos: int,
         bg_color: Any,
     ) -> tuple[Canvas, int]:
-        """Run `n_ticks` drift-compensated ticks: advance → draw → swap → sleep."""
+        """Run `n_ticks` drift-compensated ticks: advance → draw → swap → sleep.
+
+        Paces itself at ENGINE_TICK_MS but BANKS the wall clock a tick really
+        takes — the nominal floored at the frame's swap interval, hoisted once
+        (#525 cycle-2 finding 4): on a 30 Hz-capped sign every swap blocks
+        67 ms, so a flat frame per tick ran held effects at 0.75×. Uncapped /
+        Mock frames floor at 50 → the plain `advance_frame` path, unchanged.
+        The tick count and sleep are deliberately NOT touched.
+        """
         tick_seconds = ENGINE_TICK_MS / 1000
+        hold_tick_ms = floor_tick_ms(self.frame, ENGINE_TICK_MS)
         loop = asyncio.get_running_loop()
         cursor_pos = 0
         for _ in range(n_ticks):
             self._maybe_restart()
             t0 = loop.time()
-            self._advance_frame_if_supported(widget)
+            self._advance_frame_if_supported(widget, tick_ms=hold_tick_ms)
             reset_canvas(canvas, bg_color)
             canvas, cursor_pos = self._safe_draw(widget, canvas, pos)
             canvas = _swap(canvas, self.frame)
@@ -620,7 +696,9 @@ class Ticker:
                     self._maybe_restart()
                     t0 = loop.time()
                     pos -= 1
-                    self._advance_frame_if_supported(ticker_obj)
+                    self._advance_frame_if_supported(
+                        ticker_obj, tick_ms=self._scroll_tick_ms
+                    )
                     reset_canvas(canvas, bg_color)
                     canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
                     canvas = _swap(canvas, self.frame)
@@ -648,7 +726,9 @@ class Ticker:
                 while tick < n_ticks:
                     self._maybe_restart()
                     t0 = loop.time()
-                    self._advance_frame_if_supported(ticker_obj)
+                    self._advance_frame_if_supported(
+                        ticker_obj, tick_ms=self._scroll_tick_ms
+                    )
                     reset_canvas(canvas, bg_color)
                     canvas, cycle_width = self._safe_draw(ticker_obj, canvas, pos)
                     if tick == 0 and loops_floor > 0 and cycle_width > 0:
@@ -695,7 +775,9 @@ class Ticker:
                     self._maybe_restart()
                     t0 = loop.time()
                     pos -= 1
-                    self._advance_frame_if_supported(ticker_obj)
+                    self._advance_frame_if_supported(
+                        ticker_obj, tick_ms=self._scroll_tick_ms
+                    )
                     reset_canvas(canvas, bg_color)
                     canvas, _ = self._safe_draw(ticker_obj, canvas, pos)
                     canvas = _swap(canvas, self.frame)
@@ -724,11 +806,16 @@ class Ticker:
         # at a rest point (shimmer pause / typewriter done) instead of
         # chopping mid-animation. All-or-nothing; reuses _hold_ticks so
         # constraints #1/#12 (swap capture, advance-per-tick) are
-        # inherited. Skipped for breaker-tripped widgets -- a disabled
-        # widget must not buy extra blank-draw time.
+        # inherited. The owed FRAMES become hold TICKS through
+        # `_settle_hold_ticks` (one per frame uncapped; converted on a
+        # refresh-capped frame, where a hold tick banks more than a frame).
+        # Skipped for breaker-tripped widgets -- a disabled widget must not
+        # buy extra blank-draw time.
         if not continuous and not self.breaker.is_disabled(ticker_obj):
-            extra = self._frames_to_settle(ticker_obj)
-            if 0 < extra <= MAX_SETTLE_TICKS:
+            extra = self._settle_hold_ticks(
+                ticker_obj, self._frames_to_settle(ticker_obj)
+            )
+            if extra > 0:
                 canvas, _ = await self._hold_ticks(
                     canvas, ticker_obj, extra, pos, bg_color
                 )
@@ -914,7 +1001,7 @@ class Ticker:
             # landing — visually inconsistent with the post-scroll hold
             # below and with `_swap_and_scroll`'s scroll branch.
             t0 = loop.time()
-            self._advance_frame_if_supported(ticker_obj)
+            self._advance_frame_if_supported(ticker_obj, tick_ms=self._scroll_tick_ms)
             reset_canvas(canvas, bg_color)
             canvas, cursor_pos = self._safe_draw(ticker_obj, canvas, pos)
             pos -= 1
@@ -977,7 +1064,9 @@ class Ticker:
             # "rainbow"` render as a static gradient that scrolls but
             # doesn't sweep over time.
             t0 = loop.time()
-            self._advance_frame_if_supported(ticker_object)
+            self._advance_frame_if_supported(
+                ticker_object, tick_ms=self._scroll_tick_ms
+            )
             reset_canvas(canvas, getattr(ticker_object, "bg_color", None))
             canvas, final_pos = self._safe_draw(ticker_object, canvas, pos)
             last_drawn_pos = pos
@@ -1058,7 +1147,9 @@ class Ticker:
             seen: set[int] = set()
             for buf_w in buffered_objects:
                 if id(buf_w) not in seen:
-                    self._advance_frame_if_supported(buf_w)
+                    self._advance_frame_if_supported(
+                        buf_w, tick_ms=self._scroll_tick_ms
+                    )
                     seen.add(id(buf_w))
 
             # Side-by-side scroll uses the FIRST buffered widget's bg_color for

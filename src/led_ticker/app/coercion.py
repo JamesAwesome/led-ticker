@@ -787,7 +787,7 @@ def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
             # A set-but-not-[r,g,b] background (`"red"`, `[255, 0]`) used to
             # skip coercion and reach `reset_canvas` as a bare str/list,
             # raising on the first hold outside the render breaker. Refuse
-            # it here, at load (validate rule 75 is the static twin).
+            # it here, at load (validate rule 76 is the static twin).
             cfg[key] = graphics.Color(*_validate_rgb(cfg[key], key))
 
 

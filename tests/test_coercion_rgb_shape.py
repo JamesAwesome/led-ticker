@@ -58,7 +58,7 @@ def test_rgb_shape_error_lives_in_colors_and_is_reexported():
 
 
 # ---------------------------------------------------------------------------
-# Runtime twin of validate rule 75: a bg key that is set but is NOT [r, g, b]
+# Runtime twin of validate rule 76: a bg key that is set but is NOT [r, g, b]
 # must raise at config-load, not reach `reset_canvas` as a bare str/list and
 # kill the render loop on the first hold.
 # ---------------------------------------------------------------------------
@@ -87,3 +87,32 @@ def test_coerce_widget_colors_passes_through_color_and_none(key):
     cfg = {"type": "message", key: None}
     _coerce_widget_colors(cfg)
     assert cfg[key] is None
+
+
+# ---------------------------------------------------------------------------
+# Boot-time twin for the SECTION-level bg (`app.run._refuse_malformed_section_bg`).
+# ---------------------------------------------------------------------------
+
+
+class _Sec:
+    def __init__(self, bg):
+        self.bg_color = bg
+
+
+class _Cfg:
+    def __init__(self, *bgs):
+        self.sections = [_Sec(b) for b in bgs]
+
+
+@pytest.mark.parametrize("bad", [("r", "e", "d"), (255, 0), (300, 0, 0), (255.0, 0, 0)])
+def test_refuse_malformed_section_bg_raises_naming_the_section(bad):
+    from led_ticker.app.run import _refuse_malformed_section_bg
+
+    with pytest.raises(ValueError, match=r"playlist\.section\[1\]\.bg_color"):
+        _refuse_malformed_section_bg(_Cfg(None, bad))
+
+
+def test_refuse_malformed_section_bg_passes_none_and_triples():
+    from led_ticker.app.run import _refuse_malformed_section_bg
+
+    _refuse_malformed_section_bg(_Cfg(None, (0, 0, 0), (255, 244, 214)))

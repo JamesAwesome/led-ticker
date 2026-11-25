@@ -7074,3 +7074,196 @@ async def test_rule74_empty_colour_on_fade_says_crossfade(conf):
     assert len(warns) == 1, result
     assert "crossfade" in warns[0].message
     assert "falls back to its default colour" not in warns[0].message
+
+
+# ---------------------------------------------------------------------------
+# Rule 76: `bg_color` / `top_bg_color` / `bottom_bg_color` shape, section and
+# widget level. A section-level `"red"` loads as `('r', 'e', 'd')` and a
+# widget-level `"red"` / `[255, 0]` skips `_coerce_widget_colors`' len-3 gate
+# entirely, reaching `reset_canvas` as a bare str/list and raising on the
+# first hold OUTSIDE the render breaker (the loop dies).
+# ---------------------------------------------------------------------------
+
+_R76 = """\
+    [display]
+    rows = 16
+    cols = 32
+    chain_length = 5
+    default_scale = 1
+
+    [[playlist.section]]
+    mode = "slideshow"
+    {section}
+
+    [[playlist.section.widget]]
+    type = "{wtype}"
+    {widget}
+    """
+
+_R76_BAD = [
+    '"red"',
+    "[255, 0]",
+    "[255, 0, 0, 0]",
+    "[255.0, 0, 0]",
+    "[true, true, true]",
+    "[256, 0, 0]",
+]
+
+
+def _r76(result):
+    return [i for i in result.errors if i.rule == 76]
+
+
+@pytest.mark.parametrize("value", _R76_BAD)
+async def test_rule76_bad_section_bg_color_is_error(conf, value):
+    result = await validate_config(
+        conf(
+            _R76.format(
+                section=f"bg_color = {value}", wtype="message", widget='text = "hi"'
+            )
+        )
+    )
+    errs = _r76(result)
+    assert [e.location for e in errs] == ["section[0].bg_color"], result
+    assert "0-255" in errs[0].message
+    assert errs[0].severity == "error"
+
+
+@pytest.mark.parametrize("value", _R76_BAD)
+async def test_rule76_bad_widget_bg_color_is_error_exactly_once(conf, value):
+    """Rule 76 owns the report: the rule-less coercion-pass error that today
+    fires for a len-3 bad value at the same location is folded into it."""
+    result = await validate_config(
+        conf(
+            _R76.format(
+                section="",
+                wtype="message",
+                widget=f'text = "hi"\n    bg_color = {value}',
+            )
+        )
+    )
+    errs = _r76(result)
+    assert [e.location for e in errs] == ["section[0].widget[0].bg_color"], result
+    assert "0-255" in errs[0].message
+    same_loc = [
+        e for e in result.errors if e.location.startswith("section[0].widget[0]")
+    ]
+    assert same_loc == errs, [(e.rule, e.location, e.message) for e in result.errors]
+
+
+@pytest.mark.parametrize("key", ["top_bg_color", "bottom_bg_color"])
+async def test_rule76_two_row_band_bg_keys(conf, key):
+    result = await validate_config(
+        conf(
+            _R76.format(
+                section="",
+                wtype="two_row",
+                widget=f'top_text = "a"\n    bottom_text = "b"\n    {key} = [255, 0]',
+            )
+        )
+    )
+    errs = _r76(result)
+    assert [e.location for e in errs] == [f"section[0].widget[0].{key}"], result
+
+
+@pytest.mark.parametrize("value", ["[0, 0, 0]", "[255, 244, 214]"])
+async def test_rule76_valid_bg_colors_pass_at_both_levels(conf, value):
+    result = await validate_config(
+        conf(
+            _R76.format(
+                section=f"bg_color = {value}",
+                wtype="message",
+                widget=f'text = "hi"\n    bg_color = {value}',
+            )
+        )
+    )
+    assert _r76(result) == [], result
+    assert result.errors == [], result
+
+
+async def test_rule76_omitted_bg_color_is_silent(conf):
+    result = await validate_config(
+        conf(_R76.format(section="", wtype="message", widget='text = "hi"'))
+    )
+    assert _r76(result) == [], result
+
+
+async def test_rule76_image_widget_bg_color(conf, tmp_path):
+    """The image widgets consult `bg_color` on every `play()` reset too."""
+    from PIL import Image
+
+    png = tmp_path / "p.png"
+    Image.new("RGB", (16, 16), (10, 200, 10)).save(png)
+    result = await validate_config(
+        conf(
+            _R76.format(
+                section="",
+                wtype="image",
+                widget=f'path = "{png}"\n    bg_color = "red"',
+            )
+        )
+    )
+    assert [e.location for e in _r76(result)] == ["section[0].widget[0].bg_color"], (
+        result
+    )
+
+
+async def test_rule76_section_level_string_names_the_tupled_string(conf):
+    result = await validate_config(
+        conf(
+            _R76.format(
+                section='bg_color = "red"', wtype="message", widget='text = "hi"'
+            )
+        )
+    )
+    (err,) = _r76(result)
+    assert "quoted string is split into characters" in err.message
+
+
+async def test_rule76_title_bg_color_is_error_exactly_once(conf):
+    result = await validate_config(
+        conf(
+            _R76.format(
+                section='title = { text = "T", bg_color = "red" }',
+                wtype="message",
+                widget='text = "hi"',
+            )
+        )
+    )
+    errs = _r76(result)
+    assert [e.location for e in errs] == ["section[0].title.bg_color"], result
+    same_loc = [e for e in result.errors if e.location.startswith("section[0].title")]
+    assert same_loc == errs, [(e.rule, e.location, e.message) for e in result.errors]
+
+
+async def test_rule76_dedupe_keeps_a_non_shape_bg_message(conf, monkeypatch):
+    """A plugin's own `bg_color ...` message at the same widget survives the
+    fold: only `_validate_rgb`'s `...; got ...` echo is dropped."""
+    import led_ticker.validate as v
+
+    orig = v._run_build_checks
+
+    async def fake(sections, config_dir):
+        errs, warns, migs = await orig(sections, config_dir)
+        errs.append(
+            ("section[0].widget[0]", "bg_color is not supported on this widget")
+        )
+        return errs, warns, migs
+
+    monkeypatch.setattr(v, "_run_build_checks", fake)
+    result = await validate_config(
+        conf(
+            _R76.format(
+                section="",
+                wtype="message",
+                widget='text = "hi"\n    bg_color = [255, 0]',
+            )
+        )
+    )
+    msgs = [
+        e.message
+        for e in result.errors
+        if e.location.startswith("section[0].widget[0]")
+    ]
+    assert any(m.startswith("bg_color: expected") for m in msgs), msgs
+    assert "bg_color is not supported on this widget" in msgs, msgs

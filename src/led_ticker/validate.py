@@ -1566,6 +1566,73 @@ def _looks_like_tupled_string(value: Any) -> bool:
     )
 
 
+_BG_COLOR_KEYS: tuple[str, ...] = ("bg_color", "top_bg_color", "bottom_bg_color")
+
+
+def _check_bg_color_shape(config: AppConfig) -> list[ValidationIssue]:
+    """Rule 76: `bg_color` / `top_bg_color` / `bottom_bg_color` shape.
+
+    Two gaps let a malformed background colour past validate and onto the
+    panel. A SECTION-level value is only `tuple(value)`'d at load, so
+    `"red"` becomes `('r', 'e', 'd')` and `[300, 0, 0]` keeps its value; it is
+    injected into every widget that omits its own `bg_color` and
+    `_coerce_widget_colors` raises on it at BUILD time (after validate said
+    "No issues found"). A WIDGET-level value only reaches that coercion when
+    it is a 3-element list/tuple — `"red"` and `[255, 0]` skip the gate,
+    land on the widget as a bare str/list, and `reset_canvas` raises
+    `AttributeError` on the first hold, outside the render breaker (the
+    render loop dies; the coercion guard added beside this rule now refuses
+    them at load). The shape predicate is `colors.rgb_shape_error`, shared
+    with rules 73/74 and the transition factory so the four can't drift.
+    Always an ERROR: every bad value either refuses to build or kills the
+    loop. The rule-less build-pass echo of the same 3-element value at the
+    same widget/title is folded into this rule in `_validate_static_postbuild`.
+    Titles are walked too (`_build_title` routes through `_build_widget`, so a
+    title takes the same bg keys). A section-level value that NO widget
+    inherits (every widget sets its own) never meets `_coerce_widget_colors`
+    and would reach `run_transition`'s `Fill(*bg)` raw; `app.run` refuses it at
+    boot (`_refuse_malformed_section_bg`) and hot-reload/webui gate on this
+    validator.
+    """
+    from led_ticker.app.coercion import rgb_shape_error
+
+    errors: list[ValidationIssue] = []
+
+    def _issue(location: str, key: str, value: Any) -> None:
+        msg = rgb_shape_error(value)
+        if msg is None:
+            return
+        if _looks_like_tupled_string(value):
+            msg += " (a quoted string is split into characters at load)"
+        errors.append(
+            ValidationIssue(
+                rule=76,
+                location=location,
+                severity="error",
+                message=f"{key}: {msg}",
+                fix=(
+                    f"Write {key} = [r, g, b] with three ints 0-255 (e.g."
+                    " [255, 244, 214]), or remove it for no fill."
+                ),
+            )
+        )
+
+    for i, sec in enumerate(config.sections):
+        if sec.bg_color is not None:
+            _issue(f"section[{i}].bg_color", "bg_color", sec.bg_color)
+        if sec.title is not None:
+            for key in _BG_COLOR_KEYS:
+                value = sec.title.get(key)
+                if value is not None:
+                    _issue(f"section[{i}].title.{key}", key, value)
+        for j, widget_cfg in enumerate(sec.widgets):
+            for key in _BG_COLOR_KEYS:
+                value = widget_cfg.get(key)
+                if value is not None:
+                    _issue(f"section[{i}].widget[{j}].{key}", key, value)
+    return errors
+
+
 def _check_transition_color_shape(
     config: AppConfig,
 ) -> tuple[list[ValidationIssue], list[ValidationIssue]]:
@@ -4498,6 +4565,9 @@ def _validate_static_prebuild(
     errors.extend(_color_errors)
     warnings.extend(_color_warnings)
 
+    # Phase 1b (cont.): Rule 76 — bg_color shape on sections, titles and widgets.
+    errors.extend(_check_bg_color_shape(config))
+
     # Phase 1b (cont.): Rule 73 — random/auto pools (resolver-backed errors,
     # validate-only warnings).
     _pool_errors, _pool_warnings = _check_meta_transition_pools(config)
@@ -4576,7 +4646,20 @@ def _validate_static_postbuild(
                 fix_replacement_key=fix_replacement_key,
             )
         )
+    rule76_locations = {e.location for e in errors if e.rule == 76}
     for location, msg in build_errors:
+        # Rule 76 owns a malformed bg colour; drop the build pass's rule-less
+        # echo of the same value at the same widget/title (`_validate_rgb`'s
+        # `bg_color RGB values must be 0-255; got ...`) so the user sees one
+        # issue, with a rule. `"; got "` keeps a plugin's own "bg_color is not
+        # supported" style message visible.
+        if any(
+            msg.startswith(f"{key} ")
+            and "; got " in msg
+            and f"{location}.{key}" in rule76_locations
+            for key in _BG_COLOR_KEYS
+        ):
+            continue
         if "unknown font " in msg:
             warnings.append(
                 ValidationIssue(

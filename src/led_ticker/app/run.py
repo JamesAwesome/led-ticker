@@ -853,6 +853,26 @@ def _setup_status_board(
     return board, handler
 
 
+def _refuse_malformed_section_bg(config: Any) -> None:
+    """Boot-time twin of validate rule 76 for the SECTION-level `bg_color`.
+
+    `load_config` only `tuple()`s it, and `_coerce_widget_colors` sees it only
+    when a widget inherits it; a section whose widgets all set their own bg
+    would carry `('r', 'e', 'd')` straight into `run_transition`'s
+    `Fill(*bg)` on the real canvas. Hot-reload and the webui gate on
+    `validate_config`; boot does not, so refuse it here, before the frame.
+    """
+    from led_ticker.colors import rgb_shape_error
+
+    for i, sec in enumerate(config.sections):
+        bg = getattr(sec, "bg_color", None)
+        if bg is None:
+            continue
+        msg = rgb_shape_error(bg)
+        if msg is not None:
+            raise ValueError(f"playlist.section[{i}].bg_color: {msg}")
+
+
 async def run(config_path: Path, backend_override: str | None = None) -> None:
     """Main application loop.
 
@@ -895,6 +915,7 @@ async def run(config_path: Path, backend_override: str | None = None) -> None:
         logging.warning("plugin %r failed to load: %s", ns, err)
 
     config = await asyncio.to_thread(load_config, config_path)
+    _refuse_malformed_section_bg(config)
     # Deferred import: _config_scan imports led_ticker.app.plugin_cmd, which pulls
     # in this package's __init__ (and back to run.py). A module-level import here
     # cycles when _config_scan is imported before led_ticker.app. Keep it local.

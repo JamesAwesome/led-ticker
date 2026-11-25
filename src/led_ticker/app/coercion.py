@@ -63,6 +63,12 @@ _PROVIDER_COLOR_KEYS: set[str] = {
 # working unchanged while provider integration rolls out.
 _RAW_COLOR_KEYS: set[str] = _COLOR_KEYS - _PROVIDER_COLOR_KEYS
 
+# Background fills consumed by `reset_canvas(...)` / `fill_band(...)` via
+# `.red/.green/.blue`: a set value that is not [r, g, b] must fail at load.
+_BG_COLOR_KEYS: frozenset[str] = frozenset(
+    {"bg_color", "top_bg_color", "bottom_bg_color"}
+)
+
 _SHIMMER_COLOR_SHORTHANDS: dict[str, tuple[int, int, int]] = {
     "white": (255, 255, 255),
     "gold": (255, 200, 50),
@@ -774,6 +780,14 @@ def _coerce_widget_colors(cfg: dict[str, Any]) -> None:
 
     for key in _RAW_COLOR_KEYS:
         if key in cfg and isinstance(cfg[key], list | tuple) and len(cfg[key]) == 3:
+            cfg[key] = graphics.Color(*_validate_rgb(cfg[key], key))
+        elif key in _BG_COLOR_KEYS and cfg.get(key) is not None:
+            if hasattr(cfg[key], "red"):
+                continue  # already a graphics.Color (re-coerced cfg)
+            # A set-but-not-[r,g,b] background (`"red"`, `[255, 0]`) used to
+            # skip coercion and reach `reset_canvas` as a bare str/list,
+            # raising on the first hold outside the render breaker. Refuse
+            # it here, at load (validate rule 76 is the static twin).
             cfg[key] = graphics.Color(*_validate_rgb(cfg[key], key))
 
 

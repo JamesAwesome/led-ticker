@@ -14,6 +14,7 @@ import attrs
 import pytest
 
 from led_ticker import ticker as ticker_mod
+from led_ticker.constants import MAX_SETTLE_MS
 from led_ticker.ticker import Ticker
 from led_ticker.widgets._frame_aware import FrameAwareBase
 
@@ -482,7 +483,9 @@ class TestSettleConvertsFramesToFlooredTicks:
     capped frame the hold banks 67 per tick, so 10 ticks would overshoot
     the rest point (13 frames). Mirror the image loops' `_settle_ticks`:
     `ceil((frames × 50 − banked carry) / hold_tick_ms)` ticks, refused when
-    the DELIVERED extension `ticks × hold_tick_ms` exceeds MAX_SETTLE_MS."""
+    a tick is longer than MAX_SETTLE_MS or would START past it (#570: the
+    last tick may cross the line; refusing the delivered total dropped every
+    top-of-budget settle on an interval that does not divide 1000)."""
 
     async def test_uncapped_frame_holds_one_tick_per_frame(
         self, swapping_frame, no_sleep
@@ -578,7 +581,7 @@ class TestSettleConvertsFramesToFlooredTicks:
         self, swapping_frame, no_sleep
     ):
         """20 frames = 1000 ms owed on a 100 ms interval → 10 ticks ×
-        100 = exactly MAX_SETTLE_MS: granted (`>`, not `>=`)."""
+        100 = exactly MAX_SETTLE_MS: granted (the last tick starts at 900)."""
         w = _Settling(cursor=5, owed=20)
         swapping_frame.swap.return_value = _canvas()
         swapping_frame.swap_interval_ms = 100
@@ -586,6 +589,62 @@ class TestSettleConvertsFramesToFlooredTicks:
         await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
         assert w.draws == 1 + 1 + 10
         assert w._frame_count == 2 + 20
+
+    async def test_top_of_budget_at_the_30_hz_swap_interval_is_granted(
+        self, swapping_frame, no_sleep
+    ):
+        """#570: 20 owed frames at a 67 ms interval. The 1-tick hold banks
+        67 (1 frame, carry 17) → 983 ms owed → 15 ticks = 1005 ms. The
+        strict delivered check refused this for EVERY carry (14 × 67 = 938
+        is the most that fits under 1000), so a 30 Hz-capped sign could
+        never settle a 20-frame `frames_to_rest`; the last tick starts at
+        938 < 1000, so it is granted."""
+        w = _Settling(cursor=5, owed=20)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 1 + 1 + 15
+        assert w._frame_count == 67 * (1 + 15) // 50  # 21: rest (21) reached
+
+    async def test_top_of_budget_at_a_110_hz_swap_interval_is_granted(
+        self, swapping_frame, no_sleep
+    ):
+        """Second non-dividing interval (55 ms at 110 Hz): hold banks 55
+        (carry 5) → 995 owed → 19 ticks = 1045 ms; the last starts at 990."""
+        w = _Settling(cursor=5, owed=20)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 55
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 1 + 1 + 19
+        assert w._frame_count == 55 * (1 + 19) // 50  # 22
+
+    def test_tick_boundary_is_strictly_longer_than_the_budget(self, swapping_frame):
+        """A 1000 ms tick owing one frame is one tick starting at 0 →
+        granted; 1001 ms can't start any tick inside the budget → 0."""
+        w = _Settling(cursor=5, owed=1)
+        t = Ticker(monitors=[], frame=swapping_frame)
+        swapping_frame.swap_interval_ms = MAX_SETTLE_MS
+        assert t._settle_hold_ticks(w, 1) == 1
+        swapping_frame.swap_interval_ms = MAX_SETTLE_MS + 1
+        assert t._settle_hold_ticks(w, 1) == 0
+
+    def test_negative_duck_typed_carry_cannot_push_a_tick_past_the_line(
+        self, swapping_frame
+    ):
+        """The engine reads `_frame_carry_ms` off the widget by getattr; a
+        duck-typed widget could hand it a negative carry, inflating the
+        owed time past MAX_SETTLE_MS (20 frames − (−100) = 1100 → 17 ticks
+        at 67 ms). The start-of-last-tick clause is the backstop: tick 17
+        would start at 1072 ≥ 1000 → refused. (On the image twin the carry
+        is the widget's own non-negative bank, so the clause is implied
+        there; here it is live.)"""
+        w = _Settling(cursor=5, owed=20)
+        w._frame_carry_ms = -100
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        assert t._settle_hold_ticks(w, 20) == 0
 
 
 class TestEveryAdvanceFrameClassBanksElapsed:

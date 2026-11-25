@@ -14,6 +14,7 @@ import attrs
 import pytest
 
 from led_ticker import ticker as ticker_mod
+from led_ticker.constants import MAX_SETTLE_MS
 from led_ticker.ticker import Ticker
 from led_ticker.widgets._frame_aware import FrameAwareBase
 
@@ -482,7 +483,9 @@ class TestSettleConvertsFramesToFlooredTicks:
     capped frame the hold banks 67 per tick, so 10 ticks would overshoot
     the rest point (13 frames). Mirror the image loops' `_settle_ticks`:
     `ceil((frames × 50 − banked carry) / hold_tick_ms)` ticks, refused when
-    the DELIVERED extension `ticks × hold_tick_ms` exceeds MAX_SETTLE_MS."""
+    a tick is longer than MAX_SETTLE_MS or would START at or past it (#570: the
+    last tick may cross the line; refusing the delivered total dropped every
+    top-of-budget settle on an interval that does not divide 1000)."""
 
     async def test_uncapped_frame_holds_one_tick_per_frame(
         self, swapping_frame, no_sleep
@@ -525,7 +528,7 @@ class TestSettleConvertsFramesToFlooredTicks:
         await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
         assert w.draws == 2  # entry draw + the 1-tick hold, no settle
 
-    async def test_delivered_extension_over_budget_is_refused(
+    async def test_tick_longer_than_the_budget_is_refused(
         self, swapping_frame, no_sleep
     ):
         """20 frames (the MAX_SETTLE_TICKS edge) = 1000 ms owed; on a
@@ -574,11 +577,11 @@ class TestSettleConvertsFramesToFlooredTicks:
         assert w.draws == 1 + 1 + 2
         assert w._frame_count == 1 + 3
 
-    async def test_delivered_extension_at_exactly_the_budget_is_granted(
+    async def test_last_tick_may_end_exactly_at_the_budget(
         self, swapping_frame, no_sleep
     ):
         """20 frames = 1000 ms owed on a 100 ms interval → 10 ticks ×
-        100 = exactly MAX_SETTLE_MS: granted (`>`, not `>=`)."""
+        100 = exactly MAX_SETTLE_MS: granted (the last tick starts at 900)."""
         w = _Settling(cursor=5, owed=20)
         swapping_frame.swap.return_value = _canvas()
         swapping_frame.swap_interval_ms = 100
@@ -586,6 +589,80 @@ class TestSettleConvertsFramesToFlooredTicks:
         await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
         assert w.draws == 1 + 1 + 10
         assert w._frame_count == 2 + 20
+
+    async def test_top_of_budget_at_the_30_hz_swap_interval_is_granted(
+        self, swapping_frame, no_sleep
+    ):
+        """#570: 20 owed frames at a 67 ms interval. The 1-tick hold banks
+        67 (1 frame, carry 17) → 983 ms owed → 15 ticks = 1005 ms. The
+        strict delivered check refused this for EVERY carry (14 × 67 = 938
+        is the most that fits under 1000), so a 30 Hz-capped sign could
+        never settle a 20-frame `frames_to_rest`; the last tick starts at
+        938 < 1000, so it is granted."""
+        w = _Settling(cursor=5, owed=20)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 1 + 1 + 15
+        assert w._frame_count == 67 * (1 + 15) // 50  # 21: rest (21) reached
+
+    async def test_top_of_budget_at_a_110_hz_swap_interval_is_granted(
+        self, swapping_frame, no_sleep
+    ):
+        """Second non-dividing interval (55 ms at 110 Hz): hold banks 55
+        (carry 5) → 995 owed → 19 ticks = 1045 ms; the last starts at 990."""
+        w = _Settling(cursor=5, owed=20)
+        swapping_frame.swap.return_value = _canvas()
+        swapping_frame.swap_interval_ms = 55
+        t = Ticker(monitors=[], frame=swapping_frame)
+        await t._swap_and_scroll(_canvas(), w, hold_time=0.05)
+        assert w.draws == 1 + 1 + 19
+        assert w._frame_count == 55 * (1 + 19) // 50  # 22
+
+    def test_tick_boundary_is_strictly_longer_than_the_budget(self, swapping_frame):
+        """A 1000 ms tick owing one frame is one tick starting at 0 →
+        granted; 1001 ms can't start any tick inside the budget → 0."""
+        w = _Settling(cursor=5, owed=1)
+        t = Ticker(monitors=[], frame=swapping_frame)
+        swapping_frame.swap_interval_ms = MAX_SETTLE_MS
+        assert t._settle_hold_ticks(w, 1) == 1
+        swapping_frame.swap_interval_ms = MAX_SETTLE_MS + 1
+        assert t._settle_hold_ticks(w, 1) == 0
+
+    def test_negative_third_party_carry_cannot_start_a_tick_at_or_past_the_line(
+        self, swapping_frame
+    ):
+        """The engine reads `_frame_carry_ms` off the widget by getattr. In
+        tree `bank_frames` keeps it in [0, 49], so this state is
+        unreachable for FrameAwareBase / SegmentMessage; a third-party
+        class defining `advance_frame_elapsed` with its own carry could
+        hand over a negative one, inflating the owed time past
+        MAX_SETTLE_MS. The start clause is the backstop, and refusing (not
+        clamping) is the pinned choice — no extension is the safe outcome
+        for a bogus carry. 20 frames − (−100) = 1100 → 17 ticks at 67 ms,
+        tick 17 would start at 1072 → 0. Boundary: at 100 ms with carry
+        −50 the 11th tick would start exactly AT 1000 → also 0 (`>=`)."""
+        w = _Settling(cursor=5, owed=20)
+        w._frame_carry_ms = -100
+        swapping_frame.swap_interval_ms = 67
+        t = Ticker(monitors=[], frame=swapping_frame)
+        assert t._settle_hold_ticks(w, 20) == 0
+        w._frame_carry_ms = -50
+        swapping_frame.swap_interval_ms = 100
+        assert t._settle_hold_ticks(w, 20) == 0
+
+    def test_wide_interval_overshoot_is_a_recorded_choice(self, swapping_frame):
+        """Engine twin of the image pin: a 600 ms interval owing 20 frames
+        → 2 ticks = 1200 ms (the second starts at 600 < 1000). The rgbmatrix
+        backend reaches a ≥ 500 ms interval only at `limit_refresh_rate_hz
+        <= 2` (500 / 1000 ms; hz 4 gives 250, which divides the budget);
+        600 itself needs a third-party backend. Pinned so a tighter rule
+        is deliberate."""
+        w = _Settling(cursor=5, owed=20)
+        swapping_frame.swap_interval_ms = 600
+        t = Ticker(monitors=[], frame=swapping_frame)
+        assert t._settle_hold_ticks(w, 20) == 2
 
 
 class TestEveryAdvanceFrameClassBanksElapsed:

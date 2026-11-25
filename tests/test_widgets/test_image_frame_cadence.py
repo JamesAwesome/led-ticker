@@ -261,7 +261,7 @@ class TestSettleDeliveredCap:
         swapping_frame.swap.return_value = _canvas()
         await w._play_with_text(_canvas(), swapping_frame, n_ticks=5)
         assert w.paints == 5 + 34
-        assert w._frame_count >= 3 + 20
+        assert w._frame_count == 3 + 20  # 39 × 30 ms = 1170 ms, carry 20
 
     async def test_two_row_loop_delivers_a_top_of_budget_settle(
         self, swapping_frame, instant_sleep
@@ -276,7 +276,7 @@ class TestSettleDeliveredCap:
         swapping_frame.swap.return_value = _canvas()
         await w._play_with_two_row_text(_canvas(), swapping_frame, n_ticks=5)
         assert w.paints == 5 + 34
-        assert w._frame_count >= 3 + 20
+        assert w._frame_count == 3 + 20  # 39 × 30 ms = 1170 ms, carry 20
 
 
 class TestTwoRowCadence:

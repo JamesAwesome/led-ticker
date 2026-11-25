@@ -51,4 +51,16 @@ No HIGH/MEDIUM. Formula, refusal and every quoted number verified against both t
 | 7 | LOW | in | Ledger Task 1/2 sections pending. | Filled as the reviews land. |
 
 ## PR cycles
-_pending_
+
+### Cycle 1 — fresh whole-diff reviewer on draft #571 (head 9beff3e1)
+Brute force tick 1..2000 × frames 1..20 × carry 0..49: new grants ⊇ old, nothing newly refused, start clause fires 0× for carry ≥ 0. Mutants 20: 18 killed, 2 equivalent (image start clause / `>=`). Drift tripwires green. No in-tree config reaches the changed branch (the two non-dividing ticks in `config/` are a scrolling marquee and constant row colors). API minor bump: not warranted (agreed).
+
+| # | Sev | Scope | Finding | Disposition |
+|---|-----|-------|---------|-------------|
+| 1 | LOW | in (disclosure) | The PR body disclosed the 20–100 and 500–1000 ms tick bands but not 101–499 ms: up to 1497 ms delivered and 9 frames past rest (tick 451, 19 frames, carry 47); the offered stricter one-liner does not touch that band. | FIX: disclosed in the PR body. |
+| 2 | LOW | in (test honesty) | Loop-level pins assert `_frame_count >= 23` where `== 23` is known. | FIX: `==`. |
+| 3 | DOCS | in | "reachable only with `limit_refresh_rate_hz <= 4`" — hz 4 gives a 250 ms interval (divides the budget); ≥ 500 needs hz ≤ 2, 600 needs a third-party backend. | FIX: docstring + PR body. |
+| 4 | DOCS | in | api-reference sentence said "past" where the rule is "at or past". | FIX. |
+| 5 | DOCS | in | #566 ledger cycle-2 fix-pass line still stated the delivered rule without a SUPERSEDED note. | FIX. |
+
+Cycle 1 result: 5 in-scope (0 H / 0 M / 2 L / 3 D) → **exit condition met** (all LOW/DOCS). Folded in; merge permission requested from James.

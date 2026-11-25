@@ -654,8 +654,10 @@ class TestSettleConvertsFramesToFlooredTicks:
 
     def test_wide_interval_overshoot_is_a_recorded_choice(self, swapping_frame):
         """Engine twin of the image pin: a 600 ms interval owing 20 frames
-        → 2 ticks = 1200 ms (the second starts at 600 < 1000). Reachable
-        only with `limit_refresh_rate_hz <= 4`; pinned so a tighter rule
+        → 2 ticks = 1200 ms (the second starts at 600 < 1000). The rgbmatrix
+        backend reaches a ≥ 500 ms interval only at `limit_refresh_rate_hz
+        <= 2` (500 / 1000 ms; hz 4 gives 250, which divides the budget);
+        600 itself needs a third-party backend. Pinned so a tighter rule
         is deliberate."""
         w = _Settling(cursor=5, owed=20)
         swapping_frame.swap_interval_ms = 600
